@@ -1,0 +1,77 @@
+[tool.poetry]
+name = "kaskade"
+version = "0.0.0"
+description = "kaskade is a terminal user interface for kafka"
+authors = ["Saúl Piña <sauljabin@gmail.com>"]
+license = "MIT"
+readme = "README.md"
+homepage = "https://github.com/sauljabin/kaskade"
+repository = "https://github.com/sauljabin/kaskade"
+keywords = ["kafka", "kaskade"]
+classifiers = [
+    "Environment :: Console",
+    "Operating System :: MacOS",
+    "Operating System :: Unix"
+]
+include = [
+    "LICENSE",
+]
+
+[tool.poetry.dependencies]
+python = "^3.7"
+click = "^8.0.1"
+rich = "^10.9.0"
+
+[tool.poetry.dev-dependencies]
+black = "^21.9b0"
+isort = "^5.9.3"
+bandit = "^1.7.0"
+tox = "^3.24.4"
+unittest = "^0.0"
+Faker = "^8.13.2"
+tox-gh-actions = "^2.7.0"
+coverage = {extras = ["toml"], version = "^5.5"}
+pyproject-flake8 = "^0.0.1-alpha.2"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.tox]
+legacy_tox_ini = """
+[tox]
+isolated_build = true
+skipsdist = true
+envlist = py37, py38, py39
+
+[gh-actions]
+python =
+    3.7: py37
+    3.8: py38
+    3.9: py39
+
+[testenv]
+whitelist_externals = poetry
+commands =
+    poetry install -q
+    poetry run python -m unittest -v
+"""
+
+[tool.isort]
+profile = "black"
+
+[tool.flake8]
+max-line-length = 88
+extend-ignore = "E203,"
+max-complexity = 10
+
+[tool.coverage.run]
+source = ["kaskade"]
+branch = true
+omit = ["*tests/*", "*scripts/*", "*__init__.py"]
+
+[tool.coverage.report]
+exclude_lines = ['if __name__ == "__main__":']
+
+[tool.poetry.scripts]
+kaskade = "kaskade.cli:main"

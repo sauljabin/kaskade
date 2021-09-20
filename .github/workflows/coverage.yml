@@ -1,0 +1,29 @@
+name: Publish Test Coverage
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ${{ matrix.platform }}
+    strategy:
+      matrix:
+        platform: [ubuntu-latest]
+        python-version: [3.7]
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+          pip install poetry
+          poetry install
+      - name: Run Tests
+        run: poetry run python -m scripts.tests-coverage
+      - name: Publish Coverage
+        uses: codecov/codecov-action@v2
