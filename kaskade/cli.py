@@ -22,9 +22,11 @@ class Cli:
 
     def option_version(self):
         if self.version:
-            fig = Figlet(font="slant")
+            figlet = Figlet(font="slant")
             console = Console()
-            console.print("[magenta]{}[/]".format(fig.renderText(kaskade_package.name)))
+            console.print(
+                "[magenta]{}[/]".format(figlet.renderText(kaskade_package.name))
+            )
             console.print("Version: {}".format(kaskade_package.version))
             console.print("Doc: {}".format(kaskade_package.documentation))
             sys.exit(0)
