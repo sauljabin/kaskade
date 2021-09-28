@@ -15,11 +15,10 @@ class Cli:
 
     def run(self):
         self.option_version()
-        self.init_tui()
+        self.run_tui()
 
-    def init_tui(self):
-        kaskade = Kaskade()
-        kaskade.init()
+    def run_tui(self):
+        Kaskade.run(config={"bootstrap.servers": "localhost:19093"})
 
     def option_version(self):
         if self.version:
