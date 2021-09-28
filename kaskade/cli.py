@@ -1,25 +1,34 @@
+import sys
+
 import click
 from pyfiglet import Figlet
+from rich.console import Console
 
-from kaskade import __version__, repository
+from kaskade import kaskade_package
+from kaskade.tui import Kaskade
 
 
 class Cli:
-    def __init__(self, options):
-        self.options = options
-
-    def run(self):
-        if self.options.version:
-            fig = Figlet(font="slant")
-            click.echo(fig.renderText("kaskade"))
-            click.echo("Version: {}".format(__version__))
-            click.echo("Doc: {}".format(repository))
-
-
-class CliOptions:
     def __init__(self, dictionary):
         for k, v in dictionary.items():
             setattr(self, k, v)
+
+    def run(self):
+        self.option_version()
+        self.init_tui()
+
+    def init_tui(self):
+        kaskade = Kaskade()
+        kaskade.init()
+
+    def option_version(self):
+        if self.version:
+            fig = Figlet(font="slant")
+            console = Console()
+            console.print("[magenta]{}[/]".format(fig.renderText(kaskade_package.name)))
+            console.print("Version: {}".format(kaskade_package.version))
+            console.print("Doc: {}".format(kaskade_package.documentation))
+            sys.exit(0)
 
 
 @click.command()
@@ -29,8 +38,7 @@ def main(version):
     kaskade is a terminal user interface for kafka.
     Example: kaskade.
     """
-    cli_options = CliOptions({"version": version})
-    cli = Cli(cli_options)
+    cli = Cli({"version": version})
     cli.run()
 
 

@@ -1,12 +1,13 @@
 [tool.poetry]
 name = "kaskade"
-version = "0.0.0"
+version = "0.1.0"
 description = "kaskade is a terminal user interface for kafka"
 authors = ["Saúl Piña <sauljabin@gmail.com>"]
 license = "MIT"
 readme = "README.md"
 homepage = "https://github.com/sauljabin/kaskade"
 repository = "https://github.com/sauljabin/kaskade"
+documentation = "https://github.com/sauljabin/kaskade"
 keywords = ["kafka", "kaskade"]
 classifiers = [
     "Environment :: Console",
@@ -22,6 +23,7 @@ python = "^3.7"
 click = "^8.0.1"
 rich = "^10.9.0"
 pyfiglet = "^0.8.post1"
+textual = "^0.1.12"
 
 [tool.poetry.dev-dependencies]
 black = "^21.9b0"
