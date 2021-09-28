@@ -24,8 +24,8 @@ class Cli:
             figlet = Figlet(font="slant")
             console = Console()
             console.print(
-                "[magenta]{}[/]".format(figlet.renderText(kaskade_package.name))
+                "[magenta]{}[/]".format(figlet.renderText(kaskade_package.name).rstrip())
             )
-            console.print("Version: {}".format(kaskade_package.version))
-            console.print("Doc: {}".format(kaskade_package.documentation))
+            console.print("[magenta]{}[/] [green]v{}[/]".format(kaskade_package.name, kaskade_package.version))
+            console.print("{}".format(kaskade_package.documentation))
             sys.exit(0)
