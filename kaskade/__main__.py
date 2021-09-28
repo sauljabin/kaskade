@@ -1,3 +1,3 @@
-from kaskade import cli
+from kaskade import app
 
-cli.main()
+app.main()

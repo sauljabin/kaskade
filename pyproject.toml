@@ -78,4 +78,4 @@ omit = ["*tests/*", "*scripts/*", "*__init__.py"]
 exclude_lines = ['if __name__ == "__main__":']
 
 [tool.poetry.scripts]
-kaskade = "kaskade.cli:main"
+kaskade = "kaskade.app:main"

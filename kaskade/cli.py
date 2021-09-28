@@ -1,11 +1,10 @@
 import sys
 
-import click
 from pyfiglet import Figlet
 from rich.console import Console
 
 from kaskade import kaskade_package
-from kaskade.tui import Kaskade
+from kaskade.tui import Tui
 
 
 class Cli:
@@ -18,7 +17,7 @@ class Cli:
         self.run_tui()
 
     def run_tui(self):
-        Kaskade.run(config={"bootstrap.servers": "localhost:19093"})
+        Tui.run(config={"bootstrap.servers": "localhost:19093"})
 
     def option_version(self):
         if self.version:
@@ -30,18 +29,3 @@ class Cli:
             console.print("Version: {}".format(kaskade_package.version))
             console.print("Doc: {}".format(kaskade_package.documentation))
             sys.exit(0)
-
-
-@click.command()
-@click.option("--version", is_flag=True, help="Show the app version.")
-def main(version):
-    """
-    kaskade is a terminal user interface for kafka.
-    Example: kaskade.
-    """
-    cli = Cli({"version": version})
-    cli.run()
-
-
-if __name__ == "__main__":
-    main()

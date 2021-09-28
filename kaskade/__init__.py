@@ -1,6 +1,6 @@
 import pkg_resources
 
-__version__ = pkg_resources.get_distribution("kaskade").version
+__version__ = version = pkg_resources.get_distribution("kaskade").version
 documentation = "https://github.com/sauljabin/kaskade"
 name = "kaskade"
 
@@ -12,4 +12,4 @@ class KaskadePackage:
         self.documentation = documentation
 
 
-kaskade_package = KaskadePackage(name, __version__, documentation)
+kaskade_package = KaskadePackage(name, version, documentation)
