@@ -1,7 +1,6 @@
-from rich.text import Text
 from textual.widget import Widget
 
-from kaskade import kaskade_package
+from kaskade.kaskade import kaskade
 
 
 class Footer(Widget):
@@ -12,7 +11,4 @@ class Footer(Widget):
         self.layout_size = 1
 
     def render(self):
-        text = Text(justify="right")
-        text.append(kaskade_package.name, style="bold magenta")
-        text.append(" v{}".format(kaskade_package.version), style="green")
-        return text
+        return kaskade.riched_version()

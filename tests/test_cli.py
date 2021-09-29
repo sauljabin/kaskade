@@ -6,12 +6,11 @@ from tests import faker
 
 
 class TestCli(unittest.TestCase):
-    @patch("kaskade.cli.kaskade_package")
+    @patch("kaskade.cli.Kaskade")
     @patch("kaskade.cli.Console")
-    def test_print_version_option(self, mock_class_console, mock_kaskade_package):
-        mock_kaskade_package.version = faker.text()
-        mock_kaskade_package.name = faker.text()
-        mock_kaskade_package.documentation = faker.text()
+    def test_print_version_option(self, mock_class_console, mock_class_kaskade):
+        mock_class_kaskade.return_value.riched_version.return_value = faker.text()
+        mock_class_kaskade.return_value.riched_name.return_value = faker.text()
         mock_console = MagicMock()
         mock_class_console.return_value = mock_console
         cli = Cli(print_version=True)
@@ -20,12 +19,8 @@ class TestCli(unittest.TestCase):
             cli.run()
 
         calls = [
-            call(
-                "[magenta]{}[/] [green]v{}[/]".format(
-                    mock_kaskade_package.name, mock_kaskade_package.version
-                )
-            ),
-            call("{}".format(mock_kaskade_package.documentation)),
+            call(mock_class_kaskade.return_value.riched_name.return_value),
+            call(mock_class_kaskade.return_value.riched_version.return_value),
         ]
         mock_console.print.assert_has_calls(calls)
 
@@ -48,5 +43,7 @@ class TestCli(unittest.TestCase):
         cli.run_tui = MagicMock(side_effect=Exception(random_message))
         cli.run()
         mock_class_console.return_value.print.assert_called_once_with(
-            "[bold red]Exception[/]: {}".format(random_message)
+            ":thinking_face: [bold red]A problem has occurred[/]: {}".format(
+                random_message
+            )
         )

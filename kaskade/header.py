@@ -1,8 +1,6 @@
-from pyfiglet import Figlet
-from rich.text import Text
 from textual.widget import Widget
 
-from kaskade import kaskade_package
+from kaskade.kaskade import kaskade
 
 
 class Header(Widget):
@@ -13,7 +11,4 @@ class Header(Widget):
         self.layout_size = 6
 
     def render(self):
-        figlet = Figlet(font="slant")
-        text = Text()
-        text.append(figlet.renderText(kaskade_package.name), style="magenta")
-        return text
+        return kaskade.riched_name()

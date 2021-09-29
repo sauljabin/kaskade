@@ -1,10 +1,9 @@
 import sys
 
-from pyfiglet import Figlet
 from rich.console import Console
 
-from kaskade import kaskade_package
 from kaskade.config import Config
+from kaskade.kaskade import Kaskade
 from kaskade.tui import Tui
 
 
@@ -19,24 +18,19 @@ class Cli:
             self.run_tui()
         except Exception as ex:
             console = Console()
-            console.print("[bold red]Exception[/]: {}".format(str(ex)))
+            console.print(
+                ":thinking_face: [bold red]A problem has occurred[/]: {}".format(
+                    str(ex)
+                )
+            )
 
     def run_tui(self):
         Tui.run(config=Config(self.config_file))
 
     def option_version(self):
         if self.print_version:
-            figlet = Figlet(font="slant")
+            kaskade = Kaskade()
             console = Console()
-            console.print(
-                "[magenta]{}[/]".format(
-                    figlet.renderText(kaskade_package.name).rstrip()
-                )
-            )
-            console.print(
-                "[magenta]{}[/] [green]v{}[/]".format(
-                    kaskade_package.name, kaskade_package.version
-                )
-            )
-            console.print("{}".format(kaskade_package.documentation))
+            console.print(kaskade.riched_name())
+            console.print(kaskade.riched_version())
             sys.exit(0)

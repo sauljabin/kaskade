@@ -1,10 +1,10 @@
 from textual.app import App
 
-from kaskade import kaskade_package
 from kaskade.body import Data
 from kaskade.footer import Footer
 from kaskade.header import Header
 from kaskade.kafka import Kafka
+from kaskade.kaskade import kaskade
 from kaskade.sidebar import Topics
 
 
@@ -24,7 +24,7 @@ class Tui(App):
             driver_class=driver_class,
             log=log,
             log_verbosity=log_verbosity,
-            title=kaskade_package.name,
+            title=kaskade.name,
         )
         self.config = config
         self.kafka = Kafka(self.config.kafka)
