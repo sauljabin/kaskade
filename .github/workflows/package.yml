@@ -16,7 +16,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - uses: olegtarasov/get-tag@v2.1
-          id: tagName
+        id: tagName
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v2
