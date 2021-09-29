@@ -1,4 +1,5 @@
-<pre><span style="color: #800080; text-decoration-color: #800080">╔══════════════════════════════════════╗</span>
+<pre style="font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace">
+<span style="color: #800080; text-decoration-color: #800080">╔══════════════════════════════════════╗</span>
 <span style="color: #800080; text-decoration-color: #800080">║</span> <span style="color: #800080; text-decoration-color: #800080"> _             _             _      </span> <span style="color: #800080; text-decoration-color: #800080">║</span>
 <span style="color: #800080; text-decoration-color: #800080">║</span> <span style="color: #800080; text-decoration-color: #800080">| | ____ _ ___| | ____ _  __| | ___ </span> <span style="color: #800080; text-decoration-color: #800080">║</span>
 <span style="color: #800080; text-decoration-color: #800080">║</span> <span style="color: #800080; text-decoration-color: #800080">| |/ / _` / __| |/ / _` |/ _` |/ _ \</span> <span style="color: #800080; text-decoration-color: #800080">║</span>
@@ -13,17 +14,17 @@
 <a href="https://github.com/sauljabin/kaskade/blob/main/LICENSE"><img alt="MIT License" src="https://img.shields.io/github/license/sauljabin/kaskade"></a>
 <a href="https://github.com/sauljabin/kaskade/actions"><img alt="GitHub Actions" src="https://img.shields.io/github/checks-status/sauljabin/kaskade/main?label=tests"></a>
 <a href="https://app.codecov.io/gh/sauljabin/kaskade"><img alt="Codecov" src="https://img.shields.io/codecov/c/github/sauljabin/kaskade"></a>
-
+<br>
 <a href="https://www.python.org/"><img alt="Python" src="https://img.shields.io/badge/-python-success?logo=python&logoColor=white"></a>
 <a href="https://pypi.org/project/kaskade"><img alt="Version" src="https://img.shields.io/pypi/v/kaskade"></a>
 <a href="https://pypi.org/project/kaskade"><img alt="Python Versions" src="https://img.shields.io/pypi/pyversions/kaskade"></a>
 <a href="https://libraries.io/pypi/kaskade"><img alt="Dependencies" src="https://img.shields.io/librariesio/release/pypi/kaskade"></a>
 <a href="https://pypi.org/project/kaskade"><img alt="Platform" src="https://img.shields.io/badge/platform-linux%20%7C%20osx-blueviolet"></a>
-
+<br>
 <a href="https://www.docker.com/"><img alt="Docker" src="https://img.shields.io/badge/-docker-blue?logo=docker&logoColor=white"></a>
 <a href="https://hub.docker.com/r/sauljabin/kaskade"><img alt="Docker Image Version (latest by date)" src="https://img.shields.io/docker/v/sauljabin/kaskade"></a>
 <a href="https://hub.docker.com/r/sauljabin/kaskade"><img alt="Docker Image Size (latest by date)" src="https://img.shields.io/docker/image-size/sauljabin/kaskade"></a>
-
+<br>
 <a href="https://kafka.apache.org/"><img alt="Kafka" src="https://img.shields.io/badge/-kafka-grey?logo=apache-kafka&logoColor=white"></a>
 <a href="https://kafka.apache.org/"><img alt="Kafka" src="https://img.shields.io/badge/kafka-2.8%20%7C%203.0-blue"/></a>
 
@@ -54,7 +55,24 @@ Version:
 kaskade --version
 ```
 
+Run without config file (it'll take any of `kaskade.yml`, `kaskade.yaml`, `config.yml`, `config.yaml`):
+```sh
+kaskade
+```
+
+Run with config file:
+```sh
+kaskade my-file.yml
+```
+
+Using docker (add a `network` and `volume`):
+```sh
+docker run --rm -it --network kafka-sandbox_network -v $(pwd)/config.yml:/kaskade/config.yml sauljabin/kaskade:latest
+```
+
 ## Development
+
+### Poetry
 
 Installing poetry:
 ```sh
@@ -65,6 +83,13 @@ Installing development dependencies:
 ```sh
 poetry install
 ```
+
+Build (it'll create the `dist` folder):
+```sh
+poetry build
+```
+
+### Scripts
 
 Running unit tests:
 ```sh
@@ -94,7 +119,7 @@ Running code coverage:
 poetry run python -m scripts.tests-coverage
 ```
 
-Generate banner:
+Generate readme banner:
 ```sh
 poetry run python -m scripts.banner
 ```
@@ -102,4 +127,17 @@ poetry run python -m scripts.banner
 Running cli using `poetry`:
 ```sh
 poetry run kaskade
+```
+
+### Docker
+
+Build docker:
+```sh
+poetry build
+docker build -t sauljabin/kaskade:latest -f ./docker/Dockerfile .
+```
+
+Run with docker:
+```sh
+docker run --rm -it --network kafka-sandbox_network -v $(pwd)/config.yml:/kaskade/config.yml sauljabin/kaskade:latest
 ```

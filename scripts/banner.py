@@ -13,8 +13,7 @@ console.print(Columns([panel]))
 
 CONSOLE_HTML_FORMAT = """\
 <pre style="font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace">
-{code}
-</pre>
+{code}</pre>
 """
 
 

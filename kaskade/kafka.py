@@ -7,4 +7,4 @@ class Kafka:
 
     def topics(self):
         admin_client = AdminClient(self.config)
-        return admin_client.list_topics(timeout=10).topics
+        return admin_client.list_topics(timeout=2).topics
