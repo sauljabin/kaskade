@@ -27,7 +27,7 @@ class Tui(App):
             title=kaskade_package.name,
         )
         self.config = config
-        self.kafka = Kafka(self.config)
+        self.kafka = Kafka(self.config.kafka)
 
     async def on_mount(self):
         await self.view.dock(Header(), edge="top")

@@ -26,6 +26,7 @@ pyfiglet = "^0.8.post1"
 textual = "^0.1.12"
 confluent-kafka = "^1.7.0"
 PyYAML = "^5.4.1"
+pathlib = "^1.0.1"
 
 [tool.poetry.dev-dependencies]
 black = "^21.9b0"
@@ -73,7 +74,7 @@ max-complexity = 10
 [tool.coverage.run]
 source = ["kaskade"]
 branch = true
-omit = ["*tests/*", "*scripts/*", "*__init__.py"]
+omit = ["*tests/*", "*scripts/*", "*__init__.py", "*kaskade/app.py"]
 
 [tool.coverage.report]
 exclude_lines = ['if __name__ == "__main__":']
