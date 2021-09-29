@@ -14,8 +14,12 @@ class Cli:
         self.config_file = config_file
 
     def run(self):
-        self.option_version()
-        self.run_tui()
+        try:
+            self.option_version()
+            self.run_tui()
+        except Exception as ex:
+            console = Console()
+            console.print("[bold red]Exception[/]: {}".format(str(ex)))
 
     def run_tui(self):
         Tui.run(config=Config(self.config_file))
