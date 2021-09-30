@@ -1,9 +1,8 @@
-from textual.widget import Widget
-
 from kaskade.kaskade import kaskade
+from kaskade.tui_widget import TuiWidget
 
 
-class Header(Widget):
+class Header(TuiWidget):
     name = "Header"
 
     def __init__(self):

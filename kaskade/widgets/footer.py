@@ -1,9 +1,8 @@
-from textual.widget import Widget
-
 from kaskade.kaskade import kaskade
+from kaskade.tui_widget import TuiWidget
 
 
-class Footer(Widget):
+class Footer(TuiWidget):
     name = "Footer"
 
     def __init__(self):

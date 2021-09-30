@@ -1,11 +1,12 @@
 from textual.app import App
+from textual.keys import Keys
 
-from kaskade.body import Data
-from kaskade.footer import Footer
-from kaskade.header import Header
-from kaskade.kafka import Kafka
 from kaskade.kaskade import kaskade
-from kaskade.sidebar import Topics
+from kaskade.utils import CircularList
+from kaskade.widgets.data import Data
+from kaskade.widgets.footer import Footer
+from kaskade.widgets.header import Header
+from kaskade.widgets.topics import Topics
 
 
 class Tui(App):
@@ -27,13 +28,47 @@ class Tui(App):
             title=kaskade.name,
         )
         self.config = config
-        self.kafka = Kafka(self.config.kafka)
+
+        self.data = Data(self.config)
+        self.topics = Topics(self.config)
+        self.footer = Footer()
+        self.header = Header()
+        self.focusables = CircularList([self.topics, self.data])
 
     async def on_mount(self):
-        await self.view.dock(Header(), edge="top")
-        await self.view.dock(Footer(), edge="bottom")
-        await self.view.dock(Topics(self.kafka), edge="left", size=50)
-        await self.view.dock(Data(), edge="right")
+        await self.view.dock(self.header, edge="top")
+        await self.view.dock(self.footer, edge="bottom")
+        await self.view.dock(self.topics, edge="left", size=30)
+        await self.view.dock(self.data, edge="right")
 
-    async def on_load(self, event):
+    async def on_load(self):
         await self.bind("q", "quit")
+        await self.bind(Keys.F5, "reload_content")
+
+        await self.bind(Keys.Left, "change_focus('{}')".format(Keys.Left))
+        await self.bind(Keys.Right, "change_focus('{}')".format(Keys.Right))
+
+        await self.bind(Keys.Down, "on_key_press('{}')".format(Keys.Down))
+        await self.bind(Keys.Up, "on_key_press('{}')".format(Keys.Up))
+
+    async def action_reload_content(self):
+        self.data.initial_state()
+        self.topics.initial_state()
+        self.focused = None
+
+    async def action_on_key_press(self, key):
+        if not self.focused:
+            return
+
+        self.focused.on_key_press(key)
+
+    async def action_change_focus(self, key):
+        if self.focused:
+            self.focused.has_focus = False
+
+        if key == Keys.Right:
+            self.focused = self.focusables.next()
+        else:
+            self.focused = self.focusables.previous()
+
+        self.focused.has_focus = True
