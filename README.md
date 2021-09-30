@@ -1,13 +1,7 @@
-<pre style="font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace">
-<span style="color: #800080; text-decoration-color: #800080">╔══════════════════════════════════════╗</span>
-<span style="color: #800080; text-decoration-color: #800080">║</span> <span style="color: #800080; text-decoration-color: #800080"> _             _             _      </span> <span style="color: #800080; text-decoration-color: #800080">║</span>
-<span style="color: #800080; text-decoration-color: #800080">║</span> <span style="color: #800080; text-decoration-color: #800080">| | ____ _ ___| | ____ _  __| | ___ </span> <span style="color: #800080; text-decoration-color: #800080">║</span>
-<span style="color: #800080; text-decoration-color: #800080">║</span> <span style="color: #800080; text-decoration-color: #800080">| |/ / _` / __| |/ / _` |/ _` |/ _ \</span> <span style="color: #800080; text-decoration-color: #800080">║</span>
-<span style="color: #800080; text-decoration-color: #800080">║</span> <span style="color: #800080; text-decoration-color: #800080">|   &lt; (_| \__ \   &lt; (_| | (_| |  __/</span> <span style="color: #800080; text-decoration-color: #800080">║</span>
-<span style="color: #800080; text-decoration-color: #800080">║</span> <span style="color: #800080; text-decoration-color: #800080">|_|\_\__,_|___/_|\_\__,_|\__,_|\___|</span> <span style="color: #800080; text-decoration-color: #800080">║</span>
-<span style="color: #800080; text-decoration-color: #800080">╚══════════════════════════════════════╝</span>
-</pre>
-
+<p align="center">
+<a href="https://github.com/sauljabin/kaskade"><img alt="kaskade" src="https://raw.githubusercontent.com/sauljabin/kaskade/main/screenshots/kaskade.png"></a>
+</p>
+<p align="center">
 <a href="https://github.com"><img alt="GitHub" src="https://img.shields.io/badge/-github-orange?logo=github&logoColor=white"></a>
 <a href="https://github.com/sauljabin/kaskade"><img alt="GitHub" src="https://img.shields.io/badge/status-active-success"></a>
 <a href="https://github.com/sauljabin/kaskade"><img alt="GitHub" src="https://badges.pufler.dev/updated/sauljabin/kaskade?label=updated"></a>
@@ -28,8 +22,9 @@
 <a href="https://kafka.apache.org/"><img alt="Kafka" src="https://img.shields.io/badge/-kafka-grey?logo=apache-kafka&logoColor=white"></a>
 <a href="https://kafka.apache.org/"><img alt="Kafka" src="https://img.shields.io/badge/kafka-2.8%20%7C%203.0-blue"/></a>
 <a href="https://pypi.org/project/confluent-kafka/"><img alt="Kafka Client" src="https://img.shields.io/pypi/v/confluent-kafka?label=kafka%20client"></a>
+</p>
 
-`kaskade` is a terminal user interface for [kafka](https://kafka.apache.org/).
+`kaskade` is a tui (terminal user interface) for [kafka](https://kafka.apache.org/).
 
 # Installation and Usage
 
@@ -69,6 +64,45 @@ Using docker (add a `network` and `volume`):
 ```sh
 docker run --rm -it --network kafka-sandbox_network -v $(pwd)/config.yml:/kaskade/config.yml sauljabin/kaskade:latest
 ```
+
+# Configuration
+
+A default [yaml](https://yaml.org/spec/1.2/spec.html) configuration file name can be either `kaskade.yml`, `kaskade.yaml`, `config.yml` of `config.yaml`. It supports all the configuration on [kafka consumer configuration](https://kafka.apache.org/documentation/#consumerconfigs) page.
+
+Simple example:
+
+```yml
+kafka:
+    bootstrap.servers: kafka1:9092,kafka2:9092,kafka3:9092
+```
+
+SSL auth example:
+
+```yml
+kafka:
+    bootstrap.servers: kafka:9092
+    security.protocol: SSL
+    ssl.truststore.location: {{path}}/truststore.jks
+    ssl.truststore.password: {{password}}
+    ssl.keystore.type: PKCS12
+    ssl.keystore.location: {{path}}/keystore.p12
+    ssl.keystore.password: {{password}}
+    ssl.key.password: {{password}}
+```
+
+# Alternatives
+
+- cli [kcat](https://github.com/edenhill/kcat)
+- cli [zoe](https://github.com/adevinta/zoe)
+- cli [kaf](https://github.com/birdayz/kaf)
+- ui [akhq](https://github.com/tchiotludo/akhq)
+
+# To Do
+
+- Paginated table + key events for moving forward and backward
+- Consumed messages table
+- Consumer groups table
+- Shortcuts at header
 
 # Development
 
@@ -122,7 +156,7 @@ Generate readme banner:
 poetry run python -m scripts.banner
 ```
 
-Running cli using `poetry`:
+Running kaskade using `poetry`:
 ```sh
 poetry run kaskade
 ```
