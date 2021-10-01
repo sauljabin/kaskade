@@ -90,6 +90,12 @@ kafka:
     ssl.key.password: {{password}}
 ```
 
+# Screenshots
+
+<p align="center">
+<img alt="kaskade" src="https://raw.githubusercontent.com/sauljabin/kaskade/main/screenshots/dashboard.png">
+</p>
+
 # Alternatives
 
 - cli [kcat](https://github.com/edenhill/kcat)
