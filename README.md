@@ -101,7 +101,8 @@ kafka:
 - cli [kcat](https://github.com/edenhill/kcat)
 - cli [zoe](https://github.com/adevinta/zoe)
 - cli [kaf](https://github.com/birdayz/kaf)
-- ui [akhq](https://github.com/tchiotludo/akhq)
+- wui [akhq](https://github.com/tchiotludo/akhq)
+- tui [kcli](https://github.com/cswank/kcli)
 
 # To Do
 
