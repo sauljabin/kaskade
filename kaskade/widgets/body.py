@@ -48,7 +48,7 @@ class Body(TuiWidget):
                 ratio=40,
             )
 
-            for partition in self.topic.partitions:
+            for partition in self.topic.partitions():
                 content.add_row(
                     str(partition.id),
                     str(partition.leader),

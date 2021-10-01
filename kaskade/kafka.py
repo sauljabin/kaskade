@@ -15,6 +15,10 @@ class Kafka:
         return topics_list
 
 
+class Cluster:
+    pass
+
+
 class Topic:
     def __init__(self, topic_metadata):
         self.__topic_metadata = topic_metadata
@@ -23,7 +27,6 @@ class Topic:
     def __str__(self):
         return self.name
 
-    @property
     def partitions(self):
         return list(self.__topic_metadata.partitions.values())
 
@@ -32,6 +35,6 @@ if __name__ == "__main__":
     localhost_config = {"bootstrap.servers": "localhost:19093"}
     kafka = Kafka(localhost_config)
     for topic in kafka.topics():
-        print(topic)
-        for partition in topic.partitions:
+        print(topic.name)
+        for partition in topic.partitions():
             print("\t", partition.replicas)
