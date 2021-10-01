@@ -24,16 +24,16 @@ class TestConfig(TestCase):
         )
         config = Config(None)
         mock_open_file.assert_called_once_with("kaskade.yml", "r")
-        self.assertEqual(config.text, kaskade_yaml)
+        self.assertEqual(kaskade_yaml, config.text)
         self.assertEqual(
-            config.yaml,
             {
                 "kafka": {"bootstrap.servers": "kafka:9092"},
                 "kaskade": {"example": "test"},
             },
+            config.yaml,
         )
-        self.assertEqual(config.kafka, {"bootstrap.servers": "kafka:9092"})
-        self.assertEqual(config.kaskade, {"example": "test"})
+        self.assertEqual({"bootstrap.servers": "kafka:9092"}, config.kafka)
+        self.assertEqual({"example": "test"}, config.kaskade)
 
     @patch("kaskade.config.Path")
     @patch("builtins.open", new_callable=mock_open, read_data=kaskade_yaml)
@@ -44,7 +44,7 @@ class TestConfig(TestCase):
         )
         config = Config(random_file)
         mock_open_file.assert_called_once_with(random_file, "r")
-        self.assertEqual(config.text, kaskade_yaml)
+        self.assertEqual(kaskade_yaml, config.text)
 
     @patch("kaskade.config.Path")
     @patch("builtins.open", new_callable=mock_open, read_data=kaskade_yaml)
@@ -56,7 +56,7 @@ class TestConfig(TestCase):
         )
         config = Config(None)
         mock_open_file.assert_called_once_with("config.yaml", "r")
-        self.assertEqual(config.text, kaskade_yaml)
+        self.assertEqual(kaskade_yaml, config.text)
 
     @patch("kaskade.config.Path")
     def test_raise_exception_if_does_not_find_any_file(self, mock_class_path):
@@ -66,9 +66,9 @@ class TestConfig(TestCase):
         with self.assertRaises(Exception) as test_context:
             Config(None)
         self.assertEqual(
+            str(test_context.exception),
             "Default config file kaskade.yml, kaskade.yaml, "
             "config.yml or config.yaml not found",
-            str(test_context.exception),
         )
 
     @patch("kaskade.config.Path")
@@ -80,6 +80,5 @@ class TestConfig(TestCase):
         with self.assertRaises(Exception) as test_context:
             Config(random_file)
         self.assertEqual(
-            f"Config file {random_file} not found",
-            str(test_context.exception),
+            str(test_context.exception), f"Config file {random_file} not found"
         )

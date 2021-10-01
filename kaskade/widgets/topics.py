@@ -17,20 +17,21 @@ class Topics(TuiWidget):
 
     def initial_state(self):
         self.focused = -1
-        self.topics = dict(
-            sorted(self.kafka.topics().items(), key=lambda item: item[0])
+        self.topics = self.kafka.topics()
+        self.title = Text.from_markup(
+            "{} ([blue]total:[/] [yellow]{}[/])".format(self.name, len(self.topics))
         )
         self.has_focus = False
 
     def render_content(self):
         content = Text(overflow="ellipsis")
-        for index, val in enumerate(self.topics):
+        for index, topic in enumerate(self.topics):
             if self.focused == index:
                 content.append("\u25B6", "green bold")
-                content.append(val, "green bold")
+                content.append(topic.name, "green bold")
             else:
                 content.append(" ")
-                content.append(val)
+                content.append(topic.name)
             content.append("\n")
 
         return content
@@ -45,4 +46,4 @@ class Topics(TuiWidget):
             if self.focused >= len(self.topics):
                 self.focused = 0
 
-        self.app.data.topic = list(self.topics.items())[self.focused]
+        self.app.partitions.topic = self.topics[self.focused]

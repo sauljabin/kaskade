@@ -1,4 +1,4 @@
-from kaskade.kaskade import kaskade
+from kaskade.kaskade import KASKADE
 from kaskade.tui_widget import TuiWidget
 
 
@@ -10,4 +10,4 @@ class Header(TuiWidget):
         self.layout_size = 6
 
     def render(self):
-        return kaskade.riched_name()
+        return KASKADE.riched_name()

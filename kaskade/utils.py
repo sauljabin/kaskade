@@ -1,19 +1,25 @@
 class CircularList:
-    def __init__(self, c):
-        self._c = c
-        self._index = -1
+    def __init__(self, original_list):
+        self.__list = original_list
+        self.__index = -1
+
+    def __iter__(self):
+        return self
 
     def __next__(self):
-        self.next()
+        return self.next()
+
+    def __len__(self):
+        return len(self.__list)
 
     def next(self):
-        self._index += 1
-        if self._index >= len(self._c):
-            self._index = 0
-        return self._c[self._index]
+        self.__index += 1
+        if self.__index >= len(self.__list):
+            self.__index = 0
+        return self.__list[self.__index]
 
     def previous(self):
-        self._index -= 1
-        if self._index < 0:
-            self._index = len(self._c) - 1
-        return self._c[self._index]
+        self.__index -= 1
+        if self.__index < 0:
+            self.__index = len(self.__list) - 1
+        return self.__list[self.__index]

@@ -1,4 +1,4 @@
-from kaskade.kaskade import kaskade
+from kaskade.kaskade import KASKADE
 from kaskade.tui_widget import TuiWidget
 
 
@@ -10,4 +10,4 @@ class Footer(TuiWidget):
         self.layout_size = 1
 
     def render(self):
-        return kaskade.riched_version()
+        return KASKADE.riched_version()

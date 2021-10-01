@@ -1,11 +1,11 @@
 from textual.app import App
 from textual.keys import Keys
 
-from kaskade.kaskade import kaskade
+from kaskade.kaskade import KASKADE
 from kaskade.utils import CircularList
-from kaskade.widgets.data import Data
 from kaskade.widgets.footer import Footer
 from kaskade.widgets.header import Header
+from kaskade.widgets.partitions import Partitions
 from kaskade.widgets.topics import Topics
 
 
@@ -25,21 +25,21 @@ class Tui(App):
             driver_class=driver_class,
             log=log,
             log_verbosity=log_verbosity,
-            title=kaskade.name,
+            title=KASKADE.name,
         )
         self.config = config
 
-        self.data = Data(self.config)
         self.topics = Topics(self.config)
+        self.partitions = Partitions()
         self.footer = Footer()
         self.header = Header()
-        self.focusables = CircularList([self.topics, self.data])
+        self.focusables = CircularList([self.topics, self.partitions])
 
     async def on_mount(self):
         await self.view.dock(self.header, edge="top")
         await self.view.dock(self.footer, edge="bottom")
-        await self.view.dock(self.topics, edge="left", size=30)
-        await self.view.dock(self.data, edge="right")
+        await self.view.dock(self.topics, edge="left", size=40)
+        await self.view.dock(self.partitions, edge="right")
 
     async def on_load(self):
         await self.bind("q", "quit")
@@ -52,7 +52,7 @@ class Tui(App):
         await self.bind(Keys.Up, "on_key_press('{}')".format(Keys.Up))
 
     async def action_reload_content(self):
-        self.data.initial_state()
+        self.partitions.initial_state()
         self.topics.initial_state()
         self.focused = None
 

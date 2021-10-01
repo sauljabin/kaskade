@@ -3,11 +3,11 @@ from rich.columns import Columns
 from rich.console import Console
 from rich.panel import Panel
 
-from kaskade.kaskade import kaskade
+from kaskade.kaskade import KASKADE
 
 console = Console(record=True)
 
-panel = Panel.fit(kaskade.riched_name(), box=box.DOUBLE, border_style="magenta")
+panel = Panel.fit(KASKADE.riched_name(), box=box.DOUBLE, border_style="magenta")
 
 console.print(Columns([panel]))
 

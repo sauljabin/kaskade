@@ -24,7 +24,7 @@ class Kaskade:
         )
 
 
-kaskade = Kaskade()
-VERSION = kaskade.version
-NAME = kaskade.name
-DOCUMENTATION = kaskade.documentation
+KASKADE = Kaskade()
+VERSION = KASKADE.version
+NAME = KASKADE.name
+DOCUMENTATION = KASKADE.documentation

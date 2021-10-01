@@ -9,6 +9,10 @@ class TuiWidget(Widget):
     mouse_over = Reactive(False)
     has_focus = Reactive(False)
 
+    def __init__(self, name):
+        super().__init__(name=name)
+        self.title = name
+
     def on_mount(self):
         self.set_interval(0.1, self.refresh)
         self.initial_state()
@@ -16,7 +20,7 @@ class TuiWidget(Widget):
     def render(self):
         return Panel(
             self.render_content(),
-            title=self.name,
+            title=self.title,
             border_style=self.border_style(),
             box=box.SQUARE,
             title_align="left",

@@ -5,22 +5,18 @@ from rich.text import Text
 from kaskade.tui_widget import TuiWidget
 
 
-class Data(TuiWidget):
-    name = "Data"
+class Partitions(TuiWidget):
+    name = "Partitions"
     topic = None
 
-    def __init__(self, config):
+    def __init__(self):
         super().__init__(name=self.name)
-        self.config = config
 
     def render_content(self):
         if self.topic:
-            name = self.topic[0]
-            partitions = self.topic[1].partitions.items()
-
             title = Text()
             title.append("Name: ", style="green")
-            title.append(name, style="bold magenta")
+            title.append(self.topic.name, style="bold magenta")
             content = Table(
                 title=title,
                 expand=True,
@@ -52,7 +48,7 @@ class Data(TuiWidget):
                 ratio=40,
             )
 
-            for id, partition in partitions:
+            for partition in self.topic.partitions:
                 content.add_row(
                     str(partition.id),
                     str(partition.leader),
