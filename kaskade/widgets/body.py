@@ -5,8 +5,8 @@ from rich.text import Text
 from kaskade.tui_widget import TuiWidget
 
 
-class Partitions(TuiWidget):
-    name = "Partitions"
+class Body(TuiWidget):
+    name = "Body"
     topic = None
 
     def __init__(self):
@@ -63,3 +63,4 @@ class Partitions(TuiWidget):
     def initial_state(self):
         self.topic = None
         self.has_focus = False
+        self.title = "Partitions"

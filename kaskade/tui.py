@@ -1,15 +1,18 @@
 from textual.app import App
 from textual.keys import Keys
 
+from kaskade.kafka import Kafka
 from kaskade.kaskade import KASKADE
 from kaskade.utils import CircularList
+from kaskade.widgets.body import Body
 from kaskade.widgets.footer import Footer
 from kaskade.widgets.header import Header
-from kaskade.widgets.partitions import Partitions
-from kaskade.widgets.topics import Topics
+from kaskade.widgets.sidebar import Sidebar
 
 
 class Tui(App):
+    __topic = None
+
     def __init__(
         self,
         console=None,
@@ -28,18 +31,21 @@ class Tui(App):
             title=KASKADE.name,
         )
         self.config = config
+        self.kafka = Kafka(self.config.kafka)
 
-        self.topics = Topics(self.config)
-        self.partitions = Partitions()
+        self.sidebar = Sidebar()
+        self.body = Body()
         self.footer = Footer()
         self.header = Header()
-        self.focusables = CircularList([self.topics, self.partitions])
+        self.focusables = CircularList([self.sidebar, self.body])
 
     async def on_mount(self):
         await self.view.dock(self.header, edge="top")
         await self.view.dock(self.footer, edge="bottom")
-        await self.view.dock(self.topics, edge="left", size=40)
-        await self.view.dock(self.partitions, edge="right")
+        await self.view.dock(self.sidebar, edge="left", size=40)
+        await self.view.dock(self.body, edge="right")
+
+        self.sidebar.topics = self.kafka.topics()
 
     async def on_load(self):
         await self.bind("q", "quit")
@@ -52,8 +58,8 @@ class Tui(App):
         await self.bind(Keys.Up, "on_key_press('{}')".format(Keys.Up))
 
     async def action_reload_content(self):
-        self.partitions.initial_state()
-        self.topics.initial_state()
+        self.body.initial_state()
+        self.sidebar.initial_state()
         self.focused = None
 
     async def action_on_key_press(self, key):
@@ -72,3 +78,12 @@ class Tui(App):
             self.focused = self.focusables.previous()
 
         self.focused.has_focus = True
+
+    @property
+    def topic(self):
+        return self.__topic
+
+    @topic.setter
+    def topic(self, topic):
+        self.__topic = topic
+        self.body.topic = self.__topic

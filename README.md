@@ -25,7 +25,7 @@
 </p>
 
 `kaskade` is a tui (terminal user interface) for [kafka](https://kafka.apache.org/). `kaskade`is built
-on [textual](https://github.com/willmcgugan/textual) tui framework.
+on [textual](https://github.com/willmcgugan/textual) tui framework and [rich](https://github.com/willmcgugan/rich) lib.
 
 **NOTE:** This project is currently a work in progress, but usable by early
 adopters. [textual](https://github.com/willmcgugan/textual) is also a work in progress project.

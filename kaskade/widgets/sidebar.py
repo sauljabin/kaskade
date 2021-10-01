@@ -1,25 +1,21 @@
 from rich.text import Text
 from textual.keys import Keys
 
-from kaskade.kafka import Kafka
 from kaskade.tui_widget import TuiWidget
 
 
-class Topics(TuiWidget):
-    name = "Topics"
+class Sidebar(TuiWidget):
+    name = "Sidebar"
     focused = -1
     topics = []
 
-    def __init__(self, config):
+    def __init__(self):
         super().__init__(name=self.name)
-        self.config = config
-        self.kafka = Kafka(self.config.kafka)
 
     def initial_state(self):
         self.focused = -1
-        self.topics = self.kafka.topics()
         self.title = Text.from_markup(
-            "{} ([blue]total:[/] [yellow]{}[/])".format(self.name, len(self.topics))
+            "Topics ([blue]total:[/] [yellow]{}[/])".format(len(self.topics))
         )
         self.has_focus = False
 
@@ -46,4 +42,4 @@ class Topics(TuiWidget):
             if self.focused >= len(self.topics):
                 self.focused = 0
 
-        self.app.partitions.topic = self.topics[self.focused]
+        self.app.topic = self.topics[self.focused]
