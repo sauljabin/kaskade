@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "kaskade"
-version = "0.1.1"
+version = "0.1.2"
 description = "kaskade is a terminal user interface for kafka"
 authors = ["Saúl Piña <sauljabin@gmail.com>"]
 license = "MIT"
@@ -81,3 +81,4 @@ exclude_lines = ['if __name__ == "__main__":']
 
 [tool.poetry.scripts]
 kaskade = "kaskade.app:main"
+kskd = "kaskade.app:main"

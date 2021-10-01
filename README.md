@@ -29,65 +29,90 @@
 # Installation and Usage
 
 Install with pip:
+
 ```sh
 pip install kaskade
 ```
 
+> `pip` will install `kaskade` and `kskd` aliases.
+
 Upgrade with pip:
+
 ```sh
 pip install --upgrade kaskade
 ```
 
 Help:
+
 ```sh
 kaskade --help
 ```
 
 Version:
+
 ```sh
 kaskade --version
 ```
 
 Run without config file (it'll take any of `kaskade.yml`, `kaskade.yaml`, `config.yml`, `config.yaml`):
+
 ```sh
 kaskade
 ```
 
 Run with config file:
+
 ```sh
 kaskade my-file.yml
 ```
 
 # Running with Docker
 
-Using docker (add a `network` and `volume`):
+Using docker (remember to set a `network` and `volume`):
+
 ```sh
-docker run --rm -it --network kafka-sandbox_network -v $(pwd)/config.yml:/kaskade/config.yml sauljabin/kaskade:latest
+docker run --rm -it --network kafka-sandbox_network \
+--volume $(pwd)/config.yml:/kaskade/config.yml \
+sauljabin/kaskade:latest
 ```
+
+Aliases:
+
+```sh
+alias kaskade='docker run --rm -it --network kafka-sandbox_network \
+--volume $(pwd):/kaskade \
+sauljabin/kaskade:latest'
+
+alias kskd=kaskade
+```
+
+> These aliases will mount the current directory as a volume.
 
 # Configuration
 
-A default [yaml](https://yaml.org/spec/1.2/spec.html) configuration file name can be either `kaskade.yml`, `kaskade.yaml`, `config.yml` of `config.yaml`. It supports all the configuration on [kafka consumer configuration](https://kafka.apache.org/documentation/#consumerconfigs) page.
+A default [yaml](https://yaml.org/spec/1.2/spec.html) configuration file name can be either `kaskade.yml`
+, `kaskade.yaml`, `config.yml` of `config.yaml`. It supports all the configuration
+on [kafka consumer configuration](https://kafka.apache.org/documentation/#consumerconfigs) page.
 
 Simple example:
 
 ```yml
 kafka:
-    bootstrap.servers: kafka1:9092,kafka2:9092,kafka3:9092
+  bootstrap.servers: kafka1:9092,kafka2:9092,kafka3:9092
 ```
 
 SSL auth example:
 
 ```yml
 kafka:
-    bootstrap.servers: kafka:9092
-    security.protocol: SSL
-    ssl.truststore.location: {{path}}/truststore.jks
-    ssl.truststore.password: {{password}}
-    ssl.keystore.type: PKCS12
-    ssl.keystore.location: {{path}}/keystore.p12
-    ssl.keystore.password: {{password}}
-    ssl.key.password: {{password}}
+  bootstrap.servers: kafka:9092
+  security.protocol: SSL
+  ssl.truststore.location: {{path}}/truststore.jks
+  ssl.truststore.password: {{password}}
+  ssl.keystore.type: PKCS12
+  ssl.keystore.location: {{path}}/keystore.p12
+  ssl.keystore.password: {{password}}
+  ssl.key.password: {{password}}
 ```
 
 # Screenshots
@@ -114,16 +139,19 @@ kafka:
 # Development
 
 Installing poetry:
+
 ```sh
 pip install poetry
 ```
 
 Installing development dependencies:
+
 ```sh
 poetry install
 ```
 
 Build (it'll create the `dist` folder):
+
 ```sh
 poetry build
 ```
@@ -131,39 +159,45 @@ poetry build
 ### Scripts
 
 Running unit tests:
+
 ```sh
 poetry run python -m scripts.tests
 ```
 
 Running multi version tests (`3.7`, `3.8`, `3.9`):
 
-> Make sure you have `python3.7`, `python3.8`, `python3.9` aliases installed
-
 ```sh
 poetry run python -m scripts.multi-version-tests
 ```
 
+> Make sure you have `python3.7`, `python3.8`, `python3.9` aliases installed.
+
 Applying code styles:
+
 ```sh
 poetry run python -m scripts.styles
 ```
 
 Running code analysis:
+
 ```sh
 poetry run python -m scripts.analyze
 ```
 
 Running code coverage:
+
 ```sh
 poetry run python -m scripts.tests-coverage
 ```
 
 Generate readme banner:
+
 ```sh
 poetry run python -m scripts.banner
 ```
 
 Running kaskade using `poetry`:
+
 ```sh
 poetry run kaskade
 ```
@@ -171,12 +205,16 @@ poetry run kaskade
 ### Docker
 
 Build docker:
+
 ```sh
 poetry build
 docker build -t sauljabin/kaskade:latest -f ./docker/Dockerfile .
 ```
 
 Run with docker:
+
 ```sh
-docker run --rm -it --network kafka-sandbox_network -v $(pwd)/config.yml:/kaskade/config.yml sauljabin/kaskade:latest
+docker run --rm -it --network kafka-sandbox_network \
+--volume $(pwd)/config.yml:/kaskade/config.yml \
+sauljabin/kaskade:latest
 ```
