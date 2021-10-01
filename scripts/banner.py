@@ -9,16 +9,9 @@ console = Console(record=True)
 
 panel = Panel.fit(KASKADE.riched_name(), box=box.DOUBLE, border_style="magenta")
 
-console.print(Columns([panel]))
-
-CONSOLE_HTML_FORMAT = """\
-<pre style="font-family:Menlo,'DejaVu Sans Mono',consolas,'Courier New',monospace">
-{code}</pre>
-"""
-
 
 def main():
-    console.save_html("BANNER.md", inline_styles=True, code_format=CONSOLE_HTML_FORMAT)
+    console.print(Columns([panel]))
 
 
 if __name__ == "__main__":
