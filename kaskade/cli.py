@@ -3,7 +3,7 @@ import sys
 from rich.console import Console
 
 from kaskade.config import Config
-from kaskade.kaskade import Kaskade
+from kaskade.kaskade import KASKADE
 from kaskade.tui import Tui
 
 
@@ -29,8 +29,7 @@ class Cli:
 
     def option_version(self):
         if self.print_version:
-            kaskade = Kaskade()
             console = Console()
-            console.print(kaskade.riched_name())
-            console.print(kaskade.riched_version())
+            console.print(KASKADE.riched_name())
+            console.print(KASKADE.riched_version())
             sys.exit(0)
