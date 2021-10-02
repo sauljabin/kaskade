@@ -31,7 +31,7 @@ class Tui(App):
             title=KASKADE.name,
         )
         self.config = config
-        self.kafka = Kafka(self.config.kafka)
+        self.kafka = Kafka(self.config)
 
         self.sidebar = Sidebar()
         self.body = Body()
@@ -46,6 +46,10 @@ class Tui(App):
         await self.view.dock(self.body, edge="right")
 
         self.sidebar.topics = self.kafka.topics()
+        self.header.kafka_version = self.kafka.version()
+        self.header.protocol = self.kafka.protocol()
+        self.header.total_brokers = len(self.kafka.brokers())
+        self.header.has_schemas = self.kafka.has_schemas()
 
     async def on_load(self):
         await self.bind("q", "quit")

@@ -26,3 +26,4 @@ class Config:
             self.yaml = yaml.safe_load(self.text)
             self.kafka = self.yaml.get("kafka")
             self.kaskade = self.yaml.get("kaskade")
+            self.schema_registry = self.yaml.get("schema-registry")

@@ -98,11 +98,21 @@ A default [yaml](https://yaml.org/spec/1.2/spec.html) configuration file name ca
 , `kaskade.yaml`, `config.yml` of `config.yaml`. It supports all the configuration
 on [kafka consumer configuration](https://kafka.apache.org/documentation/#consumerconfigs) page.
 
-Simple example:
+Simple connection example:
 
 ```yml
 kafka:
   bootstrap.servers: kafka1:9092,kafka2:9092,kafka3:9092
+```
+
+SSL encryption example:
+
+```yml
+kafka:
+  bootstrap.servers: kafka:9092
+  security.protocol: SSL
+  ssl.truststore.location: {{path}}/truststore.jks
+  ssl.truststore.password: {{password}}
 ```
 
 SSL auth example:
@@ -113,8 +123,7 @@ kafka:
   security.protocol: SSL
   ssl.truststore.location: {{path}}/truststore.jks
   ssl.truststore.password: {{password}}
-  ssl.keystore.type: PKCS12
-  ssl.keystore.location: {{path}}/keystore.p12
+  ssl.keystore.location: {{path}}/keystore.jks
   ssl.keystore.password: {{password}}
   ssl.key.password: {{password}}
 ```
@@ -138,10 +147,8 @@ kafka:
 - Paginated table
 - Consumed messages table
 - Consumer groups table
-- Shortcuts at header
 - Interactive search and filters
 - Pop up dialog
-- Kafka cluster info at header
 - Tab widget
 
 # Development

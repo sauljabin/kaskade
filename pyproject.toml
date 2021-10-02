@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "kaskade"
-version = "0.1.2"
+version = "0.1.3"
 description = "kaskade is a terminal user interface for kafka"
 authors = ["Saúl Piña <sauljabin@gmail.com>"]
 license = "MIT"
