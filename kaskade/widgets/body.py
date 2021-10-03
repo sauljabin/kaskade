@@ -24,7 +24,7 @@ class Body(TuiWidget):
             content.add_column(style="yellow bold")
             content.add_row("name:", self.topic.name)
             content.add_row("size:", "100mb")
-            content.add_row("count:", " \u22481000")
+            content.add_row("count:", "\u22481000")
 
         return content
 

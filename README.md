@@ -149,8 +149,9 @@ kafka:
 - Consumer groups table
 - Consumer group lag
 - Interactive search and filters
-- Pop up dialog
+- Pop up dialog for help
 - Topic size and count
+- Schema registry support
 
 # Development
 
