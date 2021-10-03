@@ -38,15 +38,5 @@ class Header(TuiWidget):
         shortcuts.add_row("quit:", Keys.ControlC + "/q")
         shortcuts.add_row("refresh:", Keys.F5)
         shortcuts.add_row("navigate:", "\u2190 \u2192 \u2191 \u2193")
-        shortcuts.add_row("interactive:", "/")
 
-        topic_shortcuts = Table(box=None, expand=False)
-        topic_shortcuts.add_column(style="magenta bold")
-        topic_shortcuts.add_column(style="yellow bold")
-
-        topic_shortcuts.add_row("pagination:", Keys.PageUp + "/" + Keys.PageDown)
-        topic_shortcuts.add_row("partitions:", "p")
-        topic_shortcuts.add_row("groups:", "g")
-        topic_shortcuts.add_row("messages:", "m")
-
-        return Columns([name, kafka_info, shortcuts, topic_shortcuts], padding=2)
+        return Columns([name, kafka_info, shortcuts], padding=3)
