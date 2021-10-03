@@ -2,7 +2,6 @@ from textual.app import App
 from textual.keys import Keys
 
 from kaskade.kafka import Kafka
-from kaskade.kaskade import KASKADE
 from kaskade.utils import CircularList
 from kaskade.widgets.body import Body
 from kaskade.widgets.footer import Footer
@@ -29,7 +28,6 @@ class Tui(App):
             driver_class=driver_class,
             log=log,
             log_verbosity=log_verbosity,
-            title=KASKADE.name,
         )
         self.config = config
         self.kafka = Kafka(self.config)

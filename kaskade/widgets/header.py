@@ -1,24 +1,22 @@
 from rich.columns import Columns
 from rich.table import Table
 from textual.keys import Keys
+from textual.widget import Widget
 
-from kaskade.kaskade import KASKADE
-from kaskade.tui_widget import TuiWidget
+from kaskade.renderables.kaskade_name import KaskadeName
 
 
-class Header(TuiWidget):
-    name = "Header"
+class Header(Widget):
     kafka_version = "unknown"
     total_brokers = 0
     protocol = "unknown"
     has_schemas = False
 
-    def __init__(self):
-        super().__init__(name=self.name)
+    def on_mount(self):
         self.layout_size = 6
 
     def render(self):
-        name = KASKADE.riched_name()
+        name = KaskadeName()
 
         kafka_info = Table(box=None, expand=False)
         kafka_info.add_column(style="bold blue")

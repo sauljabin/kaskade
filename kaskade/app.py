@@ -16,6 +16,8 @@ def main(version, config_file):
     any argument it'll take any of next config file names by default:
     kaskade.yml, kaskade.yaml, config.yml, config.yaml.
 
+    More info at https://github.com/sauljabin/kaskade.
+
     \b
     Examples:
         kaskade

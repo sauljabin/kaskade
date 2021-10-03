@@ -10,7 +10,7 @@ class TuiWidget(Widget):
     mouse_over = Reactive(False)
     has_focus = Reactive(False)
 
-    def __init__(self, name):
+    def __init__(self, name=None):
         super().__init__(name=name)
         self.title = name
 

@@ -6,11 +6,12 @@ from tests import faker
 
 
 class TestCli(unittest.TestCase):
-    @patch("kaskade.cli.KASKADE")
+    @patch("kaskade.cli.KaskadeVersion")
+    @patch("kaskade.cli.KaskadeName")
     @patch("kaskade.cli.Console")
-    def test_print_version_option(self, mock_class_console, mock_kaskade):
-        mock_kaskade.riched_version.return_value = faker.text()
-        mock_kaskade.riched_name.return_value = faker.text()
+    def test_print_version_option(
+        self, mock_class_console, mock_class_kaskade_name, mock_class_kaskade_version
+    ):
         mock_console = MagicMock()
         mock_class_console.return_value = mock_console
         cli = Cli(print_version=True)
@@ -19,8 +20,8 @@ class TestCli(unittest.TestCase):
             cli.run()
 
         calls = [
-            call(mock_kaskade.riched_name.return_value),
-            call(mock_kaskade.riched_version.return_value),
+            call(mock_class_kaskade_name.return_value),
+            call(mock_class_kaskade_version.return_value),
         ]
         mock_console.print.assert_has_calls(calls)
 

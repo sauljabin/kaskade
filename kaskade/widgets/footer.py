@@ -1,13 +1,11 @@
-from kaskade.kaskade import KASKADE
-from kaskade.tui_widget import TuiWidget
+from textual.widget import Widget
+
+from kaskade.renderables.kaskade_version import KaskadeVersion
 
 
-class Footer(TuiWidget):
-    name = "Footer"
-
-    def __init__(self):
-        super().__init__(name=self.name)
+class Footer(Widget):
+    def on_mount(self):
         self.layout_size = 1
 
     def render(self):
-        return KASKADE.riched_version()
+        return KaskadeVersion()
