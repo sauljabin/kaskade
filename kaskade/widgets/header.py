@@ -24,19 +24,19 @@ class Header(TuiWidget):
         kafka_info.add_column(style="bold blue")
         kafka_info.add_column()
 
+        kafka_info.add_row("kafka:", self.kafka_version)
+        kafka_info.add_row("brokers:", str(self.total_brokers))
+        kafka_info.add_row("schemas:", "yes" if self.has_schemas else "no")
         kafka_info.add_row(
             "protocol:", self.protocol.lower() if self.protocol else "plain"
         )
-        kafka_info.add_row("brokers:", str(self.total_brokers))
-        kafka_info.add_row("schemas:", "yes" if self.has_schemas else "no")
-        kafka_info.add_row("kafka:", self.kafka_version)
 
         shortcuts = Table(box=None, expand=False)
         shortcuts.add_column(style="magenta bold")
         shortcuts.add_column(style="yellow bold")
 
-        shortcuts.add_row("navigate:", "\u2190 \u2192 \u2191 \u2193")
-        shortcuts.add_row("refresh:", Keys.F5)
         shortcuts.add_row("quit:", Keys.ControlC + "/q")
+        shortcuts.add_row("refresh:", Keys.F5)
+        shortcuts.add_row("navigate:", "\u2190 \u2192 \u2191 \u2193")
 
         return Columns([name, kafka_info, shortcuts], padding=5)

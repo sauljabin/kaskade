@@ -1,6 +1,7 @@
 from rich import box
+from rich.console import Group
+from rich.panel import Panel
 from rich.table import Table
-from rich.text import Text
 
 from kaskade.tui_widget import TuiWidget
 
@@ -12,15 +13,26 @@ class Body(TuiWidget):
     def __init__(self):
         super().__init__(name=self.name)
 
-    def render_content(self):
+    def render(self):
+        return self.render_content()
+
+    def render_header(self):
+        content = ""
         if self.topic:
-            title = Text()
-            title.append("Name: ", style="green")
-            title.append(self.topic.name, style="bold magenta")
+            content = Table(box=None, expand=False, padding=0)
+            content.add_column(style="magenta bold")
+            content.add_column(style="yellow bold")
+            content.add_row("name:", self.topic.name)
+            content.add_row("size:", "100mb")
+            content.add_row("count:", " \u22481000")
+
+        return content
+
+    def render_body(self):
+        content = ""
+        if self.topic:
             content = Table(
-                title=title,
                 expand=True,
-                title_justify="left",
                 box=box.SIMPLE_HEAD,
                 row_styles=["none", "dim"],
             )
@@ -56,11 +68,30 @@ class Body(TuiWidget):
                     str(partition.isrs),
                 )
 
-            return content
-        else:
-            return Text()
+        return content
+
+    def render_content(self):
+        header_height = 7
+        header_panel = Panel(
+            self.render_header(),
+            title="Topic",
+            border_style=self.border_style(),
+            box=box.SQUARE,
+            title_align="left",
+            height=header_height,
+        )
+
+        body_panel = Panel(
+            self.render_body(),
+            title="Partitions",
+            border_style=self.border_style(),
+            box=box.SQUARE,
+            title_align="left",
+            height=self.size.height - header_height
+        )
+
+        return Group(header_panel, body_panel)
 
     def initial_state(self):
         self.topic = None
         self.has_focus = False
-        self.title = "Partitions"

@@ -3,6 +3,7 @@ from pyfiglet import Figlet
 from rich.text import Text
 
 
+# TODO create renderables
 class Kaskade:
     def __init__(self):
         self.name = "kaskade"

@@ -5,6 +5,7 @@ from textual.reactive import Reactive
 from textual.widget import Widget
 
 
+# TODO delete this, create a styles enum or class
 class TuiWidget(Widget):
     mouse_over = Reactive(False)
     has_focus = Reactive(False)

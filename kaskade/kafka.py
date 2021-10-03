@@ -5,6 +5,8 @@ from confluent_kafka.admin import AdminClient, ConfigResource
 
 TIMEOUT = 0.5
 
+# TODO service layer
+
 
 class Kafka:
     def __init__(self, config):

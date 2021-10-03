@@ -144,12 +144,13 @@ kafka:
 
 # To Do
 
-- Paginated table
+- Table pagination
 - Consumed messages table
 - Consumer groups table
+- Consumer group lag
 - Interactive search and filters
 - Pop up dialog
-- Tab widget
+- Topic size and count
 
 # Development
 

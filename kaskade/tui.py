@@ -10,6 +10,7 @@ from kaskade.widgets.header import Header
 from kaskade.widgets.sidebar import Sidebar
 
 
+# TODO controller layer
 class Tui(App):
     __topic = None
 
