@@ -87,7 +87,7 @@ class Body(TuiWidget):
             border_style=self.border_style(),
             box=box.SQUARE,
             title_align="left",
-            height=self.size.height - header_height
+            height=self.size.height - header_height,
         )
 
         return Group(header_panel, body_panel)

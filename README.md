@@ -224,11 +224,10 @@ poetry run kaskade
 Build docker:
 
 ```sh
-poetry build
-docker build -t sauljabin/kaskade:latest -f ./docker/Dockerfile .
+poetry run python -m scripts.docker-build
 ```
 
-Run with docker:
+Run with docker (create a `config.yml` file):
 
 ```sh
 docker run --rm -it --network kafka-sandbox_network \
