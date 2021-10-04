@@ -2,18 +2,19 @@ name: Publish Test Coverage
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
 
 jobs:
   build:
     runs-on: ${{ matrix.platform }}
     strategy:
       matrix:
-        platform: [ ubuntu-latest ]
-        python-version: [ 3.7 ]
-
+        platform: [ubuntu-latest]
+        python-version: [3.7]
     steps:
-      - uses: actions/checkout@v2
+      - name: Checkout
+        uses: actions/checkout@v2
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v2
         with:

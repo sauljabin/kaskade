@@ -4,7 +4,7 @@ import sys
 
 def main():
     commands = {
-        #  rm -rf dist
+        # rm -rf dist
         "rm": ["rm", "-rf", "dist"],
         # poetry build
         "poetry": ["poetry", "build"],
