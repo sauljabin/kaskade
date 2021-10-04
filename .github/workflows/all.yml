@@ -3,6 +3,7 @@ name: CI Other Branches
 on:
   push:
     branches:
+      - '**'
       - '!main'
 
 jobs:
