@@ -5,7 +5,7 @@ from textual.keys import Keys
 class Shortcuts:
     shortcuts = {
         "quit": "q",
-        "refresh": Keys.F5,
+        "refresh": Keys.F5.value,
         "navigate": "\u2190 \u2192 \u2191 \u2193",
     }
 
