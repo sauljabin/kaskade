@@ -1,10 +1,12 @@
-import subprocess
-import sys
+from scripts import CommandProcessor
 
 
 def main():
-    tox = subprocess.run(["poetry", "run", "tox", "-q"])
-    sys.exit(tox.returncode)
+    commands = {
+        "executing multi-version tests :test_tube:": "poetry run tox -q",
+    }
+    command_processor = CommandProcessor(commands)
+    command_processor.run()
 
 
 if __name__ == "__main__":

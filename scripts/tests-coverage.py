@@ -1,36 +1,15 @@
-import subprocess
-import sys
+from scripts import CommandProcessor
 
 
 def main():
-    print(">>> coverage", flush=True)
-    coverage = subprocess.run(
-        [
-            "poetry",
-            "run",
-            "coverage",
-            "run",
-            "-m",
-            "unittest",
-            "-v",
-        ]
-    )
-
-    print(">>> coverage report", flush=True)
-    coverage_report = subprocess.run(["poetry", "run", "coverage", "report", "-m"])
-
-    print(">>> coverage html", flush=True)
-    coverage_html = subprocess.run(["poetry", "run", "coverage", "html"])
-
-    print(">>> coverage xml", flush=True)
-    coverage_xml = subprocess.run(["poetry", "run", "coverage", "xml"])
-
-    sys.exit(
-        coverage.returncode
-        or coverage_html.returncode
-        or coverage_xml.returncode
-        or coverage_report.returncode
-    )
+    commands = {
+        "executing tests coverage :test_tube:": "poetry run coverage run -m unittest -v",
+        "coverage report :page_facing_up:": "poetry run coverage report -m",
+        "coverage report html": "poetry run coverage html",
+        "coverage report xml": "poetry run coverage xml",
+    }
+    command_processor = CommandProcessor(commands)
+    command_processor.run()
 
 
 if __name__ == "__main__":

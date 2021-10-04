@@ -5,6 +5,7 @@ from textual.reactive import Reactive
 from textual.widget import Widget
 
 from kaskade import styles
+from kaskade.unicodes import RIGHT_TRIANGLE
 
 
 class Sidebar(Widget):
@@ -42,7 +43,7 @@ class Sidebar(Widget):
         content = Text(overflow="ellipsis")
         for index, topic in enumerate(self.topics):
             if self.focused_topic_index == index:
-                content.append("\u25B6", "green bold")
+                content.append(RIGHT_TRIANGLE, "green bold")
                 content.append(topic.name, "green bold")
             else:
                 content.append(" ")

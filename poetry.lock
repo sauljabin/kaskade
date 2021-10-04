@@ -1,4 +1,15 @@
 [[package]]
+name = "autoflake"
+version = "1.4"
+description = "Removes unused imports and unused variables"
+category = "dev"
+optional = false
+python-versions = "*"
+
+[package.dependencies]
+pyflakes = ">=1.1.0"
+
+[[package]]
 name = "backports.entry-points-selectable"
 version = "1.1.0"
 description = "Compatibility shim providing selectable entry points for older implementations"
@@ -555,9 +566,12 @@ testing = ["pytest (>=4.6)", "pytest-checkdocs (>=2.4)", "pytest-flake8", "pytes
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.7"
-content-hash = "e664d3940068847bf7d6aba3279432aa728e0a1dbde9d403376bb0b80475e2ce"
+content-hash = "124a949a860f63a08d233bb80f123ca95b0d69b1b4ade24f1b5e16dbfd0f817d"
 
 [metadata.files]
+autoflake = [
+    {file = "autoflake-1.4.tar.gz", hash = "sha256:61a353012cff6ab94ca062823d1fb2f692c4acda51c76ff83a8d77915fba51ea"},
+]
 "backports.entry-points-selectable" = [
     {file = "backports.entry_points_selectable-1.1.0-py2.py3-none-any.whl", hash = "sha256:a6d9a871cde5e15b4c4a53e3d43ba890cc6861ec1332c9c2428c92f977192acc"},
     {file = "backports.entry_points_selectable-1.1.0.tar.gz", hash = "sha256:988468260ec1c196dab6ae1149260e2f5472c9110334e5d51adcb77867361f6a"},

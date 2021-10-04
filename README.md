@@ -168,12 +168,6 @@ Installing development dependencies:
 poetry install
 ```
 
-Build (it'll create the `dist` folder):
-
-```sh
-poetry build
-```
-
 ### Scripts
 
 Running unit tests:

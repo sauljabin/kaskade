@@ -2,12 +2,12 @@ from rich import box
 from rich.console import Console
 from rich.panel import Panel
 
-from kaskade.kaskade import KASKADE
+from kaskade.renderables.kaskade_name import KaskadeName
 
 
 def main():
-    console = Console(record=True)
-    panel = Panel.fit(KASKADE.riched_name(), box=box.DOUBLE, border_style="magenta")
+    console = Console()
+    panel = Panel.fit(KaskadeName(), box=box.DOUBLE, border_style="magenta")
     console.print(panel)
 
 

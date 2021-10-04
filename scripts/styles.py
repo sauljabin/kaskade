@@ -1,15 +1,14 @@
-import subprocess
-import sys
+from scripts import CommandProcessor
 
 
 def main():
-    print(">>> black")
-    black = subprocess.run(["poetry", "run", "black", "."])
-
-    print(">>> isort")
-    isort = subprocess.run(["poetry", "run", "isort", "."])
-
-    sys.exit(black.returncode or isort.returncode)
+    commands = {
+        "removing unused imports": "poetry run autoflake --in-place --remove-all-unused-imports -r .",
+        "sort imports": "poetry run isort .",
+        "applying styles :wrench:": "poetry run black .",
+    }
+    command_processor = CommandProcessor(commands)
+    command_processor.run()
 
 
 if __name__ == "__main__":
