@@ -2,16 +2,25 @@ from rich import box
 from rich.console import Group
 from rich.panel import Panel
 from rich.table import Table
+from textual.reactive import Reactive
+from textual.widget import Widget
 
-from kaskade.tui_widget import TuiWidget
+from kaskade import styles
 
 
-class Body(TuiWidget):
-    name = "Body"
+class Body(Widget):
     topic = None
+    has_focus = Reactive(False)
 
-    def __init__(self):
-        super().__init__(name=self.name)
+    def on_mount(self):
+        self.set_interval(0.1, self.refresh)
+        self.initial_state()
+
+    def on_focus(self):
+        self.has_focus = True
+
+    def on_blur(self):
+        self.has_focus = False
 
     def render(self):
         return self.render_content()
@@ -75,8 +84,8 @@ class Body(TuiWidget):
         header_panel = Panel(
             self.render_header(),
             title="Topic",
-            border_style=self.border_style(),
-            box=box.SQUARE,
+            border_style=styles.BORDER_FOCUSED if self.has_focus else styles.BORDER,
+            box=styles.BOX,
             title_align="left",
             height=header_height,
         )
@@ -84,8 +93,8 @@ class Body(TuiWidget):
         body_panel = Panel(
             self.render_body(),
             title="Partitions",
-            border_style=self.border_style(),
-            box=box.SQUARE,
+            border_style=styles.BORDER_FOCUSED if self.has_focus else styles.BORDER,
+            box=styles.BOX,
             title_align="left",
             height=self.size.height - header_height,
         )
@@ -95,3 +104,6 @@ class Body(TuiWidget):
     def initial_state(self):
         self.topic = None
         self.has_focus = False
+
+    def on_key_press(self, key):
+        pass

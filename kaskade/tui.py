@@ -2,7 +2,7 @@ from textual.app import App
 from textual.keys import Keys
 
 from kaskade.kafka import Kafka
-from kaskade.utils import CircularList
+from kaskade.utils.circular_list import CircularList
 from kaskade.widgets.body import Body
 from kaskade.widgets.footer import Footer
 from kaskade.widgets.header import Header

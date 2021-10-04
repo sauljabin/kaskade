@@ -1,6 +1,6 @@
 from unittest import TestCase
 
-from kaskade.utils import CircularList
+from kaskade.utils.circular_list import CircularList
 from tests import faker
 
 LIST_SIZE = 3
