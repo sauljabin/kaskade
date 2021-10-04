@@ -1,12 +1,14 @@
 from rich.table import Table
 from textual.keys import Keys
 
+from kaskade.unicodes import DOWN, LEFT, RIGHT, UP
+
 
 class Shortcuts:
     shortcuts = {
         "quit": "q",
         "refresh": Keys.F5.value,
-        "navigate": "\u2190 \u2192 \u2191 \u2193",
+        "navigate": "{} {} {} {}".format(LEFT, RIGHT, UP, DOWN),
     }
 
     def __str__(self):

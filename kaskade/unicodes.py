@@ -1,0 +1,5 @@
+APPROXIMATION = "\u2248"
+UP = "\u2191"
+DOWN = "\u2193"
+LEFT = "\u2190"
+RIGHT = "\u2192"

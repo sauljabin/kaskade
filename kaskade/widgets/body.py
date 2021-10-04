@@ -28,12 +28,12 @@ class Body(Widget):
     def render_header(self):
         content = ""
         if self.topic:
-            content = Table(box=None, expand=False, padding=0)
+            content = Table(box=None, expand=False, show_header=False, show_edge=False)
             content.add_column(style="magenta bold")
             content.add_column(style="yellow bold")
             content.add_row("name:", self.topic.name)
-            content.add_row("size:", "100mb")
-            content.add_row("count:", "\u22481000")
+            content.add_row("size:", "unknown")
+            content.add_row("count:", "unknown")
 
         return content
 
@@ -44,6 +44,7 @@ class Body(Widget):
                 expand=True,
                 box=box.SIMPLE_HEAD,
                 row_styles=["none", "dim"],
+                show_edge=False,
             )
 
             content.add_column(
@@ -80,7 +81,7 @@ class Body(Widget):
         return content
 
     def render_content(self):
-        header_height = 7
+        header_height = 5
         header_panel = Panel(
             self.render_header(),
             title="Topic",
@@ -88,6 +89,7 @@ class Body(Widget):
             box=styles.BOX,
             title_align="left",
             height=header_height,
+            padding=0,
         )
 
         body_panel = Panel(
@@ -97,6 +99,7 @@ class Body(Widget):
             box=styles.BOX,
             title_align="left",
             height=self.size.height - header_height,
+            padding=0,
         )
 
         return Group(header_panel, body_panel)
