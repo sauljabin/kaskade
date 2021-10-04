@@ -39,6 +39,7 @@ tox-gh-actions = "^2.7.0"
 coverage = {extras = ["toml"], version = "^5.5"}
 pyproject-flake8 = "^0.0.1-alpha.2"
 autoflake = "^1.4"
+toml = "^0.10.2"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

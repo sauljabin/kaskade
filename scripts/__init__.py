@@ -19,7 +19,7 @@ class CommandProcessor:
             result = subprocess.run(command.split())
             if result.returncode:
                 console.print(
-                    f":rotating_light: [bold red]Error executing:[/] [bold yellow]{command}[/]"
+                    f"\n[bold red]Error:exclamation:[/] in [bold blue]{name} ([bold yellow]{command}[/])[/]"
                 )
                 sys.exit(result.returncode)
 

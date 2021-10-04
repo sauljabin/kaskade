@@ -566,7 +566,7 @@ testing = ["pytest (>=4.6)", "pytest-checkdocs (>=2.4)", "pytest-flake8", "pytes
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.7"
-content-hash = "124a949a860f63a08d233bb80f123ca95b0d69b1b4ade24f1b5e16dbfd0f817d"
+content-hash = "d96829997fd2bb2d791a045a1d5908314ac2602f18b55986f0ca71f9e0521dd4"
 
 [metadata.files]
 autoflake = [
