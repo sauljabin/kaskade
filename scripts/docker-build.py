@@ -4,11 +4,8 @@ import sys
 
 def main():
     commands = {
-        # rm -rf dist
         "rm": ["rm", "-rf", "dist"],
-        # poetry build
         "poetry": ["poetry", "build"],
-        # docker build -t sauljabin/kaskade:latest -f ./docker/Dockerfile .
         "docker": [
             "docker",
             "build",
