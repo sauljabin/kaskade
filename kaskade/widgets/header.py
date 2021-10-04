@@ -1,6 +1,5 @@
 from rich.columns import Columns
 from rich.table import Table
-from textual.keys import Keys
 from textual.widget import Widget
 
 from kaskade.renderables.kaskade_name import KaskadeName
