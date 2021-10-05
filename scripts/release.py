@@ -39,7 +39,8 @@ def main(rule):
         "adding new version": "git add --all",
         "committing new version": f"git commit -m 'bumping version to {version}'",
         "adding new version tag": f"git tag {version}",
-        "pushing new changes :boom:": f"git tag {version}",
+        "pushing new changes :boom:": "git push origin main",
+        "pushing tag": "git push --tags",
     }
     command_processor = CommandProcessor(commands)
     command_processor.run()

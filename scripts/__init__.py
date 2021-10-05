@@ -1,3 +1,4 @@
+import shlex
 import subprocess
 import sys
 
@@ -16,7 +17,8 @@ class CommandProcessor:
         for name, command in self.commands.items():
             console.rule(f"{DOWN_TRIANGLE} [bold blue]{name.lower()}", align="left")
             console.print(f"  [bold yellow]{command}[/]")
-            result = subprocess.run(command.split())
+            command_split = shlex.split(command)
+            result = subprocess.run(command_split)
             if result.returncode:
                 console.print(
                     f"\n[bold red]Error:exclamation:[/] in [bold blue]{name} ([bold yellow]{command}[/])[/]"
@@ -25,5 +27,6 @@ class CommandProcessor:
 
 
 if __name__ == "__main__":
-    command_processor = CommandProcessor({"list files": "ls ."})
+    test_commands = {"list files": "ls .", "testing echo": "echo 'hello world'"}
+    command_processor = CommandProcessor(test_commands)
     command_processor.run()
