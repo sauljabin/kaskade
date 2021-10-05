@@ -1,0 +1,34 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v3.2.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-added-large-files
+  - repo: local
+    hooks:
+      - id: tests
+        name: Running Tests
+        language: system
+        always_run: true
+        pass_filenames: false
+        entry: poetry run python -m scripts.tests
+      - id: styles
+        name: Applying Styles
+        language: system
+        always_run: true
+        pass_filenames: false
+        entry: poetry run python -m scripts.styles
+      - id: analyze
+        name: Code Analysis
+        language: system
+        always_run: true
+        pass_filenames: false
+        entry: poetry run python -m scripts.analyze
+      - id: diff
+        name: Unstaged Changes
+        language: system
+        always_run: true
+        pass_filenames: false
+        entry: git diff --exit-code

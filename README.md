@@ -8,12 +8,14 @@
 <a href="https://github.com/sauljabin/kaskade/blob/main/LICENSE"><img alt="MIT License" src="https://img.shields.io/github/license/sauljabin/kaskade"></a>
 <a href="https://github.com/sauljabin/kaskade/actions"><img alt="GitHub Actions" src="https://img.shields.io/github/checks-status/sauljabin/kaskade/main?label=tests"></a>
 <a href="https://app.codecov.io/gh/sauljabin/kaskade"><img alt="Codecov" src="https://img.shields.io/codecov/c/github/sauljabin/kaskade"></a>
+<a href="https://pre-commit.com/"><img alt="Pre-commit" src="https://img.shields.io/badge/pre--commit-enabled-brightgreen"></a>
 <br>
-<a href="https://www.python.org/"><img alt="Python" src="https://img.shields.io/badge/-python-success?logo=python&logoColor=white"></a>
+<a href="https://www.python.org/"><img alt="Python" src="https://img.shields.io/badge/-python-brightgreen?logo=python&logoColor=white"></a>
 <a href="https://pypi.org/project/kaskade"><img alt="Version" src="https://img.shields.io/pypi/v/kaskade"></a>
 <a href="https://pypi.org/project/kaskade"><img alt="Python Versions" src="https://img.shields.io/pypi/pyversions/kaskade"></a>
 <a href="https://libraries.io/pypi/kaskade"><img alt="Dependencies" src="https://img.shields.io/librariesio/release/pypi/kaskade"></a>
 <a href="https://pypi.org/project/kaskade"><img alt="Platform" src="https://img.shields.io/badge/platform-linux%20%7C%20osx-0da5e0"></a>
+<a href="https://github.com/psf/black"><img alt="Code Style" src="https://img.shields.io/badge/code%20style-black-black"></a>
 <br>
 <a href="https://www.docker.com/"><img alt="Docker" src="https://img.shields.io/badge/-docker-blue?logo=docker&logoColor=white"></a>
 <a href="https://hub.docker.com/r/sauljabin/kaskade"><img alt="Docker Image Version (latest by date)" src="https://img.shields.io/docker/v/sauljabin/kaskade?label=tag"></a>
@@ -168,6 +170,12 @@ Installing development dependencies:
 poetry install
 ```
 
+Installing pre-commit hooks:
+
+```sh
+poetry run pre-commit install
+```
+
 Running kaskade:
 
 ```sh
@@ -221,6 +229,8 @@ Build docker:
 ```sh
 poetry run python -m scripts.docker-build
 ```
+
+> Image tag `sauljabin/kaskade:latest`.
 
 Run with docker (create a `config.yml` file):
 
