@@ -168,6 +168,12 @@ Installing development dependencies:
 poetry install
 ```
 
+Running kaskade:
+
+```sh
+poetry run kaskade
+```
+
 ### Scripts
 
 Running unit tests:
@@ -206,12 +212,6 @@ Generate readme banner:
 
 ```sh
 poetry run python -m scripts.banner
-```
-
-Running kaskade using `poetry`:
-
-```sh
-poetry run kaskade
 ```
 
 ### Docker

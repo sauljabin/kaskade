@@ -28,7 +28,7 @@ def main(rule):
         "checking if there are pending changes :checkered_flag:": "git diff --exit-code",
         "checking if there are pending changes in stage": "git diff --staged --exit-code",
         "checking if there are not pushed commits :kite:": "git diff --exit-code main origin/main",
-        f"bumping [yellow bold]{rule}[/] version": f"poetry version {rule}",
+        f"bumping [red bold]{rule}[/] version": f"poetry version {rule}",
     }
     command_processor = CommandProcessor(validations_commands)
     command_processor.run()
