@@ -24,9 +24,3 @@ repos:
         always_run: true
         pass_filenames: false
         entry: poetry run python -m scripts.analyze
-      - id: diff
-        name: Unstaged Changes
-        language: system
-        always_run: true
-        pass_filenames: false
-        entry: git diff --exit-code
