@@ -229,3 +229,19 @@ docker run --rm -it --network kafka-sandbox_network \
 --volume $(pwd)/config.yml:/kaskade/config.yml \
 sauljabin/kaskade:latest
 ```
+
+### Bumping Version
+
+Help:
+
+```sh
+poetry run python -m scripts.release --help
+```
+
+> More info at https://python-poetry.org/docs/cli/#version and https://semver.org/.
+
+Upgrade (`major.minor.patch`):
+
+```sh
+poetry run python -m scripts.release patch
+```

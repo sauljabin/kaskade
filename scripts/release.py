@@ -8,7 +8,7 @@ from scripts import CommandProcessor
 @click.argument(
     "rule",
     nargs=1,
-    type=click.Choice(["major", "patch", "minor"], case_sensitive=False),
+    type=click.Choice(["major", "minor", "patch"], case_sensitive=False),
 )
 def main(rule):
     """
