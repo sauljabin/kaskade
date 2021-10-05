@@ -176,6 +176,12 @@ Installing pre-commit hooks:
 poetry run pre-commit install
 ```
 
+Testing pre-commit hooks:
+
+```sh
+poetry run pre-commit run --all-files
+```
+
 Running kaskade:
 
 ```sh
