@@ -26,9 +26,10 @@
 <a href="https://pypi.org/project/confluent-kafka/"><img alt="Kafka Client" src="https://img.shields.io/pypi/v/confluent-kafka?label=kafka%20client"></a>
 </p>
 
-`kaskade` is a tui (terminal user interface) for [kafka](https://kafka.apache.org/). `kaskade` is built
-on [textual](https://github.com/willmcgugan/textual) tui framework and [rich](https://github.com/willmcgugan/rich) lib. For a local kafka environment go to
-https://github.com/sauljabin/kafka-docker.
+**kaskade** is a tui (terminal user interface) for [kafka](https://kafka.apache.org/).
+It is built on [textual](https://github.com/willmcgugan/textual) tui framework and [rich](https://github.com/willmcgugan/rich) lib.
+
+For a local kafka environment go to https://github.com/sauljabin/kafka-docker.
 
 **NOTE:** This project is currently a work in progress, but usable by early
 adopters. [textual](https://github.com/willmcgugan/textual) is also a work in progress project.
@@ -187,12 +188,6 @@ Installing pre-commit hooks:
 
 ```sh
 poetry run pre-commit install
-```
-
-Testing pre-commit hooks:
-
-```sh
-poetry run pre-commit run --all-files
 ```
 
 Running kaskade:
