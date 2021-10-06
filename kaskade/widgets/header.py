@@ -1,7 +1,7 @@
 from rich.columns import Columns
-from rich.table import Table
 from textual.widget import Widget
 
+from kaskade.renderables.kafka_info import KafkaInfo
 from kaskade.renderables.kaskade_name import KaskadeName
 from kaskade.renderables.shortcuts import Shortcuts
 
@@ -14,17 +14,18 @@ class Header(Widget):
 
     def on_mount(self):
         self.layout_size = 6
+        self.kafka_version = self.app.kafka.version()
+        self.total_brokers = len(self.app.kafka.brokers())
+        self.has_schemas = self.app.kafka.has_schemas()
+        self.protocol = self.app.kafka.protocol()
 
     def render(self):
-        kafka_info = Table(box=None, expand=False)
-        kafka_info.add_column(style="bold blue")
-        kafka_info.add_column()
-
-        kafka_info.add_row("kafka:", self.kafka_version)
-        kafka_info.add_row("brokers:", str(self.total_brokers))
-        kafka_info.add_row("schemas:", "yes" if self.has_schemas else "no")
-        kafka_info.add_row(
-            "protocol:", self.protocol.lower() if self.protocol else "plain"
+        kaskade_name = KaskadeName()
+        kafka_info = KafkaInfo(
+            kafka_version=self.kafka_version,
+            total_brokers=self.total_brokers,
+            has_schemas=self.has_schemas,
+            protocol=self.protocol,
         )
-
-        return Columns([KaskadeName(), kafka_info, Shortcuts()], padding=3)
+        shortcuts = Shortcuts()
+        return Columns([kaskade_name, kafka_info, shortcuts], padding=3)

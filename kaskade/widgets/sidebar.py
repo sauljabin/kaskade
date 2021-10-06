@@ -5,17 +5,18 @@ from textual.reactive import Reactive
 from textual.widget import Widget
 
 from kaskade import styles
-from kaskade.unicodes import RIGHT_TRIANGLE
+from kaskade.renderables.scrollable_list import ScrollableList
 
 
 class Sidebar(Widget):
-    focused_topic_index = -1
-    topics = []
     has_focus = Reactive(False)
+    scrollable_list = None
 
     def on_mount(self):
         self.set_interval(0.1, self.refresh)
-        self.initial_state()
+        self.scrollable_list = ScrollableList(
+            self.app.topics, max_len=self.size.height - 2
+        )
 
     def on_focus(self):
         self.has_focus = True
@@ -23,43 +24,29 @@ class Sidebar(Widget):
     def on_blur(self):
         self.has_focus = False
 
+    def on_resize(self):
+        self.scrollable_list = ScrollableList(
+            self.app.topics,
+            max_len=self.size.height - 2,
+            pointer=self.scrollable_list.pointer,
+        )
+
     def render(self):
         title = Text.from_markup(
-            "Topics ([blue]total:[/] [yellow]{}[/])".format(len(self.topics))
+            "Topics ([blue]total:[/] [yellow]{}[/])".format(len(self.app.topics))
         )
         return Panel(
-            self.render_content(),
+            self.scrollable_list,
             title=title,
             border_style=styles.BORDER_FOCUSED if self.has_focus else styles.BORDER,
             box=styles.BOX,
             title_align="left",
         )
 
-    def initial_state(self):
-        self.focused_topic_index = -1
-        self.has_focus = False
-
-    def render_content(self):
-        content = Text(overflow="ellipsis")
-        for index, topic in enumerate(self.topics):
-            if self.focused_topic_index == index:
-                content.append(RIGHT_TRIANGLE, "green bold")
-                content.append(topic.name, "green bold")
-            else:
-                content.append(" ")
-                content.append(topic.name)
-            content.append("\n")
-
-        return content
-
     def on_key_press(self, key):
         if key == Keys.Up:
-            self.focused_topic_index -= 1
-            if self.focused_topic_index < 0:
-                self.focused_topic_index = len(self.topics) - 1
+            self.scrollable_list.previous()
         elif key == Keys.Down:
-            self.focused_topic_index += 1
-            if self.focused_topic_index >= len(self.topics):
-                self.focused_topic_index = 0
+            self.scrollable_list.next()
 
-        self.app.topic = self.topics[self.focused_topic_index]
+        self.app.topic = self.scrollable_list.selected

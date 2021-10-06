@@ -154,7 +154,6 @@ kafka:
 - Pop up dialog for help
 - Topic size and count
 - Schema registry support
-- Sidebar scroll
 
 # Development
 

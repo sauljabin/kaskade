@@ -9,10 +9,7 @@ from kaskade.widgets.header import Header
 from kaskade.widgets.sidebar import Sidebar
 
 
-# TODO controller layer
 class Tui(App):
-    __topic = None
-
     def __init__(
         self,
         console=None,
@@ -31,6 +28,8 @@ class Tui(App):
         )
         self.config = config
         self.kafka = Kafka(self.config)
+        self.topics = self.kafka.topics()
+        self.topic = None
 
         self.sidebar = Sidebar()
         self.body = Body()
@@ -44,12 +43,6 @@ class Tui(App):
         await self.view.dock(self.sidebar, edge="left", size=40)
         await self.view.dock(self.body, edge="right")
 
-        self.sidebar.topics = self.kafka.topics()
-        self.header.kafka_version = self.kafka.version()
-        self.header.protocol = self.kafka.protocol()
-        self.header.total_brokers = len(self.kafka.brokers())
-        self.header.has_schemas = self.kafka.has_schemas()
-
     async def on_load(self):
         await self.bind("q", "quit")
         await self.bind(Keys.F5, "reload_content")
@@ -61,9 +54,11 @@ class Tui(App):
         await self.bind(Keys.Up, "on_key_press('{}')".format(Keys.Up))
 
     async def action_reload_content(self):
-        self.body.initial_state()
-        self.sidebar.initial_state()
+        self.topics = self.kafka.topics()
+        self.topic = None
         self.focused = None
+        self.body.has_focus = False
+        self.sidebar.has_focus = False
 
     async def action_on_key_press(self, key):
         if not self.focused:
@@ -81,12 +76,3 @@ class Tui(App):
             self.focused = self.focusables.previous()
 
         self.focused.has_focus = True
-
-    @property
-    def topic(self):
-        return self.__topic
-
-    @topic.setter
-    def topic(self, topic):
-        self.__topic = topic
-        self.body.topic = self.__topic

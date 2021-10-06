@@ -9,12 +9,10 @@ from kaskade import styles
 
 
 class Body(Widget):
-    topic = None
     has_focus = Reactive(False)
 
     def on_mount(self):
         self.set_interval(0.1, self.refresh)
-        self.initial_state()
 
     def on_focus(self):
         self.has_focus = True
@@ -27,11 +25,12 @@ class Body(Widget):
 
     def render_header(self):
         content = ""
-        if self.topic:
+
+        if self.app.topic:
             content = Table(box=None, expand=False, show_header=False, show_edge=False)
             content.add_column(style="magenta bold")
             content.add_column(style="yellow bold")
-            content.add_row("name:", self.topic.name)
+            content.add_row("name:", self.app.topic.name)
             content.add_row("size:", "unknown")
             content.add_row("count:", "unknown")
 
@@ -39,7 +38,8 @@ class Body(Widget):
 
     def render_body(self):
         content = ""
-        if self.topic:
+
+        if self.app.topic:
             content = Table(
                 expand=True,
                 box=box.SIMPLE_HEAD,
@@ -70,7 +70,7 @@ class Body(Widget):
                 ratio=40,
             )
 
-            for partition in self.topic.partitions():
+            for partition in self.app.topic.partitions():
                 content.add_row(
                     str(partition.id),
                     str(partition.leader),
@@ -103,10 +103,6 @@ class Body(Widget):
         )
 
         return Group(header_panel, body_panel)
-
-    def initial_state(self):
-        self.topic = None
-        self.has_focus = False
 
     def on_key_press(self, key):
         pass

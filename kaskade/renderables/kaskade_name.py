@@ -11,3 +11,10 @@ class KaskadeName:
 
     def __rich__(self):
         return Text.from_markup("[magenta]{}[/]".format(self))
+
+
+if __name__ == "__main__":
+    from rich.console import Console
+
+    console = Console()
+    console.print(KaskadeName())
