@@ -280,7 +280,6 @@ class TestScrollableList(TestCase):
         self.assertEqual(len(items), scrollable.end_rendering)
 
     def test_render_list(self):
-
         items = faker.pylist(
             nb_elements=10, variable_nb_elements=False, value_types=str
         )

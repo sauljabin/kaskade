@@ -26,11 +26,25 @@
 <a href="https://pypi.org/project/confluent-kafka/"><img alt="Kafka Client" src="https://img.shields.io/pypi/v/confluent-kafka?label=kafka%20client"></a>
 </p>
 
-`kaskade` is a tui (terminal user interface) for [kafka](https://kafka.apache.org/). `kaskade`is built
-on [textual](https://github.com/willmcgugan/textual) tui framework and [rich](https://github.com/willmcgugan/rich) lib.
+`kaskade` is a tui (terminal user interface) for [kafka](https://kafka.apache.org/). `kaskade` is built
+on [textual](https://github.com/willmcgugan/textual) tui framework and [rich](https://github.com/willmcgugan/rich) lib. For a local kafka environment go to
+https://github.com/sauljabin/kafka-docker.
 
 **NOTE:** This project is currently a work in progress, but usable by early
 adopters. [textual](https://github.com/willmcgugan/textual) is also a work in progress project.
+
+# Table of Contents
+
+* [Installation and Usage](#installation-and-usage)
+* [Running with Docker](#running-with-docker)
+* [Configuration](#configuration)
+* [Screenshots](#screenshots)
+* [Alternatives](#alternatives)
+* [To Do](#to-do)
+* [Development](#development)
+      * [Scripts](#scripts)
+      * [Docker](#docker)
+      * [Bumping Version](#bumping-version)
 
 # Installation and Usage
 
