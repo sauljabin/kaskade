@@ -42,9 +42,9 @@ adopters. [textual](https://github.com/willmcgugan/textual) is also a work in pr
 * [Alternatives](#alternatives)
 * [To Do](#to-do)
 * [Development](#development)
-      * [Scripts](#scripts)
-      * [Docker](#docker)
-      * [Bumping Version](#bumping-version)
+  * [Scripts](#scripts)
+  * [Docker](#docker)
+  * [Bumping Version](#bumping-version)
 
 # Installation and Usage
 
