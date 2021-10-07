@@ -9,22 +9,24 @@ class KafkaInfo:
         has_schemas=False,
         protocol="plain",
     ):
-        self.kafka_version = kafka_version
-        self.total_brokers = total_brokers
-        self.has_schemas = has_schemas
-        self.protocol = protocol
+        self.kafka_info = {
+            "kafka": kafka_version.lower(),
+            "brokers": str(total_brokers).lower(),
+            "schemas": "yes" if has_schemas else "no",
+            "protocol": protocol.lower() if protocol else "plain",
+        }
+
+    def __str__(self):
+        return str(self.kafka_info)
 
     def __rich__(self):
         kafka_info = Table(box=None, expand=False)
         kafka_info.add_column(style="bold blue")
         kafka_info.add_column()
 
-        kafka_info.add_row("kafka:", self.kafka_version.lower())
-        kafka_info.add_row("brokers:", str(self.total_brokers).lower())
-        kafka_info.add_row("schemas:", "yes" if self.has_schemas else "no")
-        kafka_info.add_row(
-            "protocol:", self.protocol.lower() if self.protocol else "plain"
-        )
+        for name, value in self.kafka_info.items():
+            kafka_info.add_row("{}:".format(name), value)
+
         return kafka_info
 
 
@@ -32,4 +34,6 @@ if __name__ == "__main__":
     from rich.console import Console
 
     console = Console()
-    console.print(KafkaInfo(total_brokers=3))
+    kafka_info = KafkaInfo(total_brokers=3)
+    print(kafka_info)
+    console.print(kafka_info)

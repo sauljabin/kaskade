@@ -54,8 +54,8 @@ class Tui(App):
         self.topics = self.kafka.topics()
         self.topic = None
         self.focusables.reset()
-        for widget in self.focusables.list:
-            widget.on_mount()
+        self.sidebar.scrollable_list = None
+        self.body.partition_table = None
         await self.set_focus(None)
 
     async def action_change_focus(self, key):

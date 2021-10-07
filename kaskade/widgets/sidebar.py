@@ -14,9 +14,6 @@ class Sidebar(Widget):
 
     def on_mount(self):
         self.set_interval(0.1, self.refresh)
-        self.scrollable_list = ScrollableList(
-            self.app.topics, max_len=self.size.height - 2
-        )
 
     def on_focus(self):
         self.has_focus = True
@@ -24,14 +21,16 @@ class Sidebar(Widget):
     def on_blur(self):
         self.has_focus = False
 
-    def on_resize(self):
-        self.scrollable_list = ScrollableList(
-            self.app.topics,
-            max_len=self.size.height - 2,
-            pointer=self.scrollable_list.pointer,
-        )
+    def max_renderables_len(self):
+        return self.size.height - 2
 
     def render(self):
+        self.scrollable_list = ScrollableList(
+            self.app.topics,
+            max_len=self.max_renderables_len(),
+            pointer=self.scrollable_list.pointer if self.scrollable_list else -1,
+        )
+
         title = Text.from_markup(
             "Topics ([blue]total:[/] [yellow]{}[/])".format(len(self.app.topics))
         )

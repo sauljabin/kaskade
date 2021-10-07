@@ -36,6 +36,9 @@ class ScrollableList:
             content.append("\n")
         return content
 
+    def __str__(self):
+        return str(self.renderables())
+
     def renderables(self):
         return self.list[self.start_rendering : self.end_rendering]
 
@@ -88,30 +91,30 @@ if __name__ == "__main__":
     scrollable_list = ScrollableList(items, max_len=4, pointer=3)
 
     console.print("Default")
-    console.print(scrollable_list.renderables())
+    print(scrollable_list)
     console.print(scrollable_list)
 
     console.print("Next")
     scrollable_list.next()
-    console.print(scrollable_list.renderables())
+    print(scrollable_list)
     console.print(scrollable_list)
 
     console.print("Next")
     scrollable_list.next()
-    console.print(scrollable_list.renderables())
+    print(scrollable_list)
     console.print(scrollable_list)
 
     console.print("Previous")
     scrollable_list.previous()
-    console.print(scrollable_list.renderables())
+    print(scrollable_list)
     console.print(scrollable_list)
 
     console.print("Previous")
     scrollable_list.previous()
-    console.print(scrollable_list.renderables())
+    print(scrollable_list)
     console.print(scrollable_list)
 
     console.print("Reset")
     scrollable_list.reset()
-    console.print(scrollable_list.renderables())
+    print(scrollable_list)
     console.print(scrollable_list)

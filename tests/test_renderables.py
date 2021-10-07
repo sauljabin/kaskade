@@ -91,6 +91,19 @@ class TestShortcuts(TestCase):
 
 
 class TestKafkaInfo(TestCase):
+    def test_string(self):
+        expected = str(
+            {
+                "kafka": "unknown",
+                "brokers": "unknown",
+                "schemas": "no",
+                "protocol": "plain",
+            }
+        )
+        actual = str(KafkaInfo())
+
+        self.assertEqual(expected, actual)
+
     @patch("kaskade.renderables.kafka_info.Table")
     def test_render_kafka_info_in_a_table(self, mock_class_table):
         mock_table = MagicMock()
@@ -146,6 +159,15 @@ class TestKafkaInfo(TestCase):
 
 
 class TestScrollableList(TestCase):
+    def test_string(self):
+        items = faker.pylist(
+            nb_elements=10, variable_nb_elements=False, value_types=str
+        )
+        expected = str(items)
+        actual = str(ScrollableList(items))
+
+        self.assertEqual(expected, actual)
+
     def test_renderables(self):
         items = faker.pylist(
             nb_elements=10, variable_nb_elements=False, value_types=str
