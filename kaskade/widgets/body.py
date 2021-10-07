@@ -1,12 +1,12 @@
 from rich.console import Group
 from rich.panel import Panel
-from rich.table import Table
 from textual.keys import Keys
 from textual.reactive import Reactive
 from textual.widget import Widget
 
 from kaskade import styles
 from kaskade.renderables.paginated_table import PaginatedTable
+from kaskade.renderables.topic_info import TopicInfo
 
 
 class PartitionTable(PaginatedTable):
@@ -65,13 +65,9 @@ class Body(Widget):
         if not self.app.topic:
             return ""
 
-        content = Table(box=None, expand=False, show_header=False, show_edge=False)
-        content.add_column(style="magenta bold")
-        content.add_column(style="yellow bold")
-        content.add_row("name:", self.app.topic.name)
-        content.add_row("size:", "unknown")
-        content.add_row("count:", "unknown")
-        return content
+        name = self.app.topic.name
+        partitions = len(self.app.topic.partitions())
+        return TopicInfo(name=name, partitions=partitions)
 
     def on_key(self, event):
         if not self.partition_table:
@@ -100,7 +96,7 @@ class Body(Widget):
         return self.partition_table
 
     def render(self):
-        header_height = 5
+        header_height = 4
         border_style = styles.BORDER_FOCUSED if self.has_focus else styles.BORDER
 
         header_panel = Panel(

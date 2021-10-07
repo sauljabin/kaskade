@@ -20,14 +20,14 @@ class KafkaInfo:
         return str(self.kafka_info)
 
     def __rich__(self):
-        kafka_info = Table(box=None, expand=False)
-        kafka_info.add_column(style="bold blue")
-        kafka_info.add_column()
+        table = Table(box=None, expand=False)
+        table.add_column(style="bold blue")
+        table.add_column()
 
         for name, value in self.kafka_info.items():
-            kafka_info.add_row("{}:".format(name), value)
+            table.add_row("{}:".format(name), value)
 
-        return kafka_info
+        return table
 
 
 if __name__ == "__main__":

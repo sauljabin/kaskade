@@ -9,9 +9,7 @@ from kaskade.styles import TABLE_BOX
 class PaginatedTable:
     def __init__(self, total_items, page_size=-1, page=1):
         self.total_items = total_items
-        self.page_size = (
-            total_items if page_size < 0 or page_size > total_items else page_size
-        )
+        self.page_size = total_items if page_size < 0 else page_size
         self.__page = 1
         if 0 < page <= self.total_pages():
             self.page = page
@@ -45,26 +43,38 @@ class PaginatedTable:
         self.page += 1
 
     def __rich__(self):
-        title = Text.from_markup(
+        pagination_info = Text.from_markup(
             "[blue bold]page [yellow bold]{}[/] of [yellow bold]{}[/][/]".format(
                 self.page, self.total_pages()
             ),
             justify="right",
         )
         table = Table(
-            title=title,
             title_style="",
             expand=True,
             box=TABLE_BOX,
             row_styles=["none", "dim"],
             show_edge=False,
+            show_footer=True,
         )
 
         self.render_columns(table)
 
+        if table.columns:
+            table.columns[-1].footer = pagination_info
+
         start_index = (self.page - 1) * self.page_size
         end_index = self.page * self.page_size
         self.render_rows(table, start_index, end_index)
+
+        if len(table.rows) > self.page_size:
+            return f"Rows length greater than [yellow bold]{self.page_size}[/]"
+
+        missing_rows = self.page_size - len(table.rows)
+
+        if missing_rows > 0:
+            for i in range(missing_rows):
+                table.add_row()
 
         return table
 
