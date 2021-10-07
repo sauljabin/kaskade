@@ -20,9 +20,6 @@ class Body(Widget):
     def on_blur(self):
         self.has_focus = False
 
-    def render(self):
-        return self.render_content()
-
     def render_header(self):
         content = ""
 
@@ -80,7 +77,7 @@ class Body(Widget):
 
         return content
 
-    def render_content(self):
+    def render(self):
         header_height = 5
         header_panel = Panel(
             self.render_header(),
@@ -103,6 +100,3 @@ class Body(Widget):
         )
 
         return Group(header_panel, body_panel)
-
-    def on_key_press(self, key):
-        pass

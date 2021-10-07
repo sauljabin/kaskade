@@ -50,29 +50,16 @@ class Tui(App):
         await self.bind(Keys.Left, "change_focus('{}')".format(Keys.Left))
         await self.bind(Keys.Right, "change_focus('{}')".format(Keys.Right))
 
-        await self.bind(Keys.Down, "on_key_press('{}')".format(Keys.Down))
-        await self.bind(Keys.Up, "on_key_press('{}')".format(Keys.Up))
-
     async def action_reload_content(self):
         self.topics = self.kafka.topics()
         self.topic = None
-        self.focused = None
-        self.body.has_focus = False
-        self.sidebar.has_focus = False
-
-    async def action_on_key_press(self, key):
-        if not self.focused:
-            return
-
-        self.focused.on_key_press(key)
+        self.set_focus(None)
 
     async def action_change_focus(self, key):
-        if self.focused:
-            self.focused.has_focus = False
-
         if key == Keys.Right:
-            self.focused = self.focusables.next()
+            focused = self.focusables.next()
         else:
-            self.focused = self.focusables.previous()
+            focused = self.focusables.previous()
 
-        self.focused.has_focus = True
+        if focused:
+            await focused.focus()

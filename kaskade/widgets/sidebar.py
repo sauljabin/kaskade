@@ -43,10 +43,10 @@ class Sidebar(Widget):
             title_align="left",
         )
 
-    def on_key_press(self, key):
-        if key == Keys.Up:
+    def on_key(self, event):
+        if event.key == Keys.Up:
             self.scrollable_list.previous()
-        elif key == Keys.Down:
+        elif event.key == Keys.Down:
             self.scrollable_list.next()
 
         self.app.topic = self.scrollable_list.selected
