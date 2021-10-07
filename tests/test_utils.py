@@ -20,6 +20,11 @@ class TestCircularList(TestCase):
         self.circular_list.next()
         self.assertEqual(self.original_list[1], self.circular_list.next())
 
+    def test_reset(self):
+        self.circular_list.next()
+        self.circular_list.reset()
+        self.assertEqual(-1, self.circular_list.index)
+
     def test_next_using_next(self):
         iterator = self.circular_list
         next(iterator)

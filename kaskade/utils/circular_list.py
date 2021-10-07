@@ -3,6 +3,9 @@ class CircularList:
         self.list = wrapped
         self.index = -1
 
+    def reset(self):
+        self.index = -1
+
     def __next__(self):
         return self.next()
 
