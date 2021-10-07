@@ -63,9 +63,8 @@ class PaginatedTable:
         if table.columns:
             table.columns[-1].footer = pagination_info
 
-        start_index = (self.page - 1) * self.page_size
-        end_index = self.page * self.page_size
-        self.render_rows(table, start_index, end_index)
+        renderables = self.renderables(self.start_index(), self.end_index()) or []
+        self.render_rows(table, renderables)
 
         if len(table.rows) > self.page_size:
             return f"Rows length greater than [yellow bold]{self.page_size}[/]"
@@ -78,10 +77,23 @@ class PaginatedTable:
 
         return table
 
+    def start_index(self):
+        return (self.page - 1) * self.page_size
+
+    def end_index(self):
+        return self.page * self.page_size
+
+    def __str__(self):
+        renderables = self.renderables(self.start_index(), self.end_index()) or []
+        return str(renderables)
+
     def render_columns(self, table):
         pass
 
-    def render_rows(self, table, start_index, end_index):
+    def render_rows(self, table, renderables):
+        pass
+
+    def renderables(self, start_index, end_index):
         pass
 
 
@@ -93,8 +105,11 @@ if __name__ == "__main__":
             super().__init__(len(items), page_size=page_size, page=page)
             self.items = items
 
-        def render_rows(self, table, start_index, end_index):
-            for item in self.items[start_index:end_index]:
+        def renderables(self, start_index, end_index):
+            return self.items[start_index:end_index]
+
+        def render_rows(self, table, renderables):
+            for item in renderables:
                 table.add_row(item)
 
         def render_columns(self, table):

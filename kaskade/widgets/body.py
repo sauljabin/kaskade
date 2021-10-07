@@ -5,52 +5,13 @@ from textual.reactive import Reactive
 from textual.widget import Widget
 
 from kaskade import styles
-from kaskade.renderables.paginated_table import PaginatedTable
+from kaskade.renderables.partitions_table import PartitionsTable
 from kaskade.renderables.topic_info import TopicInfo
-
-
-class PartitionTable(PaginatedTable):
-    def __init__(self, partitions, page_size=-1, page=1):
-        super().__init__(len(partitions), page_size=page_size, page=page)
-        self.partitions = partitions
-
-    def render_rows(self, table, start_index, end_index):
-        for partition in self.partitions[start_index:end_index]:
-            table.add_row(
-                str(partition.id),
-                str(partition.leader),
-                str(partition.replicas),
-                str(partition.isrs),
-            )
-
-    def render_columns(self, table):
-        table.add_column(
-            "id",
-            justify="right",
-            style="bright_green",
-            header_style="bright_green bold",
-            ratio=10,
-        )
-        table.add_column(
-            "leader", style="bright_red", header_style="bright_red bold", ratio=10
-        )
-        table.add_column(
-            "replicas",
-            style="bright_blue",
-            header_style="bright_blue bold",
-            ratio=40,
-        )
-        table.add_column(
-            "in sync",
-            style="bright_yellow",
-            header_style="bright_yellow bold",
-            ratio=40,
-        )
 
 
 class Body(Widget):
     has_focus = Reactive(False)
-    partition_table = None
+    partitions_table = None
 
     def on_mount(self):
         self.set_interval(0.1, self.refresh)
@@ -70,30 +31,30 @@ class Body(Widget):
         return TopicInfo(name=name, partitions=partitions)
 
     def on_key(self, event):
-        if not self.partition_table:
+        if not self.partitions_table:
             return
 
         key = event.key
         if key == Keys.PageUp:
-            self.partition_table.previous()
+            self.partitions_table.previous()
         elif key == Keys.PageDown:
-            self.partition_table.next()
+            self.partitions_table.next()
         elif key == "l":
-            self.partition_table.last()
+            self.partitions_table.last()
         elif key == "f":
-            self.partition_table.first()
+            self.partitions_table.first()
 
     def render_body(self):
         if not self.app.topic:
             return ""
 
-        self.partition_table = PartitionTable(
+        self.partitions_table = PartitionsTable(
             self.app.topic.partitions(),
             page_size=self.size.height - 10,
-            page=self.partition_table.page if self.partition_table else 0,
+            page=self.partitions_table.page if self.partitions_table else 0,
         )
 
-        return self.partition_table
+        return self.partitions_table
 
     def render(self):
         header_height = 4

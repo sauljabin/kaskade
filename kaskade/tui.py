@@ -55,7 +55,7 @@ class Tui(App):
         self.topic = None
         self.focusables.reset()
         self.sidebar.scrollable_list = None
-        self.body.partition_table = None
+        self.body.partitions_table = None
         await self.set_focus(None)
 
     async def action_change_focus(self, key):
