@@ -5,27 +5,9 @@ from rich.columns import Columns
 
 from kaskade.renderables.kafka_info import KafkaInfo
 from kaskade.renderables.kaskade_name import KaskadeName
-from kaskade.renderables.kaskade_version import KaskadeVersion
 from kaskade.renderables.shortcuts import Shortcuts
-from kaskade.widgets.footer import Footer
 from kaskade.widgets.header import Header
 from tests import faker
-
-
-class TestFooter(TestCase):
-    def test_size(self):
-        footer = Footer()
-
-        footer.on_mount()
-
-        self.assertEqual(1, footer.layout_size)
-
-    def test_render(self):
-        footer = Footer()
-
-        actual = footer.render()
-
-        self.assertIsInstance(actual, KaskadeVersion)
 
 
 class TestHeader(TestCase):

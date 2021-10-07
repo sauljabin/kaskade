@@ -67,7 +67,7 @@ class PaginatedTable:
         self.render_rows(table, renderables)
 
         if len(table.rows) > self.page_size:
-            return f"Rows length greater than [yellow bold]{self.page_size}[/]"
+            return f"Rows greater than [yellow bold]{self.page_size}[/]"
 
         missing_rows = self.page_size - len(table.rows)
 
