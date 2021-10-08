@@ -1,7 +1,8 @@
 from unittest import TestCase
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import ANY, MagicMock, call, patch
 
 from kaskade.renderables.shortcuts import Shortcuts
+from tests import faker
 
 
 class TestShortcuts(TestCase):
@@ -11,6 +12,9 @@ class TestShortcuts(TestCase):
         mock_class_table.return_value = mock_table
 
         shortcuts = Shortcuts()
+        shortcuts.shortcuts = faker.pydict(
+            nb_elements=10, variable_nb_elements=False, value_types=str
+        )
         actual = shortcuts.__rich__()
 
         self.assertEqual(mock_table, actual)
@@ -21,20 +25,45 @@ class TestShortcuts(TestCase):
 
         mock_table.add_row.assert_has_calls(
             [
-                call("quit:", "q"),
-                call("refresh:", "f5"),
-                call("navigate:", "\u2190 \u2192 \u2191 \u2193"),
+                call(ANY, ANY, ANY, ANY, ANY, ANY),
+                call(ANY, ANY, ANY, ANY, ANY, ANY),
+                call(ANY, ANY, ANY, ANY, "", ""),
+            ]
+        )
+
+    @patch("kaskade.renderables.shortcuts.Table")
+    def test_render_shortcuts_in_a_table_multiple_of_4(self, mock_class_table):
+        mock_table = MagicMock()
+        mock_class_table.return_value = mock_table
+
+        shortcuts = Shortcuts()
+        shortcuts.shortcuts = faker.pydict(
+            nb_elements=12, variable_nb_elements=False, value_types=str
+        )
+        actual = shortcuts.__rich__()
+
+        self.assertEqual(mock_table, actual)
+        mock_class_table.assert_called_with(box=None, expand=False)
+        mock_table.add_column.assert_has_calls(
+            [call(style="magenta bold"), call(style="yellow bold")]
+        )
+
+        last = [cell for cell in list(shortcuts.shortcuts.items())[-1]]
+        last[0] = last[0] + ":"
+
+        mock_table.add_row.assert_has_calls(
+            [
+                call(ANY, ANY, ANY, ANY, ANY, ANY),
+                call(ANY, ANY, ANY, ANY, ANY, ANY),
+                call(ANY, ANY, ANY, ANY, *last),
             ]
         )
 
     def test_string(self):
-        expected = str(
-            {
-                "quit": "q",
-                "refresh": "f5",
-                "navigate": "\u2190 \u2192 \u2191 \u2193",
-            }
+        shortcuts = Shortcuts()
+        shortcuts.shortcuts = faker.pydict(
+            nb_elements=10, variable_nb_elements=False, value_types=str
         )
-        actual = str(Shortcuts())
+        actual = str(shortcuts)
 
-        self.assertEqual(expected, actual)
+        self.assertEqual(str(shortcuts.shortcuts), actual)

@@ -9,24 +9,46 @@ class Shortcuts:
         "quit": "q",
         "refresh": Keys.F5.value,
         "navigate": "{} {} {} {}".format(LEFT, RIGHT, UP, DOWN),
+        "next page": Keys.PageDown.value,
+        "previous page": Keys.PageUp.value,
+        "last page": Keys.ControlPageDown.value,
+        "first page": Keys.ControlPageUp.value,
     }
 
     def __str__(self):
         return str(self.shortcuts)
 
     def __rich__(self):
-        shortcuts = Table(box=None, expand=False)
-        shortcuts.add_column(style="magenta bold")
-        shortcuts.add_column(style="yellow bold")
+        max_len = 4
+        items = [
+            ("{}:".format(key), value) for key, value in list(self.shortcuts.items())
+        ]
 
-        for action, shortcut in self.shortcuts.items():
-            shortcuts.add_row("{}:".format(action), shortcut)
+        if len(items) % max_len != 0:
+            items.append(("", ""))
 
-        return shortcuts
+        table = Table(box=None, expand=False)
+        shortcuts_chunks = []
+
+        for i in range(0, len(items), max_len):
+            table.add_column(style="magenta bold")
+            table.add_column(style="yellow bold")
+            chunk = items[i : i + max_len]
+            shortcuts_chunks.append(chunk)
+
+        rows = list(zip(*shortcuts_chunks))
+
+        for row in rows:
+            cells = [cell for pair in row for cell in pair]
+            table.add_row(*cells)
+
+        return table
 
 
 if __name__ == "__main__":
     from rich.console import Console
 
     console = Console()
-    console.print(Shortcuts())
+    shortcuts = Shortcuts()
+    print(shortcuts)
+    console.print(shortcuts)

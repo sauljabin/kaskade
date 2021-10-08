@@ -39,10 +39,10 @@ class Body(Widget):
             self.partitions_table.previous()
         elif key == Keys.PageDown:
             self.partitions_table.next()
-        elif key == "l":
-            self.partitions_table.last()
-        elif key == "f":
+        elif key == Keys.ControlPageUp:
             self.partitions_table.first()
+        elif key == Keys.ControlPageDown:
+            self.partitions_table.last()
 
     def render_body(self):
         if not self.app.topic:
