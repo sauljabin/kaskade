@@ -46,7 +46,6 @@ class Tui(App):
     async def on_load(self):
         await self.bind("q", "quit")
         await self.bind(Keys.F5, "reload_content")
-
         await self.bind(Keys.Left, "change_focus('{}')".format(Keys.Left))
         await self.bind(Keys.Right, "change_focus('{}')".format(Keys.Right))
 
@@ -64,5 +63,4 @@ class Tui(App):
         else:
             focused = self.focusables.previous()
 
-        if focused:
-            await focused.focus()
+        await focused.focus()

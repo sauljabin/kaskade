@@ -11,8 +11,7 @@ class PaginatedTable:
         self.total_items = total_items
         self.page_size = total_items if page_size < 0 else page_size
         self.__page = 1
-        if 0 < page <= self.total_pages():
-            self.page = page
+        self.page = page
 
     def total_pages(self):
         return 0 if self.page_size <= 0 else ceil(self.total_items / self.page_size)
@@ -23,7 +22,7 @@ class PaginatedTable:
 
     @page.setter
     def page(self, page):
-        if page < 0:
+        if page <= 0:
             self.__page = 1
         elif page > self.total_pages():
             self.__page = self.total_pages()
@@ -62,6 +61,8 @@ class PaginatedTable:
 
         if table.columns:
             table.columns[-1].footer = pagination_info
+        else:
+            return ""
 
         renderables = self.renderables(self.start_index(), self.end_index()) or []
         self.render_rows(table, renderables)
