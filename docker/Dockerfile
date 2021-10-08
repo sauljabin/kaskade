@@ -1,4 +1,4 @@
-FROM python:3.7
+FROM python:3.8
 WORKDIR /kaskade
 COPY dist/ /kaskade/
 RUN pip install kaskade*.whl && rm *

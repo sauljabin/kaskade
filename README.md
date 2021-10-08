@@ -204,13 +204,11 @@ Running unit tests:
 poetry run python -m scripts.tests
 ```
 
-Running multi version tests (`3.7`, `3.8`, `3.9`):
+Running multi-version tests ([versions](https://github.com/sauljabin/kaskade/blob/main/.github/workflows/main.yml#L17)):
 
 ```sh
 poetry run python -m scripts.multi-version-tests
 ```
-
-> Make sure you have `python3.7`, `python3.8`, `python3.9` aliases installed.
 
 Applying code styles:
 

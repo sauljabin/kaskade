@@ -3,7 +3,7 @@ from scripts import CommandProcessor
 
 def main():
     commands = {
-        "executing multi-version tests :test_tube:": "poetry run tox -q",
+        "executing multi-version tests :test_tube:": "poetry run tox",
     }
     command_processor = CommandProcessor(commands)
     command_processor.run()

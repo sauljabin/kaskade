@@ -1,14 +1,18 @@
-from unittest import TestCase
+import asyncio
+from unittest import IsolatedAsyncioTestCase
 from unittest.mock import AsyncMock, Mock, call, patch
 
 from textual.keys import Keys
 
 from kaskade.tui import Tui
-from tests import async_test
 
 
-class TestTui(TestCase):
-    @async_test
+class TestTui(IsolatedAsyncioTestCase):
+    @classmethod
+    def tearDownClass(cls):
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
     @patch("kaskade.tui.Kafka")
     async def test_bind_on_load(self, mock_kafka_class):
         tui = Tui()
@@ -25,7 +29,6 @@ class TestTui(TestCase):
 
         tui.bind.assert_has_calls(calls)
 
-    @async_test
     @patch("kaskade.tui.Kafka")
     @patch("kaskade.tui.Tui.view", new_callable=AsyncMock)
     async def test_on_mount(self, mock_view, mock_kafka_class):
@@ -42,7 +45,6 @@ class TestTui(TestCase):
 
         mock_view.dock.assert_has_calls(calls)
 
-    @async_test
     @patch("kaskade.tui.Kafka")
     async def test_reload(self, mock_kafka_class):
         tui = Tui()
@@ -58,14 +60,12 @@ class TestTui(TestCase):
         tui.set_focus.assert_called_once_with(None)
         tui.focusables.reset.assert_called_once()
 
-    @async_test
     @patch("kaskade.tui.Kafka")
-    async def test_circular_list(self, mock_kafka_class):
+    def test_circular_list(self, mock_kafka_class):
         tui = Tui()
 
         self.assertEqual([tui.sidebar, tui.body], tui.focusables.list)
 
-    @async_test
     @patch("kaskade.tui.Kafka")
     async def test_change_focus(self, mock_kafka_class):
         tui = Tui()

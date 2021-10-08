@@ -19,7 +19,7 @@ include = [
 ]
 
 [tool.poetry.dependencies]
-python = "^3.7"
+python = "^3.8"
 click = "^8.0.1"
 rich = "^10.9.0"
 pyfiglet = "^0.8.post1"
@@ -51,13 +51,13 @@ legacy_tox_ini = """
 [tox]
 isolated_build = true
 skipsdist = true
-envlist = py37, py38, py39
+envlist = py38, py39, py10
 
 [gh-actions]
 python =
-    3.7: py37
     3.8: py38
     3.9: py39
+    3.10: py10
 
 [testenv]
 whitelist_externals = poetry
