@@ -75,7 +75,7 @@ Version:
 kaskade --version
 ```
 
-Run without config file (it'll take any of `kaskade.yml`, `kaskade.yaml`, `config.yml`, `config.yaml`):
+Run without config file (it'll take any of `kaskade.yml`, `kaskade.yaml`, `config.yml` or `config.yaml`):
 
 ```sh
 kaskade
@@ -112,14 +112,14 @@ alias kskd=kaskade
 # Configuration
 
 A default [yaml](https://yaml.org/spec/1.2/spec.html) configuration file name can be either `kaskade.yml`
-, `kaskade.yaml`, `config.yml` of `config.yaml`. It supports all the configuration
+, `kaskade.yaml`, `config.yml` or `config.yaml`. It supports all the configuration
 on [kafka consumer configuration](https://kafka.apache.org/documentation/#consumerconfigs) page.
 
 Simple connection example:
 
 ```yml
 kafka:
-  bootstrap.servers: kafka1:9092,kafka2:9092,kafka3:9092
+  bootstrap.servers: localhost:9093
 ```
 
 SSL encryption example:
@@ -161,7 +161,6 @@ kafka:
 
 # To Do
 
-- Table pagination
 - Consumed messages table
 - Consumer groups table
 - Consumer group lag
