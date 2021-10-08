@@ -5,7 +5,7 @@ def main():
     commands = {
         "checking imports": "poetry run isort --check .",
         "checking styles :magnifying_glass_tilted_left:": "poetry run black --check .",
-        "checking code standards": "poetry run pflake8 .",
+        "checking code standards": "poetry run flake8 .",
         "checking code vulnerabilities": "poetry run bandit -r kaskade/",
     }
     command_processor = CommandProcessor(commands)

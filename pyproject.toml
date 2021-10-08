@@ -19,7 +19,7 @@ include = [
 ]
 
 [tool.poetry.dependencies]
-python = "^3.8"
+python = ">= 3.8, < 3.10"
 click = "^8.0.1"
 rich = "^10.9.0"
 pyfiglet = "^0.8.post1"
@@ -35,44 +35,18 @@ bandit = "^1.7.0"
 tox = "^3.24.4"
 unittest = "^0.0"
 Faker = "^8.13.2"
-tox-gh-actions = "^2.7.0"
 coverage = {extras = ["toml"], version = "^5.5"}
-pyproject-flake8 = "^0.0.1-alpha.2"
 autoflake = "^1.4"
 toml = "^0.10.2"
 pre-commit = "^2.15.0"
+flake8 = "^3.9.2"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
 
-[tool.tox]
-legacy_tox_ini = """
-[tox]
-isolated_build = true
-skipsdist = true
-envlist = py38, py39, py10
-
-[gh-actions]
-python =
-    3.8: py38
-    3.9: py39
-    3.10: py10
-
-[testenv]
-whitelist_externals = poetry
-commands =
-    poetry install -q
-    poetry run python -m unittest -v
-"""
-
 [tool.isort]
 profile = "black"
-
-[tool.flake8]
-max-line-length = 110
-extend-ignore = "E203,"
-max-complexity = 10
 
 [tool.coverage.run]
 source = ["kaskade"]
