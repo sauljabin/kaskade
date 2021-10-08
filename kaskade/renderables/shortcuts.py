@@ -1,3 +1,5 @@
+from itertools import zip_longest
+
 from rich.table import Table
 from textual.keys import Keys
 
@@ -24,9 +26,6 @@ class Shortcuts:
             ("{}:".format(key), value) for key, value in list(self.shortcuts.items())
         ]
 
-        if len(items) % max_len != 0:
-            items.append(("", ""))
-
         table = Table(box=None, expand=False)
         shortcuts_chunks = []
 
@@ -36,7 +35,7 @@ class Shortcuts:
             chunk = items[i : i + max_len]
             shortcuts_chunks.append(chunk)
 
-        rows = list(zip(*shortcuts_chunks))
+        rows = zip_longest(*shortcuts_chunks, fillvalue=())
 
         for row in rows:
             cells = [cell for pair in row for cell in pair]

@@ -27,7 +27,7 @@ class TestShortcuts(TestCase):
             [
                 call(ANY, ANY, ANY, ANY, ANY, ANY),
                 call(ANY, ANY, ANY, ANY, ANY, ANY),
-                call(ANY, ANY, ANY, ANY, "", ""),
+                call(ANY, ANY, ANY, ANY),
             ]
         )
 
@@ -56,6 +56,31 @@ class TestShortcuts(TestCase):
                 call(ANY, ANY, ANY, ANY, ANY, ANY),
                 call(ANY, ANY, ANY, ANY, ANY, ANY),
                 call(ANY, ANY, ANY, ANY, *last),
+            ]
+        )
+
+    @patch("kaskade.renderables.shortcuts.Table")
+    def test_render_shortcuts_in_a_table_9(self, mock_class_table):
+        mock_table = MagicMock()
+        mock_class_table.return_value = mock_table
+
+        shortcuts = Shortcuts()
+        shortcuts.shortcuts = faker.pydict(
+            nb_elements=9, variable_nb_elements=False, value_types=str
+        )
+        actual = shortcuts.__rich__()
+
+        self.assertEqual(mock_table, actual)
+        mock_class_table.assert_called_with(box=None, expand=False)
+        mock_table.add_column.assert_has_calls(
+            [call(style="magenta bold"), call(style="yellow bold")]
+        )
+
+        mock_table.add_row.assert_has_calls(
+            [
+                call(ANY, ANY, ANY, ANY, ANY, ANY),
+                call(ANY, ANY, ANY, ANY),
+                call(ANY, ANY, ANY, ANY),
             ]
         )
 
