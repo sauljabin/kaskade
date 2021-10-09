@@ -27,7 +27,7 @@ class Body(Widget):
             return ""
 
         name = self.app.topic.name
-        partitions = len(self.app.topic.partitions())
+        partitions = len(self.app.topic.partitions)
         return TopicInfo(name=name, partitions=partitions)
 
     def on_key(self, event):
@@ -49,7 +49,7 @@ class Body(Widget):
             return ""
 
         self.partitions_table = PartitionsTable(
-            self.app.topic.partitions(),
+            self.app.topic.partitions,
             page_size=self.size.height - 10,
             page=self.partitions_table.page if self.partitions_table else 0,
         )

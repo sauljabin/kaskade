@@ -36,16 +36,16 @@ class TestHeader(TestCase):
     @patch("kaskade.widgets.header.Header.app", new_callable=PropertyMock)
     def test_kafka_info_setup(self, mock_app, mock_class_kafka_info):
         kafka_version = faker.bothify("#.#")
-        mock_app.return_value.kafka.version.return_value = kafka_version
+        mock_app.return_value.cluster.version.return_value = kafka_version
 
         total_brokers = faker.pylist()
-        mock_app.return_value.kafka.brokers.return_value = total_brokers
+        mock_app.return_value.cluster.brokers.return_value = total_brokers
 
         has_schemas = faker.pybool()
-        mock_app.return_value.kafka.has_schemas.return_value = has_schemas
+        mock_app.return_value.cluster.has_schemas.return_value = has_schemas
 
         protocol = faker.word()
-        mock_app.return_value.kafka.protocol.return_value = protocol
+        mock_app.return_value.cluster.protocol.return_value = protocol
         header = Header()
 
         header.on_mount()

@@ -14,10 +14,10 @@ class Header(Widget):
 
     def on_mount(self):
         self.layout_size = 6
-        self.kafka_version = self.app.kafka.version()
-        self.total_brokers = len(self.app.kafka.brokers())
-        self.has_schemas = self.app.kafka.has_schemas()
-        self.protocol = self.app.kafka.protocol()
+        self.kafka_version = self.app.cluster.version()
+        self.total_brokers = len(self.app.cluster.brokers())
+        self.has_schemas = self.app.cluster.has_schemas()
+        self.protocol = self.app.cluster.protocol()
 
     def render(self):
         kaskade_name = KaskadeName()

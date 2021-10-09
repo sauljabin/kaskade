@@ -1,7 +1,8 @@
 from textual.app import App
 from textual.keys import Keys
 
-from kaskade.kafka import Kafka
+from kaskade.kafka.cluster import ClusterService
+from kaskade.kafka.topic import TopicService
 from kaskade.utils.circular_list import CircularList
 from kaskade.widgets.body import Body
 from kaskade.widgets.footer import Footer
@@ -27,8 +28,12 @@ class Tui(App):
             log_verbosity=log_verbosity,
         )
         self.config = config
-        self.kafka = Kafka(self.config)
-        self.topics = self.kafka.topics()
+
+        self.topic_service = TopicService(self.config)
+        self.cluster_service = ClusterService(self.config)
+
+        self.cluster = self.cluster_service.cluster()
+        self.topics = self.topic_service.topics()
         self.topic = None
 
         self.sidebar = Sidebar()
@@ -50,7 +55,7 @@ class Tui(App):
         await self.bind(Keys.Right, "change_focus('{}')".format(Keys.Right))
 
     async def action_reload_content(self):
-        self.topics = self.kafka.topics()
+        self.topics = self.topic_service.topics()
         self.topic = None
         self.focusables.reset()
         self.sidebar.scrollable_list = None
