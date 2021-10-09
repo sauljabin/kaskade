@@ -43,6 +43,6 @@ class TestTopicInfo(TestCase):
         mock_table.add_row.assert_has_calls(
             [
                 call("name:", name),
-                call("partitions:", partitions),
+                call("partitions:", partitions.lower()),
             ]
         )
