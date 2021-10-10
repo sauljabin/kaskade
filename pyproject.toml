@@ -17,6 +17,9 @@ classifiers = [
 include = [
     "LICENSE",
 ]
+packages = [
+    { include = "kaskade" },
+]
 
 [tool.poetry.dependencies]
 python = ">= 3.8, < 3.10"
@@ -26,7 +29,7 @@ pyfiglet = "^0.8.post1"
 textual = "^0.1.12"
 confluent-kafka = "^1.7.0"
 PyYAML = "^5.4.1"
-pathlib = "^1.0.1"
+typing-extensions = "^3.10.0"
 
 [tool.poetry.dev-dependencies]
 black = "^21.9b0"
@@ -40,6 +43,11 @@ autoflake = "^1.4"
 toml = "^0.10.2"
 pre-commit = "^2.15.0"
 flake8 = "^3.9.2"
+mypy = "^0.910"
+types-PyYAML = "^5.4.10"
+types-attrs = "^19.1.0"
+types-setuptools = "^57.4.0"
+types-toml = "^0.10.0"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

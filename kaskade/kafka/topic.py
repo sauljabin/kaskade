@@ -35,7 +35,6 @@ if __name__ == "__main__":
 
     class Config:
         kafka = {"bootstrap.servers": "localhost:9093"}
-        schema_registry = {}
 
     config = Config()
     topic_service = TopicService(config)
