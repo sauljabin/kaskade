@@ -165,9 +165,11 @@ kafka:
 - Consumer groups table
 - Consumer group lag
 - Interactive search and filters
-- Pop up dialog for help
 - Topic size and count
 - Schema registry support
+- Click over the topic o table row
+- Implementing mypy
+- Incrementing test coverage
 
 # Development
 
