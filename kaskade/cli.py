@@ -1,4 +1,5 @@
 import sys
+from typing import Optional
 
 from rich.console import Console
 
@@ -9,11 +10,13 @@ from kaskade.tui import Tui
 
 
 class Cli:
-    def __init__(self, print_version=False, config_file=None):
+    def __init__(
+        self, print_version: Optional[bool], config_file: Optional[str]
+    ) -> None:
         self.print_version = print_version
         self.config_file = config_file
 
-    def run(self):
+    def run(self) -> None:
         try:
             self.option_version()
             self.run_tui()
@@ -25,10 +28,10 @@ class Cli:
                 )
             )
 
-    def run_tui(self):
+    def run_tui(self) -> None:
         Tui.run(config=Config(self.config_file))
 
-    def option_version(self):
+    def option_version(self) -> None:
         if self.print_version:
             console = Console()
             console.print(KaskadeName())

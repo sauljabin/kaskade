@@ -1,10 +1,11 @@
 from pathlib import Path
+from typing import Optional
 
 import yaml
 
 
 class Config:
-    def __init__(self, path):
+    def __init__(self, path: Optional[str]) -> None:
         self.path = path
         config_files = ["kaskade.yml", "kaskade.yaml", "config.yml", "config.yaml"]
         if self.path:

@@ -1,18 +1,26 @@
 import concurrent
+from typing import Optional
 
 from confluent_kafka.admin import RESOURCE_BROKER, AdminClient, ConfigResource
 
+from kaskade.config import Config
 from kaskade.kafka import TIMEOUT
 
 
 class Cluster:
-    def __init__(self, brokers=None, version=None, has_schemas=None, protocol=None):
+    def __init__(
+        self,
+        brokers: Optional[int] = None,
+        version: Optional[str] = None,
+        has_schemas: Optional[bool] = None,
+        protocol: Optional[str] = None,
+    ) -> None:
         self.brokers = brokers
         self.version = version
         self.has_schemas = has_schemas
         self.protocol = protocol
 
-    def __str__(self):
+    def __str__(self) -> str:
         return str(
             {
                 "brokers": [str(broker) for broker in self.brokers],
@@ -24,12 +32,12 @@ class Cluster:
 
 
 class ClusterService:
-    def __init__(self, config):
+    def __init__(self, config: Optional[Config]) -> None:
         if not config or not config.kafka:
             raise Exception("Config not found")
         self.config = config
 
-    def cluster(self):
+    def cluster(self) -> Cluster:
         version = "unknown"
         has_schemas = bool(self.config.schema_registry)
         security_protocol = self.config.kafka.get("security.protocol")

@@ -1,3 +1,5 @@
+from typing import Optional
+
 import click
 
 from kaskade.cli import Cli
@@ -6,7 +8,7 @@ from kaskade.cli import Cli
 @click.command()
 @click.option("--version", is_flag=True, help="Show the app version and exit.")
 @click.argument("config_file", metavar="<config file>", nargs=1, required=False)
-def main(version, config_file):
+def main(version: Optional[bool], config_file: Optional[str]) -> None:
     """
 
     kaskade is a terminal user interface for kafka.
