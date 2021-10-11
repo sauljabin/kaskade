@@ -1,27 +1,29 @@
-from typing import Any, List
+from typing import Generic, List, TypeVar
+
+T = TypeVar("T")
 
 
-class CircularList:
-    def __init__(self, wrapped: List[Any]) -> None:
+class CircularList(Generic[T]):
+    def __init__(self, wrapped: List[T]) -> None:
         self.list = wrapped
         self.index = -1
 
     def reset(self) -> None:
         self.index = -1
 
-    def __next__(self) -> Any:
+    def __next__(self) -> T:
         return self.next()
 
     def __len__(self) -> int:
         return len(self.list)
 
-    def next(self) -> Any:
+    def next(self) -> T:
         self.index += 1
         if self.index >= len(self.list):
             self.index = 0
         return self.list[self.index]
 
-    def previous(self) -> Any:
+    def previous(self) -> T:
         self.index -= 1
         if self.index < 0:
             self.index = len(self.list) - 1

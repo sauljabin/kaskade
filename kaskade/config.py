@@ -1,26 +1,27 @@
 from pathlib import Path
-from typing import Optional
 
 import yaml
 
 
 class Config:
-    def __init__(self, path: Optional[str]) -> None:
+    def __init__(self, path: str) -> None:
         self.path = path
         config_files = ["kaskade.yml", "kaskade.yaml", "config.yml", "config.yaml"]
-        if self.path:
+
+        if len(self.path) > 0:
             if not Path(self.path).exists():
                 raise Exception(f"Config file {path} not found")
         else:
             default_config_file = next(
                 iter([path for path in config_files if Path(path).exists()]), None
             )
-            self.path = default_config_file
-            if not self.path:
+            if default_config_file is None:
                 raise Exception(
                     "Default config file kaskade.yml, kaskade.yaml, "
                     "config.yml or config.yaml not found"
                 )
+
+            self.path = default_config_file
 
         with open(self.path, "r") as file:
             self.text = file.read()

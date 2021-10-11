@@ -1,5 +1,6 @@
-from rich.console import Group
+from rich.console import Group, RenderableType
 from rich.panel import Panel
+from textual import events
 from textual.keys import Keys
 from textual.reactive import Reactive
 from textual.widget import Widget
@@ -13,16 +14,16 @@ class Body(Widget):
     has_focus = Reactive(False)
     partitions_table = None
 
-    def on_mount(self):
+    def on_mount(self) -> None:
         self.set_interval(0.1, self.refresh)
 
-    def on_focus(self):
+    def on_focus(self) -> None:
         self.has_focus = True
 
-    def on_blur(self):
+    def on_blur(self) -> None:
         self.has_focus = False
 
-    def render_header(self):
+    def render_header(self) -> RenderableType:
         if not self.app.topic:
             return ""
 
@@ -30,7 +31,7 @@ class Body(Widget):
         partitions = len(self.app.topic.partitions)
         return TopicInfo(name=name, partitions=partitions)
 
-    def on_key(self, event):
+    def on_key(self, event: events.Key) -> None:
         if not self.partitions_table:
             return
 
@@ -44,19 +45,24 @@ class Body(Widget):
         elif key == Keys.ControlPageDown:
             self.partitions_table.last()
 
-    def render_body(self):
+    def render_body(self) -> RenderableType:
         if not self.app.topic:
             return ""
+
+        page = 0
+
+        if self.partitions_table is not None:
+            page = self.partitions_table.page
 
         self.partitions_table = PartitionsTable(
             self.app.topic.partitions,
             page_size=self.size.height - 10,
-            page=self.partitions_table.page if self.partitions_table else 0,
+            page=page,
         )
 
         return self.partitions_table
 
-    def render(self):
+    def render(self) -> RenderableType:
         header_height = 4
         border_style = styles.BORDER_FOCUSED if self.has_focus else styles.BORDER
 

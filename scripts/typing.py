@@ -1,9 +1,13 @@
+import click
+
 from scripts import CommandProcessor
 
 
-def main():
+@click.command()
+@click.argument("path", nargs=1, default="kaskade/")
+def main(path):
     commands = {
-        "checking types :snake:": "poetry run mypy kaskade/",
+        "checking types :snake:": "poetry run mypy " + path,
     }
     command_processor = CommandProcessor(commands)
     command_processor.run()

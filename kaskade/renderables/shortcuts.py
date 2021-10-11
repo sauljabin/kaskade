@@ -17,10 +17,10 @@ class Shortcuts:
         "first page": Keys.ControlPageUp.value,
     }
 
-    def __str__(self):
+    def __str__(self) -> str:
         return str(self.shortcuts)
 
-    def __rich__(self):
+    def __rich__(self) -> Table:
         max_len = 4
         items = [
             ("{}:".format(key), value) for key, value in list(self.shortcuts.items())
@@ -42,12 +42,3 @@ class Shortcuts:
             table.add_row(*cells)
 
         return table
-
-
-if __name__ == "__main__":
-    from rich.console import Console
-
-    console = Console()
-    shortcuts = Shortcuts()
-    print(shortcuts)
-    console.print(shortcuts)

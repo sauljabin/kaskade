@@ -4,6 +4,7 @@ from rich.console import Console
 from textual.app import App
 from textual.driver import Driver
 from textual.keys import Keys
+from textual.widget import Widget
 
 from kaskade.config import Config
 from kaskade.kafka.cluster import ClusterService
@@ -18,12 +19,12 @@ from kaskade.widgets.sidebar import Sidebar
 class Tui(App):
     def __init__(
         self,
+        config: Config,
         console: Optional[Console] = None,
         screen: bool = True,
         driver_class: Optional[Type[Driver]] = None,
         log: str = "",
         log_verbosity: int = 1,
-        config: Optional[Config] = None,
     ) -> None:
         super().__init__(
             console=console,
@@ -68,9 +69,7 @@ class Tui(App):
         await self.set_focus(None)
 
     async def action_change_focus(self, key: Keys) -> None:
-        if key == Keys.Right:
-            focused = self.focusables.next()
-        else:
-            focused = self.focusables.previous()
-
+        focused: Widget = (
+            self.focusables.next() if Keys.Right else self.focusables.previous()
+        )
         await focused.focus()

@@ -1,7 +1,13 @@
 import concurrent
-from typing import Optional
+from operator import attrgetter
+from typing import List
 
-from confluent_kafka.admin import RESOURCE_BROKER, AdminClient, ConfigResource
+from confluent_kafka.admin import (
+    RESOURCE_BROKER,
+    AdminClient,
+    BrokerMetadata,
+    ConfigResource,
+)
 
 from kaskade.config import Config
 from kaskade.kafka import TIMEOUT
@@ -10,10 +16,10 @@ from kaskade.kafka import TIMEOUT
 class Cluster:
     def __init__(
         self,
-        brokers: Optional[int] = None,
-        version: Optional[str] = None,
-        has_schemas: Optional[bool] = None,
-        protocol: Optional[str] = None,
+        brokers: List[BrokerMetadata] = [],
+        version: str = "",
+        has_schemas: bool = False,
+        protocol: str = "plain",
     ) -> None:
         self.brokers = brokers
         self.version = version
@@ -32,8 +38,8 @@ class Cluster:
 
 
 class ClusterService:
-    def __init__(self, config: Optional[Config]) -> None:
-        if not config or not config.kafka:
+    def __init__(self, config: Config) -> None:
+        if not config.kafka:
             raise Exception("Config not found")
         self.config = config
 
@@ -45,7 +51,7 @@ class ClusterService:
 
         admin_client = AdminClient(self.config.kafka)
         brokers = list(admin_client.list_topics(timeout=TIMEOUT).brokers.values())
-        brokers.sort(key=lambda broker: broker.id)
+        brokers = sorted(brokers, key=attrgetter("id"))
 
         if brokers:
             config_to_describe = [ConfigResource(RESOURCE_BROKER, str(brokers[0].id))]
@@ -68,10 +74,7 @@ class ClusterService:
 
 if __name__ == "__main__":
 
-    class Config:
-        kafka = {"bootstrap.servers": "localhost:9093"}
-
-    config = Config()
+    config = Config("kaskade.yml")
     cluster_service = ClusterService(config)
     cluster = cluster_service.cluster()
     print(cluster)

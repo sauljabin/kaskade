@@ -1,4 +1,5 @@
 from math import ceil
+from typing import Any, List, Union
 
 from rich.table import Table
 from rich.text import Text
@@ -6,22 +7,40 @@ from rich.text import Text
 from kaskade.styles import TABLE_BOX
 
 
+class PaginatedTableStrategy:
+    def render_columns(self, table: Table) -> None:
+        pass
+
+    def render_rows(self, table: Table, renderables: List[Any]) -> None:
+        pass
+
+    def renderables(self, start_index: int, end_index: int) -> List[Any]:
+        pass
+
+
 class PaginatedTable:
-    def __init__(self, total_items, page_size=-1, page=1):
+    def __init__(
+        self,
+        strategy: PaginatedTableStrategy,
+        total_items: int,
+        page_size: int = -1,
+        page: int = 1,
+    ) -> None:
         self.total_items = total_items
         self.page_size = total_items if page_size < 0 else page_size
         self.__page = 1
         self.page = page
+        self.strategy = strategy
 
-    def total_pages(self):
+    def total_pages(self) -> int:
         return 0 if self.page_size <= 0 else ceil(self.total_items / self.page_size)
 
     @property
-    def page(self):
+    def page(self) -> int:
         return self.__page
 
     @page.setter
-    def page(self, page):
+    def page(self, page: int) -> None:
         if page <= 0:
             self.__page = 1
         elif page > self.total_pages():
@@ -29,19 +48,19 @@ class PaginatedTable:
         else:
             self.__page = page
 
-    def first(self):
+    def first(self) -> None:
         self.page = 1
 
-    def last(self):
+    def last(self) -> None:
         self.page = self.total_pages()
 
-    def previous(self):
+    def previous(self) -> None:
         self.page -= 1
 
-    def next(self):
+    def next(self) -> None:
         self.page += 1
 
-    def __rich__(self):
+    def __rich__(self) -> Union[Table, str]:
         pagination_info = Text.from_markup(
             "[blue bold]page [yellow bold]{}[/] of [yellow bold]{}[/][/]".format(
                 self.page, self.total_pages()
@@ -57,15 +76,17 @@ class PaginatedTable:
             show_footer=True,
         )
 
-        self.render_columns(table)
+        self.strategy.render_columns(table)
 
         if table.columns:
             table.columns[-1].footer = pagination_info
         else:
             return ""
 
-        renderables = self.renderables(self.start_index(), self.end_index()) or []
-        self.render_rows(table, renderables)
+        renderables = (
+            self.strategy.renderables(self.start_index(), self.end_index()) or []
+        )
+        self.strategy.render_rows(table, renderables)
 
         if len(table.rows) > self.page_size:
             return f"Rows greater than [yellow bold]{self.page_size}[/]"
@@ -78,57 +99,14 @@ class PaginatedTable:
 
         return table
 
-    def start_index(self):
+    def start_index(self) -> int:
         return (self.page - 1) * self.page_size
 
-    def end_index(self):
+    def end_index(self) -> int:
         return self.page * self.page_size
 
-    def __str__(self):
-        renderables = self.renderables(self.start_index(), self.end_index()) or []
+    def __str__(self) -> str:
+        renderables = (
+            self.strategy.renderables(self.start_index(), self.end_index()) or []
+        )
         return str(renderables)
-
-    def render_columns(self, table):
-        pass
-
-    def render_rows(self, table, renderables):
-        pass
-
-    def renderables(self, start_index, end_index):
-        pass
-
-
-if __name__ == "__main__":
-    from rich.console import Console
-
-    class ListPaginatedTable(PaginatedTable):
-        def __init__(self, items, page_size=-1, page=1):
-            super().__init__(len(items), page_size=page_size, page=page)
-            self.items = items
-
-        def renderables(self, start_index, end_index):
-            return self.items[start_index:end_index]
-
-        def render_rows(self, table, renderables):
-            for item in renderables:
-                table.add_row(item)
-
-        def render_columns(self, table):
-            table.add_column(
-                "name", style="bright_blue", header_style="bright_blue bold"
-            )
-
-    console = Console()
-    items = ["item {}".format(n + 1) for n in list(range(10))]
-
-    paginated_table = ListPaginatedTable(items, page_size=2)
-    console.print(paginated_table)
-
-    paginated_table.next()
-    console.print(paginated_table)
-
-    paginated_table.last()
-    console.print(paginated_table)
-
-    paginated_table.first()
-    console.print(paginated_table)

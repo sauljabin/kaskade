@@ -1,5 +1,8 @@
+from typing import Optional
+
 from rich.panel import Panel
 from rich.text import Text
+from textual import events
 from textual.keys import Keys
 from textual.reactive import Reactive
 from textual.widget import Widget
@@ -9,22 +12,23 @@ from kaskade.renderables.scrollable_list import ScrollableList
 
 
 class Sidebar(Widget):
-    has_focus = Reactive(False)
-    scrollable_list = None
+    has_focus: Reactive = Reactive(False)
+    scrollable_list: Optional[ScrollableList] = None
 
-    def on_mount(self):
+    def on_mount(self) -> None:
         self.set_interval(0.1, self.refresh)
 
-    def on_focus(self):
+    def on_focus(self) -> None:
         self.has_focus = True
 
-    def on_blur(self):
+    def on_blur(self) -> None:
         self.has_focus = False
 
-    def max_renderables_len(self):
-        return self.size.height - 2
+    def max_renderables_len(self) -> int:
+        height: int = self.size.height
+        return height - 2
 
-    def render(self):
+    def render(self) -> Panel:
         self.scrollable_list = ScrollableList(
             self.app.topics,
             max_len=self.max_renderables_len(),
@@ -42,7 +46,10 @@ class Sidebar(Widget):
             title_align="left",
         )
 
-    def on_key(self, event):
+    def on_key(self, event: events.Key) -> None:
+        if self.scrollable_list is None:
+            return
+
         if event.key == Keys.Up:
             self.scrollable_list.previous()
         elif event.key == Keys.Down:

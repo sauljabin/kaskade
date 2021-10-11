@@ -12,14 +12,14 @@ class Header(Widget):
     protocol = "unknown"
     has_schemas = False
 
-    def on_mount(self):
+    def on_mount(self) -> None:
         self.layout_size = 6
-        self.kafka_version = self.app.cluster.version()
-        self.total_brokers = len(self.app.cluster.brokers())
-        self.has_schemas = self.app.cluster.has_schemas()
-        self.protocol = self.app.cluster.protocol()
+        self.kafka_version = self.app.cluster.version
+        self.total_brokers = len(self.app.cluster.brokers)
+        self.has_schemas = self.app.cluster.has_schemas
+        self.protocol = self.app.cluster.protocol
 
-    def render(self):
+    def render(self) -> Columns:
         kaskade_name = KaskadeName()
         kafka_info = KafkaInfo(
             kafka_version=self.kafka_version,

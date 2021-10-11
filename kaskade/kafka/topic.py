@@ -1,5 +1,5 @@
 from operator import attrgetter
-from typing import List, Optional
+from typing import List
 
 from confluent_kafka.admin import AdminClient, PartitionMetadata, TopicMetadata
 
@@ -10,19 +10,19 @@ from kaskade.kafka import TIMEOUT
 class Topic:
     def __init__(
         self,
-        name: Optional[str] = None,
-        partitions: Optional[List[PartitionMetadata]] = None,
+        name: str = "",
+        partitions: List[PartitionMetadata] = [],
     ) -> None:
         self.name = name
         self.partitions = partitions
 
     def __str__(self) -> str:
-        return self.name if self.name else ""
+        return self.name
 
 
 class TopicService:
-    def __init__(self, config: Optional[Config]) -> None:
-        if not config or not config.kafka:
+    def __init__(self, config: Config) -> None:
+        if not config.kafka:
             raise Exception("Config not found")
         self.config = config
 

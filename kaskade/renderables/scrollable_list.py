@@ -1,10 +1,14 @@
+from typing import List, TypeVar
+
 from rich.text import Text
 
 from kaskade.unicodes import RIGHT_TRIANGLE
 
+T = TypeVar("T")
+
 
 class ScrollableList:
-    def __init__(self, wrapped, max_len=-1, pointer=-1):
+    def __init__(self, wrapped: List[T], max_len: int = -1, pointer: int = -1) -> None:
         self.list = wrapped if wrapped else []
         self.max_len = (
             len(self.list) if max_len < 0 or max_len > len(self.list) else max_len
@@ -16,7 +20,7 @@ class ScrollableList:
         if 0 <= pointer < len(self.list):
             self.pointer = pointer
 
-    def __rich__(self):
+    def __rich__(self) -> Text:
         content = Text(overflow="ignore")
         for index in range(self.start_rendering, self.end_rendering):
             item = self.list[index]
@@ -36,24 +40,24 @@ class ScrollableList:
             content.append("\n")
         return content
 
-    def __str__(self):
+    def __str__(self) -> str:
         return str(self.renderables())
 
-    def renderables(self):
+    def renderables(self) -> List[T]:
         return self.list[self.start_rendering : self.end_rendering]
 
-    def reset(self):
+    def reset(self) -> None:
         self.selected = None
         self.__pointer = -1
         self.start_rendering = 0
         self.end_rendering = self.max_len
 
     @property
-    def pointer(self):
+    def pointer(self) -> int:
         return self.__pointer
 
     @pointer.setter
-    def pointer(self, pointer):
+    def pointer(self, pointer: int) -> None:
         if pointer < 0:
             self.__pointer = len(self.list) - 1
             self.end_rendering = len(self.list)
@@ -75,10 +79,10 @@ class ScrollableList:
 
         self.selected = self.list[self.__pointer]
 
-    def previous(self):
+    def previous(self) -> None:
         self.pointer -= 1
 
-    def next(self):
+    def next(self) -> None:
         self.pointer += 1
 
 
