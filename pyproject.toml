@@ -62,7 +62,7 @@ branch = true
 omit = ["*tests/*", "*scripts/*", "*__init__.py", "*kaskade/app.py", "*kaskade/__main__.py"]
 
 [tool.coverage.report]
-exclude_lines = ['if __name__ == "__main__":']
+exclude_lines = ['if __name__ == "__main__":', "@abstractmethod"]
 
 [tool.poetry.scripts]
 kaskade = "kaskade.app:main"
