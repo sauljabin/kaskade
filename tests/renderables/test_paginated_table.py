@@ -1,23 +1,37 @@
 from math import ceil
+from typing import Any, List
 from unittest import TestCase
 from unittest.mock import MagicMock, patch
+
+from rich.table import Table
 
 from kaskade.renderables.paginated_table import PaginatedTable
 from kaskade.styles import TABLE_BOX
 from tests import faker
 
 
+class PaginatedTableDummy(PaginatedTable):
+    def render_columns(self, table: Table) -> None:
+        pass
+
+    def render_rows(self, table: Table, renderables: List[Any]) -> None:
+        pass
+
+    def renderables(self, start_index: int, end_index: int) -> List[Any]:
+        pass
+
+
 class TestPaginatedTable(TestCase):
     def test_page_size_is_total_items_when_negative(self):
         total_items = faker.pyint()
-        paginated_table = PaginatedTable(total_items, page_size=-1)
+        paginated_table = PaginatedTableDummy(total_items, page_size=-1)
 
         self.assertEqual(total_items, paginated_table.page_size)
 
     def test_page_size_if_bigger_then_0(self):
         total_items = faker.pyint()
         page_size = 5
-        paginated_table = PaginatedTable(total_items, page_size=page_size)
+        paginated_table = PaginatedTableDummy(total_items, page_size=page_size)
 
         self.assertEqual(page_size, paginated_table.page_size)
 
@@ -25,7 +39,9 @@ class TestPaginatedTable(TestCase):
         total_items = faker.pyint(min_value=10)
         page_size = 2
         page = 2
-        paginated_table = PaginatedTable(total_items, page_size=page_size, page=page)
+        paginated_table = PaginatedTableDummy(
+            total_items, page_size=page_size, page=page
+        )
 
         self.assertEqual(page, paginated_table.page)
 
@@ -33,7 +49,7 @@ class TestPaginatedTable(TestCase):
         total_items = faker.pyint(min_value=10)
         page_size = 2
         page = 1
-        paginated_table = PaginatedTable(total_items, page_size=page_size, page=-1)
+        paginated_table = PaginatedTableDummy(total_items, page_size=page_size, page=-1)
 
         self.assertEqual(page, paginated_table.page)
 
@@ -41,13 +57,15 @@ class TestPaginatedTable(TestCase):
         total_items = faker.pyint(min_value=10, max_value=20)
         page_size = 2
         page = 1000000
-        paginated_table = PaginatedTable(total_items, page_size=page_size, page=page)
+        paginated_table = PaginatedTableDummy(
+            total_items, page_size=page_size, page=page
+        )
 
         self.assertEqual(paginated_table.total_pages(), paginated_table.page)
 
     def test_total_pages_if_page_size_is_negative(self):
         total_items = faker.pyint()
-        paginated_table = PaginatedTable(total_items)
+        paginated_table = PaginatedTableDummy(total_items)
 
         paginated_table.page_size = -1
 
@@ -56,7 +74,7 @@ class TestPaginatedTable(TestCase):
     def test_total_pages(self):
         total_items = faker.pyint(min_value=1, max_value=9)
         page_size = faker.pyint(min_value=10, max_value=20)
-        paginated_table = PaginatedTable(total_items)
+        paginated_table = PaginatedTableDummy(total_items)
 
         self.assertEqual(ceil(total_items / page_size), paginated_table.total_pages())
 
@@ -64,7 +82,9 @@ class TestPaginatedTable(TestCase):
         total_items = faker.pyint(min_value=10)
         page_size = 2
         page = 2
-        paginated_table = PaginatedTable(total_items, page_size=page_size, page=page)
+        paginated_table = PaginatedTableDummy(
+            total_items, page_size=page_size, page=page
+        )
         paginated_table.first()
 
         self.assertEqual(1, paginated_table.page)
@@ -73,7 +93,9 @@ class TestPaginatedTable(TestCase):
         total_items = faker.pyint(min_value=10)
         page_size = 2
         page = 2
-        paginated_table = PaginatedTable(total_items, page_size=page_size, page=page)
+        paginated_table = PaginatedTableDummy(
+            total_items, page_size=page_size, page=page
+        )
         paginated_table.last()
 
         self.assertEqual(paginated_table.total_pages(), paginated_table.page)
@@ -82,7 +104,9 @@ class TestPaginatedTable(TestCase):
         total_items = faker.pyint(min_value=10)
         page_size = 2
         page = 2
-        paginated_table = PaginatedTable(total_items, page_size=page_size, page=page)
+        paginated_table = PaginatedTableDummy(
+            total_items, page_size=page_size, page=page
+        )
         paginated_table.next()
 
         self.assertEqual(page + 1, paginated_table.page)
@@ -91,7 +115,9 @@ class TestPaginatedTable(TestCase):
         total_items = faker.pyint(min_value=10)
         page_size = 2
         page = 2
-        paginated_table = PaginatedTable(total_items, page_size=page_size, page=page)
+        paginated_table = PaginatedTableDummy(
+            total_items, page_size=page_size, page=page
+        )
         paginated_table.previous()
 
         self.assertEqual(page - 1, paginated_table.page)
@@ -100,14 +126,16 @@ class TestPaginatedTable(TestCase):
         total_items = faker.pyint(min_value=10)
         page_size = 2
         page = 2
-        paginated_table = PaginatedTable(total_items, page_size=page_size, page=page)
+        paginated_table = PaginatedTableDummy(
+            total_items, page_size=page_size, page=page
+        )
 
         self.assertEqual((page - 1) * page_size, paginated_table.start_index())
         self.assertEqual(page * page_size, paginated_table.end_index())
 
     def test_str(self):
         total_items = faker.pyint(min_value=10)
-        paginated_table = PaginatedTable(total_items)
+        paginated_table = PaginatedTableDummy(total_items)
 
         self.assertEqual(str([]), str(paginated_table))
 
@@ -115,7 +143,9 @@ class TestPaginatedTable(TestCase):
         total_items = faker.pyint(min_value=10)
         page_size = 2
         page = 2
-        paginated_table = PaginatedTable(total_items, page_size=page_size, page=page)
+        paginated_table = PaginatedTableDummy(
+            total_items, page_size=page_size, page=page
+        )
         renderables = faker.pylist()
         paginated_table.renderables = MagicMock(return_value=renderables)
 
@@ -127,7 +157,9 @@ class TestPaginatedTable(TestCase):
         total_items = faker.pyint(min_value=10)
         page_size = 2
         page = 2
-        paginated_table = PaginatedTable(total_items, page_size=page_size, page=page)
+        paginated_table = PaginatedTableDummy(
+            total_items, page_size=page_size, page=page
+        )
         paginated_table.render_columns = MagicMock()
         paginated_table.render_rows = MagicMock()
         renderables = faker.pylist()
@@ -162,7 +194,9 @@ class TestPaginatedTable(TestCase):
         total_items = faker.pyint(min_value=10)
         page_size = 2
         page = 2
-        paginated_table = PaginatedTable(total_items, page_size=page_size, page=page)
+        paginated_table = PaginatedTableDummy(
+            total_items, page_size=page_size, page=page
+        )
 
         mock_table = MagicMock()
         mock_class_table.return_value = mock_table
@@ -177,7 +211,9 @@ class TestPaginatedTable(TestCase):
         total_items = faker.pyint(min_value=10)
         page_size = 2
         page = 2
-        paginated_table = PaginatedTable(total_items, page_size=page_size, page=page)
+        paginated_table = PaginatedTableDummy(
+            total_items, page_size=page_size, page=page
+        )
 
         mock_table = MagicMock()
         mock_class_table.return_value = mock_table
@@ -194,7 +230,9 @@ class TestPaginatedTable(TestCase):
         total_items = faker.pyint(min_value=10)
         page_size = 3
         page = 2
-        paginated_table = PaginatedTable(total_items, page_size=page_size, page=page)
+        paginated_table = PaginatedTableDummy(
+            total_items, page_size=page_size, page=page
+        )
 
         mock_table = MagicMock()
         mock_class_table.return_value = mock_table

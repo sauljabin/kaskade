@@ -1,4 +1,6 @@
-from rich.console import Group, RenderableType
+from typing import Optional, Union
+
+from rich.console import Group
 from rich.panel import Panel
 from textual import events
 from textual.keys import Keys
@@ -12,7 +14,7 @@ from kaskade.renderables.topic_info import TopicInfo
 
 class Body(Widget):
     has_focus = Reactive(False)
-    partitions_table = None
+    partitions_table: Optional[PartitionsTable] = None
 
     def on_mount(self) -> None:
         self.set_interval(0.1, self.refresh)
@@ -23,7 +25,7 @@ class Body(Widget):
     def on_blur(self) -> None:
         self.has_focus = False
 
-    def render_header(self) -> RenderableType:
+    def render_header(self) -> Union[TopicInfo, str]:
         if not self.app.topic:
             return ""
 
@@ -40,12 +42,12 @@ class Body(Widget):
             self.partitions_table.previous()
         elif key == Keys.PageDown:
             self.partitions_table.next()
-        elif key == Keys.ControlPageUp:
+        elif key == "f":
             self.partitions_table.first()
-        elif key == Keys.ControlPageDown:
+        elif key == "l":
             self.partitions_table.last()
 
-    def render_body(self) -> RenderableType:
+    def render_body(self) -> Union[PartitionsTable, str]:
         if not self.app.topic:
             return ""
 
@@ -62,7 +64,7 @@ class Body(Widget):
 
         return self.partitions_table
 
-    def render(self) -> RenderableType:
+    def render(self) -> Group:
         header_height = 4
         border_style = styles.BORDER_FOCUSED if self.has_focus else styles.BORDER
 

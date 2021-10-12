@@ -1,3 +1,4 @@
+from abc import ABC, abstractmethod
 from math import ceil
 from typing import Any, List, Union
 
@@ -7,21 +8,9 @@ from rich.text import Text
 from kaskade.styles import TABLE_BOX
 
 
-class PaginatedTableStrategy:
-    def render_columns(self, table: Table) -> None:
-        pass
-
-    def render_rows(self, table: Table, renderables: List[Any]) -> None:
-        pass
-
-    def renderables(self, start_index: int, end_index: int) -> List[Any]:
-        pass
-
-
-class PaginatedTable:
+class PaginatedTable(ABC):
     def __init__(
         self,
-        strategy: PaginatedTableStrategy,
         total_items: int,
         page_size: int = -1,
         page: int = 1,
@@ -30,7 +19,6 @@ class PaginatedTable:
         self.page_size = total_items if page_size < 0 else page_size
         self.__page = 1
         self.page = page
-        self.strategy = strategy
 
     def total_pages(self) -> int:
         return 0 if self.page_size <= 0 else ceil(self.total_items / self.page_size)
@@ -60,6 +48,18 @@ class PaginatedTable:
     def next(self) -> None:
         self.page += 1
 
+    @abstractmethod
+    def render_columns(self, table: Table) -> None:
+        pass
+
+    @abstractmethod
+    def render_rows(self, table: Table, renderables: List[Any]) -> None:
+        pass
+
+    @abstractmethod
+    def renderables(self, start_index: int, end_index: int) -> List[Any]:
+        pass
+
     def __rich__(self) -> Union[Table, str]:
         pagination_info = Text.from_markup(
             "[blue bold]page [yellow bold]{}[/] of [yellow bold]{}[/][/]".format(
@@ -76,17 +76,15 @@ class PaginatedTable:
             show_footer=True,
         )
 
-        self.strategy.render_columns(table)
+        self.render_columns(table)
 
         if table.columns:
             table.columns[-1].footer = pagination_info
         else:
             return ""
 
-        renderables = (
-            self.strategy.renderables(self.start_index(), self.end_index()) or []
-        )
-        self.strategy.render_rows(table, renderables)
+        renderables = self.renderables(self.start_index(), self.end_index()) or []
+        self.render_rows(table, renderables)
 
         if len(table.rows) > self.page_size:
             return f"Rows greater than [yellow bold]{self.page_size}[/]"
@@ -106,7 +104,5 @@ class PaginatedTable:
         return self.page * self.page_size
 
     def __str__(self) -> str:
-        renderables = (
-            self.strategy.renderables(self.start_index(), self.end_index()) or []
-        )
+        renderables = self.renderables(self.start_index(), self.end_index()) or []
         return str(renderables)

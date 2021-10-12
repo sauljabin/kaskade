@@ -3,12 +3,15 @@ from typing import List
 from confluent_kafka.admin import PartitionMetadata
 from rich.table import Table
 
-from kaskade.renderables.paginated_table import PaginatedTable, PaginatedTableStrategy
+from kaskade.renderables.paginated_table import PaginatedTable
 
 
-class PartitionsTableStrategy(PaginatedTableStrategy):
-    def __init__(self, partitions: List[PartitionMetadata]) -> None:
+class PartitionsTable(PaginatedTable):
+    def __init__(
+        self, partitions: List[PartitionMetadata], page_size: int = -1, page: int = 1
+    ) -> None:
         self.partitions = partitions
+        super().__init__(len(partitions), page_size=page_size, page=page)
 
     def renderables(self, start_index: int, end_index: int) -> List[PartitionMetadata]:
         return self.partitions[start_index:end_index]
@@ -45,11 +48,3 @@ class PartitionsTableStrategy(PaginatedTableStrategy):
             header_style="bright_yellow bold",
             ratio=40,
         )
-
-
-class PartitionsTable(PaginatedTable):
-    def __init__(
-        self, partitions: List[PartitionMetadata], page_size: int = -1, page: int = 1
-    ) -> None:
-        strategy = PartitionsTableStrategy(partitions)
-        super().__init__(strategy, len(partitions), page_size=page_size, page=page)

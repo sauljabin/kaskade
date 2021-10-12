@@ -72,4 +72,5 @@ class Tui(App):
         focused: Widget = (
             self.focusables.next() if Keys.Right else self.focusables.previous()
         )
+        print(focused)
         await focused.focus()

@@ -10,7 +10,7 @@ class TestKafkaInfo(TestCase):
         expected = str(
             {
                 "kafka": "unknown",
-                "brokers": "unknown",
+                "brokers": "0",
                 "schemas": "no",
                 "protocol": "plain",
             }

@@ -22,7 +22,7 @@ class Topic:
 
 class TopicService:
     def __init__(self, config: Config) -> None:
-        if not config.kafka:
+        if config is None or config.kafka is None:
             raise Exception("Config not found")
         self.config = config
 

@@ -6,12 +6,12 @@ repos:
       - id: check-added-large-files
   - repo: local
     hooks:
-            #- id: typing
-            #name: Checking Types
-            #language: system
-            #always_run: true
-            #pass_filenames: false
-            #entry: poetry run python -m scripts.typing
+      - id: typing
+        name: Checking Types
+        language: system
+        always_run: true
+        pass_filenames: false
+        entry: poetry run python -m scripts.typing
       - id: tests
         name: Running Tests
         language: system

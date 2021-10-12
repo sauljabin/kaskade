@@ -10,7 +10,7 @@ class TestTopicInfo(TestCase):
         expected = str(
             {
                 "name": "unknown",
-                "partitions": "unknown",
+                "partitions": "0",
             }
         )
         actual = str(TopicInfo())

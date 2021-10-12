@@ -14,7 +14,7 @@ class TestCli(unittest.TestCase):
     ):
         mock_console = MagicMock()
         mock_class_console.return_value = mock_console
-        cli = Cli(print_version=True)
+        cli = Cli(print_version=True, config_file="")
 
         with self.assertRaises(SystemExit):
             cli.run()

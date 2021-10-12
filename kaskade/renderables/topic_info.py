@@ -24,12 +24,3 @@ class TopicInfo:
             table.add_row("{}:".format(name), value)
 
         return table
-
-
-if __name__ == "__main__":
-    from rich.console import Console
-
-    console = Console()
-    topic_info = TopicInfo()
-    print(topic_info)
-    console.print(topic_info)

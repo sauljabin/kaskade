@@ -5,7 +5,8 @@ import yaml
 
 class Config:
     def __init__(self, path: str) -> None:
-        self.path = path
+        self.path: str = "" if path is None else path
+
         config_files = ["kaskade.yml", "kaskade.yaml", "config.yml", "config.yaml"]
 
         if len(self.path) > 0:

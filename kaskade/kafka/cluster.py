@@ -1,4 +1,4 @@
-import concurrent
+from concurrent import futures
 from operator import attrgetter
 from typing import List
 
@@ -39,7 +39,7 @@ class Cluster:
 
 class ClusterService:
     def __init__(self, config: Config) -> None:
-        if not config.kafka:
+        if config is None or config.kafka is None:
             raise Exception("Config not found")
         self.config = config
 
@@ -56,9 +56,7 @@ class ClusterService:
         if brokers:
             config_to_describe = [ConfigResource(RESOURCE_BROKER, str(brokers[0].id))]
             future_config = admin_client.describe_configs(config_to_describe)
-            future_as_completed = concurrent.futures.as_completed(
-                iter(future_config.values())
-            )
+            future_as_completed = futures.as_completed(iter(future_config.values()))
             task = next(future_as_completed)
             task_result = task.result(timeout=TIMEOUT)
 
