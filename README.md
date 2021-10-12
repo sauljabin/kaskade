@@ -168,7 +168,6 @@ kafka:
 - Topic size and count
 - Schema registry support
 - Click over the topic o table row
-- Implementing mypy
 - Incrementing test coverage
 
 # Development
@@ -227,6 +226,12 @@ Running code coverage:
 
 ```sh
 poetry run python -m scripts.tests-coverage
+```
+
+Running typing analysis:
+
+```sh
+poetry run python -m scripts.typing
 ```
 
 Generate readme banner:
