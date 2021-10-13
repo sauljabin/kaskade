@@ -7,7 +7,7 @@ from scripts import CommandProcessor
 @click.argument("path", nargs=1, default="kaskade/")
 def main(path):
     commands = {
-        "checking types :snake:": "poetry run mypy " + path,
+        "checking types :snake:": "poetry run mypy {}".format(path),
     }
     command_processor = CommandProcessor(commands)
     command_processor.run()
