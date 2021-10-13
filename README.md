@@ -234,6 +234,12 @@ Running typing analysis:
 poetry run python -m scripts.typing
 ```
 
+Running pre-commit hooks:
+
+```sh
+poetry run python -m scripts.pre-commit
+```
+
 Generate readme banner:
 
 ```sh

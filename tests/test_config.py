@@ -1,5 +1,5 @@
 from unittest import TestCase
-from unittest.mock import MagicMock, mock_open, patch
+from unittest.mock import ANY, MagicMock, mock_open, patch
 
 from kaskade.config import Config
 from tests import faker
@@ -23,16 +23,18 @@ class TestConfig(TestCase):
             side_effect=[True, False, False, True]
         )
         config = Config(None)
-        mock_open_file.assert_called_once_with("kaskade.yml", "r")
+        mock_open_file.assert_any_call("kaskade.yml", "r")
         self.assertEqual(kaskade_yaml, config.text)
         self.assertEqual(
             {
-                "kafka": {"bootstrap.servers": "kafka:9092"},
+                "kafka": {"bootstrap.servers": "kafka:9092", "logger": ANY},
                 "kaskade": {"example": "test"},
             },
             config.yaml,
         )
-        self.assertEqual({"bootstrap.servers": "kafka:9092"}, config.kafka)
+        self.assertEqual(
+            {"bootstrap.servers": "kafka:9092", "logger": ANY}, config.kafka
+        )
         self.assertEqual({"example": "test"}, config.kaskade)
 
     @patch("kaskade.config.Path")
@@ -43,7 +45,7 @@ class TestConfig(TestCase):
             side_effect=[True, False, True, False, False]
         )
         config = Config(random_file)
-        mock_open_file.assert_called_once_with(random_file, "r")
+        mock_open_file.assert_any_call(random_file, "r")
         self.assertEqual(kaskade_yaml, config.text)
 
     @patch("kaskade.config.Path")
@@ -55,7 +57,7 @@ class TestConfig(TestCase):
             side_effect=[False, False, False, True]
         )
         config = Config(None)
-        mock_open_file.assert_called_once_with("config.yaml", "r")
+        mock_open_file.assert_any_call("config.yaml", "r")
         self.assertEqual(kaskade_yaml, config.text)
 
     @patch("kaskade.config.Path")

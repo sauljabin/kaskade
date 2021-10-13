@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 
 import yaml
@@ -30,3 +31,8 @@ class Config:
             self.kafka = self.yaml.get("kafka")
             self.kaskade = self.yaml.get("kaskade")
             self.schema_registry = self.yaml.get("schema-registry")
+
+            logger = logging.getLogger()
+            logger.addHandler(logging.FileHandler("kaskade.log"))
+
+            self.kafka["logger"] = logger
