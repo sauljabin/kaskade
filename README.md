@@ -228,12 +228,6 @@ Running code coverage:
 poetry run python -m scripts.tests-coverage
 ```
 
-Running typing analysis:
-
-```sh
-poetry run python -m scripts.typing
-```
-
 Running pre-commit hooks:
 
 ```sh
