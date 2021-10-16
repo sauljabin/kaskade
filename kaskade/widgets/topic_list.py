@@ -16,7 +16,7 @@ class TopicList(Widget):
     scrollable_list: Optional[ScrollableList] = None
 
     def on_mount(self) -> None:
-        self.set_interval(0.1, self.refresh)
+        self.set_interval(0.2, self.refresh)
 
     def on_focus(self) -> None:
         self.has_focus = True
@@ -70,11 +70,11 @@ class TopicList(Widget):
         await self.app.set_focus(self)
         self.next()
 
-    async def on_mouse_scroll_down(self, event: events.MouseScrollUp) -> None:
+    async def on_mouse_scroll_down(self, event: events.MouseScrollDown) -> None:
         await self.app.set_focus(self)
         self.previous()
 
-    async def on_click(self, event: events.Click) -> None:
+    def on_click(self, event: events.Click) -> None:
         if self.scrollable_list is None:
             return
 

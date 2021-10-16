@@ -8,10 +8,14 @@ from kaskade.renderables.paginated_table import PaginatedTable
 
 class PartitionsTable(PaginatedTable):
     def __init__(
-        self, partitions: List[PartitionMetadata], page_size: int = -1, page: int = 1
+        self,
+        partitions: List[PartitionMetadata],
+        page_size: int = -1,
+        page: int = 1,
+        row: int = 0,
     ) -> None:
         self.partitions = partitions
-        super().__init__(len(partitions), page_size=page_size, page=page)
+        super().__init__(len(partitions), page_size=page_size, page=page, row=row)
 
     def renderables(self, start_index: int, end_index: int) -> List[PartitionMetadata]:
         return self.partitions[start_index:end_index]

@@ -45,7 +45,7 @@ class TestTui(IsolatedAsyncioTestCase):
             call(tui.header, edge="top"),
             call(tui.footer, edge="bottom"),
             call(tui.topic_list, edge="left", size=40),
-            call(tui.topic_info, tui.topic_detail, edge="top"),
+            call(tui.topic_header, tui.topic_detail, edge="top"),
         ]
 
         await tui.on_mount()
@@ -78,7 +78,7 @@ class TestTui(IsolatedAsyncioTestCase):
         tui = Tui(config=MagicMock())
 
         self.assertEqual(
-            [tui.topic_list, tui.topic_info, tui.topic_detail], tui.focusables.list
+            [tui.topic_list, tui.topic_header, tui.topic_detail], tui.focusables.list
         )
 
     @patch("kaskade.tui.TopicService")

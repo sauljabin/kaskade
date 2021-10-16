@@ -15,7 +15,7 @@ class TopicDetail(Widget):
     partitions_table: Optional[PartitionsTable] = None
 
     def on_mount(self) -> None:
-        self.set_interval(0.1, self.refresh)
+        self.set_interval(0.2, self.refresh)
 
     def on_focus(self) -> None:
         self.has_focus = True
@@ -24,32 +24,39 @@ class TopicDetail(Widget):
         self.has_focus = False
 
     def on_key(self, event: events.Key) -> None:
-        if not self.partitions_table:
+        if self.partitions_table is None:
             return
 
         key = event.key
         if key == Keys.PageUp:
-            self.partitions_table.previous()
+            self.partitions_table.previous_page()
         elif key == Keys.PageDown:
-            self.partitions_table.next()
+            self.partitions_table.next_page()
         elif key == "f":
-            self.partitions_table.first()
+            self.partitions_table.first_page()
         elif key == "l":
-            self.partitions_table.last()
+            self.partitions_table.last_page()
+        elif key == Keys.Up:
+            self.partitions_table.previous_row()
+        elif key == Keys.Down:
+            self.partitions_table.next_row()
 
     def render_body(self) -> Union[PartitionsTable, str]:
         if not self.app.topic:
             return ""
 
         page = 0
+        row = 0
 
         if self.partitions_table is not None:
             page = self.partitions_table.page
+            row = self.partitions_table.row
 
         self.partitions_table = PartitionsTable(
             self.app.topic.partitions,
-            page_size=self.size.height - 6,
+            page_size=self.size.height - 5,
             page=page,
+            row=row,
         )
 
         return self.partitions_table
@@ -65,3 +72,25 @@ class TopicDetail(Widget):
         )
 
         return body_panel
+
+    async def on_mouse_scroll_up(self, event: events.MouseScrollUp) -> None:
+        await self.app.set_focus(self)
+
+        if self.partitions_table is None:
+            return
+
+        self.partitions_table.next_row()
+
+    async def on_mouse_scroll_down(self, event: events.MouseScrollDown) -> None:
+        await self.app.set_focus(self)
+
+        if self.partitions_table is None:
+            return
+
+        self.partitions_table.previous_row()
+
+    def on_click(self, event: events.Click) -> None:
+        if self.partitions_table is None:
+            return
+
+        self.partitions_table.row = event.y - 2

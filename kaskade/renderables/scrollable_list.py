@@ -8,6 +8,8 @@ T = TypeVar("T")
 
 
 class ScrollableList:
+    __pointer: int = -1
+
     def __init__(self, wrapped: List[T], max_len: int = -1, pointer: int = -1) -> None:
         self.list = wrapped if wrapped else []
         self.max_len = (
@@ -16,7 +18,6 @@ class ScrollableList:
         self.selected = None
         self.start_rendering = 0
         self.end_rendering = self.max_len
-        self.__pointer = -1
         if 0 <= pointer < len(self.list):
             self.pointer = pointer
 

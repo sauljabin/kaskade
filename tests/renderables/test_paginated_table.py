@@ -85,7 +85,7 @@ class TestPaginatedTable(TestCase):
         paginated_table = PaginatedTableDummy(
             total_items, page_size=page_size, page=page
         )
-        paginated_table.first()
+        paginated_table.first_page()
 
         self.assertEqual(1, paginated_table.page)
 
@@ -96,7 +96,7 @@ class TestPaginatedTable(TestCase):
         paginated_table = PaginatedTableDummy(
             total_items, page_size=page_size, page=page
         )
-        paginated_table.last()
+        paginated_table.last_page()
 
         self.assertEqual(paginated_table.total_pages(), paginated_table.page)
 
@@ -107,7 +107,7 @@ class TestPaginatedTable(TestCase):
         paginated_table = PaginatedTableDummy(
             total_items, page_size=page_size, page=page
         )
-        paginated_table.next()
+        paginated_table.next_page()
 
         self.assertEqual(page + 1, paginated_table.page)
 
@@ -118,7 +118,7 @@ class TestPaginatedTable(TestCase):
         paginated_table = PaginatedTableDummy(
             total_items, page_size=page_size, page=page
         )
-        paginated_table.previous()
+        paginated_table.previous_page()
 
         self.assertEqual(page - 1, paginated_table.page)
 
@@ -181,12 +181,11 @@ class TestPaginatedTable(TestCase):
             expand=True,
             box=TABLE_BOX,
             show_edge=False,
-            show_footer=True,
+            row_styles=["dim"],
         )
         paginated_table.render_columns.assert_called_once_with(mock_table)
         paginated_table.render_rows.assert_called_once_with(mock_table, renderables)
         mock_table.add_row.assert_not_called()
-        self.assertEqual(mock_text, mock_column.footer)
 
     @patch("kaskade.renderables.paginated_table.Table")
     def test_rich_not_columns(self, mock_class_table):
@@ -223,22 +222,3 @@ class TestPaginatedTable(TestCase):
         actual = paginated_table.__rich__()
 
         self.assertEqual("Rows greater than [yellow bold]2[/]", actual)
-
-    @patch("kaskade.renderables.paginated_table.Table")
-    def test_rich_complete_rows(self, mock_class_table):
-        total_items = faker.pyint(min_value=10)
-        page_size = 3
-        page = 2
-        paginated_table = PaginatedTableDummy(
-            total_items, page_size=page_size, page=page
-        )
-
-        mock_table = MagicMock()
-        mock_class_table.return_value = mock_table
-        mock_column = MagicMock()
-        mock_table.columns = [mock_column]
-        mock_table.rows = ["", ""]
-
-        paginated_table.__rich__()
-
-        mock_table.add_row.assert_called_once()

@@ -8,7 +8,7 @@ from textual.widget import Widget
 
 from kaskade.config import Config
 from kaskade.kafka.cluster import ClusterService
-from kaskade.kafka.topic import TopicService
+from kaskade.kafka.topic import Topic, TopicService
 from kaskade.utils.circular_list import CircularList
 from kaskade.widgets.footer import Footer
 from kaskade.widgets.header import Header
@@ -18,6 +18,8 @@ from kaskade.widgets.topic_list import TopicList
 
 
 class Tui(App):
+    __topic: Optional[Topic] = None
+
     def __init__(
         self,
         config: Config,
@@ -41,23 +43,22 @@ class Tui(App):
 
         self.cluster = self.cluster_service.cluster()
         self.topics = self.topic_service.topics()
-        self.topic = None
 
         self.footer = Footer()
         self.header = Header()
 
         self.topic_list = TopicList()
         self.topic_detail = TopicDetail()
-        self.topic_info = TopicHeader()
+        self.topic_header = TopicHeader()
         self.focusables = CircularList(
-            [self.topic_list, self.topic_info, self.topic_detail]
+            [self.topic_list, self.topic_header, self.topic_detail]
         )
 
     async def on_mount(self) -> None:
         await self.view.dock(self.header, edge="top")
         await self.view.dock(self.footer, edge="bottom")
         await self.view.dock(self.topic_list, edge="left", size=40)
-        await self.view.dock(self.topic_info, self.topic_detail, edge="top")
+        await self.view.dock(self.topic_header, self.topic_detail, edge="top")
 
     async def on_load(self) -> None:
         await self.bind("q", "quit")
@@ -72,6 +73,15 @@ class Tui(App):
         self.topic_list.scrollable_list = None
         self.topic_detail.partitions_table = None
         await self.set_focus(None)
+
+    @property
+    def topic(self) -> Optional[Topic]:
+        return self.__topic
+
+    @topic.setter
+    def topic(self, topic: Optional[Topic]) -> None:
+        self.__topic = topic
+        self.topic_detail.partitions_table = None
 
     async def action_change_focus(self, key: Keys) -> None:
         focused: Widget = (
