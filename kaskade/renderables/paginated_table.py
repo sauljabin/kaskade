@@ -131,7 +131,7 @@ class PaginatedTable(ABC):
         missing_rows = self.page_size - len(table.rows)
         padding = Padding(
             Padding(pagination_info, (0, 1, 0, 0), style=Style(bgcolor="grey35")),
-            (missing_rows, 1, 0, 0),
+            (missing_rows, 0, 0, 0),
         )
 
         return Group(table, padding)
