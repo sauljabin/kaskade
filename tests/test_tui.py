@@ -44,8 +44,8 @@ class TestTui(IsolatedAsyncioTestCase):
         calls = [
             call(tui.header, edge="top"),
             call(tui.footer, edge="bottom"),
-            call(tui.sidebar, edge="left", size=40),
-            call(tui.body, edge="right"),
+            call(tui.topic_list, edge="left", size=40),
+            call(tui.topic_info, tui.topic_detail, edge="top"),
         ]
 
         await tui.on_mount()
@@ -65,21 +65,25 @@ class TestTui(IsolatedAsyncioTestCase):
             mock_topic_service_class.return_value.topics.return_value, tui.topics
         )
         self.assertIsNone(tui.topic)
-        self.assertIsNone(tui.sidebar.scrollable_list)
-        self.assertIsNone(tui.body.partitions_table)
+        self.assertIsNone(tui.topic_list.scrollable_list)
+        self.assertIsNone(tui.topic_detail.partitions_table)
         tui.set_focus.assert_called_once_with(None)
         tui.focusables.reset.assert_called_once()
 
     @patch("kaskade.tui.TopicService")
     @patch("kaskade.tui.ClusterService")
-    def test_circular_list(self, mock_cluster_service_class, mock_topic_service_class):
+    def test_focusables_list(
+        self, mock_cluster_service_class, mock_topic_service_class
+    ):
         tui = Tui(config=MagicMock())
 
-        self.assertEqual([tui.sidebar, tui.body], tui.focusables.list)
+        self.assertEqual(
+            [tui.topic_list, tui.topic_info, tui.topic_detail], tui.focusables.list
+        )
 
     @patch("kaskade.tui.TopicService")
     @patch("kaskade.tui.ClusterService")
-    async def test_change_focus(
+    async def test_change_focus_next(
         self, mock_cluster_service_class, mock_topic_service_class
     ):
         tui = Tui(config=MagicMock())
@@ -91,6 +95,18 @@ class TestTui(IsolatedAsyncioTestCase):
 
         await tui.action_change_focus(Keys.Right)
         mock_next_focusable.focus.assert_called_once()
+
+    @patch("kaskade.tui.TopicService")
+    @patch("kaskade.tui.ClusterService")
+    async def test_change_focus_previous(
+        self, mock_cluster_service_class, mock_topic_service_class
+    ):
+        tui = Tui(config=MagicMock())
+
+        mock_next_focusable = AsyncMock()
+        mock_previous_focusable = AsyncMock()
+
+        tui.focusables = CircularList([mock_next_focusable, mock_previous_focusable])
 
         await tui.action_change_focus(Keys.Left)
         mock_previous_focusable.focus.assert_called_once()

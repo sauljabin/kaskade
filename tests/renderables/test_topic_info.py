@@ -9,8 +9,8 @@ class TestTopicInfo(TestCase):
     def test_string(self):
         expected = str(
             {
-                "name": "unknown",
-                "partitions": "0",
+                "name": "",
+                "partitions": "",
             }
         )
         actual = str(TopicInfo())
@@ -23,7 +23,7 @@ class TestTopicInfo(TestCase):
         mock_class_table.return_value = mock_table
 
         name = faker.word()
-        partitions = faker.word()
+        partitions = faker.pyint()
 
         topic_info = TopicInfo(
             name=name,
@@ -43,6 +43,6 @@ class TestTopicInfo(TestCase):
         mock_table.add_row.assert_has_calls(
             [
                 call("name:", name),
-                call("partitions:", partitions.lower()),
+                call("partitions:", str(partitions)),
             ]
         )

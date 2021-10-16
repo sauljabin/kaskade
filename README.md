@@ -168,6 +168,7 @@ kafka:
 - Topic size and count
 - Schema registry support
 - Click over the topic o table row
+- Scroll on topic list and table
 - Incrementing test coverage
 
 # Development

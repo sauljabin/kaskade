@@ -1,6 +1,5 @@
 from typing import Optional, Union
 
-from rich.console import Group
 from rich.panel import Panel
 from textual import events
 from textual.keys import Keys
@@ -9,10 +8,9 @@ from textual.widget import Widget
 
 from kaskade import styles
 from kaskade.renderables.partitions_table import PartitionsTable
-from kaskade.renderables.topic_info import TopicInfo
 
 
-class Body(Widget):
+class TopicDetail(Widget):
     has_focus = Reactive(False)
     partitions_table: Optional[PartitionsTable] = None
 
@@ -24,14 +22,6 @@ class Body(Widget):
 
     def on_blur(self) -> None:
         self.has_focus = False
-
-    def render_header(self) -> Union[TopicInfo, str]:
-        if not self.app.topic:
-            return ""
-
-        name = self.app.topic.name
-        partitions = len(self.app.topic.partitions)
-        return TopicInfo(name=name, partitions=partitions)
 
     def on_key(self, event: events.Key) -> None:
         if not self.partitions_table:
@@ -58,34 +48,20 @@ class Body(Widget):
 
         self.partitions_table = PartitionsTable(
             self.app.topic.partitions,
-            page_size=self.size.height - 10,
+            page_size=self.size.height - 6,
             page=page,
         )
 
         return self.partitions_table
 
-    def render(self) -> Group:
-        header_height = 4
-        border_style = styles.BORDER_FOCUSED if self.has_focus else styles.BORDER
-
-        header_panel = Panel(
-            self.render_header(),
-            title="Topic",
-            border_style=border_style,
-            box=styles.BOX,
-            title_align="left",
-            height=header_height,
-            padding=0,
-        )
-
+    def render(self) -> Panel:
         body_panel = Panel(
             self.render_body(),
             title="Partitions",
-            border_style=border_style,
+            border_style=styles.BORDER_FOCUSED if self.has_focus else styles.BORDER,
             box=styles.BOX,
             title_align="left",
-            height=self.size.height - header_height,
             padding=0,
         )
 
-        return Group(header_panel, body_panel)
+        return body_panel

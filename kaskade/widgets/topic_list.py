@@ -11,7 +11,7 @@ from kaskade import styles
 from kaskade.renderables.scrollable_list import ScrollableList
 
 
-class Sidebar(Widget):
+class TopicList(Widget):
     has_focus: Reactive = Reactive(False)
     scrollable_list: Optional[ScrollableList] = None
 
@@ -47,12 +47,36 @@ class Sidebar(Widget):
         )
 
     def on_key(self, event: events.Key) -> None:
+        if event.key == Keys.Up:
+            self.previous()
+        elif event.key == Keys.Down:
+            self.next()
+
+    def next(self) -> None:
         if self.scrollable_list is None:
             return
 
-        if event.key == Keys.Up:
-            self.scrollable_list.previous()
-        elif event.key == Keys.Down:
-            self.scrollable_list.next()
+        self.scrollable_list.next()
+        self.app.topic = self.scrollable_list.selected
 
+    def previous(self) -> None:
+        if self.scrollable_list is None:
+            return
+
+        self.scrollable_list.previous()
+        self.app.topic = self.scrollable_list.selected
+
+    async def on_mouse_scroll_up(self, event: events.MouseScrollUp) -> None:
+        await self.app.set_focus(self)
+        self.next()
+
+    async def on_mouse_scroll_down(self, event: events.MouseScrollUp) -> None:
+        await self.app.set_focus(self)
+        self.previous()
+
+    async def on_click(self, event: events.Click) -> None:
+        if self.scrollable_list is None:
+            return
+
+        self.scrollable_list.pointer = event.y - 1
         self.app.topic = self.scrollable_list.selected

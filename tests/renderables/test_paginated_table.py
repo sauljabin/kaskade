@@ -180,7 +180,6 @@ class TestPaginatedTable(TestCase):
             title_style="",
             expand=True,
             box=TABLE_BOX,
-            row_styles=["none", "dim"],
             show_edge=False,
             show_footer=True,
         )

@@ -4,12 +4,12 @@ from rich.table import Table
 class TopicInfo:
     def __init__(
         self,
-        name: str = "unknown",
-        partitions: int = 0,
+        name: str = "",
+        partitions: int = -1,
     ) -> None:
         self.topic_info = {
             "name": name,
-            "partitions": str(partitions).lower(),
+            "partitions": str(partitions) if partitions >= 0 else "",
         }
 
     def __str__(self) -> str:
