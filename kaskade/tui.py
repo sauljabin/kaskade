@@ -75,7 +75,10 @@ class Tui(App):
         await self.bind(Keys.Right, "change_focus('{}')".format(Keys.Right))
 
     async def watch_show_help(self, show_help: bool) -> None:
-        self.help.animate("layout_offset_x", 0 if show_help else -30)
+        if show_help:
+            self.help.layout_offset_x = self.view.size.width - 30
+        else:
+            self.help.layout_offset_x = -30
 
     async def action_toggle_help(self) -> None:
         self.show_help = not self.show_help
@@ -102,6 +105,8 @@ class Tui(App):
     def topic(self, topic: Optional[Topic]) -> None:
         self.__topic = topic
         self.topic_detail.partitions_table = None
+        self.topic_detail.refresh()
+        self.topic_header.refresh()
 
     async def action_change_focus(self, key: Keys) -> None:
         focused: Widget = (

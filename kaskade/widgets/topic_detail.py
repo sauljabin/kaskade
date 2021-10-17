@@ -14,9 +14,6 @@ class TopicDetail(Widget):
     has_focus = Reactive(False)
     partitions_table: Optional[PartitionsTable] = None
 
-    def on_mount(self) -> None:
-        self.set_interval(0.1, self.refresh)
-
     def on_focus(self) -> None:
         self.has_focus = True
         self.app.focusables.current = self
@@ -41,6 +38,8 @@ class TopicDetail(Widget):
             self.partitions_table.previous_row()
         elif key == Keys.Down:
             self.partitions_table.next_row()
+
+        self.refresh()
 
     def render_body(self) -> Union[PartitionsTable, str]:
         if not self.app.topic:
@@ -81,6 +80,7 @@ class TopicDetail(Widget):
             return
 
         self.partitions_table.next_row()
+        self.refresh()
 
     async def on_mouse_scroll_down(self, event: events.MouseScrollDown) -> None:
         await self.app.set_focus(self)
@@ -89,9 +89,11 @@ class TopicDetail(Widget):
             return
 
         self.partitions_table.previous_row()
+        self.refresh()
 
     def on_click(self, event: events.Click) -> None:
         if self.partitions_table is None:
             return
 
         self.partitions_table.row = event.y - 2
+        self.refresh()

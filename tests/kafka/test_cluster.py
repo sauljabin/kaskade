@@ -90,7 +90,7 @@ class TestClusterService(TestCase):
 
     @patch("kaskade.kafka.cluster.AdminClient")
     def test_protocol(self, mock_class_client):
-        protocol = faker.word()
+        protocol = faker.word().upper()
         expected_config = {
             "bootstrap.servers": faker.hostname(),
             "security.protocol": protocol,
@@ -104,7 +104,7 @@ class TestClusterService(TestCase):
 
         actual = cluster_service.cluster()
 
-        self.assertEqual(protocol, actual.protocol)
+        self.assertEqual(protocol.lower(), actual.protocol)
 
     @patch("kaskade.kafka.cluster.AdminClient")
     def test_get_brokers_in_order(self, mock_class_client):

@@ -15,9 +15,6 @@ class TopicList(Widget):
     has_focus: Reactive = Reactive(False)
     scrollable_list: Optional[ScrollableList] = None
 
-    def on_mount(self) -> None:
-        self.set_interval(0.1, self.refresh)
-
     def on_focus(self) -> None:
         self.has_focus = True
         self.app.focusables.current = self
@@ -53,6 +50,8 @@ class TopicList(Widget):
         elif event.key == Keys.Down:
             self.next()
 
+        self.refresh()
+
     def next(self) -> None:
         if self.scrollable_list is None:
             return
@@ -70,10 +69,12 @@ class TopicList(Widget):
     async def on_mouse_scroll_up(self, event: events.MouseScrollUp) -> None:
         await self.app.set_focus(self)
         self.next()
+        self.refresh()
 
     async def on_mouse_scroll_down(self, event: events.MouseScrollDown) -> None:
         await self.app.set_focus(self)
         self.previous()
+        self.refresh()
 
     def on_click(self, event: events.Click) -> None:
         if self.scrollable_list is None:
@@ -81,3 +82,4 @@ class TopicList(Widget):
 
         self.scrollable_list.pointer = event.y - 1
         self.app.topic = self.scrollable_list.selected
+        self.refresh()
