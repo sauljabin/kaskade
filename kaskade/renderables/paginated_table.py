@@ -123,9 +123,9 @@ class PaginatedTable(ABC):
         if len(table.rows) > self.page_size:
             return f"Rows greater than [yellow bold]{self.page_size}[/]"
 
-        if self.row > 0 and self.row <= len(table.rows):
+        if 0 < self.row <= len(table.rows):
             table.rows[self.row - 1].style = Style(
-                bold=True, dim=False, bgcolor="plum4"
+                bold=True, dim=False, bgcolor="grey35"
             )
 
         missing_rows = self.page_size - len(table.rows)

@@ -52,7 +52,7 @@ class TestKafkaInfo(TestCase):
         )
 
     @patch("kaskade.renderables.kafka_info.Table")
-    def test_render_kafka_info_in_a_table_and_print_no_if_schames_is_false(
+    def test_render_kafka_info_in_a_table_and_print_no_if_schemas_is_false(
         self, mock_class_table
     ):
         mock_table = MagicMock()

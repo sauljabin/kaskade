@@ -11,13 +11,14 @@ class TopicHeader(Widget):
 
     def on_focus(self) -> None:
         self.has_focus = True
+        self.app.focusables.current = self
 
     def on_blur(self) -> None:
         self.has_focus = False
 
     def on_mount(self) -> None:
         self.layout_size = 4
-        self.set_interval(0.2, self.refresh)
+        self.set_interval(0.1, self.refresh)
 
     def render(self) -> Panel:
         topic_info = TopicInfo()

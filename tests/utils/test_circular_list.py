@@ -46,3 +46,20 @@ class TestCircularList(TestCase):
 
     def test_previous_is_the_last_item_if_pointers_is_in_the_beginning(self):
         self.assertEqual(self.original_list[-1], self.circular_list.previous())
+
+    def test_set_current_that_does_not_exist(self):
+        self.circular_list.current = faker.word()
+        self.assertEqual(-1, self.circular_list.index)
+
+    def test_reset_if_current_is_none(self):
+        self.circular_list.next()
+        self.circular_list.current = None
+        self.assertEqual(-1, self.circular_list.index)
+
+    def test_current_is_none_if_index_is_not_valid(self):
+        self.assertIsNone(self.circular_list.current)
+
+    def test_set_current_item(self):
+        self.circular_list.current = self.original_list[1]
+        self.assertEqual(1, self.circular_list.index)
+        self.assertEqual(self.original_list[1], self.circular_list.current)

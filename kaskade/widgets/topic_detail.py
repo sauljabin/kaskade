@@ -15,10 +15,11 @@ class TopicDetail(Widget):
     partitions_table: Optional[PartitionsTable] = None
 
     def on_mount(self) -> None:
-        self.set_interval(0.2, self.refresh)
+        self.set_interval(0.1, self.refresh)
 
     def on_focus(self) -> None:
         self.has_focus = True
+        self.app.focusables.current = self
 
     def on_blur(self) -> None:
         self.has_focus = False

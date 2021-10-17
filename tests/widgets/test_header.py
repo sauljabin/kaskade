@@ -5,7 +5,7 @@ from rich.columns import Columns
 
 from kaskade.renderables.kafka_info import KafkaInfo
 from kaskade.renderables.kaskade_name import KaskadeName
-from kaskade.renderables.shortcuts import Shortcuts
+from kaskade.renderables.shortcuts_header import ShortcutsHeader
 from kaskade.widgets.header import Header
 from tests import faker
 
@@ -30,7 +30,7 @@ class TestHeader(TestCase):
         self.assertIsInstance(actual, Columns)
         self.assertIsInstance(actual.renderables[0], KaskadeName)
         self.assertIsInstance(actual.renderables[1], KafkaInfo)
-        self.assertIsInstance(actual.renderables[2], Shortcuts)
+        self.assertIsInstance(actual.renderables[2], ShortcutsHeader)
 
     @patch("kaskade.widgets.header.KafkaInfo")
     @patch("kaskade.widgets.header.Header.app", new_callable=PropertyMock)

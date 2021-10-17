@@ -24,6 +24,8 @@ class TestTui(IsolatedAsyncioTestCase):
 
         calls = [
             call("q", "quit"),
+            call("?", "toggle_help"),
+            call(Keys.Escape, "default_view"),
             call(Keys.F5, "reload_content"),
             call(Keys.Left, "change_focus('{}')".format(Keys.Left)),
             call(Keys.Right, "change_focus('{}')".format(Keys.Right)),

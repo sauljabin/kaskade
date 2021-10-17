@@ -3,7 +3,7 @@ from textual.widget import Widget
 
 from kaskade.renderables.kafka_info import KafkaInfo
 from kaskade.renderables.kaskade_name import KaskadeName
-from kaskade.renderables.shortcuts import Shortcuts
+from kaskade.renderables.shortcuts_header import ShortcutsHeader
 
 
 class Header(Widget):
@@ -27,5 +27,5 @@ class Header(Widget):
             has_schemas=self.has_schemas,
             protocol=self.protocol,
         )
-        shortcuts = Shortcuts()
+        shortcuts = ShortcutsHeader()
         return Columns([kaskade_name, kafka_info, shortcuts], padding=3)
