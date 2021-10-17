@@ -34,7 +34,8 @@ def main(rule):
 
     console = Console()
     confirmation = console.input(
-        f"Release a new version [bold magenta]{version}[/] ([bold green]yes[/]/[bold red]no[/])? "
+        f"Release a new [purple bold]{rule}[/] version [bold purple]{version}[/] "
+        f"([bold green]yes[/]/[bold red]no[/])? "
     )
 
     if confirmation != "yes":
