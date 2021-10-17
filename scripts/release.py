@@ -1,5 +1,6 @@
 import click
 import toml
+from rich.console import Console
 
 from scripts import CommandProcessor
 
@@ -20,10 +21,6 @@ def main(rule):
 
     More info at https://python-poetry.org/docs/cli/#version and https://semver.org/.
     """
-    # agregar todos los cambios
-    # agregar tag de la version actual
-    # push tag
-
     validations_commands = {
         "checking if there are pending changes :checkered_flag:": "git diff --exit-code",
         "checking if there are pending changes in stage": "git diff --staged --exit-code",
@@ -34,6 +31,19 @@ def main(rule):
     command_processor.run()
 
     version = get_current_version()
+
+    console = Console()
+    confirmation = console.input(
+        f"Release a new version [bold magenta]{version}[/] ([bold green]yes[/]/[bold red]no[/])?"
+    )
+
+    if confirmation != "yes":
+        commands = {
+            "deleting changes": "git checkout .",
+        }
+        command_processor = CommandProcessor(commands)
+        command_processor.run()
+        return
 
     commands = {
         "adding new version": "git add --all",
