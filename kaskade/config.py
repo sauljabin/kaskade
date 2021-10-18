@@ -32,7 +32,13 @@ class Config:
             self.kaskade = self.yaml.get("kaskade")
             self.schema_registry = self.yaml.get("schema-registry")
 
+            handler = logging.FileHandler("kaskade.log")
+            handler.setFormatter(
+                logging.Formatter("%(asctime)-15s %(levelname)-8s %(message)s")
+            )
+
             logger = logging.getLogger()
-            logger.addHandler(logging.FileHandler("kaskade.log"))
+            logger.addHandler(handler)
+            logger.setLevel(logging.DEBUG)
 
             self.kafka["logger"] = logger

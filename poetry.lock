@@ -150,7 +150,7 @@ text-unidecode = "1.3"
 
 [[package]]
 name = "filelock"
-version = "3.3.0"
+version = "3.3.1"
 description = "A platform independent file lock."
 category = "dev"
 optional = false
@@ -514,7 +514,7 @@ python-versions = "*"
 
 [[package]]
 name = "types-pyyaml"
-version = "5.4.11"
+version = "5.4.12"
 description = "Typing stubs for PyYAML"
 category = "dev"
 optional = false
@@ -522,7 +522,7 @@ python-versions = "*"
 
 [[package]]
 name = "types-setuptools"
-version = "57.4.1"
+version = "57.4.2"
 description = "Typing stubs for setuptools"
 category = "dev"
 optional = false
@@ -693,8 +693,8 @@ faker = [
     {file = "Faker-8.16.0.tar.gz", hash = "sha256:d70b375d0af0e4c3abd594003691a1055a96281a414884e623d27bccc7d781da"},
 ]
 filelock = [
-    {file = "filelock-3.3.0-py3-none-any.whl", hash = "sha256:bbc6a0382fe8ec4744ecdf6683a2e07f65eb10ff1aff53fc02a202565446cde0"},
-    {file = "filelock-3.3.0.tar.gz", hash = "sha256:8c7eab13dc442dc249e95158bcc12dec724465919bdc9831fdbf0660f03d1785"},
+    {file = "filelock-3.3.1-py3-none-any.whl", hash = "sha256:2b5eb3589e7fdda14599e7eb1a50e09b4cc14f34ed98b8ba56d33bfaafcbef2f"},
+    {file = "filelock-3.3.1.tar.gz", hash = "sha256:34a9f35f95c441e7b38209775d6e0337f9a3759f3565f6c5798f19618527c76f"},
 ]
 flake8 = [
     {file = "flake8-3.9.2-py2.py3-none-any.whl", hash = "sha256:bf8fd333346d844f616e8d47905ef3a3384edae6b4e9beb0c5101e25e3110907"},
@@ -919,12 +919,12 @@ types-attrs = [
     {file = "types_attrs-19.1.0-py2.py3-none-any.whl", hash = "sha256:d11acf7a2531a7c52a740c30fa3eb8d01d3066c10d34c01ff5e59502caac5352"},
 ]
 types-pyyaml = [
-    {file = "types-PyYAML-5.4.11.tar.gz", hash = "sha256:802566879aa630b3199f33f3523d4ba069d248d04cea1a12cfa35ecd0dd86622"},
-    {file = "types_PyYAML-5.4.11-py3-none-any.whl", hash = "sha256:09b7e488b8057677b7cdf348d2ba5fdcf0952d2f468e86834631db56e5125058"},
+    {file = "types-PyYAML-5.4.12.tar.gz", hash = "sha256:3f4daa754357491625ae8c3a39c9e1b0d7cd5632bc4e1c35e7a7f75a64aa124b"},
+    {file = "types_PyYAML-5.4.12-py3-none-any.whl", hash = "sha256:e06083f85375a5678e4c19452ed6467ce2167b71db222313e1792cb8fc76859a"},
 ]
 types-setuptools = [
-    {file = "types-setuptools-57.4.1.tar.gz", hash = "sha256:ae7bb9a024e69d41256be44042c2727f83ea7919d8775a9087febca8efb11ea5"},
-    {file = "types_setuptools-57.4.1-py3-none-any.whl", hash = "sha256:68c06bc8bb24084240de3625e2333235a16babffdcf53a0a1c8ec16df8571358"},
+    {file = "types-setuptools-57.4.2.tar.gz", hash = "sha256:5499a0f429281d1a3aa9494c79b6599ab356dfe6d393825426bc749e48ea1bf8"},
+    {file = "types_setuptools-57.4.2-py3-none-any.whl", hash = "sha256:9c96aab47fdcf066fef83160b2b9ddbfab3d2c8fdc89053579d0b306837bf22a"},
 ]
 types-toml = [
     {file = "types-toml-0.10.1.tar.gz", hash = "sha256:5c1f8f8d57692397c8f902bf6b4d913a0952235db7db17d2908cc110e70610cb"},

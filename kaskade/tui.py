@@ -95,6 +95,9 @@ class Tui(App):
         self.focusables.reset()
         self.topic_list.scrollable_list = None
         self.topic_detail.partitions_table = None
+        self.topic_list.refresh()
+        self.topic_header.refresh()
+        self.topic_detail.refresh()
         await self.set_focus(None)
 
     @property

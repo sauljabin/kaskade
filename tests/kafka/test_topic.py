@@ -16,8 +16,9 @@ class TestTopic(TestCase):
 
 
 class TestTopicService(TestCase):
+    @patch("kaskade.kafka.topic.GroupService")
     @patch("kaskade.kafka.topic.AdminClient")
-    def test_get_topics_from_client(self, mock_class_client):
+    def test_get_topics_from_client(self, mock_class_client, mock_class_group_service):
         config = MagicMock()
         expected_config = {"bootstrap.servers": faker.hostname()}
         config.kafka = expected_config
@@ -41,8 +42,11 @@ class TestTopicService(TestCase):
 
         self.assertEqual("Config not found", str(context.exception))
 
+    @patch("kaskade.kafka.topic.GroupService")
     @patch("kaskade.kafka.topic.AdminClient")
-    def test_get_topics_as_a_list_of_topics(self, mock_class_client):
+    def test_get_topics_as_a_list_of_topics(
+        self, mock_class_client, mock_class_group_service
+    ):
         topic = TopicMetadata()
         topic.topic = "topic"
         topic.partitions = faker.pydict()
@@ -65,8 +69,9 @@ class TestTopicService(TestCase):
         self.assertEqual(list(topic.partitions.values()), actual[0].partitions)
         self.assertIsInstance(actual[0], Topic)
 
+    @patch("kaskade.kafka.topic.GroupService")
     @patch("kaskade.kafka.topic.AdminClient")
-    def test_get_topics_in_order(self, mock_class_client):
+    def test_get_topics_in_order(self, mock_class_client, mock_class_group_service):
         topic1 = TopicMetadata()
         topic1.topic = "topic1"
         topic2 = TopicMetadata()

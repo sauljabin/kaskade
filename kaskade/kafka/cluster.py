@@ -55,22 +55,14 @@ class ClusterService:
         if brokers:
             config_to_describe = [ConfigResource(RESOURCE_BROKER, str(brokers[0].id))]
             future_config = admin_client.describe_configs(config_to_describe)
+            list_tasks = list(future_config.values())
+            task = list_tasks[0]
+            task_result = task.result(timeout=TIMEOUT)
 
-            tasks = future_config.values()
-
-            if tasks is not None:
-                list_tasks = list(future_config.values())
-
-                if len(list_tasks) > 0:
-                    task = list_tasks[0]
-                    task_result = task.result(timeout=TIMEOUT)
-
-                    if task_result:
-                        protocol_version = task_result.get(
-                            "inter.broker.protocol.version"
-                        )
-                        if protocol_version:
-                            version = protocol_version.value.split("-")[0]
+            if task_result:
+                protocol_version = task_result.get("inter.broker.protocol.version")
+                if protocol_version:
+                    version = protocol_version.value.split("-")[0]
 
         return Cluster(
             brokers=brokers, protocol=protocol, version=version, has_schemas=has_schemas

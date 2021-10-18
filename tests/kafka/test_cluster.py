@@ -129,6 +129,14 @@ class TestClusterService(TestCase):
         config.kafka = expected_config
         cluster_service = ClusterService(config)
 
+        config_entry = ConfigEntry("inter.broker.protocol.version", "")
+        mock_task = MagicMock()
+        mock_task.result = MagicMock(
+            return_value={"inter.broker.protocol.version": config_entry}
+        )
+
+        mock_client.describe_configs.return_value = {1: mock_task}
+
         actual = cluster_service.cluster().brokers
 
         self.assertEqual(actual[0], broker1)
@@ -197,6 +205,31 @@ class TestClusterService(TestCase):
 
         mock_task = MagicMock()
         mock_task.result = MagicMock(return_value=faker.pydict())
+
+        mock_client.describe_configs.return_value = {1: mock_task}
+
+        actual = kafka.cluster()
+
+        self.assertEqual("unknown", actual.version)
+
+    @patch("kaskade.kafka.cluster.AdminClient")
+    def test_get_unknown_version_if_result_is_none(self, mock_class_client):
+        mock_client = MagicMock()
+        mock_client.list_topics.return_value.brokers = {1: MagicMock()}
+
+        mock_class_client.return_value = mock_client
+
+        expected_config = {"bootstrap.servers": faker.hostname()}
+
+        config = MagicMock()
+        config.kafka = expected_config
+
+        kafka = ClusterService(config)
+
+        mock_task = MagicMock()
+        mock_task.result.return_value = None
+
+        mock_client.describe_configs.return_value = {1: mock_task}
 
         actual = kafka.cluster()
 

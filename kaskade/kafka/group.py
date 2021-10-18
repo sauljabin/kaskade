@@ -16,13 +16,20 @@ class GroupService:
         groups: List[GroupMetadata] = admin_client.list_groups()
         return groups
 
+    def groups_by_topic(self, topic: str) -> List[GroupMetadata]:
+        all_groups = self.groups()
+        groups = set()
+        for group in all_groups:
+            for member in group.members:
+                if topic.encode() in member.assignment:
+                    groups.add(group)
+                    break
+
+        return list(groups)
+
 
 if __name__ == "__main__":
-
     config = Config("kaskade.yml")
     group_service = GroupService(config)
     groups = group_service.groups()
-    for group in groups:
-        print(group)
-        for member in group.members:
-            print("\t", member.metadata)
+    print(groups)
