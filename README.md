@@ -162,12 +162,11 @@ kafka:
 # To Do
 
 - Consumed messages table
-- Consumer groups table
 - Consumer group lag
 - Interactive search and filters
 - Topic size and count
 - Schema registry support
-- Incrementing test coverage
+- Increment test coverage
 
 # Development
 

@@ -8,8 +8,9 @@ from textual.reactive import Reactive
 from textual.widget import Widget
 
 from kaskade.config import Config
-from kaskade.kafka.cluster import ClusterService
-from kaskade.kafka.topic import Topic, TopicService
+from kaskade.kafka.cluster_service import ClusterService
+from kaskade.kafka.models import Topic
+from kaskade.kafka.topic_service import TopicService
 from kaskade.utils.circular_list import CircularList
 from kaskade.widgets.footer import Footer
 from kaskade.widgets.header import Header

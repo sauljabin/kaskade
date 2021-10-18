@@ -1,5 +1,4 @@
 from operator import attrgetter
-from typing import List
 
 from confluent_kafka.admin import (
     RESOURCE_BROKER,
@@ -10,30 +9,7 @@ from confluent_kafka.admin import (
 
 from kaskade.config import Config
 from kaskade.kafka import TIMEOUT
-
-
-class Cluster:
-    def __init__(
-        self,
-        brokers: List[BrokerMetadata] = [],
-        version: str = "",
-        has_schemas: bool = False,
-        protocol: str = "plain",
-    ) -> None:
-        self.brokers = brokers
-        self.version = version
-        self.has_schemas = has_schemas
-        self.protocol = protocol
-
-    def __str__(self) -> str:
-        return str(
-            {
-                "brokers": [str(broker) for broker in self.brokers],
-                "version": self.version,
-                "has_schemas": self.has_schemas,
-                "protocol": self.protocol,
-            }
-        )
+from kaskade.kafka.models import Broker, Cluster
 
 
 class ClusterService:
@@ -43,6 +19,9 @@ class ClusterService:
         self.config = config
 
     def cluster(self) -> Cluster:
+        def metadata_to_broker(metadata: BrokerMetadata) -> Broker:
+            return Broker(id=metadata.id, host=metadata.host, port=metadata.port)
+
         version = "unknown"
         has_schemas = bool(self.config.schema_registry)
         security_protocol = self.config.kafka.get("security.protocol")
@@ -51,8 +30,9 @@ class ClusterService:
 
         brokers = list(admin_client.list_topics(timeout=TIMEOUT).brokers.values())
         brokers = sorted(brokers, key=attrgetter("id"))
+        brokers = list(map(metadata_to_broker, brokers))
 
-        if brokers:
+        if len(brokers) > 0:
             config_to_describe = [ConfigResource(RESOURCE_BROKER, str(brokers[0].id))]
             future_config = admin_client.describe_configs(config_to_describe)
             list_tasks = list(future_config.values())
@@ -67,10 +47,3 @@ class ClusterService:
         return Cluster(
             brokers=brokers, protocol=protocol, version=version, has_schemas=has_schemas
         )
-
-
-if __name__ == "__main__":
-    config = Config("kaskade.yml")
-    cluster_service = ClusterService(config)
-    cluster = cluster_service.cluster()
-    print(cluster)

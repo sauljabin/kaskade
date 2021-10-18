@@ -1,31 +1,12 @@
 from operator import attrgetter
 from typing import List
 
-from confluent_kafka.admin import (
-    AdminClient,
-    GroupMetadata,
-    PartitionMetadata,
-    TopicMetadata,
-)
+from confluent_kafka.admin import AdminClient, PartitionMetadata, TopicMetadata
 
 from kaskade.config import Config
 from kaskade.kafka import TIMEOUT
-from kaskade.kafka.group import GroupService
-
-
-class Topic:
-    def __init__(
-        self,
-        name: str = "",
-        partitions: List[PartitionMetadata] = [],
-        groups: List[GroupMetadata] = [],
-    ) -> None:
-        self.name = name
-        self.partitions = partitions
-        self.groups = groups
-
-    def __str__(self) -> str:
-        return self.name
+from kaskade.kafka.group_service import GroupService
+from kaskade.kafka.models import Partition, Topic
 
 
 class TopicService:
@@ -35,6 +16,14 @@ class TopicService:
         self.config = config
 
     def topics(self) -> List[Topic]:
+        def metadata_to_partition(metadata: PartitionMetadata) -> Partition:
+            return Partition(
+                id=metadata.id,
+                leader=metadata.leader,
+                replicas=metadata.replicas,
+                isrs=metadata.isrs,
+            )
+
         def metadata_to_topic(metadata: TopicMetadata) -> Topic:
             name = metadata.topic
             partitions = list(metadata.partitions.values())
@@ -42,17 +31,13 @@ class TopicService:
             group_service = GroupService(self.config)
             groups = group_service.groups_by_topic(name)
 
-            return Topic(name=name, partitions=partitions, groups=groups)
+            return Topic(
+                name=name,
+                partitions=list(map(metadata_to_partition, partitions)),
+                groups=groups,
+            )
 
         admin_client = AdminClient(self.config.kafka)
         raw_topics = list(admin_client.list_topics(timeout=TIMEOUT).topics.values())
         topics = list(map(metadata_to_topic, raw_topics))
         return sorted(topics, key=attrgetter("name"))
-
-
-if __name__ == "__main__":
-    config = Config("kaskade.yml")
-    topic_service = TopicService(config)
-    topics = topic_service.topics()
-    print([str(topic) for topic in topics])
-    print([str(topic.groups) for topic in topics])

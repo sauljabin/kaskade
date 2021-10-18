@@ -1,9 +1,10 @@
 from unittest import TestCase
 from unittest.mock import MagicMock, patch
 
-from confluent_kafka.admin import TopicMetadata
+from confluent_kafka.admin import PartitionMetadata, TopicMetadata
 
-from kaskade.kafka.topic import Topic, TopicService
+from kaskade.kafka.models import Topic
+from kaskade.kafka.topic_service import TopicService
 from tests import faker
 
 
@@ -16,8 +17,8 @@ class TestTopic(TestCase):
 
 
 class TestTopicService(TestCase):
-    @patch("kaskade.kafka.topic.GroupService")
-    @patch("kaskade.kafka.topic.AdminClient")
+    @patch("kaskade.kafka.topic_service.GroupService")
+    @patch("kaskade.kafka.topic_service.AdminClient")
     def test_get_topics_from_client(self, mock_class_client, mock_class_group_service):
         config = MagicMock()
         expected_config = {"bootstrap.servers": faker.hostname()}
@@ -42,14 +43,16 @@ class TestTopicService(TestCase):
 
         self.assertEqual("Config not found", str(context.exception))
 
-    @patch("kaskade.kafka.topic.GroupService")
-    @patch("kaskade.kafka.topic.AdminClient")
+    @patch("kaskade.kafka.topic_service.GroupService")
+    @patch("kaskade.kafka.topic_service.AdminClient")
     def test_get_topics_as_a_list_of_topics(
         self, mock_class_client, mock_class_group_service
     ):
         topic = TopicMetadata()
         topic.topic = "topic"
-        topic.partitions = faker.pydict()
+        partition_metadata = PartitionMetadata()
+        partition_metadata.id = faker.pyint()
+        topic.partitions = {1: partition_metadata}
 
         mock_client = MagicMock()
         mock_client.list_topics.return_value.topics = {topic.topic: topic}
@@ -66,11 +69,11 @@ class TestTopicService(TestCase):
 
         mock_class_client.assert_called_once_with(expected_config)
         self.assertIsInstance(actual, list)
-        self.assertEqual(list(topic.partitions.values()), actual[0].partitions)
+        self.assertEqual(partition_metadata.id, actual[0].partitions[0].id)
         self.assertIsInstance(actual[0], Topic)
 
-    @patch("kaskade.kafka.topic.GroupService")
-    @patch("kaskade.kafka.topic.AdminClient")
+    @patch("kaskade.kafka.topic_service.GroupService")
+    @patch("kaskade.kafka.topic_service.AdminClient")
     def test_get_topics_in_order(self, mock_class_client, mock_class_group_service):
         topic1 = TopicMetadata()
         topic1.topic = "topic1"

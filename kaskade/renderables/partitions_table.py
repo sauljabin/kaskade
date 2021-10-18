@@ -1,15 +1,15 @@
 from typing import List
 
-from confluent_kafka.admin import PartitionMetadata
 from rich.table import Table
 
+from kaskade.kafka.models import Partition
 from kaskade.renderables.paginated_table import PaginatedTable
 
 
 class PartitionsTable(PaginatedTable):
     def __init__(
         self,
-        partitions: List[PartitionMetadata],
+        partitions: List[Partition],
         page_size: int = -1,
         page: int = 1,
         row: int = 0,
@@ -17,10 +17,10 @@ class PartitionsTable(PaginatedTable):
         self.partitions = partitions
         super().__init__(len(partitions), page_size=page_size, page=page, row=row)
 
-    def renderables(self, start_index: int, end_index: int) -> List[PartitionMetadata]:
+    def renderables(self, start_index: int, end_index: int) -> List[Partition]:
         return self.partitions[start_index:end_index]
 
-    def render_rows(self, table: Table, renderables: List[PartitionMetadata]) -> None:
+    def render_rows(self, table: Table, renderables: List[Partition]) -> None:
         for partition in renderables:
             table.add_row(
                 str(partition.id),
