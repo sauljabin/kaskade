@@ -151,6 +151,10 @@ kafka:
 <img alt="kaskade" src="https://raw.githubusercontent.com/sauljabin/kaskade/main/screenshots/dashboard.png">
 </p>
 
+<p align="center">
+<img alt="kaskade" src="https://raw.githubusercontent.com/sauljabin/kaskade/main/screenshots/help.png">
+</p>
+
 # Alternatives
 
 - cli [kcat](https://github.com/edenhill/kcat)
