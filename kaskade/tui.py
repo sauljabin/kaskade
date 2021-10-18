@@ -68,6 +68,7 @@ class Tui(App):
 
     async def on_load(self) -> None:
         await self.bind("q", "quit")
+        await self.bind("Q", "quit")
         await self.bind("?", "toggle_help")
         await self.bind(Keys.Escape, "default_view")
         await self.bind(Keys.F5, "reload_content")
@@ -94,7 +95,7 @@ class Tui(App):
         self.topic = None
         self.focusables.reset()
         self.topic_list.scrollable_list = None
-        self.topic_detail.partitions_table = None
+        self.topic_detail.table = None
         self.topic_list.refresh()
         self.topic_header.refresh()
         self.topic_detail.refresh()
@@ -107,7 +108,8 @@ class Tui(App):
     @topic.setter
     def topic(self, topic: Optional[Topic]) -> None:
         self.__topic = topic
-        self.topic_detail.partitions_table = None
+        self.topic_detail.table = None
+        self.topic_detail.tabs.index = 0
         self.topic_detail.refresh()
         self.topic_header.refresh()
 

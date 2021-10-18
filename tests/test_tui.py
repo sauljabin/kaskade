@@ -24,6 +24,7 @@ class TestTui(IsolatedAsyncioTestCase):
 
         calls = [
             call("q", "quit"),
+            call("Q", "quit"),
             call("?", "toggle_help"),
             call(Keys.Escape, "default_view"),
             call(Keys.F5, "reload_content"),
@@ -68,7 +69,7 @@ class TestTui(IsolatedAsyncioTestCase):
         )
         self.assertIsNone(tui.topic)
         self.assertIsNone(tui.topic_list.scrollable_list)
-        self.assertIsNone(tui.topic_detail.partitions_table)
+        self.assertIsNone(tui.topic_detail.table)
         tui.set_focus.assert_called_once_with(None)
         tui.focusables.reset.assert_called_once()
 

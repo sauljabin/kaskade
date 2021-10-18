@@ -15,13 +15,6 @@ class TopicList(Widget):
     has_focus: Reactive = Reactive(False)
     scrollable_list: Optional[ScrollableList] = None
 
-    def on_focus(self) -> None:
-        self.has_focus = True
-        self.app.focusables.current = self
-
-    def on_blur(self) -> None:
-        self.has_focus = False
-
     def max_renderables_len(self) -> int:
         height: int = self.size.height
         return height - 2
@@ -44,14 +37,6 @@ class TopicList(Widget):
             title_align="left",
         )
 
-    def on_key(self, event: events.Key) -> None:
-        if event.key == Keys.Up:
-            self.previous()
-        elif event.key == Keys.Down:
-            self.next()
-
-        self.refresh()
-
     def next(self) -> None:
         if self.scrollable_list is None:
             return
@@ -66,20 +51,34 @@ class TopicList(Widget):
         self.scrollable_list.previous()
         self.app.topic = self.scrollable_list.selected
 
-    async def on_mouse_scroll_up(self, event: events.MouseScrollUp) -> None:
+    def on_focus(self) -> None:
+        self.has_focus = True
+        self.app.focusables.current = self
+
+    def on_blur(self) -> None:
+        self.has_focus = False
+
+    def on_key(self, event: events.Key) -> None:
+        if event.key == Keys.Up:
+            self.previous()
+        elif event.key == Keys.Down:
+            self.next()
+
+        self.refresh()
+
+    async def on_mouse_scroll_up(self) -> None:
         await self.app.set_focus(self)
         self.next()
         self.refresh()
 
-    async def on_mouse_scroll_down(self, event: events.MouseScrollDown) -> None:
+    async def on_mouse_scroll_down(self) -> None:
         await self.app.set_focus(self)
         self.previous()
         self.refresh()
 
     def on_click(self, event: events.Click) -> None:
-        if self.scrollable_list is None:
-            return
+        if self.scrollable_list is not None:
+            self.scrollable_list.pointer = event.y - 1
+            self.app.topic = self.scrollable_list.selected
 
-        self.scrollable_list.pointer = event.y - 1
-        self.app.topic = self.scrollable_list.selected
         self.refresh()

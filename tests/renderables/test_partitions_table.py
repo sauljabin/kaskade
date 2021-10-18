@@ -45,7 +45,6 @@ class TestPartitionsTable(TestCase):
         calls = [
             call(
                 "id",
-                justify="right",
                 style="bright_green",
                 header_style="bright_green bold",
                 ratio=10,

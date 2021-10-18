@@ -14,6 +14,8 @@ class Shortcuts:
         "previous page": "page up",
         "last page": "l",
         "first page": "f",
+        "next tab": "]",
+        "previous tab": "[",
     }
 
     def __str__(self) -> str:

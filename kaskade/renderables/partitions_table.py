@@ -32,7 +32,6 @@ class PartitionsTable(PaginatedTable):
     def render_columns(self, table: Table) -> None:
         table.add_column(
             "id",
-            justify="right",
             style="bright_green",
             header_style="bright_green bold",
             ratio=10,
