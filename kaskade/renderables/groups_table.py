@@ -24,7 +24,7 @@ class GroupsTable(PaginatedTable):
         for group in renderables:
             table.add_row(
                 str(group.id),
-                str(group.state),
+                str(group.state.lower()),
                 str(group.members),
             )
 

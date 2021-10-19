@@ -30,7 +30,7 @@ class TopicHeader(Widget):
 
         panel = Panel(
             topic_info,
-            title="Topic",
+            title="topic",
             border_style=styles.BORDER_FOCUSED if self.has_focus else styles.BORDER,
             box=styles.BOX,
             title_align="left",

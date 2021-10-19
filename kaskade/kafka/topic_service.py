@@ -1,12 +1,12 @@
 from operator import attrgetter
 from typing import List
 
-from confluent_kafka.admin import AdminClient, PartitionMetadata, TopicMetadata
+from confluent_kafka.admin import AdminClient
 
 from kaskade.config import Config
 from kaskade.kafka import TIMEOUT
-from kaskade.kafka.group_service import GroupService
-from kaskade.kafka.models import Partition, Topic
+from kaskade.kafka.mappers import metadata_to_group, metadata_to_topic
+from kaskade.kafka.models import Topic
 
 
 class TopicService:
@@ -16,28 +16,20 @@ class TopicService:
         self.config = config
 
     def topics(self) -> List[Topic]:
-        def metadata_to_partition(metadata: PartitionMetadata) -> Partition:
-            return Partition(
-                id=metadata.id,
-                leader=metadata.leader,
-                replicas=metadata.replicas,
-                isrs=metadata.isrs,
-            )
-
-        def metadata_to_topic(metadata: TopicMetadata) -> Topic:
-            name = metadata.topic
-            partitions = list(metadata.partitions.values())
-
-            group_service = GroupService(self.config)
-            groups = group_service.groups_by_topic(name)
-
-            return Topic(
-                name=name,
-                partitions=list(map(metadata_to_partition, partitions)),
-                groups=groups,
-            )
-
         admin_client = AdminClient(self.config.kafka)
+        all_groups = admin_client.list_groups()
         raw_topics = list(admin_client.list_topics(timeout=TIMEOUT).topics.values())
-        topics = list(map(metadata_to_topic, raw_topics))
+
+        def add_groups(topic: Topic) -> Topic:
+            groups = set()
+            for group in all_groups:
+                for member in group.members:
+                    if topic.name.encode() in member.assignment:
+                        groups.add(group)
+                        break
+
+            topic.groups = list(map(metadata_to_group, groups))
+            return topic
+
+        topics = list(map(add_groups, map(metadata_to_topic, raw_topics)))
         return sorted(topics, key=attrgetter("name"))

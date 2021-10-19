@@ -1,9 +1,10 @@
 from typing import List
 
-from confluent_kafka.admin import AdminClient, BrokerMetadata, GroupMetadata
+from confluent_kafka.admin import AdminClient
 
 from kaskade.config import Config
-from kaskade.kafka.models import Broker, Group
+from kaskade.kafka.mappers import metadata_to_group
+from kaskade.kafka.models import Group
 
 
 class GroupService:
@@ -11,6 +12,11 @@ class GroupService:
         if not config.kafka:
             raise Exception("Config not found")
         self.config = config
+
+    def groups(self) -> List[Group]:
+        admin_client = AdminClient(self.config.kafka)
+        groups = admin_client.list_groups()
+        return list(map(metadata_to_group, groups))
 
     def groups_by_topic(self, topic: str) -> List[Group]:
         admin_client = AdminClient(self.config.kafka)
@@ -22,16 +28,5 @@ class GroupService:
                 if topic.encode() in member.assignment:
                     groups.add(group)
                     break
-
-        def metadata_to_broker(metadata: BrokerMetadata) -> Broker:
-            return Broker(id=metadata.id, host=metadata.host, port=metadata.port)
-
-        def metadata_to_group(metadata: GroupMetadata) -> Group:
-            return Group(
-                id=metadata.id,
-                broker=metadata_to_broker(metadata.broker),
-                state=metadata.state,
-                members=len(metadata.members),
-            )
 
         return list(map(metadata_to_group, groups))

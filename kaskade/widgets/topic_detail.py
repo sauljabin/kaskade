@@ -35,8 +35,8 @@ class TopicDetail(Widget):
         super().__init__(name)
         self.tabs = CircularList(
             [
-                Tab("Partitions", self.render_partitions),
-                Tab("Groups", self.render_groups),
+                Tab("partitions", self.render_partitions),
+                Tab("groups", self.render_groups),
             ]
         )
         self.tabs.index = 0

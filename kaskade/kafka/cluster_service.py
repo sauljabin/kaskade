@@ -1,15 +1,11 @@
 from operator import attrgetter
 
-from confluent_kafka.admin import (
-    RESOURCE_BROKER,
-    AdminClient,
-    BrokerMetadata,
-    ConfigResource,
-)
+from confluent_kafka.admin import RESOURCE_BROKER, AdminClient, ConfigResource
 
 from kaskade.config import Config
 from kaskade.kafka import TIMEOUT
-from kaskade.kafka.models import Broker, Cluster
+from kaskade.kafka.mappers import metadata_to_broker
+from kaskade.kafka.models import Cluster
 
 
 class ClusterService:
@@ -19,9 +15,6 @@ class ClusterService:
         self.config = config
 
     def cluster(self) -> Cluster:
-        def metadata_to_broker(metadata: BrokerMetadata) -> Broker:
-            return Broker(id=metadata.id, host=metadata.host, port=metadata.port)
-
         version = "unknown"
         has_schemas = bool(self.config.schema_registry)
         security_protocol = self.config.kafka.get("security.protocol")
