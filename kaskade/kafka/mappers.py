@@ -32,8 +32,7 @@ def metadata_to_partition(metadata: PartitionMetadata) -> Partition:
 
 def metadata_to_topic(metadata: TopicMetadata) -> Topic:
     name = metadata.topic
-    partitions = list(metadata.partitions.values())
     return Topic(
         name=name,
-        partitions=list(map(metadata_to_partition, partitions)),
+        partitions=list(map(metadata_to_partition, metadata.partitions.values())),
     )
