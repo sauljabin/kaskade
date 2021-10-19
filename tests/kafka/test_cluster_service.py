@@ -5,31 +5,7 @@ import confluent_kafka
 from confluent_kafka.admin import BrokerMetadata, ConfigEntry
 
 from kaskade.kafka.cluster_service import ClusterService
-from kaskade.kafka.models import Cluster
 from tests import faker
-
-
-class TestCluster(TestCase):
-    def test_str(self):
-        brokers = faker.pydict()
-        version = faker.bothify("#.#.#")
-        has_schemas = faker.pybool()
-        protocol = faker.word()
-
-        values = {
-            "brokers": [str(broker) for broker in brokers],
-            "version": version,
-            "has_schemas": has_schemas,
-            "protocol": protocol,
-        }
-
-        expected_str = str(values)
-
-        cluster = Cluster(
-            brokers=brokers, version=version, has_schemas=has_schemas, protocol=protocol
-        )
-
-        self.assertEqual(expected_str, str(cluster))
 
 
 class TestClusterService(TestCase):

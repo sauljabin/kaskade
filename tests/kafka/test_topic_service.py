@@ -8,14 +8,6 @@ from kaskade.kafka.topic_service import TopicService
 from tests import faker
 
 
-class TestTopic(TestCase):
-    def test_str(self):
-        random_name = faker.word()
-        topic = Topic(name=random_name)
-
-        self.assertEqual(random_name, str(topic))
-
-
 class TestTopicService(TestCase):
     @patch("kaskade.kafka.topic_service.GroupService")
     @patch("kaskade.kafka.topic_service.AdminClient")
