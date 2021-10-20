@@ -1,4 +1,6 @@
 import logging
+import os
+import re
 from pathlib import Path
 
 import yaml
@@ -27,6 +29,17 @@ class Config:
 
         with open(self.path, "r") as file:
             self.text = file.read()
+
+            pattern = re.compile(r"\${(.*)}")
+
+            for file_variable in re.findall(pattern, self.text):
+                system_variable = os.environ.get(file_variable)
+                if system_variable is None:
+                    raise Exception(
+                        f"Environment variable ${file_variable} not found in the system"
+                    )
+                self.text = self.text.replace(f"${{{file_variable}}}", system_variable)
+
             self.yaml = yaml.safe_load(self.text)
             self.kafka = self.yaml.get("kafka")
             self.kaskade = self.yaml.get("kaskade")

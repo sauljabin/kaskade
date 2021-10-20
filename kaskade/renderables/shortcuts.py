@@ -5,10 +5,10 @@ from kaskade.unicodes import DOWN, LEFT, RIGHT, UP
 
 class Shortcuts:
     shortcuts = {
+        "navigate": "{} {} {} {}".format(LEFT, RIGHT, UP, DOWN),
         "help": "?",
         "quit": "q",
-        "navigate": "{} {} {} {}".format(LEFT, RIGHT, UP, DOWN),
-        "default view": "esc",
+        "back": "esc",
         "refresh": "f5",
         "next page": "page down",
         "previous page": "page up",

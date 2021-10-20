@@ -7,10 +7,10 @@ from kaskade.unicodes import DOWN, LEFT, RIGHT, UP
 
 class ShortcutsHeader:
     shortcuts = {
+        "navigate": "{} {} {} {}".format(LEFT, RIGHT, UP, DOWN),
         "help": "?",
         "quit": "q",
-        "navigate": "{} {} {} {}".format(LEFT, RIGHT, UP, DOWN),
-        "default view": "esc",
+        "back": "esc",
     }
 
     def __str__(self) -> str:
