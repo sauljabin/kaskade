@@ -145,6 +145,13 @@ kafka:
   ssl.key.password: {{password}}
 ```
 
+Support for env variables:
+
+```yml
+kafka:
+  bootstrap.servers: ${BOOTSTRAP_SERVERS}
+```
+
 # Screenshots
 
 <p align="center">
