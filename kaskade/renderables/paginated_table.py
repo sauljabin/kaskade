@@ -8,8 +8,6 @@ from rich.style import Style
 from rich.table import Table
 from rich.text import Text
 
-from kaskade.styles import TABLE_BOX
-
 
 class PaginatedTable(ABC):
     __page: int = 1
@@ -92,30 +90,28 @@ class PaginatedTable(ABC):
     def __rich__(self) -> Union[Group, str]:
         pagination_info = Text(
             justify="right",
-            style=Style(bgcolor="blue"),
         )
 
-        pagination_info += Text.from_markup(
-            " [blue bold]page [yellow bold]{}[/] of [yellow bold]{}[/][/]".format(
-                self.page, self.total_pages()
-            ),
-            style=Style(bgcolor="grey35"),
-        )
+        if self.total_pages() > 0:
+            pagination_info += Text.from_markup(
+                " [blue]page [yellow]{}[/] of [yellow]{}[/][/]".format(
+                    self.page, self.total_pages()
+                ),
+            )
+        else:
+            pagination_info += Text.from_markup(
+                "[blue] no data[/]",
+            )
 
         table = Table(
             title_style="",
             expand=True,
-            box=TABLE_BOX,
+            box=None,
             show_edge=False,
             row_styles=["dim"],
         )
 
         self.render_columns(table)
-
-        if table.columns:
-            table.columns[-1].footer = pagination_info
-        else:
-            return ""
 
         renderables = self.renderables(self.start_index(), self.end_index()) or []
         self.render_rows(table, renderables)
@@ -130,7 +126,7 @@ class PaginatedTable(ABC):
 
         missing_rows = self.page_size - len(table.rows)
         padding = Padding(
-            Padding(pagination_info, (0, 1, 0, 0), style=Style(bgcolor="grey35")),
+            Padding(pagination_info, (0, 1, 0, 0)),
             (missing_rows, 0, 0, 0),
         )
 

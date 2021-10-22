@@ -22,19 +22,14 @@ class GroupsTable(PaginatedTable):
 
     def render_rows(self, table: Table, renderables: List[Group]) -> None:
         for group in renderables:
+            state = group.state.lower()
             table.add_row(
                 str(group.id),
-                str(group.state.lower()),
+                str(f"[green]{state}[/]" if state == "stable" else f"[red]{state}[/]"),
                 str(group.members),
             )
 
     def render_columns(self, table: Table) -> None:
-        table.add_column(
-            "id", style="bright_green", header_style="bright_green bold", ratio=60
-        )
-        table.add_column(
-            "state", style="bright_red", header_style="bright_red bold", ratio=20
-        )
-        table.add_column(
-            "members", style="bright_blue", header_style="bright_blue bold", ratio=20
-        )
+        table.add_column("id", header_style="bright_magenta bold", ratio=60)
+        table.add_column("state", header_style="bright_magenta bold", ratio=20)
+        table.add_column("members", header_style="bright_magenta bold", ratio=20)

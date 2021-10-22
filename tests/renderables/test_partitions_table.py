@@ -43,27 +43,10 @@ class TestPartitionsTable(TestCase):
         table.render_columns(mock_table)
 
         calls = [
-            call(
-                "id",
-                style="bright_green",
-                header_style="bright_green bold",
-                ratio=10,
-            ),
-            call(
-                "leader", style="bright_red", header_style="bright_red bold", ratio=10
-            ),
-            call(
-                "replicas",
-                style="bright_blue",
-                header_style="bright_blue bold",
-                ratio=40,
-            ),
-            call(
-                "in sync",
-                style="bright_yellow",
-                header_style="bright_yellow bold",
-                ratio=40,
-            ),
+            call("id", header_style="bright_magenta bold", ratio=10),
+            call("leader", header_style="bright_magenta bold", ratio=10),
+            call("replicas", header_style="bright_magenta bold", ratio=40),
+            call("in sync", header_style="bright_magenta bold", ratio=40),
         ]
 
         mock_table.add_column.assert_has_calls(calls)

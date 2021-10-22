@@ -30,12 +30,12 @@ class ScrollableList:
             if self.selected == item:
                 content.append(RIGHT_TRIANGLE, "green bold")
                 content.append(" ")
-                content.append(string_index, "purple bold")
+                content.append(string_index, "bright_magenta bold")
                 content.append(" ")
                 content.append(string_item, "green bold")
             else:
                 content.append("  ")
-                content.append(string_index, "purple")
+                content.append(string_index, "bright_magenta")
                 content.append(" ")
                 content.append(string_item)
             content.append("\n")

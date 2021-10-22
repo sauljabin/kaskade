@@ -37,7 +37,7 @@ class TestTopicInfo(TestCase):
             box=None, expand=False, show_header=False, show_edge=False
         )
         mock_table.add_column.assert_has_calls(
-            [call(style="magenta bold"), call(style="yellow bold")]
+            [call(style="bright_magenta bold"), call(style="yellow bold")]
         )
 
         mock_table.add_row.assert_has_calls(

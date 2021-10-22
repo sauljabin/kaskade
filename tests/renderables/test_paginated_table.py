@@ -6,7 +6,6 @@ from unittest.mock import MagicMock, patch
 from rich.table import Table
 
 from kaskade.renderables.paginated_table import PaginatedTable
-from kaskade.styles import TABLE_BOX
 from tests import faker
 
 
@@ -179,30 +178,13 @@ class TestPaginatedTable(TestCase):
         mock_class_table.assert_called_once_with(
             title_style="",
             expand=True,
-            box=TABLE_BOX,
+            box=None,
             show_edge=False,
             row_styles=["dim"],
         )
         paginated_table.render_columns.assert_called_once_with(mock_table)
         paginated_table.render_rows.assert_called_once_with(mock_table, renderables)
         mock_table.add_row.assert_not_called()
-
-    @patch("kaskade.renderables.paginated_table.Table")
-    def test_rich_not_columns(self, mock_class_table):
-        total_items = faker.pyint(min_value=10)
-        page_size = 2
-        page = 2
-        paginated_table = PaginatedTableDummy(
-            total_items, page_size=page_size, page=page
-        )
-
-        mock_table = MagicMock()
-        mock_class_table.return_value = mock_table
-        mock_table.columns = []
-
-        actual = paginated_table.__rich__()
-
-        self.assertEqual("", actual)
 
     @patch("kaskade.renderables.paginated_table.Table")
     def test_rich_rows_bigger_than_page_size(self, mock_class_table):

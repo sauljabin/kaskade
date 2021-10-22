@@ -32,22 +32,17 @@ class PartitionsTable(PaginatedTable):
     def render_columns(self, table: Table) -> None:
         table.add_column(
             "id",
-            style="bright_green",
-            header_style="bright_green bold",
+            header_style="bright_magenta bold",
             ratio=10,
         )
-        table.add_column(
-            "leader", style="bright_red", header_style="bright_red bold", ratio=10
-        )
+        table.add_column("leader", header_style="bright_magenta bold", ratio=10)
         table.add_column(
             "replicas",
-            style="bright_blue",
-            header_style="bright_blue bold",
+            header_style="bright_magenta bold",
             ratio=40,
         )
         table.add_column(
             "in sync",
-            style="bright_yellow",
-            header_style="bright_yellow bold",
+            header_style="bright_magenta bold",
             ratio=40,
         )
