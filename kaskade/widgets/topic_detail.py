@@ -16,7 +16,7 @@ from kaskade.utils.circular_list import CircularList
 
 CLICK_OFFSET = 2
 
-INTERNAL_HEIGHT_PADDING = 5
+TABLE_BOTTOM_PADDING = 4
 
 TITLE_LEFT_PADDING = 3
 
@@ -51,7 +51,7 @@ class TopicDetail(Widget):
 
         self.table = PartitionsTable(
             self.app.topic.partitions if self.app.topic else [],
-            page_size=self.size.height - INTERNAL_HEIGHT_PADDING,
+            page_size=self.size.height - TABLE_BOTTOM_PADDING,
             page=page,
             row=row,
         )
@@ -66,7 +66,7 @@ class TopicDetail(Widget):
 
         self.table = GroupsTable(
             self.app.topic.groups if self.app.topic else [],
-            page_size=self.size.height - INTERNAL_HEIGHT_PADDING,
+            page_size=self.size.height - TABLE_BOTTOM_PADDING,
             page=page,
             row=row,
         )
