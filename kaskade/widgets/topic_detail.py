@@ -1,6 +1,7 @@
 import re
-from typing import Callable, Optional
+from typing import Callable, Optional, Union
 
+from rich.align import Align
 from rich.panel import Panel
 from rich.text import Text
 from textual import events
@@ -87,8 +88,14 @@ class TopicDetail(Widget):
         if self.tabs.current is not None:
             self.tabs.current.render()
 
+        to_render: Union[Align, PaginatedTable] = (
+            Align.center("Not selected", vertical="middle")
+            if self.app.topic is None or self.table is None
+            else self.table
+        )
+
         body_panel = Panel(
-            self.table if self.table is not None else "",
+            to_render,
             title=self.title(),
             border_style=styles.BORDER_FOCUSED if self.has_focus else styles.BORDER,
             box=styles.BOX,

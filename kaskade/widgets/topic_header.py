@@ -1,9 +1,14 @@
+from typing import Union
+
+from rich.align import Align
 from rich.panel import Panel
 from textual.reactive import Reactive
 from textual.widget import Widget
 
 from kaskade import styles
 from kaskade.renderables.topic_info import TopicInfo
+
+PANEL_SIZE = 5
 
 
 class TopicHeader(Widget):
@@ -17,16 +22,15 @@ class TopicHeader(Widget):
         self.has_focus = False
 
     def on_mount(self) -> None:
-        self.layout_size = 4
+        self.layout_size = PANEL_SIZE
 
     def render(self) -> Panel:
-        topic_info = TopicInfo()
+        topic_info: Union[Align, TopicInfo] = Align.center(
+            "Not selected", vertical="middle"
+        )
 
         if self.app.topic is not None:
-            name = self.app.topic.name
-            partitions = len(self.app.topic.partitions)
-
-            topic_info = TopicInfo(name=name, partitions=partitions)
+            topic_info = TopicInfo(self.app.topic)
 
         panel = Panel(
             topic_info,

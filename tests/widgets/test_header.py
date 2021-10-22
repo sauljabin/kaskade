@@ -3,11 +3,10 @@ from unittest.mock import PropertyMock, patch
 
 from rich.columns import Columns
 
-from kaskade.renderables.kafka_info import KafkaInfo
+from kaskade.renderables.cluster_info import ClusterInfo
 from kaskade.renderables.kaskade_name import KaskadeName
 from kaskade.renderables.shortcuts_header import ShortcutsHeader
 from kaskade.widgets.header import Header
-from tests import faker
 
 
 class TestHeader(TestCase):
@@ -29,31 +28,5 @@ class TestHeader(TestCase):
         self.assertEqual(3, actual.padding)
         self.assertIsInstance(actual, Columns)
         self.assertIsInstance(actual.renderables[0], KaskadeName)
-        self.assertIsInstance(actual.renderables[1], KafkaInfo)
+        self.assertIsInstance(actual.renderables[1], ClusterInfo)
         self.assertIsInstance(actual.renderables[2], ShortcutsHeader)
-
-    @patch("kaskade.widgets.header.KafkaInfo")
-    @patch("kaskade.widgets.header.Header.app", new_callable=PropertyMock)
-    def test_kafka_info_setup(self, mock_app, mock_class_kafka_info):
-        kafka_version = faker.bothify("#.#")
-        mock_app.return_value.cluster.version = kafka_version
-
-        total_brokers = faker.pylist()
-        mock_app.return_value.cluster.brokers = total_brokers
-
-        has_schemas = faker.pybool()
-        mock_app.return_value.cluster.has_schemas = has_schemas
-
-        protocol = faker.word()
-        mock_app.return_value.cluster.protocol = protocol
-        header = Header()
-
-        header.on_mount()
-        header.render()
-
-        mock_class_kafka_info.assert_called_once_with(
-            kafka_version=kafka_version,
-            total_brokers=len(total_brokers),
-            has_schemas=has_schemas,
-            protocol=protocol,
-        )

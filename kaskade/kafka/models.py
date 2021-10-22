@@ -61,6 +61,26 @@ class Topic:
         self.partitions = partitions
         self.groups = groups
 
+    def partitions_count(self) -> int:
+        return len(self.partitions) if self.partitions is not None else 0
+
+    def groups_count(self) -> int:
+        return len(self.groups) if self.groups is not None else 0
+
+    def replicas_count(self) -> int:
+        return (
+            max([len(partition.replicas) for partition in self.partitions], default=0)
+            if self.partitions is not None
+            else 0
+        )
+
+    def isrs_count(self) -> int:
+        return (
+            min([len(partition.isrs) for partition in self.partitions], default=0)
+            if self.partitions is not None
+            else 0
+        )
+
     def __repr__(self) -> str:
         return str(self)
 
@@ -93,3 +113,6 @@ class Cluster:
                 "protocol": self.protocol,
             }
         )
+
+    def brokers_count(self) -> int:
+        return len(self.brokers) if self.brokers is not None else 0

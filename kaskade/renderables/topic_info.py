@@ -1,26 +1,37 @@
+from rich.console import Group
 from rich.table import Table
+
+from kaskade.kafka.models import Topic
 
 
 class TopicInfo:
-    def __init__(
-        self,
-        name: str = "",
-        partitions: int = -1,
-    ) -> None:
-        self.topic_info = {
-            "name": name,
-            "partitions": str(partitions) if partitions >= 0 else "",
-        }
+    def __init__(self, topic: Topic) -> None:
+        self.topic = topic
 
     def __str__(self) -> str:
-        return str(self.topic_info)
+        return str(self.topic)
 
-    def __rich__(self) -> Table:
+    def __rich__(self) -> Group:
         table = Table(box=None, expand=False, show_header=False, show_edge=False)
         table.add_column(style="bright_magenta bold")
         table.add_column(style="yellow bold")
+        table.add_column(style="bright_magenta bold")
+        table.add_column(style="yellow bold")
 
-        for name, value in self.topic_info.items():
-            table.add_row("{}:".format(name), value)
+        table.add_row(
+            "partitions:",
+            str(self.topic.partitions_count()),
+            "groups:",
+            str(self.topic.groups_count()),
+        )
+        table.add_row(
+            "replicas:",
+            str(self.topic.replicas_count()),
+            "in sync:",
+            str(self.topic.isrs_count()),
+        )
 
-        return table
+        return Group(
+            " [bright_magenta bold]name:[/] [yellow bold]{}[/]".format(self.topic.name),
+            table,
+        )

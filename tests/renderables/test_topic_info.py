@@ -1,48 +1,39 @@
 from unittest import TestCase
-from unittest.mock import MagicMock, call, patch
+
+from rich.text import Text
 
 from kaskade.renderables.topic_info import TopicInfo
-from tests import faker
+from tests.kafka import random_topic
 
 
 class TestTopicInfo(TestCase):
     def test_string(self):
-        expected = str(
-            {
-                "name": "",
-                "partitions": "",
-            }
-        )
-        actual = str(TopicInfo())
+        topic = random_topic()
+        expected = str(topic)
+        actual = str(TopicInfo(topic))
 
         self.assertEqual(expected, actual)
 
-    @patch("kaskade.renderables.topic_info.Table")
-    def test_render_kafka_info_in_a_table(self, mock_class_table):
-        mock_table = MagicMock()
-        mock_class_table.return_value = mock_table
-
-        name = faker.word()
-        partitions = faker.pyint()
-
-        topic_info = TopicInfo(
-            name=name,
-            partitions=partitions,
-        )
+    def test_render_kafka_info_in_a_table(self):
+        topic = random_topic()
+        topic_info = TopicInfo(topic)
 
         actual = topic_info.__rich__()
 
-        self.assertEqual(mock_table, actual)
-        mock_class_table.assert_called_with(
-            box=None, expand=False, show_header=False, show_edge=False
-        )
-        mock_table.add_column.assert_has_calls(
-            [call(style="bright_magenta bold"), call(style="yellow bold")]
-        )
+        topic_name = actual.renderables[0]
+        self.assertEqual(" name: " + topic.name, Text.from_markup(topic_name).plain)
 
-        mock_table.add_row.assert_has_calls(
-            [
-                call("name:", name),
-                call("partitions:", str(partitions)),
-            ]
-        )
+        topic_table = actual.renderables[1]
+        cells_label = topic_table.columns[0].cells
+        cells_values = topic_table.columns[1].cells
+        self.assertEqual("partitions:", next(cells_label))
+        self.assertEqual(str(topic.partitions_count()), next(cells_values))
+        self.assertEqual("replicas:", next(cells_label))
+        self.assertEqual(str(topic.replicas_count()), next(cells_values))
+
+        cells_label = topic_table.columns[2].cells
+        cells_values = topic_table.columns[3].cells
+        self.assertEqual("groups:", next(cells_label))
+        self.assertEqual(str(topic.groups_count()), next(cells_values))
+        self.assertEqual("in sync:", next(cells_label))
+        self.assertEqual(str(topic.isrs_count()), next(cells_values))
