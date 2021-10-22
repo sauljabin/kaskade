@@ -15,7 +15,7 @@ from kaskade.renderables.paginated_table import PaginatedTable
 from kaskade.renderables.partitions_table import PartitionsTable
 from kaskade.utils.circular_list import CircularList
 
-CLICK_OFFSET = 2
+CLICK_OFFSET = 1
 
 TABLE_BOTTOM_PADDING = 4
 
