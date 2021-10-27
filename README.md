@@ -173,13 +173,16 @@ kafka:
 # To Do
 
 - Consumed messages table
-- Consumer group lag
 - Interactive search and filters
-- Topic size and count
+- Topic count
 - Schema registry support
 - Increment test coverage
 
 # Development
+
+Python supported versions:
+
+<a href="https://pypi.org/project/kaskade"><img alt="Python Versions" src="https://img.shields.io/pypi/pyversions/kaskade?label="></a>
 
 Installing poetry:
 
@@ -211,12 +214,6 @@ Running unit tests:
 
 ```sh
 poetry run python -m scripts.tests
-```
-
-Running multi-version tests ([versions](https://github.com/sauljabin/kaskade/blob/main/.github/workflows/main.yml#L17)):
-
-```sh
-poetry run python -m scripts.multi-version-tests
 ```
 
 Applying code styles:

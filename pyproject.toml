@@ -35,7 +35,6 @@ typing-extensions = "^3.10.0"
 black = "^21.9b0"
 isort = "^5.9.3"
 bandit = "^1.7.0"
-tox = "^3.24.4"
 unittest = "^0.0"
 Faker = "^8.13.2"
 coverage = {extras = ["toml"], version = "^5.5"}

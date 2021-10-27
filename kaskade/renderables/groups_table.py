@@ -27,12 +27,15 @@ class GroupsTable(PaginatedTable):
             table.add_row(
                 str(group.id),
                 str(f"[green]{state}[/]" if state == "stable" else f"[red]{state}[/]"),
-                str(group.members),
                 str(f"[green]{lag}[/]" if lag == 0 else f"[red]{lag}[/]"),
+                str(group.broker.id),
+                str(group.members),
             )
 
     def render_columns(self, table: Table) -> None:
-        table.add_column("id", header_style="bright_magenta bold", ratio=60)
-        table.add_column("state", header_style="bright_magenta bold", ratio=20)
-        table.add_column("members", header_style="bright_magenta bold", ratio=20)
-        table.add_column("lag", header_style="bright_magenta bold", ratio=20)
+        header_style = "bright_magenta bold"
+        table.add_column("id", header_style=header_style, ratio=40)
+        table.add_column("state", header_style=header_style, ratio=15)
+        table.add_column("lag", header_style=header_style, ratio=15)
+        table.add_column("coordinator", header_style=header_style, ratio=15)
+        table.add_column("members", header_style=header_style, ratio=15)
