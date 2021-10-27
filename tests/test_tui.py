@@ -65,7 +65,7 @@ class TestTui(IsolatedAsyncioTestCase):
         await tui.action_reload_content()
 
         self.assertEqual(
-            mock_topic_service_class.return_value.topics.return_value, tui.topics
+            mock_topic_service_class.return_value.list.return_value, tui.topics
         )
         self.assertIsNone(tui.topic)
         self.assertIsNone(tui.topic_list.scrollable_list)

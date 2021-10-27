@@ -1,3 +1,4 @@
+from confluent_kafka import TopicPartition
 from confluent_kafka.admin import (
     BrokerMetadata,
     GroupMember,
@@ -106,6 +107,12 @@ def random_group_metadata():
         random_group_member_metadata() for _ in range(faker.pyint(max_value=10))
     ]
     return group_metadata
+
+
+def random_topic_partition_metadata():
+    topic_partition = TopicPartition(faker.pystr(), faker.pyint())
+    topic_partition.offset = faker.pyint()
+    return topic_partition
 
 
 def random_partition_metadata():

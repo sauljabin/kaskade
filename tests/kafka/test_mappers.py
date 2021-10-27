@@ -3,6 +3,7 @@ from unittest import TestCase
 from kaskade.kafka.mappers import (
     metadata_to_broker,
     metadata_to_group,
+    metadata_to_group_partition,
     metadata_to_partition,
     metadata_to_topic,
 )
@@ -11,6 +12,7 @@ from tests.kafka import (
     random_group_metadata,
     random_partition_metadata,
     random_topic_metadata,
+    random_topic_partition_metadata,
 )
 
 
@@ -33,6 +35,7 @@ class TestMappers(TestCase):
 
         self.assertEqual(metadata.id, actual.id)
         self.assertEqual(metadata.state, actual.state)
+        self.assertListEqual([], actual.partitions)
         self.assertEqual(len(metadata.members), actual.members)
 
         self.assertEqual(metadata_broker.id, actual_broker.id)
@@ -49,12 +52,25 @@ class TestMappers(TestCase):
         self.assertEqual(metadata.leader, actual.leader)
         self.assertEqual(metadata.replicas, actual.replicas)
 
+    def test_metadata_to_group_partition(self):
+        metadata = random_topic_partition_metadata()
+
+        actual = metadata_to_group_partition(metadata)
+
+        self.assertEqual(metadata.partition, actual.id)
+        self.assertEqual(metadata.topic, actual.topic)
+        self.assertEqual(metadata.offset, actual.offset)
+        self.assertEqual("", actual.group)
+        self.assertEqual(0, actual.high)
+        self.assertEqual(0, actual.low)
+
     def test_metadata_to_topic(self):
         metadata = random_topic_metadata()
 
         actual = metadata_to_topic(metadata)
 
         self.assertEqual(metadata.topic, actual.name)
+        self.assertListEqual([], actual.groups)
 
         partitions = list(metadata.partitions.values())
         for index in range(len(partitions)):

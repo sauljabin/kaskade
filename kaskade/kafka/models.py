@@ -14,20 +14,74 @@ class Broker:
         return "{}:{}/{}".format(self.host, self.port, self.id)
 
 
+class GroupPartition:
+    def __init__(
+        self,
+        id: int = -1,
+        topic: str = "",
+        group: str = "",
+        offset: int = 0,
+        low: int = 0,
+        high: int = 0,
+    ) -> None:
+        self.id = id
+        self.topic = topic
+        self.group = group
+        self.offset = offset
+        self.low = low
+        self.high = high
+
+    def __repr__(self) -> str:
+        return str(self)
+
+    def __str__(self) -> str:
+        return str(
+            {
+                "id": self.id,
+                "group": self.group,
+                "topic": self.topic,
+                "offset": self.offset,
+                "low": self.low,
+                "high": self.high,
+            }
+        )
+
+    def lag_count(self) -> int:
+        if self.high < 0:
+            return 0
+        elif self.offset < 0:
+            return self.high - self.low
+        else:
+            return self.high - self.offset
+
+
 class Group:
     def __init__(
-        self, id: str = "", broker: Broker = Broker(), state: str = "", members: int = 0
+        self,
+        id: str = "",
+        broker: Broker = Broker(),
+        state: str = "",
+        members: int = 0,
+        partitions: List[GroupPartition] = [],
     ) -> None:
         self.broker = broker
         self.id = id
         self.state = state
         self.members = members
+        self.partitions = partitions
 
     def __repr__(self) -> str:
         return str(self)
 
     def __str__(self) -> str:
         return self.id
+
+    def lag_count(self) -> int:
+        return (
+            sum([partition.lag_count() for partition in self.partitions])
+            if self.partitions is not None
+            else 0
+        )
 
 
 class Partition:
@@ -78,6 +132,13 @@ class Topic:
         return (
             min([len(partition.isrs) for partition in self.partitions], default=0)
             if self.partitions is not None
+            else 0
+        )
+
+    def lag_count(self) -> int:
+        return (
+            max([group.lag_count() for group in self.groups], default=0)
+            if self.groups is not None
             else 0
         )
 

@@ -2,6 +2,7 @@ from rich.console import Group
 from rich.table import Table
 
 from kaskade.kafka.models import Topic
+from kaskade.unicodes import APPROXIMATION
 
 
 class TopicInfo:
@@ -17,12 +18,16 @@ class TopicInfo:
         table.add_column(style="yellow bold")
         table.add_column(style="bright_magenta bold")
         table.add_column(style="yellow bold")
+        table.add_column(style="bright_magenta bold")
+        table.add_column(style="yellow bold")
 
         table.add_row(
             "partitions:",
             str(self.topic.partitions_count()),
             "groups:",
             str(self.topic.groups_count()),
+            "lag:",
+            "{}{}".format(APPROXIMATION, self.topic.lag_count()),
         )
         table.add_row(
             "replicas:",

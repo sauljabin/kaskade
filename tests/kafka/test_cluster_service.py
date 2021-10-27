@@ -32,7 +32,7 @@ class TestClusterService(TestCase):
 
         cluster_service = ClusterService(config)
 
-        actual = cluster_service.cluster()
+        actual = cluster_service.current()
 
         self.assertEqual("unknown", actual.version)
         self.assertEqual("plain", actual.protocol)
@@ -47,7 +47,7 @@ class TestClusterService(TestCase):
 
         cluster_service = ClusterService(config)
 
-        actual = cluster_service.cluster()
+        actual = cluster_service.current()
 
         self.assertFalse(actual.has_schemas)
 
@@ -61,7 +61,7 @@ class TestClusterService(TestCase):
 
         cluster_service = ClusterService(config)
 
-        actual = cluster_service.cluster()
+        actual = cluster_service.current()
 
         self.assertTrue(actual.has_schemas)
 
@@ -79,7 +79,7 @@ class TestClusterService(TestCase):
 
         cluster_service = ClusterService(config)
 
-        actual = cluster_service.cluster()
+        actual = cluster_service.current()
 
         self.assertEqual(protocol.lower(), actual.protocol)
 
@@ -114,7 +114,7 @@ class TestClusterService(TestCase):
 
         mock_client.describe_configs.return_value = {1: mock_task}
 
-        actual = cluster_service.cluster().brokers
+        actual = cluster_service.current().brokers
 
         self.assertEqual(actual[0].id, broker1.id)
         self.assertEqual(actual[1].id, broker2.id)
@@ -158,7 +158,7 @@ class TestClusterService(TestCase):
 
         mock_client.describe_configs.return_value = {1: mock_task}
 
-        actual = kafka.cluster()
+        actual = kafka.current()
 
         mock_class_client.assert_called_once_with(expected_config)
         mock_class_config_resource.assert_called_once_with(
@@ -185,7 +185,7 @@ class TestClusterService(TestCase):
 
         mock_client.describe_configs.return_value = {1: mock_task}
 
-        actual = kafka.cluster()
+        actual = kafka.current()
 
         self.assertEqual("unknown", actual.version)
 
@@ -208,6 +208,6 @@ class TestClusterService(TestCase):
 
         mock_client.describe_configs.return_value = {1: mock_task}
 
-        actual = kafka.cluster()
+        actual = kafka.current()
 
         self.assertEqual("unknown", actual.version)

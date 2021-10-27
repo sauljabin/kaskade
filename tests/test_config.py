@@ -79,7 +79,6 @@ class TestConfig(TestCase):
         config = Config(random_file)
         self.assertEqual(random_bootstrap_server, config.kafka["bootstrap.servers"])
         self.assertEqual(expected_text, config.text)
-        print(config.text)
 
     @patch("kaskade.config.Path")
     @patch("builtins.open", new_callable=mock_open, read_data=kaskade_yaml_env_variable)
@@ -89,7 +88,6 @@ class TestConfig(TestCase):
         random_file = faker.file_path(extension="yml")
         mock_class_path.return_value.exists = MagicMock(return_value=True)
         os.environ.clear()
-        print(os.environ)
         with self.assertRaises(Exception) as test_context:
             Config(random_file)
 

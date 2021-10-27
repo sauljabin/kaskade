@@ -45,8 +45,8 @@ class Tui(App):
         self.topic_service = TopicService(self.config)
         self.cluster_service = ClusterService(self.config)
 
-        self.cluster = self.cluster_service.cluster()
-        self.topics = self.topic_service.topics()
+        self.cluster = self.cluster_service.current()
+        self.topics = self.topic_service.list()
 
         self.footer = Footer()
         self.header = Header()
@@ -92,7 +92,7 @@ class Tui(App):
         self.show_help = False
 
     async def action_reload_content(self) -> None:
-        self.topics = self.topic_service.topics()
+        self.topics = self.topic_service.list()
         self.topic = None
         self.focusables.reset()
         self.topic_list.scrollable_list = None

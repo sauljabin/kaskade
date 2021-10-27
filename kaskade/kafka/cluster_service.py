@@ -14,7 +14,7 @@ class ClusterService:
             raise Exception("Config not found")
         self.config = config
 
-    def cluster(self) -> Cluster:
+    def current(self) -> Cluster:
         version = "unknown"
         has_schemas = bool(self.config.schema_registry)
         security_protocol = self.config.kafka.get("security.protocol")
@@ -40,3 +40,9 @@ class ClusterService:
         return Cluster(
             brokers=brokers, protocol=protocol, version=version, has_schemas=has_schemas
         )
+
+
+if __name__ == "__main__":
+    config = Config("../../kaskade.yml")
+    cluster_service = ClusterService(config)
+    print(cluster_service.current())

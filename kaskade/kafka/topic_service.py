@@ -1,11 +1,12 @@
 from operator import attrgetter
-from typing import List
+from typing import List, Optional
 
 from confluent_kafka.admin import AdminClient
 
 from kaskade.config import Config
 from kaskade.kafka import TIMEOUT
-from kaskade.kafka.mappers import metadata_to_group, metadata_to_topic
+from kaskade.kafka.group_service import GroupService
+from kaskade.kafka.mappers import metadata_to_topic
 from kaskade.kafka.models import Topic
 
 
@@ -15,21 +16,30 @@ class TopicService:
             raise Exception("Config not found")
         self.config = config
 
-    def topics(self) -> List[Topic]:
+    def list(self) -> List[Topic]:
         admin_client = AdminClient(self.config.kafka)
-        all_groups = admin_client.list_groups()
         raw_topics = list(admin_client.list_topics(timeout=TIMEOUT).topics.values())
 
         def add_groups(topic: Topic) -> Topic:
-            groups = set()
-            for group in all_groups:
-                for member in group.members:
-                    if topic.name.encode() in member.assignment:
-                        groups.add(group)
-                        break
-
-            topic.groups = list(map(metadata_to_group, groups))
+            groups_service = GroupService(self.config)
+            topic.groups = groups_service.find_by_topic_name(topic.name)
             return topic
 
         topics = list(map(add_groups, map(metadata_to_topic, raw_topics)))
         return sorted(topics, key=attrgetter("name"))
+
+    def find_by_name(self, name: str) -> Optional[Topic]:
+        topics = self.list()
+
+        for topic in topics:
+            if topic.name == name:
+                return topic
+
+        return None
+
+
+if __name__ == "__main__":
+    config = Config("../../kaskade.yml")
+    topic_service = TopicService(config)
+    print(topic_service.list())
+    print(topic_service.find_by_name("kafka-cluster.test"))

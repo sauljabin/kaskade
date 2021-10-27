@@ -28,30 +28,30 @@ class Config:
             self.path = default_config_file
 
         with open(self.path, "r") as file:
-            self.text = file.read()
+            self.text: str = file.read()
 
-            pattern = re.compile(r"\${(.*)}")
+        pattern = re.compile(r"\${(.*)}")
 
-            for file_variable in re.findall(pattern, self.text):
-                system_variable = os.environ.get(file_variable)
-                if system_variable is None:
-                    raise Exception(
-                        f"Environment variable ${file_variable} not found in the system"
-                    )
-                self.text = self.text.replace(f"${{{file_variable}}}", system_variable)
+        for file_variable in re.findall(pattern, self.text):
+            system_variable = os.environ.get(file_variable)
+            if system_variable is None:
+                raise Exception(
+                    f"Environment variable ${file_variable} not found in the system"
+                )
+            self.text = self.text.replace(f"${{{file_variable}}}", system_variable)
 
-            self.yaml = yaml.safe_load(self.text)
-            self.kafka = self.yaml.get("kafka")
-            self.kaskade = self.yaml.get("kaskade")
-            self.schema_registry = self.yaml.get("schema-registry")
+        self.yaml = yaml.safe_load(self.text)
+        self.kafka = self.yaml.get("kafka")
+        self.kaskade = self.yaml.get("kaskade")
+        self.schema_registry = self.yaml.get("schema-registry")
 
-            handler = logging.FileHandler("kaskade.log")
-            handler.setFormatter(
-                logging.Formatter("%(asctime)-15s %(levelname)-8s %(message)s")
-            )
+        handler = logging.FileHandler("kaskade.log")
+        handler.setFormatter(
+            logging.Formatter("%(asctime)-15s %(levelname)-8s %(message)s")
+        )
 
-            logger = logging.getLogger()
-            logger.addHandler(handler)
-            logger.setLevel(logging.DEBUG)
+        logger = logging.getLogger()
+        logger.addHandler(handler)
+        logger.setLevel(logging.DEBUG)
 
-            self.kafka["logger"] = logger
+        self.kafka["logger"] = logger
