@@ -93,7 +93,7 @@ Using docker (remember to set a `network` and `volume`):
 
 ```sh
 docker run --rm -it --network kafka-sandbox_network \
---volume $(pwd)/config.yml:/kaskade/config.yml \
+--volume $(pwd):/kaskade \
 sauljabin/kaskade:latest
 ```
 
@@ -263,7 +263,7 @@ Run with docker (create a `config.yml` file):
 
 ```sh
 docker run --rm -it --network kafka-sandbox_network \
---volume $(pwd)/config.yml:/kaskade/config.yml \
+--volume $(pwd):/kaskade \
 sauljabin/kaskade:latest
 ```
 
