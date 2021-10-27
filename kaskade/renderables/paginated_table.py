@@ -108,7 +108,6 @@ class PaginatedTable(ABC):
             expand=True,
             box=None,
             show_edge=False,
-            row_styles=["dim"],
         )
 
         self.render_columns(table)

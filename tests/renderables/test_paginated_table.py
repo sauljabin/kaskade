@@ -180,7 +180,6 @@ class TestPaginatedTable(TestCase):
             expand=True,
             box=None,
             show_edge=False,
-            row_styles=["dim"],
         )
         paginated_table.render_columns.assert_called_once_with(mock_table)
         paginated_table.render_rows.assert_called_once_with(mock_table, renderables)

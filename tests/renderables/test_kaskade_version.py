@@ -10,7 +10,7 @@ version = faker.bothify("#.#.#")
 
 
 class TestKaskadeVersion(TestCase):
-    @patch("kaskade.renderables.kaskade_version.VERSION", version)
+    @patch("kaskade.renderables.kaskade_version.APP_VERSION", version)
     def test_version(self):
         expected_value = "kaskade v" + version
 
@@ -18,7 +18,7 @@ class TestKaskadeVersion(TestCase):
 
         self.assertEqual(expected_value, actual)
 
-    @patch("kaskade.renderables.kaskade_version.VERSION", version)
+    @patch("kaskade.renderables.kaskade_version.APP_VERSION", version)
     def test_rich_version(self):
         expected_value = "kaskade v" + version
 
