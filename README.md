@@ -172,10 +172,12 @@ kafka:
 
 # To Do
 
-- Consumed messages table
-- Interactive search and filters
 - Topic count
+- Group members table
+- Group partitions table
+- Messages table
 - Schema registry support
+- Interactive search and filters
 - Increment test coverage
 
 # Development
