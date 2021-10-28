@@ -175,6 +175,7 @@ kafka:
 - Messages table
 - Schema registry support
 - Interactive search and filters
+- Produce messages
 - Increment test coverage
 
 # Development
