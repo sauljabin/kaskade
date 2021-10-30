@@ -169,7 +169,6 @@ kafka:
 
 # To Do
 
-- Topic count
 - Group members table
 - Group partitions table
 - Messages table
