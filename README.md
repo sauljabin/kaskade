@@ -88,7 +88,7 @@ kaskade my-file.yml
 Using docker (remember to set a `network` and `volume`):
 
 ```sh
-docker run --rm -it --network kafka-sandbox_network \
+docker run --rm -it --network kafka \
 --volume $(pwd):/kaskade \
 sauljabin/kaskade:latest
 ```
@@ -96,7 +96,7 @@ sauljabin/kaskade:latest
 Aliases:
 
 ```sh
-alias kaskade='docker run --rm -it --network kafka-sandbox_network \
+alias kaskade='docker run --rm -it --network kafka \
 --volume $(pwd):/kaskade \
 sauljabin/kaskade:latest'
 
@@ -172,8 +172,9 @@ kafka:
 - Group partitions table
 - Messages table
 - Schema registry support
-- Interactive search and filters
+- Interactive search
 - Produce messages
+- Create topic
 - Increment test coverage
 
 # Development
@@ -257,7 +258,7 @@ poetry run python -m scripts.docker-build
 Run with docker (create a `config.yml` file):
 
 ```sh
-docker run --rm -it --network kafka-sandbox_network \
+docker run --rm -it --network kafka \
 --volume $(pwd):/kaskade \
 sauljabin/kaskade:latest
 ```
