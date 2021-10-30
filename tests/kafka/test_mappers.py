@@ -71,12 +71,4 @@ class TestMappers(TestCase):
 
         self.assertEqual(metadata.topic, actual.name)
         self.assertListEqual([], actual.groups)
-
-        partitions = list(metadata.partitions.values())
-        for index in range(len(partitions)):
-            metadata_partition = partitions[index]
-            actual_partition = actual.partitions[index]
-            self.assertEqual(metadata_partition.id, actual_partition.id)
-            self.assertEqual(metadata_partition.isrs, actual_partition.isrs)
-            self.assertEqual(metadata_partition.leader, actual_partition.leader)
-            self.assertEqual(metadata_partition.replicas, actual_partition.replicas)
+        self.assertListEqual([], actual.partitions)

@@ -91,17 +91,24 @@ class Partition:
         leader: int = -1,
         replicas: List[int] = [],
         isrs: List[int] = [],
+        low: int = 0,
+        high: int = 0,
     ) -> None:
         self.id = id
         self.leader = leader
         self.replicas = replicas
         self.isrs = isrs
+        self.low = low
+        self.high = high
 
     def __repr__(self) -> str:
         return str(self)
 
     def __str__(self) -> str:
         return str(self.id)
+
+    def messages_count(self) -> int:
+        return self.high - self.low
 
 
 class Topic:
@@ -139,6 +146,13 @@ class Topic:
         return (
             max([group.lag_count() for group in self.groups], default=0)
             if self.groups is not None
+            else 0
+        )
+
+    def messages_count(self) -> int:
+        return (
+            sum([partition.messages_count() for partition in self.partitions])
+            if self.partitions is not None
             else 0
         )
 

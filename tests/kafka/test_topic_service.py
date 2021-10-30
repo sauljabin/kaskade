@@ -35,11 +35,16 @@ class TestTopicService(TestCase):
 
         self.assertEqual("Config not found", str(context.exception))
 
+    @patch("kaskade.kafka.topic_service.Consumer")
     @patch("kaskade.kafka.topic_service.GroupService")
     @patch("kaskade.kafka.topic_service.AdminClient")
     def test_get_topics_as_a_list_of_topics(
-        self, mock_class_client, mock_class_group_service
+        self, mock_class_client, mock_class_group_service, mock_class_consumer
     ):
+        mock_consumer = MagicMock()
+        mock_class_consumer.return_value = mock_consumer
+        mock_consumer.get_watermark_offsets.return_value = (0, 0)
+
         topic = TopicMetadata()
         topic.topic = "topic"
         partition_metadata = PartitionMetadata()

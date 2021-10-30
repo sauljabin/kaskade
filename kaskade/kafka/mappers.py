@@ -1,4 +1,4 @@
-from confluent_kafka import TopicPartition
+from confluent_kafka import TopicPartition as GroupPartitionMetadata
 from confluent_kafka.admin import (
     BrokerMetadata,
     GroupMetadata,
@@ -23,7 +23,7 @@ def metadata_to_group(metadata: GroupMetadata) -> Group:
     )
 
 
-def metadata_to_group_partition(metadata: TopicPartition) -> GroupPartition:
+def metadata_to_group_partition(metadata: GroupPartitionMetadata) -> GroupPartition:
     return GroupPartition(
         id=metadata.partition,
         topic=metadata.topic,
@@ -40,6 +40,8 @@ def metadata_to_partition(metadata: PartitionMetadata) -> Partition:
         leader=metadata.leader,
         replicas=metadata.replicas,
         isrs=metadata.isrs,
+        high=0,
+        low=0,
     )
 
 
@@ -48,5 +50,5 @@ def metadata_to_topic(metadata: TopicMetadata) -> Topic:
     return Topic(
         name=name,
         groups=[],
-        partitions=list(map(metadata_to_partition, metadata.partitions.values())),
+        partitions=[],
     )

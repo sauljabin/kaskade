@@ -34,6 +34,8 @@ class TopicInfo:
             str(self.topic.replicas_count()),
             "in sync:",
             str(self.topic.isrs_count()),
+            "count:",
+            "{}{}".format(APPROXIMATION, self.topic.messages_count()),
         )
 
         return Group(
