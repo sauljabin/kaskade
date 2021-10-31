@@ -24,8 +24,8 @@ jobs:
           python -m pip install --upgrade pip setuptools wheel
           pip install poetry
           poetry install
-      - name: Run Tests
-        run: poetry run python -m scripts.tests
+#      - name: Run Tests
+#        run: poetry run python -m scripts.tests
       - name: Run Build
         run: poetry build
 #      - name: Publish Package
@@ -38,4 +38,4 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_ACCESS_TOKEN }}
         with:
-          args: build/*
+          args: dist/*
