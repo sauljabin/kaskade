@@ -3,7 +3,7 @@ name: Publish Package
 on:
   push:
     tags:
-      - '*.*.*'
+      - 'v[0-9]+.[0-9]+.[0-9]+'
 
 jobs:
   build:
@@ -24,15 +24,15 @@ jobs:
           python -m pip install --upgrade pip setuptools wheel
           pip install poetry
           poetry install
-#      - name: Run Tests
-#        run: poetry run python -m scripts.tests
+      - name: Run Tests
+        run: poetry run python -m scripts.tests
       - name: Run Build
         run: poetry build
-#      - name: Publish Package
-#        uses: pypa/gh-action-pypi-publish@release/v1
-#        with:
-#          user: __token__
-#          password: ${{ secrets.PYPI_API_TOKEN }}
+      - name: Publish Package
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          user: __token__
+          password: ${{ secrets.PYPI_API_TOKEN }}
       - name: GitHub Release
         uses: docker://antonyurchenko/git-release:latest
         env:

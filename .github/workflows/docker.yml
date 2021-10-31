@@ -3,7 +3,7 @@ name: Publish Docker Image
 on:
   push:
     tags:
-      - '*.*.*'
+      - 'v[0-9]+.[0-9]+.[0-9]+'
 
 jobs:
   build:
@@ -22,6 +22,9 @@ jobs:
       - name: Git Tag
         uses: olegtarasov/get-tag@v2.1
         id: tagName
+        with:
+          tagRegex: 'v(.*)'
+          tagRegexGroup: 1
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v2
         with:
