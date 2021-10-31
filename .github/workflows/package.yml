@@ -35,7 +35,7 @@ jobs:
 #          password: ${{ secrets.PYPI_API_TOKEN }}
       - name: GitHub Release
         uses: docker://antonyurchenko/git-release:latest
-#        env:
-#          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_ACCESS_TOKEN }}
         with:
           args: build/*
