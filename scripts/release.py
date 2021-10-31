@@ -1,3 +1,6 @@
+import datetime
+import sys
+
 import click
 import toml
 from rich.console import Console
@@ -30,9 +33,23 @@ def main(rule):
     command_processor = CommandProcessor(validations_commands)
     command_processor.run()
 
-    version = get_current_version()
+    toml_data = toml.load("pyproject.toml")
+    version = toml_data["tool"]["poetry"]["version"]
 
     console = Console()
+
+    with open("CHANGELOG.md", "r") as file:
+        changelog = file.read()
+
+    date = datetime.date.today()
+    changelog_entry = f"## [{version}] - {date}"
+
+    if changelog_entry not in changelog:
+        console.print(
+            f'\n[bold red]Error:exclamation:[/] changelog entry "[bold yellow]{changelog_entry}[/]" not found'
+        )
+        sys.exit(1)
+
     confirmation = console.input(
         f"Release a new [purple bold]{rule}[/] version [bold purple]{version}[/] "
         f"([bold green]yes[/]/[bold red]no[/])? "
@@ -55,11 +72,6 @@ def main(rule):
     }
     command_processor = CommandProcessor(commands)
     command_processor.run()
-
-
-def get_current_version():
-    toml_data = toml.load("pyproject.toml")
-    return toml_data["tool"]["poetry"]["version"]
 
 
 if __name__ == "__main__":
