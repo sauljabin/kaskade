@@ -1,9 +1,12 @@
-name: Publish Test Coverage
+name: Code Analysis
 
 on:
   push:
     branches:
-      - main
+      - '**'
+  pull_request:
+    branches:
+      - '**'
 
 jobs:
   build:
@@ -15,6 +18,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
+      - name: Docker Linter
+        uses: hadolint/hadolint-action@v1.6.0
+        with:
+          dockerfile: docker/Dockerfile
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v2
         with:
@@ -24,6 +31,8 @@ jobs:
           python -m pip install --upgrade pip setuptools wheel
           pip install poetry
           poetry install
+      - name: Python Code Analysis
+        run: poetry run python -m scripts.analyze
       - name: Run Tests
         run: poetry run python -m scripts.tests-coverage
       - name: Publish Coverage

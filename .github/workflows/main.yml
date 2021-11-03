@@ -3,10 +3,10 @@ name: CI
 on:
   push:
     branches:
-      - main
+      - '**'
   pull_request:
     branches:
-      - main
+      - '**'
 
 jobs:
   build:
@@ -27,7 +27,5 @@ jobs:
           python -m pip install --upgrade pip setuptools wheel
           pip install poetry
           poetry install
-      - name: Run Analysis
-        run: poetry run python -m scripts.analyze
       - name: Run Tests
         run: poetry run python -m scripts.tests
