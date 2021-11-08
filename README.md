@@ -125,7 +125,7 @@ kafka:
   security.protocol: SSL
 ```
 
-> For more information about SSL connection go to [confluent-kafka](https://github.com/confluentinc/confluent-kafka-python#ssl-certificates) and [librdkafka](https://github.com/edenhill/librdkafka/wiki/Using-SSL-with-librdkafka#configure-librdkafka-client).
+> For more information about SSL encryption and SSL authentication go to [confluent-kafka](https://github.com/confluentinc/confluent-kafka-python#ssl-certificates) and [librdkafka](https://github.com/edenhill/librdkafka/wiki/Using-SSL-with-librdkafka#configure-librdkafka-client).
 
 Support for env variables (example `BOOTSTRAP_SERVERS`):
 
