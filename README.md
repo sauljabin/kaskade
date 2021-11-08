@@ -23,12 +23,12 @@
 <a href="https://hub.docker.com/r/sauljabin/kaskade"><img alt="Docker Image Version (latest by date)" src="https://img.shields.io/docker/v/sauljabin/kaskade?label=tag"></a>
 <a href="https://hub.docker.com/r/sauljabin/kaskade"><img alt="Docker Image Size (latest by date)" src="https://img.shields.io/docker/image-size/sauljabin/kaskade"></a>
 
-**kaskade** is a tui (text user interface) for [kafka](https://kafka.apache.org/). 
-:rocket: This project is powered by [textual](https://github.com/willmcgugan/textual) and [rich](https://github.com/willmcgugan/rich)!. 
+**kaskade** is a tui (text user interface) for [kafka](https://kafka.apache.org/).
+:rocket: This project is powered by [textual](https://github.com/willmcgugan/textual) and [rich](https://github.com/willmcgugan/rich)!.
 
 For a local kafka environment go to https://github.com/sauljabin/kafka-docker.
 
-> :construction: This project is currently a work in progress, but usable by early adopters. 
+> :construction: This project is currently a work in progress, but usable by early adopters.
 
 # Table of Contents
 
@@ -108,8 +108,7 @@ alias kskd=kaskade
 # Configuration
 
 A default [yaml](https://yaml.org/spec/1.2/spec.html) configuration file name can be either `kaskade.yml`
-, `kaskade.yaml`, `config.yml` or `config.yaml`. It supports all the configuration
-on [kafka consumer configuration](https://kafka.apache.org/documentation/#consumerconfigs) page.
+, `kaskade.yaml`, `config.yml` or `config.yaml`.
 
 Simple connection example:
 
@@ -124,24 +123,11 @@ SSL encryption example:
 kafka:
   bootstrap.servers: kafka:9092
   security.protocol: SSL
-  ssl.truststore.location: {{path}}/truststore.jks
-  ssl.truststore.password: {{password}}
 ```
 
-SSL auth example:
+> For more information about SSL connection go to [confluent-kafka](https://github.com/confluentinc/confluent-kafka-python#ssl-certificates) and [librdkafka](https://github.com/edenhill/librdkafka/wiki/Using-SSL-with-librdkafka#configure-librdkafka-client).
 
-```yml
-kafka:
-  bootstrap.servers: kafka:9092
-  security.protocol: SSL
-  ssl.truststore.location: {{path}}/truststore.jks
-  ssl.truststore.password: {{password}}
-  ssl.keystore.location: {{path}}/keystore.jks
-  ssl.keystore.password: {{password}}
-  ssl.key.password: {{password}}
-```
-
-Support for env variables:
+Support for env variables (example `BOOTSTRAP_SERVERS`):
 
 ```yml
 kafka:
