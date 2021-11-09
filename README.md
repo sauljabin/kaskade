@@ -114,14 +114,14 @@ Simple connection example:
 
 ```yml
 kafka:
-  bootstrap.servers: localhost:9093
+  bootstrap.servers: localhost:9092
 ```
 
 SSL encryption example:
 
 ```yml
 kafka:
-  bootstrap.servers: kafka:9092
+  bootstrap.servers: localhost:9092
   security.protocol: SSL
 ```
 
