@@ -42,7 +42,9 @@ class TestCli(unittest.TestCase):
         random_message = faker.text()
         cli = Cli(print_version=False, config_file=random_path)
         cli.run_tui = MagicMock(side_effect=Exception(random_message))
-        cli.run()
+        with self.assertRaises(SystemExit) as exit_code:
+            cli.run()
+        self.assertEqual(exit_code.exception.code, 1)
         mock_class_console.return_value.print.assert_called_once_with(
             ":thinking_face: [bold red]A problem has occurred[/]: {}".format(
                 random_message

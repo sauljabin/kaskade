@@ -1,9 +1,10 @@
-import logging
 import os
 import re
 from pathlib import Path
 
 import yaml
+
+from kaskade import logger
 
 
 class Config:
@@ -44,14 +45,4 @@ class Config:
         self.kafka = self.yaml.get("kafka")
         self.kaskade = self.yaml.get("kaskade")
         self.schema_registry = self.yaml.get("schema-registry")
-
-        handler = logging.FileHandler("kaskade.log")
-        handler.setFormatter(
-            logging.Formatter("%(asctime)-15s %(levelname)-8s %(message)s")
-        )
-
-        logger = logging.getLogger()
-        logger.addHandler(handler)
-        logger.setLevel(logging.DEBUG)
-
         self.kafka["logger"] = logger

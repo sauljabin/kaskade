@@ -2,6 +2,7 @@ import sys
 
 from rich.console import Console
 
+from kaskade import logger
 from kaskade.config import Config
 from kaskade.renderables.kaskade_name import KaskadeName
 from kaskade.renderables.kaskade_version import KaskadeVersion
@@ -22,10 +23,10 @@ class Cli:
         except Exception as ex:
             console = Console()
             console.print(
-                ":thinking_face: [bold red]A problem has occurred[/]: {}".format(
-                    str(ex)
-                )
+                ":thinking_face: [bold red]A problem has occurred[/]: {}".format(ex)
             )
+            logger.critical("Error starting the app: %s", ex)
+            sys.exit(1)
 
     def run_tui(self) -> None:
         Tui.run(config=Config(self.config_file))
