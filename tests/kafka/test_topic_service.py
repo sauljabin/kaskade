@@ -9,9 +9,12 @@ from tests import faker
 
 
 class TestTopicService(TestCase):
+    @patch("kaskade.kafka.topic_service.Consumer")
     @patch("kaskade.kafka.topic_service.GroupService")
     @patch("kaskade.kafka.topic_service.AdminClient")
-    def test_get_topics_from_client(self, mock_class_client, mock_class_group_service):
+    def test_get_topics_from_client(
+        self, mock_class_client, mock_class_group_service, mock_class_consumer
+    ):
         config = MagicMock()
         expected_config = {"bootstrap.servers": faker.hostname()}
         config.kafka = expected_config
@@ -69,9 +72,12 @@ class TestTopicService(TestCase):
         self.assertEqual(partition_metadata.id, actual[0].partitions[0].id)
         self.assertIsInstance(actual[0], Topic)
 
+    @patch("kaskade.kafka.topic_service.Consumer")
     @patch("kaskade.kafka.topic_service.GroupService")
     @patch("kaskade.kafka.topic_service.AdminClient")
-    def test_get_topics_in_order(self, mock_class_client, mock_class_group_service):
+    def test_get_topics_in_order(
+        self, mock_class_client, mock_class_group_service, mock_class_consumer
+    ):
         topic1 = TopicMetadata()
         topic1.topic = "topic1"
         topic2 = TopicMetadata()
