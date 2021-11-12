@@ -17,7 +17,7 @@ class Error(Widget):
         text = Text.from_markup("{}".format(self.message))
         return Panel(
             text,
-            title="{} error".format(FIRE),
+            title="{} [bold]error[/]".format(FIRE),
             border_style=styles.BORDER_ERROR,
             box=styles.BOX,
             title_align="left",

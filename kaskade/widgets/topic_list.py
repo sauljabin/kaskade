@@ -34,7 +34,9 @@ class TopicList(Widget):
             to_render = self.scrollable_list
 
         title = Text.from_markup(
-            "topics ([blue]total[/] [yellow]{}[/])".format(len(self.app.topics))
+            "[bold]topics[/] ([blue]total[/] [yellow]{}[/])".format(
+                len(self.app.topics)
+            )
         )
         return Panel(
             to_render,

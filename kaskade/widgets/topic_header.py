@@ -24,7 +24,7 @@ class TopicHeader(Widget):
 
         panel = Panel(
             topic_info,
-            title="topic",
+            title="[bold]topic[/]",
             border_style=styles.BORDER,
             box=styles.BOX,
             title_align="left",
