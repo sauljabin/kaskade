@@ -22,8 +22,6 @@ from kaskade.widgets.topic_detail import TopicDetail
 from kaskade.widgets.topic_header import TopicHeader
 from kaskade.widgets.topic_list import TopicList
 
-ERROR_MESSAGE_DELAY = 10
-
 
 class Tui(App):
     __topic: Optional[Topic] = None

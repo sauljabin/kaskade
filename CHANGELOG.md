@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Improvement on back (esc) command
 - Improvements on refresh
+- New keymap
 
 ### Fixed
 - Error when selecting empty topic list
