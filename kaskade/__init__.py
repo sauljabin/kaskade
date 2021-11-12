@@ -17,7 +17,8 @@ def get_kaskade_home() -> Path:
 __version__ = APP_VERSION = pkg_resources.get_distribution(APP_NAME).version
 APP_HOME = str(get_kaskade_home())
 APP_LOG = str(get_kaskade_home().joinpath(APP_NAME + ".log"))
+APP_UI_LOG = str(get_kaskade_home().joinpath(APP_NAME + "-ui.log"))
 
 logger = logging.getLogger()
 logger.addHandler(logging.FileHandler(APP_LOG))
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)

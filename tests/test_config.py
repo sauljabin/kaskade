@@ -97,6 +97,22 @@ class TestConfig(TestCase):
         )
 
     @patch("kaskade.config.Path")
+    @patch("builtins.open", new_callable=mock_open, read_data="")
+    def test_load_env_environ_raise_an_exception_if_file_is_empty(
+        self, mock_open_file, mock_class_path
+    ):
+        random_file = faker.file_path(extension="yml")
+        mock_class_path.return_value.exists = MagicMock(return_value=True)
+
+        with self.assertRaises(Exception) as test_context:
+            Config(random_file)
+
+        self.assertEqual(
+            str(test_context.exception),
+            "Config file is empty",
+        )
+
+    @patch("kaskade.config.Path")
     def test_raise_exception_if_does_not_find_any_file(self, mock_class_path):
         mock_class_path.return_value.exists = MagicMock(
             side_effect=[False, False, False, False]

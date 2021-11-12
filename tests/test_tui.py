@@ -26,7 +26,7 @@ class TestTui(IsolatedAsyncioTestCase):
             call("q", "quit"),
             call("Q", "quit"),
             call("?", "toggle_help"),
-            call(Keys.Escape, "default_view"),
+            call(Keys.Escape, "back"),
             call(Keys.F5, "reload_content"),
             call(Keys.Left, "change_focus('{}')".format(Keys.Left)),
             call(Keys.Right, "change_focus('{}')".format(Keys.Right)),
@@ -45,10 +45,10 @@ class TestTui(IsolatedAsyncioTestCase):
         tui = Tui(config=MagicMock())
 
         calls = [
-            call(tui.header, edge="top"),
-            call(tui.footer, edge="bottom"),
-            call(tui.topic_list, edge="left", size=40),
-            call(tui.topic_header, tui.topic_detail, edge="top"),
+            call(tui.header_widget, edge="top"),
+            call(tui.footer_widget, edge="bottom"),
+            call(tui.topic_list_widget, edge="left", size=40),
+            call(tui.topic_header_widget, tui.topic_detail_widget, edge="top"),
         ]
 
         await tui.on_mount()
@@ -68,8 +68,8 @@ class TestTui(IsolatedAsyncioTestCase):
             mock_topic_service_class.return_value.list.return_value, tui.topics
         )
         self.assertIsNone(tui.topic)
-        self.assertIsNone(tui.topic_list.scrollable_list)
-        self.assertIsNone(tui.topic_detail.table)
+        self.assertIsNone(tui.topic_list_widget.scrollable_list)
+        self.assertIsNone(tui.topic_detail_widget.table)
         tui.set_focus.assert_called_once_with(None)
         tui.focusables.reset.assert_called_once()
 
@@ -81,7 +81,7 @@ class TestTui(IsolatedAsyncioTestCase):
         tui = Tui(config=MagicMock())
 
         self.assertEqual(
-            [tui.topic_list, tui.topic_header, tui.topic_detail], tui.focusables.list
+            [tui.topic_list_widget, tui.topic_detail_widget], tui.focusables.list
         )
 
     @patch("kaskade.tui.TopicService")

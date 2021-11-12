@@ -1,9 +1,11 @@
 import sys
 
+from confluent_kafka import KafkaException
 from rich.console import Console
 
-from kaskade import logger
+from kaskade import APP_UI_LOG, logger
 from kaskade.config import Config
+from kaskade.emojis import THINKING_FACE
 from kaskade.renderables.kaskade_name import KaskadeName
 from kaskade.renderables.kaskade_version import KaskadeVersion
 from kaskade.tui import Tui
@@ -16,22 +18,32 @@ class Cli:
 
     def run(self) -> None:
         try:
-            if self.print_version:
-                self.option_version()
-                sys.exit(0)
+            self.print_version_option()
             self.run_tui()
         except Exception as ex:
+            message = str(ex)
+
+            if isinstance(ex, KafkaException):
+                message = ex.args[0].str()
+
             console = Console()
             console.print(
-                ":thinking_face: [bold red]A problem has occurred[/]: {}".format(ex)
+                '{} [bold red]A problem has occurred[/] [bold green]"{}"[/]'.format(
+                    THINKING_FACE, message
+                )
             )
-            logger.critical("Error starting the app: %s", ex)
+            logger.critical("Error starting the app: %s", message)
+            logger.exception(ex)
+
             sys.exit(1)
 
-    def run_tui(self) -> None:
-        Tui.run(config=Config(self.config_file))
+    def print_version_option(self) -> None:
+        if self.print_version:
+            console = Console()
+            console.print(KaskadeName())
+            console.print(KaskadeVersion())
+            sys.exit(0)
 
-    def option_version(self) -> None:
-        console = Console()
-        console.print(KaskadeName())
-        console.print(KaskadeVersion())
+    def run_tui(self) -> None:
+        config = Config(self.config_file)
+        Tui.run(config=config, log=APP_UI_LOG if config.kaskade.get("log-ui") else None)

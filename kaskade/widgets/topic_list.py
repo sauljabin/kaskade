@@ -1,5 +1,6 @@
-from typing import Optional
+from typing import Optional, Union
 
+from rich.align import Align
 from rich.panel import Panel
 from rich.text import Text
 from textual import events
@@ -20,17 +21,23 @@ class TopicList(Widget):
         return height - 2
 
     def render(self) -> Panel:
-        self.scrollable_list = ScrollableList(
-            self.app.topics,
-            max_len=self.max_renderables_len(),
-            pointer=self.scrollable_list.pointer if self.scrollable_list else -1,
+        to_render: Union[Align, ScrollableList] = Align.center(
+            "Topics not found", vertical="middle"
         )
+
+        if self.app.topics:
+            self.scrollable_list = ScrollableList(
+                self.app.topics,
+                max_len=self.max_renderables_len(),
+                pointer=self.scrollable_list.pointer if self.scrollable_list else -1,
+            )
+            to_render = self.scrollable_list
 
         title = Text.from_markup(
             "topics ([blue]total[/] [yellow]{}[/])".format(len(self.app.topics))
         )
         return Panel(
-            self.scrollable_list,
+            to_render,
             title=title,
             border_style=styles.BORDER_FOCUSED if self.has_focus else styles.BORDER,
             box=styles.BOX,

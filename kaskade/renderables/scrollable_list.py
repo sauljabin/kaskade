@@ -78,7 +78,8 @@ class ScrollableList:
         else:
             self.__pointer = pointer
 
-        self.selected = self.list[self.__pointer]
+        if self.__pointer < len(self.list):
+            self.selected = self.list[self.__pointer]
 
     def previous(self) -> None:
         self.pointer -= 1

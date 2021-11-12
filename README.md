@@ -24,7 +24,8 @@
 <a href="https://hub.docker.com/r/sauljabin/kaskade"><img alt="Docker Image Size (latest by date)" src="https://img.shields.io/docker/image-size/sauljabin/kaskade"></a>
 
 **kaskade** is a tui (text user interface) for [kafka](https://kafka.apache.org/).
-:rocket: This project is powered by [textual](https://github.com/willmcgugan/textual) and [rich](https://github.com/willmcgugan/rich)!.
+:rocket: This project is powered by [textual](https://github.com/willmcgugan/textual)
+and [rich](https://github.com/willmcgugan/rich)!.
 
 For a local kafka environment go to https://github.com/sauljabin/kafka-docker.
 
@@ -35,6 +36,9 @@ For a local kafka environment go to https://github.com/sauljabin/kafka-docker.
 * [Installation and Usage](#installation-and-usage)
 * [Running with Docker](#running-with-docker)
 * [Configuration](#configuration)
+    * [Kafka](#kafka)
+    * [Kaskade](#kaskade)
+* [Logs](#logs)
 * [Screenshots](#screenshots)
 * [Alternatives](#alternatives)
 * [To Do](#to-do)
@@ -80,7 +84,7 @@ kaskade
 Run with config file:
 
 ```sh
-kaskade my-file.yml
+kaskade my-config.yml
 ```
 
 # Running with Docker
@@ -110,6 +114,10 @@ alias kskd=kaskade
 A default [yaml](https://yaml.org/spec/1.2/spec.html) configuration file name can be either `kaskade.yml`
 , `kaskade.yaml`, `config.yml` or `config.yaml`.
 
+> kaskade home folder `~/.kaskade/`
+
+### Kafka
+
 Simple connection example:
 
 ```yml
@@ -132,6 +140,26 @@ Support for env variables (example `BOOTSTRAP_SERVERS`):
 ```yml
 kafka:
   bootstrap.servers: ${BOOTSTRAP_SERVERS}
+```
+
+### Kaskade
+
+Log UI events (default `false`):
+
+```yml
+kaskade:
+  log-ui: true
+```
+
+> This configuration will produce logs to `~/.kaskade/kaskade-ui.log`
+
+# Logs
+
+**kaskade** does produce logs to a specific location.
+
+```sh
+~/.kaskade/kaskade.log
+~/.kaskade/kaskade-ui.log
 ```
 
 # Screenshots

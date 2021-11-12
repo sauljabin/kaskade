@@ -1,6 +1,7 @@
 import unittest
 from unittest.mock import MagicMock, call, patch
 
+from kaskade import APP_UI_LOG
 from kaskade.cli import Cli
 from tests import faker
 
@@ -28,13 +29,30 @@ class TestCli(unittest.TestCase):
     @patch("kaskade.cli.Config")
     @patch("kaskade.cli.Tui")
     def test_run_tui(self, mock_class_tui, mock_class_config):
+        mock_class_config.return_value.kaskade = {"log-ui": False}
+
         random_path = faker.file_path(extension="yml")
         cli = Cli(print_version=False, config_file=random_path)
         cli.run()
-        mock_class_tui.run.assert_called_once_with(
-            config=mock_class_config.return_value
-        )
         mock_class_config.assert_called_once_with(random_path)
+
+        mock_class_tui.run.assert_called_once_with(
+            config=mock_class_config.return_value, log=None
+        )
+
+    @patch("kaskade.cli.Config")
+    @patch("kaskade.cli.Tui")
+    def test_run_tui_and_log_ui(self, mock_class_tui, mock_class_config):
+        random_path = faker.file_path(extension="yml")
+        cli = Cli(print_version=False, config_file=random_path)
+        cli.run()
+        mock_class_config.assert_called_once_with(random_path)
+
+        mock_class_config.return_value.kaskade = {"log-ui": True}
+
+        mock_class_tui.run.assert_called_once_with(
+            config=mock_class_config.return_value, log=APP_UI_LOG
+        )
 
     @patch("kaskade.cli.Console")
     def test_print_exception(self, mock_class_console):
@@ -46,7 +64,7 @@ class TestCli(unittest.TestCase):
             cli.run()
         self.assertEqual(exit_code.exception.code, 1)
         mock_class_console.return_value.print.assert_called_once_with(
-            ":thinking_face: [bold red]A problem has occurred[/]: {}".format(
+            ':thinking_face: [bold red]A problem has occurred[/] [bold green]"{}"[/]'.format(
                 random_message
             )
         )
