@@ -1,7 +1,6 @@
 import unittest
 from unittest.mock import MagicMock, call, patch
 
-from kaskade import APP_UI_LOG
 from kaskade.cli import Cli
 from tests import faker
 
@@ -15,7 +14,7 @@ class TestCli(unittest.TestCase):
     ):
         mock_console = MagicMock()
         mock_class_console.return_value = mock_console
-        cli = Cli(print_version=True, config_file="")
+        cli = Cli(print_version=True, config_file="", print_information=False)
 
         with self.assertRaises(SystemExit):
             cli.run()
@@ -32,33 +31,19 @@ class TestCli(unittest.TestCase):
         mock_class_config.return_value.kaskade = {"log-ui": False}
 
         random_path = faker.file_path(extension="yml")
-        cli = Cli(print_version=False, config_file=random_path)
+        cli = Cli(print_version=False, config_file=random_path, print_information=False)
         cli.run()
         mock_class_config.assert_called_once_with(random_path)
 
         mock_class_tui.run.assert_called_once_with(
-            config=mock_class_config.return_value, log=None
-        )
-
-    @patch("kaskade.cli.Config")
-    @patch("kaskade.cli.Tui")
-    def test_run_tui_and_log_ui(self, mock_class_tui, mock_class_config):
-        random_path = faker.file_path(extension="yml")
-        cli = Cli(print_version=False, config_file=random_path)
-        cli.run()
-        mock_class_config.assert_called_once_with(random_path)
-
-        mock_class_config.return_value.kaskade = {"log-ui": True}
-
-        mock_class_tui.run.assert_called_once_with(
-            config=mock_class_config.return_value, log=APP_UI_LOG
+            config=mock_class_config.return_value
         )
 
     @patch("kaskade.cli.Console")
     def test_print_exception(self, mock_class_console):
         random_path = faker.file_path(extension="yml")
         random_message = faker.text()
-        cli = Cli(print_version=False, config_file=random_path)
+        cli = Cli(print_version=False, config_file=random_path, print_information=False)
         cli.run_tui = MagicMock(side_effect=Exception(random_message))
         with self.assertRaises(SystemExit) as exit_code:
             cli.run()

@@ -8,7 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Error message panel
 - Home folder
-- Command option info
+- New command option info
+- Enable debug mode
+
+### Changed
+- Improvement on back (esc) command
+- Improvements on refresh
+
+### Fixed
+- Error when selecting empty topic list
 
 ## [0.2.9] - 2021-10-31
 ### Added

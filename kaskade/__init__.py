@@ -17,8 +17,15 @@ def get_kaskade_home() -> Path:
 __version__ = APP_VERSION = pkg_resources.get_distribution(APP_NAME).version
 APP_HOME = str(get_kaskade_home())
 APP_LOG = str(get_kaskade_home().joinpath(APP_NAME + ".log"))
-APP_UI_LOG = str(get_kaskade_home().joinpath(APP_NAME + "-ui.log"))
+
+logger_handler = logging.FileHandler(APP_LOG)
+logger_handler.setFormatter(
+    logging.Formatter("%(asctime)-15s %(levelname)-8s %(message)s")
+)
 
 logger = logging.getLogger()
-logger.addHandler(logging.FileHandler(APP_LOG))
+logger.addHandler(logger_handler)
 logger.setLevel(logging.INFO)
+
+APP_DOC = "https://github.com/sauljabin/kaskade"
+APP_LICENSE = "MIT"

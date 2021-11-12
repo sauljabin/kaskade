@@ -1,4 +1,4 @@
-from typing import Optional, Type
+from typing import Any, Optional, Type
 
 from confluent_kafka import KafkaException
 from rich.console import Console
@@ -36,14 +36,12 @@ class Tui(App):
         console: Optional[Console] = None,
         screen: bool = True,
         driver_class: Optional[Type[Driver]] = None,
-        log: str = "",
         log_verbosity: int = 1,
     ) -> None:
         super().__init__(
             console=console,
             screen=screen,
             driver_class=driver_class,
-            log=log,
             log_verbosity=log_verbosity,
         )
         self.config = config
@@ -66,6 +64,17 @@ class Tui(App):
         self.focusables = CircularList(
             [self.topic_list_widget, self.topic_detail_widget]
         )
+
+    def log(self, *args: Any, verbosity: int = 1, **kwargs: Any) -> None:
+        if verbosity > self.log_verbosity:
+            return
+
+        message = " ".join(str(arg) for arg in args)
+        if kwargs:
+            key_values = " ".join(f"{key}={value}" for key, value in kwargs.items())
+            message = " ".join((message, key_values))
+
+        logger.debug(message)
 
     async def on_mount(self) -> None:
         self.help_widget.visible = False

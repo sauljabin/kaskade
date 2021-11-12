@@ -51,7 +51,7 @@ For a local kafka environment go to https://github.com/sauljabin/kafka-docker.
 
 Install with pip:
 
-```sh
+```shell
 pip install kaskade
 ```
 
@@ -59,31 +59,37 @@ pip install kaskade
 
 Upgrade with pip:
 
-```sh
+```shell
 pip install --upgrade kaskade
 ```
 
 Help:
 
-```sh
+```shell
 kaskade --help
 ```
 
 Version:
 
-```sh
+```shell
 kaskade --version
+```
+
+Information, it shows app information and some config examples:
+
+```shell
+kaskade --info
 ```
 
 Run without config file (it'll take any of `kaskade.yml`, `kaskade.yaml`, `config.yml` or `config.yaml`):
 
-```sh
+```shell
 kaskade
 ```
 
 Run with config file:
 
-```sh
+```shell
 kaskade my-config.yml
 ```
 
@@ -91,7 +97,7 @@ kaskade my-config.yml
 
 Using docker (remember to set a `network` and `volume`):
 
-```sh
+```shell
 docker run --rm -it --network kafka \
 --volume $(pwd):/kaskade \
 sauljabin/kaskade:latest
@@ -99,11 +105,10 @@ sauljabin/kaskade:latest
 
 Aliases:
 
-```sh
+```shell
 alias kaskade='docker run --rm -it --network kafka \
 --volume $(pwd):/kaskade \
 sauljabin/kaskade:latest'
-
 alias kskd=kaskade
 ```
 
@@ -111,23 +116,20 @@ alias kskd=kaskade
 
 # Configuration
 
-A default [yaml](https://yaml.org/spec/1.2/spec.html) configuration file name can be either `kaskade.yml`
-, `kaskade.yaml`, `config.yml` or `config.yaml`.
-
-> kaskade home folder `~/.kaskade/`
+A [yaml](https://yaml.org/spec/1.2/spec.html) configuration file (check [Installation and Usage](#installation-and-usage) section for more information).
 
 ### Kafka
 
 Simple connection example:
 
-```yml
+```yaml
 kafka:
   bootstrap.servers: localhost:9092
 ```
 
 SSL encryption example:
 
-```yml
+```yaml
 kafka:
   bootstrap.servers: localhost:9092
   security.protocol: SSL
@@ -137,30 +139,21 @@ kafka:
 
 Support for env variables (example `BOOTSTRAP_SERVERS`):
 
-```yml
+```yaml
 kafka:
   bootstrap.servers: ${BOOTSTRAP_SERVERS}
 ```
 
 ### Kaskade
 
-Log UI events (default `false`):
+Enable debug mode (default `false`):
 
-```yml
+```yaml
 kaskade:
-  log-ui: true
+  debug: true
 ```
 
-> This configuration will produce logs to `~/.kaskade/kaskade-ui.log`
-
-# Logs
-
-**kaskade** does produce logs to a specific location.
-
-```sh
-~/.kaskade/kaskade.log
-~/.kaskade/kaskade-ui.log
-```
+> It will generate logs into a specific log file, execute `kaskade --info` to get the log path.
 
 # Screenshots
 
@@ -184,7 +177,8 @@ kaskade:
 
 - Group members table
 - Group partitions table
-- Messages table
+- Topic data table
+- Show topic record
 - Schema registry support
 - Interactive search
 - Produce messages
@@ -199,25 +193,25 @@ Python supported versions:
 
 Installing poetry:
 
-```sh
+```shell
 pip install poetry
 ```
 
 Installing development dependencies:
 
-```sh
+```shell
 poetry install
 ```
 
 Installing pre-commit hooks:
 
-```sh
+```shell
 poetry run pre-commit install
 ```
 
 Running kaskade:
 
-```sh
+```shell
 poetry run kaskade
 ```
 
@@ -225,37 +219,37 @@ poetry run kaskade
 
 Running unit tests:
 
-```sh
+```shell
 poetry run python -m scripts.tests
 ```
 
 Applying code styles:
 
-```sh
+```shell
 poetry run python -m scripts.styles
 ```
 
 Running code analysis:
 
-```sh
+```shell
 poetry run python -m scripts.analyze
 ```
 
 Running code coverage:
 
-```sh
+```shell
 poetry run python -m scripts.tests-coverage
 ```
 
 Running pre-commit hooks:
 
-```sh
+```shell
 poetry run python -m scripts.pre-commit
 ```
 
 Generate readme banner:
 
-```sh
+```shell
 poetry run python -m scripts.banner
 ```
 
@@ -263,7 +257,7 @@ poetry run python -m scripts.banner
 
 Build docker:
 
-```sh
+```shell
 poetry run python -m scripts.docker-build
 ```
 
@@ -271,7 +265,7 @@ poetry run python -m scripts.docker-build
 
 Run with docker (create a `config.yml` file):
 
-```sh
+```shell
 docker run --rm -it --network kafka \
 --volume $(pwd):/kaskade \
 sauljabin/kaskade:latest
@@ -281,7 +275,7 @@ sauljabin/kaskade:latest
 
 Help:
 
-```sh
+```shell
 poetry run python -m scripts.release --help
 ```
 
@@ -289,6 +283,6 @@ poetry run python -m scripts.release --help
 
 Upgrade (`major.minor.patch`):
 
-```sh
+```shell
 poetry run python -m scripts.release patch
 ```
