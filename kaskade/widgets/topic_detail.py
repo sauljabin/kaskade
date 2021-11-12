@@ -117,21 +117,21 @@ class TopicDetail(Widget):
             return
 
         key = event.key
-        if key == Keys.PageUp:
+        if key == "[":
             self.table.previous_page()
-        elif key == Keys.PageDown:
+        elif key == "]":
             self.table.next_page()
-        elif key == "f":
+        elif key == "{":
             self.table.first_page()
-        elif key == "l":
+        elif key == "}":
             self.table.last_page()
         elif key == Keys.Up:
             self.table.previous_row()
         elif key == Keys.Down:
             self.table.next_row()
-        elif key == "]":
+        elif key == ">":
             self.next_tab()
-        elif key == "[":
+        elif key == "<":
             self.previous_tab()
 
         self.refresh()

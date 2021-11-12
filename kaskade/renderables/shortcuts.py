@@ -10,12 +10,12 @@ class Shortcuts:
         "quit": "q",
         "back": "esc",
         "refresh": "f5",
-        "next page": "page down",
-        "previous page": "page up",
-        "last page": "l",
-        "first page": "f",
-        "next tab": "]",
-        "previous tab": "[",
+        "next page": "]",
+        "previous page": "[",
+        "last page": "}",
+        "first page": "{",
+        "next tab": ">",
+        "previous tab": "<",
     }
 
     def __str__(self) -> str:
