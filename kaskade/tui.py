@@ -97,16 +97,10 @@ class Tui(App):
 
     async def watch_error(self, error: str) -> None:
         show_error = bool(error)
-        if show_error:
-            self.focusables.reset()
-            await self.set_focus(self.error_widget)
         self.error_widget.message = error
         self.error_widget.visible = show_error
 
     async def watch_show_help(self, show_help: bool) -> None:
-        if show_help:
-            self.focusables.reset()
-            await self.set_focus(self.help_widget)
         self.help_widget.visible = show_help
 
     async def action_toggle_help(self) -> None:
@@ -128,20 +122,26 @@ class Tui(App):
         logger.exception(exception)
 
     async def action_reload_content(self) -> None:
+        selected_topic: Optional[Topic] = None
+
+        if self.topic is not None:
+            selected_topic = self.topic
+
         try:
             self.topics = self.topic_service.list()
         except Exception as ex:
             self.topics = []
             self.handle_exception(ex)
 
-        self.topic = None
-        self.focusables.reset()
-        self.topic_list_widget.scrollable_list = None
-        self.topic_detail_widget.table = None
+        logger.debug("Reloading content finished")
+
         self.topic_list_widget.refresh()
         self.topic_header_widget.refresh()
         self.topic_detail_widget.refresh()
-        await self.set_focus(None)
+
+        if selected_topic is not None and selected_topic not in self.topics:
+            logger.debug("Topic not found when reload content")
+            self.error = f"Selected topic [yellow bold]{selected_topic}[/] not found"
 
     @property
     def topic(self) -> Optional[Topic]:

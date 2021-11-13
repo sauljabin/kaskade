@@ -1,6 +1,6 @@
 import asyncio
 from unittest import IsolatedAsyncioTestCase
-from unittest.mock import AsyncMock, MagicMock, Mock, call, patch
+from unittest.mock import AsyncMock, MagicMock, call, patch
 
 from textual.keys import Keys
 
@@ -54,24 +54,6 @@ class TestTui(IsolatedAsyncioTestCase):
         await tui.on_mount()
 
         mock_view.dock.assert_has_calls(calls)
-
-    @patch("kaskade.tui.TopicService")
-    @patch("kaskade.tui.ClusterService")
-    async def test_reload(self, mock_cluster_service_class, mock_topic_service_class):
-        tui = Tui(config=MagicMock())
-        tui.set_focus = AsyncMock()
-        tui.focusables = Mock()
-
-        await tui.action_reload_content()
-
-        self.assertEqual(
-            mock_topic_service_class.return_value.list.return_value, tui.topics
-        )
-        self.assertIsNone(tui.topic)
-        self.assertIsNone(tui.topic_list_widget.scrollable_list)
-        self.assertIsNone(tui.topic_detail_widget.table)
-        tui.set_focus.assert_called_once_with(None)
-        tui.focusables.reset.assert_called_once()
 
     @patch("kaskade.tui.TopicService")
     @patch("kaskade.tui.ClusterService")

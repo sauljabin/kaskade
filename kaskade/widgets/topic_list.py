@@ -9,19 +9,20 @@ from textual.reactive import Reactive
 from textual.widget import Widget
 
 from kaskade import styles
+from kaskade.kafka.models import Topic
 from kaskade.renderables.scrollable_list import ScrollableList
 
 
 class TopicList(Widget):
     has_focus: Reactive = Reactive(False)
-    scrollable_list: Optional[ScrollableList] = None
+    scrollable_list: Optional[ScrollableList[Topic]] = None
 
     def max_renderables_len(self) -> int:
         height: int = self.size.height
         return height - 2
 
     def render(self) -> Panel:
-        to_render: Union[Align, ScrollableList] = Align.center(
+        to_render: Union[Align, ScrollableList[Topic]] = Align.center(
             "Topics not found", vertical="middle"
         )
 
@@ -29,8 +30,11 @@ class TopicList(Widget):
             self.scrollable_list = ScrollableList(
                 self.app.topics,
                 max_len=self.max_renderables_len(),
-                pointer=self.scrollable_list.pointer if self.scrollable_list else -1,
+                selected=self.scrollable_list.selected
+                if self.scrollable_list
+                else None,
             )
+            self.app.topic = self.scrollable_list.selected
             to_render = self.scrollable_list
 
         title = Text.from_markup(

@@ -1,4 +1,4 @@
-from typing import List
+from typing import Any, List
 
 
 class Broker:
@@ -161,6 +161,11 @@ class Topic:
 
     def __str__(self) -> str:
         return self.name
+
+    def __eq__(self, other: Any) -> bool:
+        if isinstance(other, Topic):
+            return self.name == other.name
+        return False
 
 
 class Cluster:

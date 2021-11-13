@@ -7,9 +7,6 @@ from kaskade.renderables.shortcuts import Shortcuts
 
 
 class Help(Widget):
-    async def on_blur(self) -> None:
-        self.app.show_help = False
-
     def render(self) -> Panel:
         return Panel(
             Shortcuts(),

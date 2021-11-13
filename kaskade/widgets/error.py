@@ -9,10 +9,6 @@ from kaskade.emojis import FIRE
 class Error(Widget):
     message = ""
 
-    async def on_blur(self) -> None:
-        self.app.error = ""
-        self.message = ""
-
     def render(self) -> Panel:
         text = Text.from_markup("{}".format(self.message))
         return Panel(

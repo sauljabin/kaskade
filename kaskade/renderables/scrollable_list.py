@@ -1,4 +1,4 @@
-from typing import List, TypeVar
+from typing import Generic, List, Optional, TypeVar
 
 from rich.text import Text
 
@@ -7,19 +7,27 @@ from kaskade.unicodes import RIGHT_TRIANGLE
 T = TypeVar("T")
 
 
-class ScrollableList:
+class ScrollableList(Generic[T]):
     __pointer: int = -1
 
-    def __init__(self, wrapped: List[T], max_len: int = -1, pointer: int = -1) -> None:
+    def __init__(
+        self,
+        wrapped: List[T],
+        max_len: int = -1,
+        pointer: int = -1,
+        selected: Optional[T] = None,
+    ) -> None:
         self.list = wrapped if wrapped else []
         self.max_len = (
             len(self.list) if max_len < 0 or max_len > len(self.list) else max_len
         )
-        self.selected = None
         self.start_rendering = 0
         self.end_rendering = self.max_len
         if 0 <= pointer < len(self.list):
             self.pointer = pointer
+
+        if selected is not None:
+            self.selected = selected
 
     def __rich__(self) -> Text:
         content = Text(overflow="ignore")
@@ -41,6 +49,24 @@ class ScrollableList:
             content.append("\n")
         return content
 
+    @property
+    def selected(self) -> Optional[T]:
+        if self.pointer < 0 or self.pointer >= len(self.list):
+            return None
+
+        return self.list[self.pointer]
+
+    @selected.setter
+    def selected(self, selected: Optional[T]) -> None:
+        if selected is None:
+            self.reset()
+            return
+
+        if selected in self.list:
+            self.pointer = self.list.index(selected)
+        else:
+            self.reset()
+
     def __str__(self) -> str:
         return str(self.renderables())
 
@@ -48,7 +74,6 @@ class ScrollableList:
         return self.list[self.start_rendering : self.end_rendering]
 
     def reset(self) -> None:
-        self.selected = None
         self.__pointer = -1
         self.start_rendering = 0
         self.end_rendering = self.max_len
@@ -77,9 +102,6 @@ class ScrollableList:
             self.end_rendering = pointer + 1
         else:
             self.__pointer = pointer
-
-        if self.__pointer < len(self.list):
-            self.selected = self.list[self.__pointer]
 
     def previous(self) -> None:
         self.pointer -= 1

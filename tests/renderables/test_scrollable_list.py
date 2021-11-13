@@ -38,6 +38,35 @@ class TestScrollableList(TestCase):
         self.assertListEqual([items[3], items[4], items[5]], actual)
         self.assertEqual(items[5], scrollable.selected)
 
+    def test_set_valid_selected(self):
+        items = faker.pylist(
+            nb_elements=10, variable_nb_elements=False, value_types=str
+        )
+
+        expected = items[5]
+
+        scrollable = ScrollableList(items, max_len=3, selected=expected)
+        actual = scrollable.renderables()
+
+        self.assertListEqual([items[3], items[4], items[5]], actual)
+        self.assertEqual(expected, scrollable.selected)
+
+    def test_reset_is_selected_is_invalid(self):
+        items = faker.pylist(
+            nb_elements=10, variable_nb_elements=False, value_types=str
+        )
+
+        scrollable = ScrollableList(items, max_len=3)
+        scrollable.selected = None
+
+        self.assertIsNone(scrollable.selected)
+        self.assertEquals(-1, scrollable.pointer)
+
+        scrollable.selected = faker.word()
+
+        self.assertIsNone(scrollable.selected)
+        self.assertEquals(-1, scrollable.pointer)
+
     def test_pointer_goes_to_end_if_is_negative(self):
         items = faker.pylist(
             nb_elements=10, variable_nb_elements=False, value_types=str
