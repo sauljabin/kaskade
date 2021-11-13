@@ -144,6 +144,9 @@ class Tui(App):
 
     async def action_reload_content(self) -> None:
         self.reload_content()
+        self.topic_list_widget.refresh()
+        self.topic_header_widget.refresh()
+        self.topic_detail_widget.refres()
 
     def reload_content(self) -> None:
         selected_topic: Optional[Topic] = None
