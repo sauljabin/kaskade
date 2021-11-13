@@ -1,5 +1,4 @@
-import time
-from threading import Thread
+from threading import Event, Thread
 from typing import Any, Optional, Type
 
 from confluent_kafka import KafkaException
@@ -29,6 +28,7 @@ class Tui(App):
     __topic: Optional[Topic] = None
     show_help = Reactive(False)
     error = Reactive("")
+    background_lock: Optional[Event] = None
 
     def __init__(
         self,
@@ -65,9 +65,9 @@ class Tui(App):
             [self.topic_list_widget, self.topic_detail_widget]
         )
 
-    def background(self, refresh_rate: float) -> None:
-        while self.is_running:
-            time.sleep(refresh_rate)
+    def background_execution(self, refresh_rate: float) -> None:
+        self.background_lock = Event()
+        while self.is_running and not self.background_lock.wait(refresh_rate):
             logger.debug("Background thread is running")
             self.reload_content()
         logger.debug("Closing background thread")
@@ -95,17 +95,18 @@ class Tui(App):
         await self.view.dock(self.error_widget, edge="right", size=40, z=1)
         await self.view.dock(self.help_widget, edge="right", size=30, z=1)
 
-        refresh_config = self.config.kaskade.get("refresh")
-        refresh = bool(refresh_config) if refresh_config is not None else True
-        if refresh:
-            refresh_rate_config = self.config.kaskade.get("refresh-rate")
-            refresh_rate = float(refresh_rate_config or 5.0)
+        if self.config.kaskade.get("refresh"):
+            refresh_rate = self.config.kaskade.get("refresh-rate") or 5.0
             logger.debug("Refresh enable with %.1f secs", refresh_rate)
-            background = Thread(target=self.background, args=(refresh_rate,))
-            background.start()
+            background_thread = Thread(
+                target=self.background_execution, args=(refresh_rate,)
+            )
+            background_thread.start()
             self.set_interval(refresh_rate, self.topic_list_widget.refresh)
             self.set_interval(refresh_rate, self.topic_header_widget.refresh)
             self.set_interval(refresh_rate, self.topic_detail_widget.refresh)
+        else:
+            logger.debug("Auto-refresh disabled")
 
     async def on_load(self) -> None:
         await self.bind("q", "quit")
@@ -115,6 +116,12 @@ class Tui(App):
         await self.bind(Keys.F5, "reload_content")
         await self.bind(Keys.Left, "change_focus('{}')".format(Keys.Left))
         await self.bind(Keys.Right, "change_focus('{}')".format(Keys.Right))
+
+    async def action_quit(self) -> None:
+        if self.background_lock is not None:
+            logger.debug("Shutdown received")
+            self.background_lock.set()
+        await self.shutdown()
 
     async def watch_error(self, error: str) -> None:
         show_error = bool(error)
@@ -146,7 +153,7 @@ class Tui(App):
         self.reload_content()
         self.topic_list_widget.refresh()
         self.topic_header_widget.refresh()
-        self.topic_detail_widget.refres()
+        self.topic_detail_widget.refresh()
 
     def reload_content(self) -> None:
         selected_topic: Optional[Topic] = None

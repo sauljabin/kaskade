@@ -23,12 +23,25 @@ kafka:
   bootstrap.servers: ${BOOTSTRAP_SERVERS}
 ```
 
-enable debug mode (default `false`)
+enable debug mode (default `off`)
 
 ```yaml
 kaskade:
-  debug: true
+  debug: on
 ```
+
+disable auto-refresh (default `on`)
+
+```yaml
+kaskade:
+  refresh: off
+```
+
+changing the refresh rate (default `5` secs)
+
+```yaml
+kaskade:
+  refresh-rate: 5
 """
 
 

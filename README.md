@@ -145,14 +145,16 @@ kafka:
 
 ### Kaskade
 
-Enable debug mode (default `false`):
+Next settings are optional:
 
 ```yaml
 kaskade:
-  debug: true
+  debug: off # default off
+  refresh: on # enable auto-refresh default on
+  refresh-rate: 5 # auto-refresh rate default 5 secs
 ```
 
-> It will generate logs into a specific log file, execute `kaskade --info` to get the log path.
+> `debug` enabled will generate logs into a specific log file, execute `kaskade --info` to get the log path.
 
 # Screenshots
 
