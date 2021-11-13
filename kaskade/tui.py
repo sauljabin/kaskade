@@ -95,8 +95,19 @@ class Tui(App):
         await self.view.dock(self.error_widget, edge="right", size=40, z=1)
         await self.view.dock(self.help_widget, edge="right", size=30, z=1)
 
-        if self.config.kaskade.get("refresh"):
-            refresh_rate = self.config.kaskade.get("refresh-rate") or 5.0
+        refresh = (
+            True
+            if self.config.kaskade.get("refresh") is None
+            else self.config.kaskade.get("refresh")
+        )
+
+        if refresh:
+            refresh_rate = (
+                5
+                if self.config.kaskade.get("refresh-rate") is None
+                else self.config.kaskade.get("refresh-rate")
+            )
+
             logger.debug("Refresh enable with %.1f secs", refresh_rate)
             background_thread = Thread(
                 target=self.background_execution, args=(refresh_rate,)
