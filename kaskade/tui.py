@@ -146,7 +146,7 @@ class Tui(App):
 
         self.error = message
 
-        logger.critical("Error in runtime: %s", message)
+        logger.error("Error in runtime: %s", message)
         logger.exception(exception)
 
     async def action_reload_content(self) -> None:
