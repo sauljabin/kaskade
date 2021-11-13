@@ -1,3 +1,5 @@
+import time
+from threading import Thread
 from typing import Any, Optional, Type
 
 from confluent_kafka import KafkaException
@@ -63,6 +65,13 @@ class Tui(App):
             [self.topic_list_widget, self.topic_detail_widget]
         )
 
+    def background(self, refresh_rate: float) -> None:
+        while self.is_running:
+            time.sleep(refresh_rate)
+            logger.debug("Background thread is running")
+            self.reload_content()
+        logger.debug("Closing background thread")
+
     def log(self, *args: Any, verbosity: int = 1, **kwargs: Any) -> None:
         if verbosity > self.log_verbosity:
             return
@@ -83,8 +92,20 @@ class Tui(App):
         await self.view.dock(
             self.topic_header_widget, self.topic_detail_widget, edge="top"
         )
-        await self.view.dock(self.error_widget, edge="right", size=50, z=1)
+        await self.view.dock(self.error_widget, edge="right", size=40, z=1)
         await self.view.dock(self.help_widget, edge="right", size=30, z=1)
+
+        refresh_config = self.config.kaskade.get("refresh")
+        refresh = bool(refresh_config) if refresh_config is not None else True
+        if refresh:
+            refresh_rate_config = self.config.kaskade.get("refresh-rate")
+            refresh_rate = float(refresh_rate_config or 5.0)
+            logger.debug("Refresh enable with %.1f secs", refresh_rate)
+            background = Thread(target=self.background, args=(refresh_rate,))
+            background.start()
+            self.set_interval(refresh_rate, self.topic_list_widget.refresh)
+            self.set_interval(refresh_rate, self.topic_header_widget.refresh)
+            self.set_interval(refresh_rate, self.topic_detail_widget.refresh)
 
     async def on_load(self) -> None:
         await self.bind("q", "quit")
@@ -122,26 +143,26 @@ class Tui(App):
         logger.exception(exception)
 
     async def action_reload_content(self) -> None:
+        self.reload_content()
+
+    def reload_content(self) -> None:
         selected_topic: Optional[Topic] = None
 
         if self.topic is not None:
             selected_topic = self.topic
 
+        logger.debug("Reloading content - started")
         try:
             self.topics = self.topic_service.list()
         except Exception as ex:
             self.topics = []
             self.handle_exception(ex)
-
-        logger.debug("Reloading content finished")
-
-        self.topic_list_widget.refresh()
-        self.topic_header_widget.refresh()
-        self.topic_detail_widget.refresh()
+        logger.debug("Reloading content - finished")
 
         if selected_topic is not None and selected_topic not in self.topics:
             logger.debug("Topic not found when reload content")
             self.error = f"Selected topic [yellow bold]{selected_topic}[/] not found"
+            self.topic = None
 
     @property
     def topic(self) -> Optional[Topic]:
@@ -152,6 +173,8 @@ class Tui(App):
         self.__topic = topic
         self.topic_detail_widget.table = None
         self.topic_detail_widget.tabs.index = 0
+        self.topic_detail_widget.row = 0
+        self.topic_detail_widget.page = 0
         self.topic_detail_widget.refresh()
         self.topic_header_widget.refresh()
 

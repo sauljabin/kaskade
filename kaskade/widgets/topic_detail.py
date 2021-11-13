@@ -31,6 +31,8 @@ class Tab:
 class TopicDetail(Widget):
     has_focus = Reactive(False)
     table: Optional[PaginatedTable] = None
+    page = 1
+    row = 0
 
     def __init__(self, name: Optional[str] = None):
         super().__init__(name)
@@ -43,33 +45,27 @@ class TopicDetail(Widget):
         self.tabs.index = 0
 
     def render_partitions(self) -> None:
-        page = 1
-        row = 0
-
         if self.table is not None:
-            page = self.table.page
-            row = self.table.row
+            self.page = self.table.page
+            self.row = self.table.row
 
         self.table = PartitionsTable(
             self.app.topic.partitions if self.app.topic else [],
             page_size=self.size.height - TABLE_BOTTOM_PADDING,
-            page=page,
-            row=row,
+            page=self.page,
+            row=self.row,
         )
 
     def render_groups(self) -> None:
-        page = 1
-        row = 0
-
         if self.table is not None:
-            page = self.table.page
-            row = self.table.row
+            self.page = self.table.page
+            self.row = self.table.row
 
         self.table = GroupsTable(
             self.app.topic.groups if self.app.topic else [],
             page_size=self.size.height - TABLE_BOTTOM_PADDING,
-            page=page,
-            row=row,
+            page=self.page,
+            row=self.row,
         )
 
     def title(self) -> Text:
@@ -139,10 +135,14 @@ class TopicDetail(Widget):
     def next_tab(self) -> None:
         self.tabs.next()
         self.table = None
+        self.page = 0
+        self.row = 0
 
     def previous_tab(self) -> None:
         self.tabs.previous()
         self.table = None
+        self.page = 0
+        self.row = 0
 
     async def on_mouse_scroll_up(self) -> None:
         await self.app.set_focus(self)

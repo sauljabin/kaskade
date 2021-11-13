@@ -34,7 +34,6 @@ class TopicList(Widget):
                 if self.scrollable_list
                 else None,
             )
-            self.app.topic = self.scrollable_list.selected
             to_render = self.scrollable_list
 
         title = Text.from_markup(

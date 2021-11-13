@@ -9,7 +9,7 @@ class Shortcuts:
         "help": "?",
         "quit": "q",
         "back": "esc",
-        "refresh": "f5",
+        "manual refresh": "f5",
         "next page": "]",
         "previous page": "[",
         "last page": "}",

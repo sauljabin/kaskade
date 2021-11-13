@@ -13,6 +13,11 @@ class Broker:
     def __str__(self) -> str:
         return "{}:{}/{}".format(self.host, self.port, self.id)
 
+    def __eq__(self, other: Any) -> bool:
+        if isinstance(other, Broker):
+            return self.id == other.id
+        return False
+
 
 class GroupPartition:
     def __init__(
@@ -54,6 +59,11 @@ class GroupPartition:
         else:
             return self.high - self.offset
 
+    def __eq__(self, other: Any) -> bool:
+        if isinstance(other, GroupPartition):
+            return self.id == other.id
+        return False
+
 
 class Group:
     def __init__(
@@ -83,6 +93,11 @@ class Group:
             else 0
         )
 
+    def __eq__(self, other: Any) -> bool:
+        if isinstance(other, Group):
+            return self.id == other.id
+        return False
+
 
 class Partition:
     def __init__(
@@ -109,6 +124,11 @@ class Partition:
 
     def messages_count(self) -> int:
         return self.high - self.low
+
+    def __eq__(self, other: Any) -> bool:
+        if isinstance(other, Partition):
+            return self.id == other.id
+        return False
 
 
 class Topic:
