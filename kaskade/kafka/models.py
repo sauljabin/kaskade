@@ -208,7 +208,7 @@ class Cluster:
     def __str__(self) -> str:
         return str(
             {
-                "brokers": [str(broker) for broker in self.brokers],
+                "brokers": self.brokers,
                 "version": self.version,
                 "has_schemas": self.has_schemas,
                 "protocol": self.protocol,
@@ -250,3 +250,8 @@ class Record:
                 "value": self.value,
             }
         )
+
+    def __eq__(self, other: Any) -> bool:
+        if isinstance(other, Record):
+            return self.partition == other.partition and self.offset == other.offset
+        return False

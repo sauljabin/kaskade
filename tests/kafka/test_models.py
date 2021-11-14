@@ -34,13 +34,13 @@ class TestBroker(TestCase):
 
 class TestCluster(TestCase):
     def test_str(self):
-        brokers = faker.pydict()
+        brokers = [random_broker(), random_broker(), random_broker()]
         version = faker.bothify("#.#.#")
         has_schemas = faker.pybool()
         protocol = faker.word()
 
         values = {
-            "brokers": [str(broker) for broker in brokers],
+            "brokers": brokers,
             "version": version,
             "has_schemas": has_schemas,
             "protocol": protocol,
