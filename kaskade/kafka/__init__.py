@@ -1,1 +1,1 @@
-TIMEOUT = 0.5
+TIMEOUT = 1.0

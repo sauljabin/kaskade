@@ -1,3 +1,4 @@
+from operator import attrgetter
 from typing import List
 
 from confluent_kafka import OFFSET_INVALID, Consumer, TopicPartition
@@ -60,7 +61,7 @@ class GroupService:
             if len(group.partitions) > 0:
                 groups.append(group)
 
-        return groups
+        return sorted(groups, key=attrgetter("id"))
 
 
 if __name__ == "__main__":

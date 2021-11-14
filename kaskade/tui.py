@@ -184,6 +184,8 @@ class Tui(App):
             logger.debug("Topic not found when reload content")
             self.error = f"Selected topic [yellow bold]{selected_topic}[/] not found"
             self.topic = None
+        elif selected_topic is not None:
+            self.topic = self.topics[self.topics.index(selected_topic)]
 
     @property
     def topic(self) -> Optional[Topic]:
@@ -193,9 +195,6 @@ class Tui(App):
     def topic(self, topic: Optional[Topic]) -> None:
         self.__topic = topic
         self.topic_detail_widget.table = None
-        self.topic_detail_widget.tabs.index = 0
-        self.topic_detail_widget.row = 0
-        self.topic_detail_widget.page = 0
         self.topic_detail_widget.refresh()
         self.topic_header_widget.refresh()
 

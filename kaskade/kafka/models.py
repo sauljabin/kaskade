@@ -1,4 +1,5 @@
-from typing import Any, List
+import datetime
+from typing import Any, List, Optional, Tuple
 
 
 class Broker:
@@ -216,3 +217,36 @@ class Cluster:
 
     def brokers_count(self) -> int:
         return len(self.brokers) if self.brokers is not None else 0
+
+
+class Record:
+    def __init__(
+        self,
+        date: Optional[datetime.datetime] = None,
+        partition: int = -1,
+        offset: int = -1,
+        headers: Optional[List[Tuple[str, bytes]]] = None,
+        key: Optional[bytes] = None,
+        value: Optional[bytes] = None,
+    ) -> None:
+        self.date = date
+        self.partition = partition
+        self.offset = offset
+        self.headers = headers
+        self.key = key
+        self.value = value
+
+    def __repr__(self) -> str:
+        return str(self)
+
+    def __str__(self) -> str:
+        return str(
+            {
+                "date": str(self.date),
+                "partition": self.partition,
+                "offset": self.offset,
+                "header": self.headers,
+                "key": self.key,
+                "value": self.value,
+            }
+        )
