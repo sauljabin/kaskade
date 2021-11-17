@@ -1,6 +1,6 @@
 ---
-name: User Story
-about: This template is used by contibutors
+name: User story
+about: New feature or enhancement
 title: ''
 labels: enhancement, user story
 assignees: ''
