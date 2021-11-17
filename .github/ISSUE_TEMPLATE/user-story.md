@@ -2,7 +2,7 @@
 name: User story
 about: New feature or enhancement
 title: ''
-labels: enhancement, user story
+labels: user story
 assignees: ''
 
 ---
