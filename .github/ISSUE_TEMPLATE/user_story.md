@@ -19,5 +19,5 @@ Describe the context and any relevant information about this user story
 **When** [action taken]
 **Then** [outcome]
 
-**Techincal Aspect:**
+**Technical Aspect:**
 This is optional, you can use it to define relevant technical aspects if needed
