@@ -23,8 +23,9 @@ class TestTui(IsolatedAsyncioTestCase):
         tui.bind = AsyncMock()
 
         calls = [
-            call("q", "quit"),
-            call("Q", "quit"),
+            call(Keys.ControlC, "quit"),
+            call(Keys.ControlR, "toggle_consumer_mode"),
+            call(Keys.ControlD, "toggle_describer_mode"),
             call("?", "toggle_help"),
             call(Keys.Escape, "back"),
             call(Keys.F5, "reload_content"),
@@ -48,7 +49,13 @@ class TestTui(IsolatedAsyncioTestCase):
             call(tui.header_widget, edge="top"),
             call(tui.footer_widget, edge="bottom"),
             call(tui.topic_list_widget, edge="left", size=40),
-            call(tui.topic_header_widget, tui.topic_detail_widget, edge="top"),
+            call(
+                tui.topic_header_widget,
+                tui.describer_mode_widget,
+                tui.consumer_mode_widget,
+                edge="top",
+                size=1000,
+            ),
         ]
 
         await tui.on_mount()
@@ -63,7 +70,12 @@ class TestTui(IsolatedAsyncioTestCase):
         tui = Tui(config=MagicMock())
 
         self.assertEqual(
-            [tui.topic_list_widget, tui.topic_detail_widget], tui.focusables.list
+            [
+                tui.topic_list_widget,
+                tui.describer_mode_widget,
+                tui.consumer_mode_widget,
+            ],
+            tui.focusables.list,
         )
 
     @patch("kaskade.tui.TopicService")

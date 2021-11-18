@@ -55,6 +55,7 @@ class TopicList(Widget):
 
         self.scrollable_list.next()
         self.app.topic = self.scrollable_list.selected
+        self.app.describer_mode_widget.reset()
 
     def previous(self) -> None:
         if self.scrollable_list is None:
@@ -62,6 +63,7 @@ class TopicList(Widget):
 
         self.scrollable_list.previous()
         self.app.topic = self.scrollable_list.selected
+        self.app.describer_mode_widget.reset()
 
     def on_focus(self) -> None:
         self.has_focus = True
@@ -92,5 +94,7 @@ class TopicList(Widget):
         if self.scrollable_list is not None:
             self.scrollable_list.pointer = event.y - 1
             self.app.topic = self.scrollable_list.selected
+
+        self.app.describer_mode_widget.reset()
 
         self.refresh()

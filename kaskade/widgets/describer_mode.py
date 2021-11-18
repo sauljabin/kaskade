@@ -1,5 +1,5 @@
 import re
-from typing import Callable, Optional, Union
+from typing import Any, Callable, Optional, Union
 
 from rich.align import Align
 from rich.panel import Panel
@@ -23,12 +23,12 @@ TITLE_LEFT_PADDING = 3
 
 
 class Tab:
-    def __init__(self, name: str, render: Callable[[], None]):
+    def __init__(self, name: str, render: Callable[[], Any]):
         self.name = name
         self.render = render
 
 
-class TopicDetail(Widget):
+class DescriberMode(Widget):
     has_focus = Reactive(False)
     table: Optional[PaginatedTable] = None
     page = 1
@@ -44,24 +44,16 @@ class TopicDetail(Widget):
         )
         self.tabs.index = 0
 
-    def render_partitions(self) -> None:
-        if self.table is not None:
-            self.page = self.table.page
-            self.row = self.table.row
-
-        self.table = PartitionsTable(
+    def render_partitions(self) -> PartitionsTable:
+        return PartitionsTable(
             self.app.topic.partitions if self.app.topic else [],
             page_size=self.size.height - TABLE_BOTTOM_PADDING,
             page=self.page,
             row=self.row,
         )
 
-    def render_groups(self) -> None:
-        if self.table is not None:
-            self.page = self.table.page
-            self.row = self.table.row
-
-        self.table = GroupsTable(
+    def render_groups(self) -> GroupsTable:
+        return GroupsTable(
             self.app.topic.groups if self.app.topic else [],
             page_size=self.size.height - TABLE_BOTTOM_PADDING,
             page=self.page,
@@ -81,8 +73,12 @@ class TopicDetail(Widget):
         )
 
     def render(self) -> Panel:
+        if self.table is not None:
+            self.page = self.table.page
+            self.row = self.table.row
+
         if self.tabs.current is not None:
-            self.tabs.current.render()
+            self.table = self.tabs.current.render()
 
         to_render: Union[Align, PaginatedTable] = (
             Align.center("Not selected", vertical="middle")
@@ -132,6 +128,11 @@ class TopicDetail(Widget):
 
         self.refresh()
 
+    def reset(self) -> None:
+        self.table = None
+        self.page = 0
+        self.row = 0
+
     def next_tab(self) -> None:
         self.tabs.next()
         self.table = None
@@ -171,6 +172,6 @@ class TopicDetail(Widget):
                 ]:
                     if start <= event.x - TITLE_LEFT_PADDING < end:
                         self.tabs.current = tab
-                        self.table = None
+                        self.reset()
 
         self.refresh()

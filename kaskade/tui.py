@@ -15,11 +15,12 @@ from kaskade.kafka.cluster_service import ClusterService
 from kaskade.kafka.models import Topic
 from kaskade.kafka.topic_service import TopicService
 from kaskade.utils.circular_list import CircularList
+from kaskade.widgets.consumer_mode import ConsumerMode
+from kaskade.widgets.describer_mode import DescriberMode
 from kaskade.widgets.error import Error
 from kaskade.widgets.footer import Footer
 from kaskade.widgets.header import Header
 from kaskade.widgets.help import Help
-from kaskade.widgets.topic_detail import TopicDetail
 from kaskade.widgets.topic_header import TopicHeader
 from kaskade.widgets.topic_list import TopicList
 
@@ -59,10 +60,17 @@ class Tui(App):
         self.error_widget = Error()
 
         self.topic_list_widget = TopicList()
-        self.topic_detail_widget = TopicDetail()
         self.topic_header_widget = TopicHeader()
+
+        self.describer_mode_widget = DescriberMode()
+        self.consumer_mode_widget = ConsumerMode()
+
         self.focusables = CircularList(
-            [self.topic_list_widget, self.topic_detail_widget]
+            [
+                self.topic_list_widget,
+                self.describer_mode_widget,
+                self.consumer_mode_widget,
+            ]
         )
 
     def background_execution(self, refresh_rate: float) -> None:
@@ -86,11 +94,17 @@ class Tui(App):
     async def on_mount(self) -> None:
         self.help_widget.visible = False
         self.error_widget.visible = False
+        self.consumer_mode_widget.visible = False
+
         await self.view.dock(self.header_widget, edge="top")
         await self.view.dock(self.footer_widget, edge="bottom")
         await self.view.dock(self.topic_list_widget, edge="left", size=40)
         await self.view.dock(
-            self.topic_header_widget, self.topic_detail_widget, edge="top"
+            self.topic_header_widget,
+            self.describer_mode_widget,
+            self.consumer_mode_widget,
+            edge="top",
+            size=1000,
         )
         await self.view.dock(self.error_widget, edge="right", size=40, z=1)
         await self.view.dock(self.help_widget, edge="right", size=30, z=1)
@@ -115,18 +129,36 @@ class Tui(App):
             background_thread.start()
             self.set_interval(refresh_rate, self.topic_list_widget.refresh)
             self.set_interval(refresh_rate, self.topic_header_widget.refresh)
-            self.set_interval(refresh_rate, self.topic_detail_widget.refresh)
+            self.set_interval(refresh_rate, self.describer_mode_widget.refresh)
         else:
             logger.debug("Auto-refresh disabled")
 
     async def on_load(self) -> None:
-        await self.bind("q", "quit")
-        await self.bind("Q", "quit")
+        await self.bind(Keys.ControlC, "quit")
+        await self.bind(Keys.ControlR, "toggle_consumer_mode")
+        await self.bind(Keys.ControlD, "toggle_describer_mode")
         await self.bind("?", "toggle_help")
         await self.bind(Keys.Escape, "back")
         await self.bind(Keys.F5, "reload_content")
         await self.bind(Keys.Left, "change_focus('{}')".format(Keys.Left))
         await self.bind(Keys.Right, "change_focus('{}')".format(Keys.Right))
+
+    async def action_toggle_consumer_mode(self) -> None:
+        self.consumer_mode_widget.visible = True
+        self.describer_mode_widget.visible = False
+        if not self.topic_list_widget.has_focus:
+            self.focusables.reset()
+            self.describer_mode_widget.has_focus = False
+        self.consumer_mode_widget.refresh()
+
+    async def action_toggle_describer_mode(self) -> None:
+        self.consumer_mode_widget.visible = False
+        self.describer_mode_widget.visible = True
+        if not self.topic_list_widget.has_focus:
+            self.focusables.reset()
+            self.consumer_mode_widget.has_focus = False
+        self.describer_mode_widget.reset()
+        self.describer_mode_widget.refresh()
 
     async def action_quit(self) -> None:
         if self.background_lock is not None:
@@ -164,7 +196,7 @@ class Tui(App):
         self.reload_content()
         self.topic_list_widget.refresh()
         self.topic_header_widget.refresh()
-        self.topic_detail_widget.refresh()
+        self.describer_mode_widget.refresh()
 
     def reload_content(self) -> None:
         selected_topic: Optional[Topic] = None
@@ -180,12 +212,12 @@ class Tui(App):
             self.handle_exception(ex)
         logger.debug("Reloading content - finished")
 
-        if selected_topic is not None and selected_topic not in self.topics:
-            logger.debug("Topic not found when reload content")
+        try:
+            if self.topic is not None:
+                self.topic = self.topics[self.topics.index(self.topic)]
+        except Exception:
             self.error = f"Selected topic [yellow bold]{selected_topic}[/] not found"
             self.topic = None
-        elif selected_topic is not None:
-            self.topic = self.topics[self.topics.index(selected_topic)]
 
     @property
     def topic(self) -> Optional[Topic]:
@@ -194,12 +226,15 @@ class Tui(App):
     @topic.setter
     def topic(self, topic: Optional[Topic]) -> None:
         self.__topic = topic
-        self.topic_detail_widget.table = None
-        self.topic_detail_widget.refresh()
+        self.describer_mode_widget.table = None
+        self.describer_mode_widget.refresh()
         self.topic_header_widget.refresh()
 
     async def action_change_focus(self, key: Keys) -> None:
         focused: Widget = (
             self.focusables.next() if Keys.Right == key else self.focusables.previous()
         )
-        await focused.focus()
+        if focused.visible:
+            await focused.focus()
+        else:
+            await self.action_change_focus(key)
