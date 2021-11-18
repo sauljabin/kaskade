@@ -150,6 +150,9 @@ class Tui(App):
             self.focusables.reset()
             self.describer_mode_widget.has_focus = False
         self.consumer_mode_widget.refresh()
+        self.describer_mode_widget.refresh()
+        self.consumer_mode_widget.consume_topic()
+        self.consumer_mode_widget.load_messages()
 
     async def action_toggle_describer_mode(self) -> None:
         self.consumer_mode_widget.visible = False
@@ -215,8 +218,9 @@ class Tui(App):
         try:
             if self.topic is not None:
                 self.topic = self.topics[self.topics.index(self.topic)]
-        except Exception:
+        except Exception as ex:
             self.error = f"Selected topic [yellow bold]{selected_topic}[/] not found"
+            logger.exception(ex)
             self.topic = None
 
     @property

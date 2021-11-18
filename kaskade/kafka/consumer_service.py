@@ -40,7 +40,7 @@ class ConsumerService:
 
     def consume(self, limit: int) -> List[Record]:
         if not self.subscribed:
-            self.consumer.subscribe([topic.name])
+            self.consumer.subscribe([self.topic.name])
             self.subscribed = True
             self.open = True
 

@@ -57,6 +57,10 @@ class TopicList(Widget):
         self.app.topic = self.scrollable_list.selected
         self.app.describer_mode_widget.reset()
 
+        if self.app.consumer_mode_widget.visible:
+            self.app.consumer_mode_widget.consume_topic()
+            self.app.consumer_mode_widget.load_messages()
+
     def previous(self) -> None:
         if self.scrollable_list is None:
             return
@@ -64,6 +68,10 @@ class TopicList(Widget):
         self.scrollable_list.previous()
         self.app.topic = self.scrollable_list.selected
         self.app.describer_mode_widget.reset()
+
+        if self.app.consumer_mode_widget.visible:
+            self.app.consumer_mode_widget.consume_topic()
+            self.app.consumer_mode_widget.load_messages()
 
     def on_focus(self) -> None:
         self.has_focus = True
@@ -96,5 +104,9 @@ class TopicList(Widget):
             self.app.topic = self.scrollable_list.selected
 
         self.app.describer_mode_widget.reset()
+
+        if self.app.consumer_mode_widget.visible:
+            self.app.consumer_mode_widget.consume_topic()
+            self.app.consumer_mode_widget.load_messages()
 
         self.refresh()
