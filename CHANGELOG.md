@@ -10,9 +10,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Home folder
 - New command option info
 - Enable debug mode
+- Enable refresh rate
+- New consumer and describer mode
 
 ### Changed
-- Improvement on back (esc) command
+- Improvement on esc key event
 - Improvements on refresh
 - New keymap
 

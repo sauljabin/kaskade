@@ -17,4 +17,4 @@ class TestFooter(TestCase):
 
         actual = footer.render()
 
-        self.assertIsInstance(actual, KaskadeVersion)
+        self.assertIsInstance(actual.renderables[0], KaskadeVersion)

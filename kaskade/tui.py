@@ -147,13 +147,14 @@ class Tui(App):
         if not self.topic_list_widget.has_focus:
             self.focusables.current = self.consumer_mode_widget
             await self.set_focus(self.consumer_mode_widget)
+            self.view.refresh()
         self.enable_consumer_mode()
 
     def enable_consumer_mode(self) -> None:
+        self.footer_widget.mode = "consumer"
         self.consumer_mode_widget.visible = True
         self.describer_mode_widget.visible = False
         self.consumer_mode_widget.refresh()
-        self.describer_mode_widget.refresh()
         self.consumer_mode_widget.consume_topic()
         self.consumer_mode_widget.load_messages()
 
@@ -161,9 +162,11 @@ class Tui(App):
         if not self.topic_list_widget.has_focus:
             self.focusables.current = self.describer_mode_widget
             await self.set_focus(self.describer_mode_widget)
+            self.view.refresh()
         self.enable_describer_mode()
 
     def enable_describer_mode(self) -> None:
+        self.footer_widget.mode = "describer"
         self.consumer_mode_widget.visible = False
         self.describer_mode_widget.visible = True
         self.describer_mode_widget.reset()

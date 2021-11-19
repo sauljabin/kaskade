@@ -172,18 +172,6 @@ kaskade:
 - wui: [[akhq](https://github.com/tchiotludo/akhq)]
 - tui: [[kcli](https://github.com/cswank/kcli)]
 
-# To Do
-
-- Group members table
-- Group partitions table
-- Topic data table
-- Show topic record
-- Schema registry support
-- Interactive search
-- Produce messages
-- Create topic
-- Increment test coverage
-
 # Development
 
 Python supported versions:

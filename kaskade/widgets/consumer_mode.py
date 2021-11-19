@@ -110,7 +110,7 @@ class ConsumerMode(Widget):
 
         return Panel(
             to_render,
-            title="consumer",
+            title="records",
             border_style=styles.BORDER_FOCUSED if self.has_focus else styles.BORDER,
             box=styles.BOX,
             title_align="left",
