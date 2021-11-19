@@ -20,7 +20,7 @@ class TestShortcuts(TestCase):
         mock_table = MagicMock()
         mock_class_table.return_value = mock_table
 
-        random_dict = faker.pydict()
+        random_dict = {"test": faker.pydict()}
         shortcuts = Shortcuts()
         shortcuts.shortcuts = random_dict
 
@@ -34,8 +34,11 @@ class TestShortcuts(TestCase):
             [call(style="magenta bold"), call(style="yellow bold")]
         )
         calls = []
-
-        for action, shortcut in random_dict.items():
-            calls.append(call("{}:".format(action), str(shortcut)))
+        for category, shortcuts in random_dict.items():
+            calls.append(call("[blue bold]test[/]"))
+            for action, shortcut in shortcuts.items():
+                calls.append(call("{}:".format(action), str(shortcut)))
+            else:
+                calls.append(call())
 
         mock_table.add_row.assert_has_calls(calls)

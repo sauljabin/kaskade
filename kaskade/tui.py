@@ -107,7 +107,7 @@ class Tui(App):
             size=1000,
         )
         await self.view.dock(self.error_widget, edge="right", size=40, z=1)
-        await self.view.dock(self.help_widget, edge="right", size=30, z=1)
+        await self.view.dock(self.help_widget, edge="right", size=40, z=1)
 
         refresh = (
             True

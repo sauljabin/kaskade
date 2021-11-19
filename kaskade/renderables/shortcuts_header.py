@@ -1,6 +1,7 @@
 from itertools import zip_longest
 
 from rich.table import Table
+from textual.keys import Keys
 
 from kaskade.unicodes import DOWN, LEFT, RIGHT, UP
 
@@ -9,8 +10,8 @@ class ShortcutsHeader:
     shortcuts = {
         "navigate": "{} {} {} {}".format(LEFT, RIGHT, UP, DOWN),
         "help": "?",
-        "quit": "q",
-        "back": "esc",
+        "consumer mode": Keys.ControlR,
+        "describer mode": Keys.ControlD,
     }
 
     def __str__(self) -> str:

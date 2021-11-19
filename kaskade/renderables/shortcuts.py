@@ -1,21 +1,31 @@
 from rich.table import Table
+from textual.keys import Keys
 
 from kaskade.unicodes import DOWN, LEFT, RIGHT, UP
 
 
 class Shortcuts:
     shortcuts = {
-        "navigate": "{} {} {} {}".format(LEFT, RIGHT, UP, DOWN),
-        "help": "?",
-        "quit": "q",
-        "back": "esc",
-        "manual refresh": "f5",
-        "next page": "]",
-        "previous page": "[",
-        "last page": "}",
-        "first page": "{",
-        "next tab": ">",
-        "previous tab": "<",
+        "navigation": {
+            "navigate": "{} {} {} {}".format(LEFT, RIGHT, UP, DOWN),
+            "help": "?",
+            "describer mode": Keys.ControlD,
+            "consumer mode": Keys.ControlR,
+            "manual refresh": "f5",
+            "close dialog": Keys.Escape,
+            "quit": Keys.ControlC,
+        },
+        "describer mode": {
+            "next page": "]",
+            "previous page": "[",
+            "last page": "}",
+            "first page": "{",
+            "next tab": ">",
+            "previous tab": "<",
+        },
+        "consumer mode": {
+            "consume next records": ">",
+        },
     }
 
     def __str__(self) -> str:
@@ -25,7 +35,11 @@ class Shortcuts:
         table = Table(box=None, expand=False, show_footer=False, show_header=False)
         table.add_column(style="magenta bold")
         table.add_column(style="yellow bold")
-        for action, shortcut in self.shortcuts.items():
-            table.add_row("{}:".format(action), "{}".format(shortcut))
+        for category, shortcuts in self.shortcuts.items():
+            table.add_row("[blue bold]{}[/]".format(category))
+            for action, shortcut in shortcuts.items():
+                table.add_row("{}:".format(action), "{}".format(shortcut))
+            else:
+                table.add_row()
 
         return table
