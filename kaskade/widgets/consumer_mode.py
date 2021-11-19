@@ -7,13 +7,18 @@ from rich.columns import Columns
 from rich.panel import Panel
 from rich.spinner import Spinner
 from rich.text import Text
+from textual import events
+from textual.keys import Keys
 from textual.reactive import Reactive
 from textual.widget import Widget
 
 from kaskade import logger, styles
 from kaskade.kafka.consumer_service import ConsumerService
 from kaskade.kafka.models import Record
-from kaskade.renderables.topic_info import TopicInfo
+from kaskade.renderables.records_table import RecordsTable
+
+TABLE_BOTTOM_PADDING = 4
+CLICK_OFFSET = 1
 
 
 class ConsumerMode(Widget):
@@ -22,25 +27,31 @@ class ConsumerMode(Widget):
     spinner = Spinner("dots")
     loading_text = Text("loading")
     consumer_service: Optional[ConsumerService] = None
-    records: Optional[List[Record]] = None
+    records: List[Record] = []
+    total_reads = 0
+    __row = 0
 
     def consume_topic(self) -> None:
         if self.app.topic is None:
             return
         try:
             logger.debug("Consuming another topic")
+            self.total_reads = 0
+            self.__row = 0
             self.consumer_service = ConsumerService(self.app.config, self.app.topic)
         except Exception as ex:
             self.app.handle_exception(ex)
 
     def page_size(self) -> int:
-        return cast(int, self.size.height)
+        if self.size.height < TABLE_BOTTOM_PADDING:
+            return 0
+        return cast(int, self.size.height - TABLE_BOTTOM_PADDING)
 
     def background_execution(self) -> None:
         self.is_loading = True
-        self.records = None
+        self.records = []
         try:
-            while self.page_size() == 0:
+            while self.page_size() <= 0:
                 time.sleep(0.5)
             logger.debug(
                 "Start consuming in background: %s, total to consume: %s",
@@ -49,6 +60,7 @@ class ConsumerMode(Widget):
             )
             if self.consumer_service is not None:
                 self.records = self.consumer_service.consume(self.page_size())
+                self.total_reads += len(self.records)
             logger.debug("End consuming in background")
         except Exception as ex:
             self.app.handle_exception(ex)
@@ -76,7 +88,7 @@ class ConsumerMode(Widget):
         self.has_focus = False
 
     def render(self) -> Panel:
-        to_render: Union[Align, TopicInfo, str] = Align.center(
+        to_render: Union[Align, RecordsTable, str] = Align.center(
             "Not selected", vertical="middle"
         )
 
@@ -92,7 +104,9 @@ class ConsumerMode(Widget):
                     Columns([self.spinner, self.loading_text]), vertical="middle"
                 )
             elif self.records is not None:
-                to_render = str(self.records)
+                to_render = RecordsTable(
+                    self.records, self.total_reads, self.page_size(), row=self.row
+                )
 
         return Panel(
             to_render,
@@ -102,3 +116,35 @@ class ConsumerMode(Widget):
             title_align="left",
             padding=0,
         )
+
+    def on_click(self, event: events.Click) -> None:
+        self.row = event.y - CLICK_OFFSET
+        self.refresh()
+
+    def on_key(self, event: events.Key) -> None:
+        if self.is_loading:
+            return
+
+        key = event.key
+        if key == ">":
+            self.load_messages()
+            self.row = 0
+        elif key == Keys.Up:
+            self.row -= 1
+        elif key == Keys.Down:
+            self.row += 1
+
+        self.refresh()
+
+    @property
+    def row(self) -> int:
+        return self.__row
+
+    @row.setter
+    def row(self, row: int) -> None:
+        if row <= 0:
+            self.__row = len(self.records)
+        elif row > len(self.records):
+            self.__row = 1
+        else:
+            self.__row = row

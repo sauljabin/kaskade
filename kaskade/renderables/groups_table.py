@@ -34,8 +34,10 @@ class GroupsTable(PaginatedTable):
 
     def render_columns(self, table: Table) -> None:
         header_style = "bright_magenta bold"
-        table.add_column("id", header_style=header_style, ratio=40)
-        table.add_column("state", header_style=header_style, ratio=15)
-        table.add_column("lag", header_style=header_style, ratio=15)
-        table.add_column("coordinator", header_style=header_style, ratio=15)
-        table.add_column("members", header_style=header_style, ratio=15)
+        table.add_column("id", header_style=header_style, ratio=40, no_wrap=True)
+        table.add_column("state", header_style=header_style, ratio=15, no_wrap=True)
+        table.add_column("lag", header_style=header_style, ratio=15, no_wrap=True)
+        table.add_column(
+            "coordinator", header_style=header_style, ratio=15, no_wrap=True
+        )
+        table.add_column("members", header_style=header_style, ratio=15, no_wrap=True)

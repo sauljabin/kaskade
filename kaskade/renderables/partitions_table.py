@@ -31,18 +31,14 @@ class PartitionsTable(PaginatedTable):
 
     def render_columns(self, table: Table) -> None:
         table.add_column(
-            "id",
-            header_style="bright_magenta bold",
-            ratio=10,
-        )
-        table.add_column("leader", header_style="bright_magenta bold", ratio=10)
-        table.add_column(
-            "replicas",
-            header_style="bright_magenta bold",
-            ratio=40,
+            "id", header_style="bright_magenta bold", ratio=10, no_wrap=True
         )
         table.add_column(
-            "in sync",
-            header_style="bright_magenta bold",
-            ratio=40,
+            "leader", header_style="bright_magenta bold", ratio=10, no_wrap=True
+        )
+        table.add_column(
+            "replicas", header_style="bright_magenta bold", ratio=40, no_wrap=True
+        )
+        table.add_column(
+            "in sync", header_style="bright_magenta bold", ratio=40, no_wrap=True
         )

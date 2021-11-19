@@ -30,7 +30,7 @@ class ScrollableList(Generic[T]):
             self.selected = selected
 
     def __rich__(self) -> Text:
-        content = Text(overflow="ignore")
+        content = Text(overflow="ellipsis", no_wrap=True)
         for index in range(self.start_rendering, self.end_rendering):
             item = self.list[index]
             string_index = str(index + 1)

@@ -55,11 +55,8 @@ class TopicList(Widget):
 
         self.scrollable_list.next()
         self.app.topic = self.scrollable_list.selected
-        self.app.describer_mode_widget.reset()
 
-        if self.app.consumer_mode_widget.visible:
-            self.app.consumer_mode_widget.consume_topic()
-            self.app.consumer_mode_widget.load_messages()
+        self.app.enable_describer_mode()
 
     def previous(self) -> None:
         if self.scrollable_list is None:
@@ -67,11 +64,8 @@ class TopicList(Widget):
 
         self.scrollable_list.previous()
         self.app.topic = self.scrollable_list.selected
-        self.app.describer_mode_widget.reset()
 
-        if self.app.consumer_mode_widget.visible:
-            self.app.consumer_mode_widget.consume_topic()
-            self.app.consumer_mode_widget.load_messages()
+        self.app.enable_describer_mode()
 
     def on_focus(self) -> None:
         self.has_focus = True
@@ -98,15 +92,11 @@ class TopicList(Widget):
         self.previous()
         self.refresh()
 
-    def on_click(self, event: events.Click) -> None:
+    async def on_click(self, event: events.Click) -> None:
         if self.scrollable_list is not None:
             self.scrollable_list.pointer = event.y - 1
             self.app.topic = self.scrollable_list.selected
 
-        self.app.describer_mode_widget.reset()
-
-        if self.app.consumer_mode_widget.visible:
-            self.app.consumer_mode_widget.consume_topic()
-            self.app.consumer_mode_widget.load_messages()
+        self.app.enable_describer_mode()
 
         self.refresh()
