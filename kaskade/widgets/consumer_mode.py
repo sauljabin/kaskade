@@ -23,7 +23,7 @@ CLICK_OFFSET = 1
 
 class ConsumerMode(Widget):
     has_focus = Reactive(False)
-    is_loading = Reactive(True)
+    is_loading = Reactive(False)
     spinner = Spinner("dots")
     loading_text = Text("loading")
     consumer_service: Optional[ConsumerService] = None
@@ -34,10 +34,16 @@ class ConsumerMode(Widget):
     def consume_topic(self) -> None:
         if self.app.topic is None:
             return
+
+        if self.is_loading:
+            return
+
         try:
             logger.debug("Consuming another topic")
             self.total_reads = 0
             self.__row = 0
+            if self.consumer_service is not None:
+                self.consumer_service.close()
             self.consumer_service = ConsumerService(self.app.config, self.app.topic)
         except Exception as ex:
             self.app.handle_exception(ex)
@@ -48,6 +54,9 @@ class ConsumerMode(Widget):
         return cast(int, self.size.height - TABLE_BOTTOM_PADDING)
 
     def background_execution(self) -> None:
+        if self.is_loading:
+            return
+
         self.is_loading = True
         self.records = []
         try:
@@ -108,9 +117,12 @@ class ConsumerMode(Widget):
                     self.records, self.total_reads, self.page_size(), row=self.row
                 )
 
+        title = "records ([blue]group[/] [yellow]{}[/])".format(
+            self.consumer_service.id if self.consumer_service is not None else "unknown"
+        )
         return Panel(
             to_render,
-            title="records",
+            title=title,
             border_style=styles.BORDER_FOCUSED if self.has_focus else styles.BORDER,
             box=styles.BOX,
             title_align="left",

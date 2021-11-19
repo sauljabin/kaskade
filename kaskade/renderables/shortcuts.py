@@ -9,13 +9,12 @@ class Shortcuts:
         "navigation": {
             "navigate": "{} {} {} {}".format(LEFT, RIGHT, UP, DOWN),
             "help": "?",
-            "describer mode": Keys.ControlD,
-            "consumer mode": Keys.ControlR,
             "manual refresh": "f5",
             "close dialog": Keys.Escape,
             "quit": Keys.ControlC,
         },
         "describer mode": {
+            "describer mode": Keys.ControlD,
             "next page": "]",
             "previous page": "[",
             "last page": "}",
@@ -24,7 +23,9 @@ class Shortcuts:
             "previous tab": "<",
         },
         "consumer mode": {
+            "consumer mode": Keys.ControlR,
             "consume next records": ">",
+            "consume from beginning": Keys.ControlR,
         },
     }
 
