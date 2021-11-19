@@ -6,7 +6,11 @@ from confluent_kafka.admin import AdminClient, GroupMetadata, TopicMetadata
 
 from kaskade.config import Config
 from kaskade.kafka import TIMEOUT
-from kaskade.kafka.mappers import metadata_to_group, metadata_to_group_partition
+from kaskade.kafka.mappers import (
+    metadata_to_group,
+    metadata_to_group_member,
+    metadata_to_group_partition,
+)
 from kaskade.kafka.models import Group
 
 
@@ -16,13 +20,13 @@ class GroupService:
             raise Exception("Config not found")
         self.config = config
 
-    def find_by_topic_name(self, name: str) -> List[Group]:
+    def find_by_topic_name(self, topic_name: str) -> List[Group]:
         admin_client = AdminClient(self.config.kafka)
         all_topics: List[TopicMetadata] = list(
             admin_client.list_topics(timeout=TIMEOUT).topics.values()
         )
         filtered_topics = [
-            metadata for metadata in all_topics if metadata.topic == name
+            metadata for metadata in all_topics if metadata.topic == topic_name
         ]
 
         if len(filtered_topics) > 0:
@@ -59,6 +63,11 @@ class GroupService:
                     group.partitions.append(group_partition)
 
             if len(group.partitions) > 0:
+                for member_metadata in group_metadata.members:
+                    member = metadata_to_group_member(member_metadata)
+                    member.group = group.id
+                    if topic_name.encode() in member_metadata.assignment:
+                        group.members.append(member)
                 groups.append(group)
 
         return sorted(groups, key=attrgetter("id"))

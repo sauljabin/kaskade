@@ -29,7 +29,7 @@ class GroupsTable(PaginatedTable):
                 str(f"[green]{state}[/]" if state == "stable" else f"[red]{state}[/]"),
                 str(f"[green]{lag}[/]" if lag == 0 else f"[red]{lag}[/]"),
                 str(group.broker.id),
-                str(group.members),
+                str(group.members_count()),
             )
 
     def render_columns(self, table: Table) -> None:

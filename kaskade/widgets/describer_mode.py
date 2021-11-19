@@ -1,5 +1,5 @@
 import re
-from typing import Any, Callable, Optional, Union
+from typing import Any, Callable, List, Optional, Union
 
 from rich.align import Align
 from rich.panel import Panel
@@ -10,7 +10,9 @@ from textual.reactive import Reactive
 from textual.widget import Widget
 
 from kaskade import styles
+from kaskade.kafka.models import GroupMember
 from kaskade.renderables.groups_table import GroupsTable
+from kaskade.renderables.members_table import MembersTable
 from kaskade.renderables.paginated_table import PaginatedTable
 from kaskade.renderables.partitions_table import PartitionsTable
 from kaskade.utils.circular_list import CircularList
@@ -40,9 +42,23 @@ class DescriberMode(Widget):
             [
                 Tab("partitions", self.render_partitions),
                 Tab("groups", self.render_groups),
+                Tab("members", self.render_members),
             ]
         )
         self.tabs.index = 0
+
+    def render_members(self) -> MembersTable:
+        members: List[GroupMember] = (
+            sum([group.members for group in self.app.topic.groups], [])
+            if self.app.topic
+            else []
+        )
+        return MembersTable(
+            members,
+            page_size=self.size.height - TABLE_BOTTOM_PADDING,
+            page=self.page,
+            row=self.row,
+        )
 
     def render_partitions(self) -> PartitionsTable:
         return PartitionsTable(

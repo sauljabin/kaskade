@@ -1,12 +1,16 @@
 from confluent_kafka import TopicPartition as GroupPartitionMetadata
-from confluent_kafka.admin import (
-    BrokerMetadata,
-    GroupMetadata,
-    PartitionMetadata,
-    TopicMetadata,
-)
+from confluent_kafka.admin import BrokerMetadata
+from confluent_kafka.admin import GroupMember as GroupMemberMetadata
+from confluent_kafka.admin import GroupMetadata, PartitionMetadata, TopicMetadata
 
-from kaskade.kafka.models import Broker, Group, GroupPartition, Partition, Topic
+from kaskade.kafka.models import (
+    Broker,
+    Group,
+    GroupMember,
+    GroupPartition,
+    Partition,
+    Topic,
+)
 
 
 def metadata_to_broker(metadata: BrokerMetadata) -> Broker:
@@ -18,8 +22,17 @@ def metadata_to_group(metadata: GroupMetadata) -> Group:
         id=metadata.id,
         broker=metadata_to_broker(metadata.broker),
         state=metadata.state,
-        members=len(metadata.members),
+        members=[],
         partitions=[],
+    )
+
+
+def metadata_to_group_member(metadata: GroupMemberMetadata) -> GroupMember:
+    return GroupMember(
+        id=metadata.id,
+        group="",
+        client_id=metadata.client_id,
+        client_host=metadata.client_host,
     )
 
 

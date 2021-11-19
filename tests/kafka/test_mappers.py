@@ -36,7 +36,7 @@ class TestMappers(TestCase):
         self.assertEqual(metadata.id, actual.id)
         self.assertEqual(metadata.state, actual.state)
         self.assertListEqual([], actual.partitions)
-        self.assertEqual(len(metadata.members), actual.members)
+        self.assertEqual([], actual.members)
 
         self.assertEqual(metadata_broker.id, actual_broker.id)
         self.assertEqual(metadata_broker.port, actual_broker.port)

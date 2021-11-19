@@ -20,6 +20,38 @@ class Broker:
         return False
 
 
+class GroupMember:
+    def __init__(
+        self,
+        id: str = "",
+        client_id: str = "",
+        group: str = "",
+        client_host: str = "",
+    ) -> None:
+        self.id = id
+        self.client_id = client_id
+        self.group = group
+        self.client_host = client_host
+
+    def __repr__(self) -> str:
+        return str(self)
+
+    def __str__(self) -> str:
+        return str(
+            {
+                "id": self.id,
+                "group": self.group,
+                "client_id": self.client_id,
+                "client_host": self.client_host,
+            }
+        )
+
+    def __eq__(self, other: Any) -> bool:
+        if isinstance(other, GroupMember):
+            return self.id == other.id
+        return False
+
+
 class GroupPartition:
     def __init__(
         self,
@@ -72,7 +104,7 @@ class Group:
         id: str = "",
         broker: Broker = Broker(),
         state: str = "",
-        members: int = 0,
+        members: List[GroupMember] = [],
         partitions: List[GroupPartition] = [],
     ) -> None:
         self.broker = broker
@@ -93,6 +125,12 @@ class Group:
             if self.partitions is not None
             else 0
         )
+
+    def members_count(self) -> int:
+        return len(self.members) if self.members is not None else 0
+
+    def partitions_count(self) -> int:
+        return len(self.partitions) if self.partitions is not None else 0
 
     def __eq__(self, other: Any) -> bool:
         if isinstance(other, Group):
