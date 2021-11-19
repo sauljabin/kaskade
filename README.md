@@ -40,7 +40,6 @@ For a local kafka environment go to https://github.com/sauljabin/kafka-docker.
     * [Kaskade](#kaskade)
 * [Screenshots](#screenshots)
 * [Alternatives](#alternatives)
-* [To Do](#to-do)
 * [Development](#development)
   * [Scripts](#scripts)
   * [Docker](#docker)
