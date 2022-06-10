@@ -32,7 +32,7 @@ PyYAML = "^5.4.1"
 typing-extensions = "^3.10.0"
 
 [tool.poetry.dev-dependencies]
-black = "^21.9b0"
+black = "^22.3.0"
 isort = "^5.9.3"
 bandit = "^1.7.0"
 unittest = "^0.0"

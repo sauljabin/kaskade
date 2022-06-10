@@ -142,6 +142,7 @@ cython_debug/
 ## vscode
 
 .vscode/
+.dccache
 
 ## pycharm
 

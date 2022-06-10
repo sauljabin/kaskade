@@ -33,17 +33,18 @@ For a local kafka environment go to https://github.com/sauljabin/kafka-docker.
 
 # Table of Contents
 
-* [Installation and Usage](#installation-and-usage)
-* [Running with Docker](#running-with-docker)
-* [Configuration](#configuration)
-    * [Kafka](#kafka)
-    * [Kaskade](#kaskade)
-* [Screenshots](#screenshots)
-* [Alternatives](#alternatives)
-* [Development](#development)
-  * [Scripts](#scripts)
-  * [Docker](#docker)
-  * [Bumping Version](#bumping-version)
+- [Table of Contents](#table-of-contents)
+- [Installation and Usage](#installation-and-usage)
+- [Running with Docker](#running-with-docker)
+- [Configuration](#configuration)
+    - [Kafka](#kafka)
+    - [Kaskade](#kaskade)
+- [Screenshots](#screenshots)
+- [Alternatives](#alternatives)
+- [Development](#development)
+    - [Scripts](#scripts)
+    - [Docker](#docker)
+    - [Bumping Version](#bumping-version)
 
 # Installation and Usage
 
