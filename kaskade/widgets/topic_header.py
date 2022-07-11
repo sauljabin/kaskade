@@ -2,15 +2,15 @@ from typing import Union
 
 from rich.align import Align
 from rich.panel import Panel
-from textual.widget import Widget
 
 from kaskade import styles
 from kaskade.renderables.topic_info import TopicInfo
+from kaskade.widgets.tui_widget import TuiWidget
 
 PANEL_SIZE = 5
 
 
-class TopicHeader(Widget):
+class TopicHeader(TuiWidget):
     def on_mount(self) -> None:
         self.layout_size = PANEL_SIZE
 
@@ -19,8 +19,8 @@ class TopicHeader(Widget):
             "Not selected", vertical="middle"
         )
 
-        if self.app.topic is not None:
-            topic_info = TopicInfo(self.app.topic)
+        if self.tui.topic is not None:
+            topic_info = TopicInfo(self.tui.topic)
 
         panel = Panel(
             topic_info,
