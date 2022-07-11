@@ -162,10 +162,6 @@ kaskade:
 </p>
 
 <p align="center">
-<img alt="kaskade" src="https://raw.githubusercontent.com/sauljabin/kaskade/main/screenshots/help.png">
-</p>
-
-<p align="center">
 <img alt="kaskade" src="https://raw.githubusercontent.com/sauljabin/kaskade/main/screenshots/consumer.png">
 </p>
 

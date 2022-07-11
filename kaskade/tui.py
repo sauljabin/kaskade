@@ -2,7 +2,6 @@ from threading import Event, Thread
 from typing import Any, Optional, Type
 
 from confluent_kafka import KafkaException
-from rich.console import Console
 from textual.app import App
 from textual.driver import Driver
 from textual.keys import Keys
@@ -34,13 +33,11 @@ class Tui(App):
     def __init__(
         self,
         config: Config,
-        console: Optional[Console] = None,
         screen: bool = True,
         driver_class: Optional[Type[Driver]] = None,
         log_verbosity: int = 1,
     ) -> None:
         super().__init__(
-            console=console,
             screen=screen,
             driver_class=driver_class,
             log_verbosity=log_verbosity,
@@ -109,18 +106,20 @@ class Tui(App):
         await self.view.dock(self.error_widget, edge="right", size=40, z=1)
         await self.view.dock(self.help_widget, edge="right", size=40, z=1)
 
-        refresh = (
-            True
-            if self.config.kaskade.get("refresh") is None
-            else self.config.kaskade.get("refresh")
-        )
+        refresh_config = self.config.kaskade.get("refresh")
+
+        if refresh_config is None:
+            refresh = True
+        else:
+            refresh = bool(refresh_config)
 
         if refresh:
-            refresh_rate = (
-                5
-                if self.config.kaskade.get("refresh-rate") is None
-                else self.config.kaskade.get("refresh-rate")
-            )
+            refresh_rate_config = self.config.kaskade.get("refresh-rate")
+
+            if refresh_rate_config is None:
+                refresh_rate = 5.0
+            else:
+                refresh_rate = float(refresh_rate_config)
 
             logger.debug("Refresh enable with %.1f secs", refresh_rate)
             background_thread = Thread(
@@ -177,6 +176,13 @@ class Tui(App):
             logger.debug("Shutdown received")
             self.background_lock.set()
         await self.shutdown()
+
+    async def shutdown(self) -> None:
+        driver = self._driver
+        if driver is None:
+            raise Exception("Driver is None")
+        driver.disable_input()
+        await self.close_messages()
 
     async def watch_error(self, error: str) -> None:
         show_error = bool(error)

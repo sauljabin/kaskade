@@ -37,7 +37,7 @@ class TestShortcuts(TestCase):
         for category, shortcuts in random_dict.items():
             calls.append(call("[blue bold]test[/]"))
             for action, shortcut in shortcuts.items():
-                calls.append(call("{}:".format(action), str(shortcut)))
+                calls.append(call("{}".format(action), str(shortcut)))
             else:
                 calls.append(call())
 

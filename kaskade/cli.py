@@ -1,8 +1,10 @@
 import sys
 from logging import DEBUG
+from pathlib import Path
 
 from confluent_kafka import KafkaException
 from rich.console import Console
+from rich.markdown import Markdown
 
 from kaskade import logger
 from kaskade.config import Config
@@ -16,16 +18,25 @@ from kaskade.tui import Tui
 
 class Cli:
     def __init__(
-        self, print_version: bool, print_information: bool, config_file: str
+        self,
+        print_version: bool,
+        print_information: bool,
+        print_configs: bool,
+        save_yml_file: bool,
+        config_file: str,
     ) -> None:
         self.print_version = print_version
         self.print_information = print_information
+        self.print_configs = print_configs
+        self.save_yml_file = save_yml_file
         self.config_file = config_file
 
     def run(self) -> None:
         try:
             self.print_version_option()
             self.print_information_option()
+            self.print_configs_option()
+            self.save_yml_file_option()
             self.run_tui()
         except Exception as ex:
             message = str(ex)
@@ -49,10 +60,15 @@ class Cli:
             return
 
         console = Console()
-        console.print(KaskadeName())
-        console.print()
         console.print(KaskadeInfo())
-        console.print()
+
+        sys.exit(0)
+
+    def print_configs_option(self) -> None:
+        if not self.print_configs:
+            return
+
+        console = Console()
         console.print(ConfigExamples())
 
         sys.exit(0)
@@ -64,6 +80,34 @@ class Cli:
         console = Console()
         console.print(KaskadeName())
         console.print(KaskadeVersion())
+
+        sys.exit(0)
+
+    def save_yml_file_option(self) -> None:
+        if not self.save_yml_file:
+            return
+
+        yml_file = """kafka:
+  bootstrap.servers: localhost:9092
+  # security.protocol: SSL # enables secure connection, default empty
+# kaskade:
+  # debug: off # enables debug mode, default off
+  # refresh: on # enables auto-refresh, default on
+  # refresh-rate: 5 # auto-refresh rate, default 5 secs
+"""
+
+        md_file = f"""```yaml
+{yml_file}```"""
+
+        path = Path("kaskade.yml")
+
+        file = open(path, "w")
+        file.write(yml_file)
+        file.close()
+
+        console = Console()
+        console.print(Markdown(md_file))
+        console.print(f"File generated at {path.absolute()}")
 
         sys.exit(0)
 

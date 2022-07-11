@@ -7,7 +7,6 @@ from rich.text import Text
 from textual import events
 from textual.keys import Keys
 from textual.reactive import Reactive
-from textual.widget import Widget
 
 from kaskade import styles
 from kaskade.kafka.models import GroupMember
@@ -16,6 +15,7 @@ from kaskade.renderables.members_table import MembersTable
 from kaskade.renderables.paginated_table import PaginatedTable
 from kaskade.renderables.partitions_table import PartitionsTable
 from kaskade.utils.circular_list import CircularList
+from kaskade.widgets.tui_widget import TuiWidget
 
 CLICK_OFFSET = 1
 
@@ -30,7 +30,7 @@ class Tab:
         self.render = render
 
 
-class DescriberMode(Widget):
+class DescriberMode(TuiWidget):
     has_focus = Reactive(False)
     table: Optional[PaginatedTable] = None
     page = 1
@@ -49,8 +49,8 @@ class DescriberMode(Widget):
 
     def render_members(self) -> MembersTable:
         members: List[GroupMember] = (
-            sum([group.members for group in self.app.topic.groups], [])
-            if self.app.topic
+            sum([group.members for group in self.tui.topic.groups], [])
+            if self.tui.topic
             else []
         )
         return MembersTable(
@@ -62,7 +62,7 @@ class DescriberMode(Widget):
 
     def render_partitions(self) -> PartitionsTable:
         return PartitionsTable(
-            self.app.topic.partitions if self.app.topic else [],
+            self.tui.topic.partitions if self.tui.topic else [],
             page_size=self.size.height - TABLE_BOTTOM_PADDING,
             page=self.page,
             row=self.row,
@@ -70,7 +70,7 @@ class DescriberMode(Widget):
 
     def render_groups(self) -> GroupsTable:
         return GroupsTable(
-            self.app.topic.groups if self.app.topic else [],
+            self.tui.topic.groups if self.tui.topic else [],
             page_size=self.size.height - TABLE_BOTTOM_PADDING,
             page=self.page,
             row=self.row,
@@ -98,7 +98,7 @@ class DescriberMode(Widget):
 
         to_render: Union[Align, PaginatedTable] = (
             Align.center("Not selected", vertical="middle")
-            if self.app.topic is None or self.table is None
+            if self.tui.topic is None or self.table is None
             else self.table
         )
 
@@ -115,7 +115,7 @@ class DescriberMode(Widget):
 
     def on_focus(self) -> None:
         self.has_focus = True
-        self.app.focusables.current = self
+        self.tui.focusables.current = self
 
     def on_blur(self) -> None:
         self.has_focus = False
@@ -162,20 +162,20 @@ class DescriberMode(Widget):
         self.row = 0
 
     async def on_mouse_scroll_up(self) -> None:
-        await self.app.set_focus(self)
+        await self.tui.set_focus(self)
         if self.table is not None:
             self.table.next_row()
 
         self.refresh()
 
     async def on_mouse_scroll_down(self) -> None:
-        await self.app.set_focus(self)
+        await self.tui.set_focus(self)
         if self.table is not None:
             self.table.previous_row()
 
         self.refresh()
 
-    def on_click(self, event: events.Click) -> None:
+    async def on_click(self, event: events.Click) -> None:
         if self.table is not None:
             self.table.row = event.y - CLICK_OFFSET
 

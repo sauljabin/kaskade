@@ -1,6 +1,6 @@
 import time
 from threading import Thread
-from typing import List, Optional, Union, cast
+from typing import List, Optional, Union
 
 from rich.align import Align
 from rich.columns import Columns
@@ -10,18 +10,18 @@ from rich.text import Text
 from textual import events
 from textual.keys import Keys
 from textual.reactive import Reactive
-from textual.widget import Widget
 
 from kaskade import logger, styles
 from kaskade.kafka.consumer_service import ConsumerService
 from kaskade.kafka.models import Record
 from kaskade.renderables.records_table import RecordsTable
+from kaskade.widgets.tui_widget import TuiWidget
 
 TABLE_BOTTOM_PADDING = 4
 CLICK_OFFSET = 1
 
 
-class ConsumerMode(Widget):
+class ConsumerMode(TuiWidget):
     has_focus = Reactive(False)
     is_loading = Reactive(False)
     spinner = Spinner("dots")
@@ -32,7 +32,7 @@ class ConsumerMode(Widget):
     __row = 0
 
     def consume_topic(self) -> None:
-        if self.app.topic is None:
+        if self.tui.topic is None:
             return
 
         if self.is_loading:
@@ -44,14 +44,14 @@ class ConsumerMode(Widget):
             self.__row = 0
             if self.consumer_service is not None:
                 self.consumer_service.close()
-            self.consumer_service = ConsumerService(self.app.config, self.app.topic)
+            self.consumer_service = ConsumerService(self.tui.config, self.tui.topic)
         except Exception as ex:
-            self.app.handle_exception(ex)
+            self.tui.handle_exception(ex)
 
     def page_size(self) -> int:
         if self.size.height < TABLE_BOTTOM_PADDING:
             return 0
-        return cast(int, self.size.height - TABLE_BOTTOM_PADDING)
+        return self.size.height - TABLE_BOTTOM_PADDING
 
     def background_execution(self) -> None:
         if self.is_loading:
@@ -72,12 +72,12 @@ class ConsumerMode(Widget):
                 self.total_reads += len(self.records)
             logger.debug("End consuming in background")
         except Exception as ex:
-            self.app.handle_exception(ex)
+            self.tui.handle_exception(ex)
         self.is_loading = False
         self.refresh()
 
     def load_messages(self) -> None:
-        if self.app.topic is None:
+        if self.tui.topic is None:
             return
 
         background_thread = Thread(target=self.background_execution, args=())
@@ -101,7 +101,7 @@ class ConsumerMode(Widget):
             "Not selected", vertical="middle"
         )
 
-        if self.app.topic is not None:
+        if self.tui.topic is not None:
             if self.is_loading:
                 self.spinner.style = ""
                 self.loading_text.style = ""
@@ -129,7 +129,7 @@ class ConsumerMode(Widget):
             padding=0,
         )
 
-    def on_click(self, event: events.Click) -> None:
+    async def on_click(self, event: events.Click) -> None:
         self.row = event.y - CLICK_OFFSET
         self.refresh()
 
@@ -138,7 +138,7 @@ class ConsumerMode(Widget):
             return
 
         key = event.key
-        if key == ">":
+        if key == "]":
             self.load_messages()
             self.row = 0
         elif key == Keys.Up:

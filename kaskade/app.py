@@ -5,13 +5,15 @@ from kaskade.cli import Cli
 
 @click.command()
 @click.option("--version", is_flag=True, help="Show the app version and exit.")
+@click.option("--info", is_flag=True, help="Show app information and exit.")
+@click.option("--configs", is_flag=True, help="Show config examples and exit.")
 @click.option(
-    "--info", is_flag=True, help="Show the app information and config examples."
+    "--yml", is_flag=True, help="Generate a default yml config file and exit."
 )
 @click.argument(
     "config_file", metavar="<config file>", nargs=1, required=False, default=""
 )
-def main(version: bool, info: bool, config_file: str) -> None:
+def main(version: bool, info: bool, configs: bool, yml: bool, config_file: str) -> None:
     """
 
     kaskade is a terminal user interface for kafka.
@@ -29,7 +31,13 @@ def main(version: bool, info: bool, config_file: str) -> None:
 
     More info at https://github.com/sauljabin/kaskade.
     """
-    cli = Cli(print_version=version, print_information=info, config_file=config_file)
+    cli = Cli(
+        print_version=version,
+        print_information=info,
+        print_configs=configs,
+        save_yml_file=yml,
+        config_file=config_file,
+    )
     cli.run()
 
 

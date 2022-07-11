@@ -22,14 +22,14 @@ packages = [
 ]
 
 [tool.poetry.dependencies]
-python = ">= 3.8, < 3.10"
+python = "^3.8"
 click = "^8.0.1"
-rich = "^10.9.0"
+rich = "^12.4.4"
 pyfiglet = "^0.8.post1"
 textual = "^0.1.12"
 confluent-kafka = "^1.7.0"
 PyYAML = "^5.4.1"
-typing-extensions = "^3.10.0"
+typing-extensions = "^4.3.0"
 
 [tool.poetry.dev-dependencies]
 black = "^22.3.0"

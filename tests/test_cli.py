@@ -14,7 +14,13 @@ class TestCli(unittest.TestCase):
     ):
         mock_console = MagicMock()
         mock_class_console.return_value = mock_console
-        cli = Cli(print_version=True, config_file="", print_information=False)
+        cli = Cli(
+            print_version=True,
+            config_file="",
+            print_information=False,
+            print_configs=False,
+            save_yml_file=False,
+        )
 
         with self.assertRaises(SystemExit):
             cli.run()
@@ -31,7 +37,13 @@ class TestCli(unittest.TestCase):
         mock_class_config.return_value.kaskade = {"log-ui": False}
 
         random_path = faker.file_path(extension="yml")
-        cli = Cli(print_version=False, config_file=random_path, print_information=False)
+        cli = Cli(
+            print_version=False,
+            config_file=random_path,
+            print_information=False,
+            print_configs=False,
+            save_yml_file=False,
+        )
         cli.run()
         mock_class_config.assert_called_once_with(random_path)
 
@@ -43,7 +55,13 @@ class TestCli(unittest.TestCase):
     def test_print_exception(self, mock_class_console):
         random_path = faker.file_path(extension="yml")
         random_message = faker.text()
-        cli = Cli(print_version=False, config_file=random_path, print_information=False)
+        cli = Cli(
+            print_version=False,
+            config_file=random_path,
+            print_information=False,
+            print_configs=False,
+            save_yml_file=False,
+        )
         cli.run_tui = MagicMock(side_effect=Exception(random_message))
         with self.assertRaises(SystemExit) as exit_code:
             cli.run()

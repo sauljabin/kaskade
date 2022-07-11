@@ -6,15 +6,15 @@ from kaskade.unicodes import DOWN, LEFT, RIGHT, UP
 
 class Shortcuts:
     shortcuts = {
-        "navigation": {
+        "navigation:": {
             "navigate": "{} {} {} {}".format(LEFT, RIGHT, UP, DOWN),
             "help": "?",
             "manual refresh": "f5",
             "close dialog": Keys.Escape,
             "quit": Keys.ControlC,
         },
-        "describer mode": {
-            "describer mode": Keys.ControlD,
+        "describer mode:": {
+            "activate mode": Keys.ControlD,
             "next page": "]",
             "previous page": "[",
             "last page": "}",
@@ -22,9 +22,9 @@ class Shortcuts:
             "next tab": ">",
             "previous tab": "<",
         },
-        "consumer mode": {
-            "consumer mode": Keys.ControlR,
-            "consume next records": ">",
+        "consumer mode:": {
+            "activate mode": Keys.ControlR,
+            "consume next records": "]",
             "consume from beginning": Keys.ControlR,
         },
     }
@@ -39,7 +39,7 @@ class Shortcuts:
         for category, shortcuts in self.shortcuts.items():
             table.add_row("[blue bold]{}[/]".format(category))
             for action, shortcut in shortcuts.items():
-                table.add_row("{}:".format(action), "{}".format(shortcut))
+                table.add_row("{}".format(action), "{}".format(shortcut))
             else:
                 table.add_row()
 
