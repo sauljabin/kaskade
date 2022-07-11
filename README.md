@@ -73,10 +73,22 @@ Version:
 kaskade --version
 ```
 
-Information, it shows app information and some config examples:
+Information, it shows app information:
 
 ```shell
 kaskade --info
+```
+
+Configurations, it shows config examples:
+
+```shell
+kaskade --configs
+```
+
+Generating a default config yml file:
+
+```shell
+kaskade --yml
 ```
 
 Run without config file (it'll take any of `kaskade.yml`, `kaskade.yaml`, `config.yml` or `config.yaml`):
