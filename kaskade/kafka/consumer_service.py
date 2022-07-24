@@ -86,17 +86,20 @@ class ConsumerService:
 
 
 if __name__ == "__main__":
-    from pprint import pprint
+    from rich import print
 
-    config = Config("../../kaskade.yml")
-    topic = Topic(name="kafka-cluster.test")
+    from kaskade.renderables.kafka_record import KafkaRecord
+
+    config = Config("kaskade.yml")
+    topic = Topic(name="test")
     consumer_service = ConsumerService(config, topic)
 
     try:
-        records = consumer_service.consume(100)
+        records = consumer_service.consume(1)
         print("consumer:", consumer_service.id)
         print("topic:", consumer_service.topic)
         print("total records:", len(records))
-        pprint(records)
+        kafka_record = KafkaRecord(records[0], 50, 1)
+        print(kafka_record)
     finally:
         consumer_service.close()
