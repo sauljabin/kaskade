@@ -26,6 +26,8 @@ class Shortcuts:
             "activate mode": Keys.ControlR,
             "consume next records": "]",
             "consume from beginning": Keys.ControlR,
+            "open message": Keys.Enter,
+            "close message": Keys.Escape,
         },
     }
 

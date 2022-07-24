@@ -1,8 +1,6 @@
 import datetime
+import json
 from typing import Any, List, Optional, Tuple
-
-from kaskade.utils.byte_util import decode_if_byte
-from kaskade.utils.json_util import json_dumps
 
 
 class Broker:
@@ -303,10 +301,24 @@ class Record:
             "date": str(self.date),
             "partition": self.partition,
             "offset": self.offset,
-            "headers": [(key, decode_if_byte(value)) for (key, value) in self.headers]
+            "headers": [
+                (key, value.decode("utf-8") if type(value) is bytes else value)
+                for (key, value) in self.headers
+            ]
             if self.headers is not None
             else self.headers,
-            "key": decode_if_byte(self.key),
-            "value": decode_if_byte(self.value),
+            "key": self.key.decode("utf-8") if type(self.key) is bytes else self.key,
+            "value": self.value.decode("utf-8")
+            if type(self.value) is bytes
+            else self.value,
         }
-        return json_dumps(decoded)
+        return json.dumps(decoded, indent=4)
+
+
+class Schema:
+    def __init__(self, type: str, json_file: object) -> None:
+        self.type = type
+        self.json = json_file
+
+    def __str__(self) -> str:
+        return json.dumps(self.json, indent=4)
