@@ -30,9 +30,7 @@ class TestShortcuts(TestCase):
         mock_class_table.assert_called_with(
             box=None, expand=False, show_footer=False, show_header=False
         )
-        mock_table.add_column.assert_has_calls(
-            [call(style="magenta bold"), call(style="yellow bold")]
-        )
+        mock_table.add_column.assert_has_calls([call(), call(style="yellow bold")])
         calls = []
         for category, shortcuts in random_dict.items():
             calls.append(call("[blue bold]test[/]"))

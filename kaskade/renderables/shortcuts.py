@@ -1,19 +1,19 @@
 from rich.table import Table
 from textual.keys import Keys
 
-from kaskade.unicodes import DOWN, LEFT, RIGHT, UP
+from kaskade.unicodes import DOWN, DOWN_TRIANGLE, LEFT, RIGHT, UP
 
 
 class Shortcuts:
     shortcuts = {
-        "navigation:": {
+        f"navigation {DOWN_TRIANGLE}": {
             "navigate": "{} {} {} {}".format(LEFT, RIGHT, UP, DOWN),
             "help": "?",
             "manual refresh": "f5",
             "close dialog": Keys.Escape,
             "quit": Keys.ControlC,
         },
-        "describer mode:": {
+        f"describer mode {DOWN_TRIANGLE}": {
             "activate mode": Keys.ControlD,
             "next page": "]",
             "previous page": "[",
@@ -22,7 +22,7 @@ class Shortcuts:
             "next tab": ">",
             "previous tab": "<",
         },
-        "consumer mode:": {
+        f"consumer mode {DOWN_TRIANGLE}": {
             "activate mode": Keys.ControlR,
             "consume next records": "]",
             "consume from beginning": Keys.ControlR,
@@ -34,7 +34,7 @@ class Shortcuts:
 
     def __rich__(self) -> Table:
         table = Table(box=None, expand=False, show_footer=False, show_header=False)
-        table.add_column(style="magenta bold")
+        table.add_column()
         table.add_column(style="yellow bold")
         for category, shortcuts in self.shortcuts.items():
             table.add_row("[blue bold]{}[/]".format(category))

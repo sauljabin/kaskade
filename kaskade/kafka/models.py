@@ -1,6 +1,9 @@
 import datetime
 from typing import Any, List, Optional, Tuple
 
+from kaskade.utils.byte_util import decode_if_byte
+from kaskade.utils.json_util import json_dumps
+
 
 class Broker:
     def __init__(self, id: int = -1, host: str = "", port: int = -1) -> None:
@@ -278,18 +281,32 @@ class Record:
         return str(self)
 
     def __str__(self) -> str:
-        return str(
-            {
-                "date": str(self.date),
-                "partition": self.partition,
-                "offset": self.offset,
-                "header": self.headers,
-                "key": self.key,
-                "value": self.value,
-            }
-        )
+        return str(self.dict())
 
     def __eq__(self, other: Any) -> bool:
         if isinstance(other, Record):
             return self.partition == other.partition and self.offset == other.offset
         return False
+
+    def dict(self) -> dict[str, Any]:
+        return {
+            "date": str(self.date),
+            "partition": self.partition,
+            "offset": self.offset,
+            "headers": self.headers,
+            "key": self.key,
+            "value": self.value,
+        }
+
+    def json(self) -> str:
+        decoded = {
+            "date": str(self.date),
+            "partition": self.partition,
+            "offset": self.offset,
+            "headers": [(key, decode_if_byte(value)) for (key, value) in self.headers]
+            if self.headers is not None
+            else self.headers,
+            "key": decode_if_byte(self.key),
+            "value": decode_if_byte(self.value),
+        }
+        return json_dumps(decoded)
