@@ -1,4 +1,4 @@
-FROM python:3.8
+FROM python:3.9
 WORKDIR /kaskade
 COPY dist/ /kaskade/
 RUN pip install --no-cache-dir kaskade*.whl \
