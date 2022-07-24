@@ -21,12 +21,11 @@
 <a href="https://hub.docker.com/r/sauljabin/kaskade"><img alt="Docker Image Size (latest by date)" src="https://img.shields.io/docker/image-size/sauljabin/kaskade"></a>
 
 **kaskade** is a tui (text user interface) for [kafka](https://kafka.apache.org/).
+
 :rocket: This project is powered by [textual](https://github.com/willmcgugan/textual)
 and [rich](https://github.com/willmcgugan/rich)!.
 
 For a local kafka environment go to https://github.com/sauljabin/kafka-docker.
-
-> 🚧 This project is currently a work in progress, but usable by early adopters.
 
 # Table of Contents
 

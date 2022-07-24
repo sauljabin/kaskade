@@ -1,3 +1,4 @@
+from avro.schema import Schema as SchemaMetadata
 from confluent_kafka import TopicPartition as GroupPartitionMetadata
 from confluent_kafka.admin import BrokerMetadata
 from confluent_kafka.admin import GroupMember as GroupMemberMetadata
@@ -9,6 +10,7 @@ from kaskade.kafka.models import (
     GroupMember,
     GroupPartition,
     Partition,
+    Schema,
     Topic,
 )
 
@@ -59,9 +61,12 @@ def metadata_to_partition(metadata: PartitionMetadata) -> Partition:
 
 
 def metadata_to_topic(metadata: TopicMetadata) -> Topic:
-    name = metadata.topic
     return Topic(
-        name=name,
+        name=metadata.topic,
         groups=[],
         partitions=[],
     )
+
+
+def metadata_to_schema(metadata: SchemaMetadata) -> Schema:
+    return Schema(type=metadata.type, json_file=metadata.to_json())
