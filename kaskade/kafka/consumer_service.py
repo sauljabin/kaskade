@@ -89,22 +89,36 @@ class ConsumerService:
         return records
 
     def __deserialize_value(self, raw_record: Message, record: Record) -> None:
-        if raw_record.value() is not None:
-            value_schema_id = unpack_schema_id(raw_record.value())
-            if value_schema_id > 0:
-                schema = self.schema_service.get_schema(value_schema_id)
-                record.value_schema = schema
-                if schema is not None and schema.type == AVRO:
-                    record.value = deserialize_avro(schema, raw_record.value())
+        if raw_record.value() is None:
+            return
+
+        value_schema_id = unpack_schema_id(raw_record.value())
+        if value_schema_id <= 0:
+            return
+
+        schema = self.schema_service.get_schema(value_schema_id)
+        record.value_schema = schema
+        if schema is None:
+            return
+
+        if schema.type == AVRO:
+            record.value = deserialize_avro(schema, raw_record.value())
 
     def __deserialize_key(self, raw_record: Message, record: Record) -> None:
-        if raw_record.key() is not None:
-            key_schema_id = unpack_schema_id(raw_record.key())
-            if key_schema_id > 0:
-                schema = self.schema_service.get_schema(key_schema_id)
-                record.key_schema = schema
-                if schema is not None and schema.type == AVRO:
-                    record.key = deserialize_avro(schema, raw_record.key())
+        if raw_record.key() is None:
+            return
+
+        key_schema_id = unpack_schema_id(raw_record.key())
+        if key_schema_id <= 0:
+            return
+
+        schema = self.schema_service.get_schema(key_schema_id)
+        record.key_schema = schema
+        if schema is None:
+            return
+
+        if schema.type == AVRO:
+            record.key = deserialize_avro(schema, raw_record.key())
 
     def close(self) -> None:
         self.consumer.unsubscribe()
