@@ -11,10 +11,13 @@ MAGIC_BYTES = 0
 
 
 def unpack_schema_id(binary: bytes) -> int:
-    magic, schema_id = struct.unpack(">bI", binary[:5])
-    if magic == MAGIC_BYTES:
-        return int(schema_id)
-    else:
+    try:
+        magic, schema_id = struct.unpack(">bI", binary[:5])
+        if magic == MAGIC_BYTES:
+            return int(schema_id)
+        else:
+            return -1
+    except struct.error:
         return -1
 
 
