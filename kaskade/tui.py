@@ -143,10 +143,9 @@ class Tui(App):
         await self.bind(Keys.Right, "change_focus('{}')".format(Keys.Right))
 
     async def action_toggle_consumer_mode(self) -> None:
-        if not self.topic_list_widget.has_focus:
-            self.focusables.current = self.consumer_mode_widget
-            await self.set_focus(self.consumer_mode_widget)
-            self.view.refresh()
+        self.focusables.current = self.consumer_mode_widget
+        await self.set_focus(self.consumer_mode_widget)
+        self.view.refresh()
         self.enable_consumer_mode()
 
     def enable_consumer_mode(self) -> None:
@@ -158,10 +157,9 @@ class Tui(App):
         self.consumer_mode_widget.load_messages()
 
     async def action_toggle_describer_mode(self) -> None:
-        if not self.topic_list_widget.has_focus:
-            self.focusables.current = self.describer_mode_widget
-            await self.set_focus(self.describer_mode_widget)
-            self.view.refresh()
+        self.focusables.current = self.describer_mode_widget
+        await self.set_focus(self.describer_mode_widget)
+        self.view.refresh()
         self.enable_describer_mode()
 
     def enable_describer_mode(self) -> None:
