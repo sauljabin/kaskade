@@ -102,7 +102,9 @@ schema.registry:
         md_file = f"""```yaml
 {yml_file}```"""
 
-        path = Path(self.config_file)
+        config_file = self.config_file if len(self.config_file) > 0 else "kaskade.yml"
+
+        path = Path(config_file)
 
         file = open(path, "w")
         file.write(yml_file)

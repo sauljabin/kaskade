@@ -15,7 +15,7 @@ from kaskade.cli import Cli
     metavar="<config file>",
     nargs=1,
     required=False,
-    default="kaskade.yml",
+    default="",
 )
 def main(version: bool, info: bool, configs: bool, yml: bool, config_file: str) -> None:
     """
