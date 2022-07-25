@@ -17,7 +17,7 @@ MAX_RETRIES_BEFORE_LEAVE = 10
 class ConsumerService:
     def __init__(self, config: Config, topic: Topic) -> None:
         if config is None or config.kafka is None:
-            raise Exception("Config not found")
+            raise Exception("Kafka config not found")
         self.config = config
         self.kafka_config = self.config.kafka.copy()
         self.kafka_config["group.id"] = "kaskade-" + str(uuid.uuid4())[:8]

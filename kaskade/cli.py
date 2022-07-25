@@ -88,25 +88,29 @@ class Cli:
             return
 
         yml_file = """kafka:
-  bootstrap.servers: localhost:9092
-  # security.protocol: SSL # enables secure connection, default empty
-# kaskade:
-  # debug: off # enables debug mode, default off
-  # refresh: on # enables auto-refresh, default on
-  # refresh-rate: 5 # auto-refresh rate, default 5 secs
+  bootstrap.servers: ${BOOTSTRAP_SERVERS}
+  security.protocol: SASL_SSL
+  sasl.mechanism: PLAIN
+  sasl.username: ${CLUSTER_API_KEY}
+  sasl.password: ${CLUSTER_API_SECRET}
+
+schema.registry:
+  url: ${SCHEMA_REGISTRY_URL}
+  basic.auth.credentials.source: USER_INFO
+  basic.auth.user.info: ${SR_API_KEY}:${SR_API_SECRET}
 """
 
         md_file = f"""```yaml
 {yml_file}```"""
 
-        path = Path("kaskade.yml")
+        path = Path(self.config_file)
 
         file = open(path, "w")
         file.write(yml_file)
         file.close()
 
         console = Console()
-        console.print(Markdown(md_file))
+        console.print(Markdown(md_file, code_theme="ansi_dark"))
         console.print(f"File generated at {path.absolute()}")
 
         sys.exit(0)

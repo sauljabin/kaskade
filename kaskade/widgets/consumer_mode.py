@@ -125,10 +125,17 @@ class ConsumerMode(TuiWidget):
                 to_render = RecordsTable(
                     self.records, self.total_reads, self.page_size(), row=self.table_row
                 )
+        if self.record is not None:
+            title = "record ([blue]partition[/] [yellow]{}[/], [blue]offset[/] [yellow]{}[/])".format(
+                self.record.partition, self.record.offset
+            )
+        else:
+            title = "records ([blue]group[/] [yellow]{}[/])".format(
+                self.consumer_service.id
+                if self.consumer_service is not None
+                else "unknown"
+            )
 
-        title = "records ([blue]group[/] [yellow]{}[/])".format(
-            self.consumer_service.id if self.consumer_service is not None else "unknown"
-        )
         return Panel(
             to_render,
             title=title,
@@ -139,7 +146,26 @@ class ConsumerMode(TuiWidget):
         )
 
     async def on_click(self, event: events.Click) -> None:
+        if self.record is not None:
+            return
+
         self.table_row = event.y - CLICK_OFFSET
+        self.refresh()
+
+    async def on_mouse_scroll_up(self) -> None:
+        await self.tui.set_focus(self)
+        if self.record is not None:
+            self.record_line += 1
+        else:
+            self.table_row += 1
+        self.refresh()
+
+    async def on_mouse_scroll_down(self) -> None:
+        await self.tui.set_focus(self)
+        if self.record is not None:
+            self.record_line -= 1
+        else:
+            self.table_row -= 1
         self.refresh()
 
     def on_key(self, event: events.Key) -> None:
@@ -162,9 +188,10 @@ class ConsumerMode(TuiWidget):
             else:
                 self.table_row += 1
         elif key == Keys.Enter:
-            self.record = self.records[self.table_row - 1]
-            self.total_record_lines = self.record.json().count("\n") + 1
-            self.record_line = 1
+            if len(self.records) > 0:
+                self.record = self.records[self.table_row - 1]
+                self.total_record_lines = self.record.json().count("\n") + 1
+                self.record_line = 1
         elif key == Keys.Escape:
             self.record = None
 

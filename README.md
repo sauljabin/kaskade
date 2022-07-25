@@ -20,7 +20,7 @@
 <a href="https://hub.docker.com/r/sauljabin/kaskade"><img alt="Docker Image Version (latest by date)" src="https://img.shields.io/docker/v/sauljabin/kaskade?label=tag"></a>
 <a href="https://hub.docker.com/r/sauljabin/kaskade"><img alt="Docker Image Size (latest by date)" src="https://img.shields.io/docker/image-size/sauljabin/kaskade"></a>
 
-**kaskade** is a tui (text user interface) for [kafka](https://kafka.apache.org/).
+**kaskade** is a read-only tui (text user interface) for [kafka](https://kafka.apache.org/).
 
 :rocket: This project is powered by [textual](https://github.com/willmcgugan/textual)
 and [rich](https://github.com/willmcgugan/rich)!.
@@ -144,11 +144,20 @@ kafka:
 
 > For more information about SSL encryption and SSL authentication go to [confluent-kafka](https://github.com/confluentinc/confluent-kafka-python#ssl-certificates) and [librdkafka](https://github.com/edenhill/librdkafka/wiki/Using-SSL-with-librdkafka#configure-librdkafka-client).
 
-Support for env variables (example `BOOTSTRAP_SERVERS`):
+Support for env variables:
 
 ```yaml
 kafka:
   bootstrap.servers: ${BOOTSTRAP_SERVERS}
+```
+
+### Schema Registry
+
+Simple connection example:
+
+```yaml
+schema.registry:
+  url: http://localhost:8081
 ```
 
 ### Kaskade
@@ -157,12 +166,30 @@ Next settings are optional:
 
 ```yaml
 kaskade:
-  debug: off # default off
-  refresh: on # enable auto-refresh default on
-  refresh-rate: 5 # auto-refresh rate default 5 secs
+  debug: off # enable debug mode, default off
+  refresh: on # enable auto-refresh, default on
+  refresh-rate: 5 # auto-refresh rate, default 5 secs
 ```
 
 > `debug` enabled will generate logs into a specific log file, execute `kaskade --info` to get the log path.
+
+### Other Examples
+
+Confluent Cloud:
+
+```yaml
+kafka:
+  bootstrap.servers: ${BOOTSTRAP_SERVERS}
+  security.protocol: SASL_SSL
+  sasl.mechanism: PLAIN
+  sasl.username: ${CLUSTER_API_KEY}
+  sasl.password: ${CLUSTER_API_SECRET}
+
+schema.registry:
+  url: ${SCHEMA_REGISTRY_URL}
+  basic.auth.credentials.source: USER_INFO
+  basic.auth.user.info: ${SR_API_KEY}:${SR_API_SECRET}
+```
 
 # Screenshots
 

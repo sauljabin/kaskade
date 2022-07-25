@@ -30,16 +30,19 @@ class RecordsTable:
             "date", header_style="bright_magenta bold", ratio=15, no_wrap=True
         )
         table.add_column(
-            "partition", header_style="bright_magenta bold", ratio=10, no_wrap=True
+            "partition", header_style="bright_magenta bold", ratio=7, no_wrap=True
         )
         table.add_column(
-            "offset", header_style="bright_magenta bold", ratio=10, no_wrap=True
+            "offset", header_style="bright_magenta bold", ratio=7, no_wrap=True
         )
         table.add_column(
-            "key", header_style="bright_magenta bold", ratio=25, no_wrap=True
+            "headers", header_style="bright_magenta bold", ratio=7, no_wrap=True
         )
         table.add_column(
-            "value", header_style="bright_magenta bold", ratio=40, no_wrap=True
+            "key", header_style="bright_magenta bold", ratio=24, no_wrap=True
+        )
+        table.add_column(
+            "value", header_style="bright_magenta bold", ratio=50, no_wrap=True
         )
 
         for record in self.records:
@@ -51,6 +54,7 @@ class RecordsTable:
                 ),
                 str(record.partition),
                 str(record.offset),
+                str(record.headers_count()),
                 str(record.key).replace("\n", ""),
                 str(record.value).replace("\n", ""),
             )

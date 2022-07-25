@@ -13,6 +13,9 @@ JSON = "JSON"
 
 class SchemaService:
     def __init__(self, config: Config):
+        if config is None or config.schema_registry is None:
+            raise Exception("Schema registry config not found")
+
         self.config = config
         self.schema_registry_config = self.config.schema_registry.copy()
         self.schema_registry_client = SchemaRegistryClient(self.schema_registry_config)
