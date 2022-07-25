@@ -339,15 +339,13 @@ class Record:
             "partition": self.partition,
             "offset": self.offset,
             "headers": [
-                (key, value.decode("utf-8") if type(value) is bytes else value)
+                (key, str(value) if isinstance(value, bytes) else value)
                 for (key, value) in self.headers
             ]
             if self.headers is not None
             else self.headers,
-            "key": self.key.decode("utf-8") if type(self.key) is bytes else self.key,
-            "value": self.value.decode("utf-8")
-            if type(self.value) is bytes
-            else self.value,
+            "key": str(self.key) if isinstance(self.key, bytes) else self.key,
+            "value": str(self.value) if isinstance(self.value, bytes) else self.value,
             "key_schema": self.key_schema.dict()
             if self.key_schema is not None
             else None,
