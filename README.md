@@ -193,7 +193,6 @@ kafka:
 
 schema.registry:
   url: ${SCHEMA_REGISTRY_URL}
-  basic.auth.credentials.source: USER_INFO
   basic.auth.user.info: ${SR_API_KEY}:${SR_API_SECRET}
 ```
 
