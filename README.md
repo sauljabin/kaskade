@@ -173,7 +173,8 @@ Next settings are optional:
 kaskade:
   debug: off # enable debug mode, default off
   refresh: on # enable auto-refresh, default on
-  refresh-rate: 5 # auto-refresh rate, default 5 secs
+  refresh.rate: 5 # auto-refresh rate, default 5 secs
+  show.internals: off # show internal topics, default off
 ```
 
 > `debug` enabled will generate logs into a specific log file, execute `kaskade --info` to get the log path.

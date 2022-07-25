@@ -32,6 +32,10 @@ class TopicService:
         topics = []
 
         for raw_topic in raw_topics:
+            if not bool(self.config.kaskade.get("show.internals")):
+                if raw_topic.topic.strip().startswith("_"):
+                    continue
+
             topic = metadata_to_topic(raw_topic)
             topics.append(topic)
 

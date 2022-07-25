@@ -114,7 +114,7 @@ class Tui(App):
             refresh = bool(refresh_config)
 
         if refresh:
-            refresh_rate_config = self.config.kaskade.get("refresh-rate")
+            refresh_rate_config = self.config.kaskade.get("refresh.rate")
 
             if refresh_rate_config is None:
                 refresh_rate = 5.0

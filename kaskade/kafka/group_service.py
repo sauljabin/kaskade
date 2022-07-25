@@ -40,6 +40,9 @@ class GroupService:
         groups: List[Group] = []
 
         for group_metadata in all_groups:
+            if len(group_metadata.id.strip()) <= 0:
+                continue
+
             group: Group = metadata_to_group(group_metadata)
 
             config = self.config.kafka.copy()
@@ -76,5 +79,5 @@ class GroupService:
 if __name__ == "__main__":
     config_main = Config("../../kaskade.yml")
     group_service = GroupService(config_main)
-    groups_result = group_service.find_by_topic_name("kafka-cluster.test")
+    groups_result = group_service.find_by_topic_name("test")
     print(groups_result)
