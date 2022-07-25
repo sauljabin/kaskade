@@ -1,6 +1,6 @@
 import datetime
 import json
-from typing import Any, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 
 class Broker:
@@ -258,6 +258,30 @@ class Cluster:
         return len(self.brokers) if self.brokers is not None else 0
 
 
+class Schema:
+    def __init__(
+        self,
+        id: int = -1,
+        type: str = "AVRO",
+        json_file: str = "",
+        data: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        self.type = type
+        self.json_file = json_file
+        self.data = data
+        self.id = id
+
+    def __str__(self) -> str:
+        return self.json_file
+
+    def dict(self) -> Dict[str, Any]:
+        return {
+            "id": self.id,
+            "type": self.type,
+            "data": self.data,
+        }
+
+
 class Record:
     def __init__(
         self,
@@ -265,8 +289,10 @@ class Record:
         partition: int = -1,
         offset: int = -1,
         headers: Optional[List[Tuple[str, bytes]]] = None,
-        key: Optional[bytes] = None,
-        value: Optional[bytes] = None,
+        key: Union[bytes, str, None] = None,
+        value: Union[bytes, str, None] = None,
+        key_schema: Optional[Schema] = None,
+        value_schema: Optional[Schema] = None,
     ) -> None:
         self.date = date
         self.partition = partition
@@ -274,6 +300,8 @@ class Record:
         self.headers = headers
         self.key = key
         self.value = value
+        self.key_schema = key_schema
+        self.value_schema = value_schema
 
     def __repr__(self) -> str:
         return str(self)
@@ -286,7 +314,7 @@ class Record:
             return self.partition == other.partition and self.offset == other.offset
         return False
 
-    def dict(self) -> dict[str, Any]:
+    def dict(self) -> Dict[str, Any]:
         return {
             "date": str(self.date),
             "partition": self.partition,
@@ -294,6 +322,12 @@ class Record:
             "headers": self.headers,
             "key": self.key,
             "value": self.value,
+            "key_schema": self.key_schema.dict()
+            if self.key_schema is not None
+            else None,
+            "value_schema": self.value_schema.dict()
+            if self.value_schema is not None
+            else None,
         }
 
     def json(self) -> str:
@@ -311,14 +345,11 @@ class Record:
             "value": self.value.decode("utf-8")
             if type(self.value) is bytes
             else self.value,
+            "key_schema": self.key_schema.dict()
+            if self.key_schema is not None
+            else None,
+            "value_schema": self.value_schema.dict()
+            if self.value_schema is not None
+            else None,
         }
         return json.dumps(decoded, indent=4)
-
-
-class Schema:
-    def __init__(self, type: str, json_file: object) -> None:
-        self.type = type
-        self.json = json_file
-
-    def __str__(self) -> str:
-        return json.dumps(self.json, indent=4)
