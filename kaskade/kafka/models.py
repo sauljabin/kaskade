@@ -314,6 +314,9 @@ class Record:
             return self.partition == other.partition and self.offset == other.offset
         return False
 
+    def headers_count(self) -> int:
+        return len(self.headers) if self.headers is not None else 0
+
     def dict(self) -> Dict[str, Any]:
         return {
             "date": str(self.date),

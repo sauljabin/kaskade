@@ -31,10 +31,12 @@ class Config:
         with open(self.path, "r") as file:
             self.text: str = file.read()
 
+        self.text = re.sub(r"(?m)^ *#.*\n?", "", self.text)
+
         if not self.text.strip():
             raise Exception("Config file is empty")
 
-        pattern = re.compile(r"\${(.*)}")
+        pattern = re.compile(r"\${(\w*)}")
 
         for file_variable in re.findall(pattern, self.text):
             system_variable = os.environ.get(file_variable)
@@ -47,5 +49,5 @@ class Config:
         self.yaml = yaml.safe_load(self.text)
         self.kafka = self.yaml.get("kafka") or {}
         self.kaskade = self.yaml.get("kaskade") or {}
-        self.schema_registry = self.yaml.get("schema-registry") or {}
+        self.schema_registry = self.yaml.get("schema.registry") or {}
         self.kafka["logger"] = logger

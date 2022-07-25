@@ -11,7 +11,11 @@ from kaskade.cli import Cli
     "--yml", is_flag=True, help="Generate a default yml config file and exit."
 )
 @click.argument(
-    "config_file", metavar="<config file>", nargs=1, required=False, default=""
+    "config_file",
+    metavar="<config file>",
+    nargs=1,
+    required=False,
+    default="kaskade.yml",
 )
 def main(version: bool, info: bool, configs: bool, yml: bool, config_file: str) -> None:
     """
