@@ -23,7 +23,7 @@ class SchemaService:
 
     def check_schema_registry(self) -> None:
         try:
-            self.schema_registry_client.rest_client.get("schemas/types")
+            self.schema_registry_client._rest_client.get("schemas/types")
         except Exception:
             raise Exception(
                 f"Error connecting to schema registry at {self.schema_registry_config['url']}"
@@ -45,7 +45,7 @@ class SchemaService:
                 raise ex
 
     def close(self) -> None:
-        self.schema_registry_client.rest_client.session.close()
+        self.schema_registry_client._rest_client.session.close()
 
 
 if __name__ == "__main__":

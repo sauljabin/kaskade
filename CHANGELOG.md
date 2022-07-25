@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.5] - 2022-07-25
+### Fixed
+- Schema registry error accessing internal object
+
 ## [1.1.4] - 2022-07-25
 ### Fixed
 - Close session error when None
@@ -75,7 +79,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Testing release
 - Showing the messages count and lag
 
-[Unreleased]: https://github.com/sauljabin/kaskade/compare/v1.1.4...HEAD
+[Unreleased]: https://github.com/sauljabin/kaskade/compare/v1.1.5...HEAD
+[1.1.5]: https://github.com/sauljabin/kaskade/compare/v1.1.4...v1.1.5
 [1.1.4]: https://github.com/sauljabin/kaskade/compare/v1.1.3...v1.1.4
 [1.1.3]: https://github.com/sauljabin/kaskade/compare/v1.1.2...v1.1.3
 [1.1.2]: https://github.com/sauljabin/kaskade/compare/v1.1.1...v1.1.2
