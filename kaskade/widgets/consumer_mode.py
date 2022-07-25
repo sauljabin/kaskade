@@ -74,6 +74,8 @@ class ConsumerMode(TuiWidget):
             if self.consumer_service is not None:
                 self.records = self.consumer_service.consume(self.page_size())
                 self.total_reads += len(self.records)
+            else:
+                logger.error("There is not a ConsumerService to use")
             logger.debug("End consuming in background")
         except Exception as ex:
             logger.error("Error when consuming %s", ex)

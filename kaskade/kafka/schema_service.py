@@ -19,6 +19,15 @@ class SchemaService:
         self.config = config
         self.schema_registry_config = self.config.schema_registry.copy()
         self.schema_registry_client = SchemaRegistryClient(self.schema_registry_config)
+        self.check_schema_registry()
+
+    def check_schema_registry(self) -> None:
+        try:
+            self.schema_registry_client.rest_client.get("schemas/types")
+        except Exception:
+            raise Exception(
+                f"Error connecting to schema registry at {self.schema_registry_config['url']}"
+            )
 
     def get_schema(self, id: int) -> Optional[Schema]:
         try:
@@ -41,8 +50,9 @@ if __name__ == "__main__":
 
     config = Config("kaskade.yml")
     client = SchemaService(config)
-    schema = client.get_schema(1)
+    client.check_schema_registry()
 
+    schema = client.get_schema(1)
     if schema is not None:
         print(schema.type)
         print(schema.data)
