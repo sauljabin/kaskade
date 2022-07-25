@@ -44,6 +44,9 @@ class SchemaService:
             else:
                 raise ex
 
+    def close(self) -> None:
+        self.schema_registry_client.rest_client.session.close()
+
 
 if __name__ == "__main__":
     from rich import print
@@ -53,6 +56,8 @@ if __name__ == "__main__":
     client.check_schema_registry()
 
     schema = client.get_schema(1)
+    client.close()
+
     if schema is not None:
         print(schema.type)
         print(schema.data)

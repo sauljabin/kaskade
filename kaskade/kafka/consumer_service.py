@@ -121,6 +121,7 @@ class ConsumerService:
             record.key = deserialize_avro(schema, raw_record.key())
 
     def close(self) -> None:
+        self.schema_service.close()
         self.consumer.unsubscribe()
         self.subscribed = False
         self.consumer.close()
