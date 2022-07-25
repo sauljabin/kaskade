@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.7] - 2022-07-25
+### Fixed
+- Error when looking for config files
+
 ## [1.1.6] - 2022-07-25
 ### Fixed
 - Unpack schema id error
@@ -83,7 +87,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Testing release
 - Showing the messages count and lag
 
-[Unreleased]: https://github.com/sauljabin/kaskade/compare/v1.1.6...HEAD
+[Unreleased]: https://github.com/sauljabin/kaskade/compare/v1.1.7...HEAD
+[1.1.7]: https://github.com/sauljabin/kaskade/compare/v1.1.6...v1.1.7
 [1.1.6]: https://github.com/sauljabin/kaskade/compare/v1.1.5...v1.1.6
 [1.1.5]: https://github.com/sauljabin/kaskade/compare/v1.1.4...v1.1.5
 [1.1.4]: https://github.com/sauljabin/kaskade/compare/v1.1.3...v1.1.4
