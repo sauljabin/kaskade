@@ -34,7 +34,9 @@ For a local kafka environment go to https://github.com/sauljabin/kafka-docker.
 - [Running with Docker](#running-with-docker)
 - [Configuration](#configuration)
     - [Kafka](#kafka)
+    - [Schema Registry](#schema-registry)
     - [Kaskade](#kaskade)
+    - [Other Examples](#other-examples)
 - [Screenshots](#screenshots)
 - [Alternatives](#alternatives)
 - [Development](#development)
@@ -123,7 +125,8 @@ alias kskd=kaskade
 
 # Configuration
 
-A [yaml](https://yaml.org/spec/1.2/spec.html) configuration file (check [Installation and Usage](#installation-and-usage) section for more information).
+A [yaml](https://yaml.org/spec/1.2/spec.html) configuration file
+(check [Installation and Usage](#installation-and-usage) section for more information).
 
 ### Kafka
 
@@ -142,7 +145,9 @@ kafka:
   security.protocol: SSL
 ```
 
-> For more information about SSL encryption and SSL authentication go to [confluent-kafka](https://github.com/confluentinc/confluent-kafka-python#ssl-certificates) and [librdkafka](https://github.com/edenhill/librdkafka/wiki/Using-SSL-with-librdkafka#configure-librdkafka-client).
+> For more information about SSL encryption and SSL authentication go
+> to [confluent-kafka](https://github.com/confluentinc/confluent-kafka-python#ssl-certificates)
+> and [librdkafka](https://github.com/edenhill/librdkafka/wiki/Using-SSL-with-librdkafka#configure-librdkafka-client).
 
 Support for env variables:
 
