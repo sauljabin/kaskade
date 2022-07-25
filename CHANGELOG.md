@@ -6,6 +6,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.3] - 2022-07-25
+### Fixed
+- Unicode error
+- Close socket error when calling schema registry
+
 ## [1.1.2] - 2022-07-24
 ### Fixed
 - Error when consuming key and value None
@@ -66,7 +71,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Testing release
 - Showing the messages count and lag
 
-[Unreleased]: https://github.com/sauljabin/kaskade/compare/v1.1.2...HEAD
+[Unreleased]: https://github.com/sauljabin/kaskade/compare/v1.1.3...HEAD
+[1.1.0]: https://github.com/sauljabin/kaskade/compare/v1.1.2...v1.1.3
 [1.1.0]: https://github.com/sauljabin/kaskade/compare/v1.1.1...v1.1.2
 [1.1.0]: https://github.com/sauljabin/kaskade/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/sauljabin/kaskade/compare/v1.0.0...v1.1.0
