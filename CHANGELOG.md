@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.2] - 2022-07-24
+### Fixed
+- Error when consuming key and value None
+
 ## [1.1.1] - 2022-07-24
 ### Fixed
 - Remove an unused setting
@@ -62,7 +66,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Testing release
 - Showing the messages count and lag
 
-[Unreleased]: https://github.com/sauljabin/kaskade/compare/v1.1.1...HEAD
+[Unreleased]: https://github.com/sauljabin/kaskade/compare/v1.1.2...HEAD
+[1.1.0]: https://github.com/sauljabin/kaskade/compare/v1.1.1...v1.1.2
 [1.1.0]: https://github.com/sauljabin/kaskade/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/sauljabin/kaskade/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/sauljabin/kaskade/compare/v0.4.1...v1.0.0
