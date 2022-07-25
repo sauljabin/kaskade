@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from typing import List
 
-from confluent_kafka import Consumer
+from confluent_kafka import Consumer, Message
 
 from kaskade.config import Config
 from kaskade.kafka.models import Record, Topic
@@ -81,23 +81,30 @@ class ConsumerService:
             )
 
             if self.config.schema_registry:
-                key_schema_id = unpack_schema_id(raw_record.key())
-                if key_schema_id > 0:
-                    schema = self.schema_service.get_schema(key_schema_id)
-                    record.key_schema = schema
-                    if schema is not None and schema.type == AVRO:
-                        record.key = deserialize_avro(schema, raw_record.key())
-
-                value_schema_id = unpack_schema_id(raw_record.value())
-                if value_schema_id > 0:
-                    schema = self.schema_service.get_schema(value_schema_id)
-                    record.value_schema = schema
-                    if schema is not None and schema.type == AVRO:
-                        record.value = deserialize_avro(schema, raw_record.value())
+                self.__deserialize_key(raw_record, record)
+                self.__deserialize_value(raw_record, record)
 
             records.append(record)
 
         return records
+
+    def __deserialize_value(self, raw_record: Message, record: Record) -> None:
+        if raw_record.value() is not None:
+            value_schema_id = unpack_schema_id(raw_record.value())
+            if value_schema_id > 0:
+                schema = self.schema_service.get_schema(value_schema_id)
+                record.value_schema = schema
+                if schema is not None and schema.type == AVRO:
+                    record.value = deserialize_avro(schema, raw_record.value())
+
+    def __deserialize_key(self, raw_record: Message, record: Record) -> None:
+        if raw_record.key() is not None:
+            key_schema_id = unpack_schema_id(raw_record.key())
+            if key_schema_id > 0:
+                schema = self.schema_service.get_schema(key_schema_id)
+                record.key_schema = schema
+                if schema is not None and schema.type == AVRO:
+                    record.key = deserialize_avro(schema, raw_record.key())
 
     def close(self) -> None:
         self.consumer.unsubscribe()

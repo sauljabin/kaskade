@@ -76,7 +76,8 @@ class ConsumerMode(TuiWidget):
                 self.total_reads += len(self.records)
             logger.debug("End consuming in background")
         except Exception as ex:
-            self.tui.handle_exception(ex)
+            logger.error("Error when consuming %s", ex)
+            logger.exception(ex)
         self.is_loading = False
         self.refresh()
 
@@ -99,6 +100,7 @@ class ConsumerMode(TuiWidget):
 
     def on_blur(self) -> None:
         self.has_focus = False
+        self.record = None
 
     def render(self) -> Panel:
         to_render: Union[Align, RecordsTable, str, KafkaRecord] = Align.center(
