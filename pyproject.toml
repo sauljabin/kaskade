@@ -27,11 +27,10 @@ click = "^8.0.1"
 rich = "^12.4.4"
 pyfiglet = "^0.8.post1"
 textual = "^0.1.12"
-confluent-kafka = "^1.7.0"
+confluent-kafka = {extras = ["avro", "json", "protobuf"], version = "^1.9.0"}
 PyYAML = "^5.4.1"
 typing-extensions = "^4.3.0"
 requests = "^2.28.1"
-avro = "^1.11.0"
 
 [tool.poetry.dev-dependencies]
 black = "^22.3.0"

@@ -6,6 +6,8 @@ from confluent_kafka import Consumer
 
 from kaskade.config import Config
 from kaskade.kafka.models import Record, Topic
+from kaskade.kafka.schema_service import AVRO, SchemaService
+from kaskade.utils.schema_utils import deserialize_avro, unpack_schema_id
 
 CONSUMER_TIMEOUT = 0.5
 
@@ -26,6 +28,8 @@ class ConsumerService:
         self.id = self.kafka_config["group.id"]
         self.subscribed = False
         self.open = False
+        if self.config.schema_registry:
+            self.schema_service = SchemaService(self.config)
 
     def __str__(self) -> str:
         return str(
@@ -52,28 +56,45 @@ class ConsumerService:
             if retries >= MAX_RETRIES_BEFORE_LEAVE:
                 break
 
-            msg = self.consumer.poll(CONSUMER_TIMEOUT)
+            raw_record = self.consumer.poll(CONSUMER_TIMEOUT)
 
-            if msg is None or msg.error():
+            if raw_record is None or raw_record.error():
                 retries += 1
                 continue
 
             records_read += 1
 
-            timestamp_available, timestamp = msg.timestamp()
+            timestamp_available, timestamp = raw_record.timestamp()
             date = (
                 datetime.fromtimestamp(timestamp / 1000)
                 if timestamp_available > 0
                 else None
             )
+
             record = Record(
                 date=date,
-                partition=msg.partition(),
-                offset=msg.offset(),
-                headers=msg.headers(),
-                key=msg.key(),
-                value=msg.value(),
+                partition=raw_record.partition(),
+                offset=raw_record.offset(),
+                headers=raw_record.headers(),
+                key=raw_record.key(),
+                value=raw_record.value(),
             )
+
+            if self.config.schema_registry:
+                key_schema_id = unpack_schema_id(raw_record.key())
+                if key_schema_id > 0:
+                    schema = self.schema_service.get_schema(key_schema_id)
+                    record.key_schema = schema
+                    if schema is not None and schema.type == AVRO:
+                        record.key = deserialize_avro(schema, raw_record.key())
+
+                value_schema_id = unpack_schema_id(raw_record.value())
+                if value_schema_id > 0:
+                    schema = self.schema_service.get_schema(value_schema_id)
+                    record.value_schema = schema
+                    if schema is not None and schema.type == AVRO:
+                        record.value = deserialize_avro(schema, raw_record.value())
+
             records.append(record)
 
         return records
@@ -99,7 +120,8 @@ if __name__ == "__main__":
         print("consumer:", consumer_service.id)
         print("topic:", consumer_service.topic)
         print("total records:", len(records))
-        kafka_record = KafkaRecord(records[0], 50, 1)
+        record1 = records[0]
+        kafka_record = KafkaRecord(record1, 50, 1)
         print(kafka_record)
     finally:
         consumer_service.close()
