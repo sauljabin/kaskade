@@ -121,9 +121,8 @@ class ConsumerMode(TuiWidget):
                     Columns([self.spinner, self.loading_text]), vertical="middle"
                 )
             elif self.record is not None:
-                logger.debug("imprimiendo la linea %s", self.record_line)
                 to_render = KafkaRecord(
-                    self.record, self.page_size() + 2, line=self.record_line
+                    self.record, self.page_size() + 2, current_line=self.record_line
                 )
             elif self.records is not None:
                 to_render = RecordsTable(

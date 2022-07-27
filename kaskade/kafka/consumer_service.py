@@ -145,7 +145,7 @@ if __name__ == "__main__":
         print("topic:", consumer_service.topic)
         print("total records:", len(records))
         record1 = records[0]
-        kafka_record = KafkaRecord(record1, 50, 1)
+        kafka_record = KafkaRecord(record1, 150, 1)
         print(kafka_record)
     finally:
         consumer_service.close()

@@ -353,4 +353,5 @@ class Record:
             if self.value_schema is not None
             else None,
         }
+
         return json.dumps(decoded, indent=4)
