@@ -12,7 +12,9 @@ keywords = ["kafka", "kaskade"]
 classifiers = [
     "Environment :: Console",
     "Operating System :: MacOS",
-    "Operating System :: Unix"
+    "Operating System :: Unix",
+    "Operating System :: Microsoft :: Windows :: Windows 10",
+    "Operating System :: Microsoft :: Windows :: Windows 11"
 ]
 include = [
     "LICENSE",
@@ -22,7 +24,7 @@ packages = [
 ]
 
 [tool.poetry.dependencies]
-python = "^3.9"
+python = "^3.10"
 click = "^8.0.1"
 rich = "^12.4.4"
 pyfiglet = "^0.8.post1"
