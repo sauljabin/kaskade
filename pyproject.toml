@@ -12,9 +12,7 @@ keywords = ["kafka", "kaskade"]
 classifiers = [
     "Environment :: Console",
     "Operating System :: MacOS",
-    "Operating System :: Unix",
-    "Operating System :: Microsoft :: Windows :: Windows 10",
-    "Operating System :: Microsoft :: Windows :: Windows 11"
+    "Operating System :: Unix"
 ]
 include = [
     "LICENSE",
