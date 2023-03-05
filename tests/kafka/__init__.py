@@ -1,8 +1,8 @@
-from confluent_kafka import TopicPartition
+from confluent_kafka import Node, TopicPartition
 from confluent_kafka.admin import (
     BrokerMetadata,
+    ConsumerGroupDescription,
     GroupMember,
-    GroupMetadata,
     PartitionMetadata,
     TopicMetadata,
 )
@@ -99,13 +99,14 @@ def random_group_member_metadata():
 
 
 def random_group_metadata():
-    group_metadata = GroupMetadata()
-    group_metadata.broker = random_broker_metadata()
-    group_metadata.id = faker.pystr()
-    group_metadata.state = faker.random.choice(["Stable", "Empty"])
-    group_metadata.members = [
-        random_group_member_metadata() for _ in range(faker.pyint(max_value=10))
-    ]
+    group_metadata = ConsumerGroupDescription(
+        faker.pystr(),
+        True,
+        [random_group_member_metadata() for _ in range(faker.pyint(max_value=10))],
+        faker.pystr(),
+        faker.random.choice(["Stable", "Empty"]),
+        Node(faker.pyint(), faker.pystr(), faker.pyint(), faker.pystr()),
+    )
     return group_metadata
 
 

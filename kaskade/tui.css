@@ -1,0 +1,86 @@
+$main-color: #a483e1;
+$main-light-color: #b79fe3;
+$main-dark-color: #745e9d;
+$grey: #e1d9f0;
+
+* {
+    scrollbar-color-hover: $main-color;
+    scrollbar-color: $main-dark-color;
+    scrollbar-color-active: $main-light-color;
+}
+
+Header {
+    dock: top;
+    height: 6;
+    margin: 0 0 0 1;
+}
+
+Footer {
+    dock: bottom;
+    height: 1;
+    background: $surface;
+    color: $main-color;
+}
+
+Footer > .footer--highlight {
+    background: $surface;
+    text-style: bold;
+    color: $main-color;
+}
+
+Footer > .footer--highlight-key {
+    background: $main-color;
+    text-style: bold;
+    color: $grey;
+}
+
+Footer > .footer--key {
+    text-style: bold;
+    color: $grey;
+    background: $main-dark-color;
+}
+
+DataTable {
+    margin: 1;
+}
+
+DataTable > .datatable--header {
+    text-style: bold;
+    background: $boost;
+    color: $main-color;
+}
+
+DataTable > .datatable--header-hover {
+    text-style: bold;
+    background: $boost;
+    color: $main-color;
+}
+
+DataTable > .datatable--hover {
+    background: $main-color 20%;
+}
+
+DataTable >  .datatable--cursor {
+    background: $main-light-color;
+    color: $text;
+}
+
+DataTable > .datatable--fixed {
+    background: $boost;
+    color: $text;
+}
+
+DataTable > .datatable--fixed-cursor {
+    background: $main-light-color;
+    color: $text;
+}
+
+Help {
+    border: $grey;
+}
+
+Title {
+    margin: 1 1 0 1;
+    color: $main-color;
+    background: $boost;
+}

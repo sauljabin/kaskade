@@ -28,13 +28,13 @@ class TestMappers(TestCase):
 
     def test_metadata_to_group(self):
         metadata = random_group_metadata()
-        metadata_broker = metadata.broker
+        metadata_broker = metadata.coordinator
 
         actual = metadata_to_group(metadata)
         actual_broker = actual.broker
 
-        self.assertEqual(metadata.id, actual.id)
-        self.assertEqual(metadata.state, actual.state)
+        self.assertEqual(metadata.group_id, actual.id)
+        self.assertEqual(str(metadata.state), actual.state)
         self.assertListEqual([], actual.partitions)
         self.assertEqual([], actual.members)
 
@@ -55,12 +55,12 @@ class TestMappers(TestCase):
     def test_metadata_to_group_partition(self):
         metadata = random_topic_partition_metadata()
 
-        actual = metadata_to_group_partition(metadata)
+        actual = metadata_to_group_partition("group", metadata)
 
         self.assertEqual(metadata.partition, actual.id)
         self.assertEqual(metadata.topic, actual.topic)
         self.assertEqual(metadata.offset, actual.offset)
-        self.assertEqual("", actual.group)
+        self.assertEqual("group", actual.group)
         self.assertEqual(0, actual.high)
         self.assertEqual(0, actual.low)
 

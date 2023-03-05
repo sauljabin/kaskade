@@ -12,7 +12,7 @@ class ClusterInfo:
 
     def __rich__(self) -> Table:
         table = Table(box=None, expand=False)
-        table.add_column(style="bold blue")
+        table.add_column(style="bold green")
         table.add_column()
 
         table.add_row("kafka:", self.cluster.version)

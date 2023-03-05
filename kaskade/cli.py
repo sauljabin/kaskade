@@ -1,18 +1,15 @@
 import sys
 from logging import DEBUG
-from pathlib import Path
 
 from confluent_kafka import KafkaException
 from rich.console import Console
-from rich.markdown import Markdown
 
 from kaskade import logger
 from kaskade.config import Config
-from kaskade.emojis import THINKING_FACE
 from kaskade.renderables.config_examples import ConfigExamples
 from kaskade.renderables.kaskade_info import KaskadeInfo
 from kaskade.renderables.kaskade_name import KaskadeName
-from kaskade.renderables.kaskade_version import KaskadeVersion
+from kaskade.styles.emojis import THINKING_FACE
 from kaskade.tui import Tui
 
 
@@ -79,7 +76,6 @@ class Cli:
 
         console = Console()
         console.print(KaskadeName())
-        console.print(KaskadeVersion())
 
         sys.exit(0)
 
@@ -96,24 +92,8 @@ class Cli:
 
 schema.registry:
   url: ${SCHEMA_REGISTRY_URL}
-  basic.auth.user.info: ${SR_API_KEY}:${SR_API_SECRET}
-"""
-
-        md_file = f"""```yaml
-{yml_file}```"""
-
-        config_file = self.config_file if len(self.config_file) > 0 else "kaskade.yml"
-
-        path = Path(config_file)
-
-        file = open(path, "w")
-        file.write(yml_file)
-        file.close()
-
-        console = Console()
-        console.print(Markdown(md_file, code_theme="ansi_dark"))
-        console.print(f"File generated at {path.absolute()}")
-
+  basic.auth.user.info: ${SR_API_KEY}:${SR_API_SECRET}"""
+        print(yml_file)
         sys.exit(0)
 
     def run_tui(self) -> None:
@@ -125,4 +105,5 @@ schema.registry:
             logger.debug("Starting in debug mode")
 
         logger.debug("Starting TUI")
-        Tui.run(config=config)
+        app = Tui(config=config)
+        app.run()

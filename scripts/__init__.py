@@ -4,7 +4,7 @@ import sys
 
 from rich.console import Console
 
-from kaskade.unicodes import DOWN_TRIANGLE
+from kaskade.styles.unicodes import DOWN_TRIANGLE
 
 
 class CommandProcessor:

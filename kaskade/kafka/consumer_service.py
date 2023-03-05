@@ -7,7 +7,7 @@ from confluent_kafka import Consumer, Message
 from kaskade.config import Config
 from kaskade.kafka.models import Record, Topic
 from kaskade.kafka.schema_service import AVRO, SchemaService
-from kaskade.utils.schema_utils import deserialize_avro, unpack_schema_id
+from kaskade.kafka.schema_utils import deserialize_avro, unpack_schema_id
 
 CONSUMER_TIMEOUT = 0.5
 

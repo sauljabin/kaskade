@@ -3,6 +3,27 @@ import json
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 
+class Node:
+    def __init__(
+        self, id: int = -1, host: str = "", port: int = -1, rack: str = ""
+    ) -> None:
+        self.id = id
+        self.host = host
+        self.port = port
+        self.rack = rack
+
+    def __repr__(self) -> str:
+        return str(self)
+
+    def __str__(self) -> str:
+        return "{}:{}/{}".format(self.host, self.port, self.id)
+
+    def __eq__(self, other: Any) -> bool:
+        if isinstance(other, Node):
+            return self.id == other.id
+        return False
+
+
 class Broker:
     def __init__(self, id: int = -1, host: str = "", port: int = -1) -> None:
         self.id = id
@@ -27,12 +48,14 @@ class GroupMember:
         id: str = "",
         client_id: str = "",
         group: str = "",
-        client_host: str = "",
+        host: str = "",
+        instance_id: str = "",
     ) -> None:
         self.id = id
         self.client_id = client_id
         self.group = group
-        self.client_host = client_host
+        self.host = host
+        self.instance_id = instance_id
 
     def __repr__(self) -> str:
         return str(self)
@@ -43,7 +66,7 @@ class GroupMember:
                 "id": self.id,
                 "group": self.group,
                 "client_id": self.client_id,
-                "client_host": self.client_host,
+                "host": self.host,
             }
         )
 
@@ -103,14 +126,16 @@ class Group:
     def __init__(
         self,
         id: str = "",
-        broker: Broker = Broker(),
+        broker: Node = Node(),
         state: str = "",
+        partition_assignor: str = "",
         members: List[GroupMember] = [],
         partitions: List[GroupPartition] = [],
     ) -> None:
         self.broker = broker
         self.id = id
         self.state = state
+        self.partition_assignor = partition_assignor
         self.members = members
         self.partitions = partitions
 

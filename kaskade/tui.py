@@ -1,47 +1,79 @@
-from threading import Event, Thread
-from typing import Any, Optional, Type
+from typing import Type
 
-from confluent_kafka import KafkaException
-from textual.app import App
+from rich.columns import Columns
+from rich.console import RenderableType
+from rich.markdown import Markdown
+from rich.text import Text
+from textual.app import App, ComposeResult, CSSPathType
+from textual.binding import Binding
+from textual.containers import Container
 from textual.driver import Driver
 from textual.keys import Keys
-from textual.reactive import Reactive
-from textual.widget import Widget
+from textual.screen import Screen
+from textual.widgets import DataTable, Footer, Static
 
-from kaskade import logger
 from kaskade.config import Config
 from kaskade.kafka.cluster_service import ClusterService
-from kaskade.kafka.models import Topic
+from kaskade.kafka.models import Cluster
 from kaskade.kafka.topic_service import TopicService
-from kaskade.utils.circular_list import CircularList
-from kaskade.widgets.consumer_mode import ConsumerMode
-from kaskade.widgets.describer_mode import DescriberMode
-from kaskade.widgets.error import Error
-from kaskade.widgets.footer import Footer
-from kaskade.widgets.header import Header
-from kaskade.widgets.help import Help
-from kaskade.widgets.topic_header import TopicHeader
-from kaskade.widgets.topic_list import TopicList
+from kaskade.renderables.cluster_info import ClusterInfo
+from kaskade.renderables.kaskade_name import KaskadeName
+from kaskade.styles.unicodes import DOWN, UP
 
 
-class Tui(App):
-    __topic: Optional[Topic] = None
-    show_help = Reactive(False)
-    error = Reactive("")
-    background_lock: Optional[Event] = None
+class Help(Screen):
+    BINDINGS = [Binding("escape,space,q,question_mark", "pop_screen", "Close")]
+
+    md_doc = f"""
+# Help
+## Navigation
+- **navigate**: {UP} {DOWN}
+- **focus on next**: {Keys.Tab}
+- **quit**: {Keys.ControlC}
+- **help window**: ?
+- **close dialog**: {Keys.Escape}
+    """
+
+    def compose(self) -> ComposeResult:
+        yield Static(Markdown(self.md_doc))
+
+
+class Header(Static):
+    cluster = Cluster()
+
+    def render(self) -> RenderableType:
+        kaskade_name = KaskadeName()
+        cluster_info = ClusterInfo(self.cluster)
+        return Columns([kaskade_name, cluster_info], padding=3)
+
+
+class Title(Static):
+    message: Text = Text()
+
+    def render(self) -> RenderableType:
+        return self.message
+
+
+class Body(Container):
+    pass
+
+
+class Tui(App[None]):
+    CSS_PATH = "tui.css"
+    SCREENS = {"help": Help}
+    BINDINGS = [
+        Binding(Keys.ControlC, "quit", "quit"),
+        Binding("question_mark", "push_screen('help')", "help", key_display="?"),
+    ]
 
     def __init__(
         self,
         config: Config,
-        screen: bool = True,
-        driver_class: Optional[Type[Driver]] = None,
-        log_verbosity: int = 1,
-    ) -> None:
-        super().__init__(
-            screen=screen,
-            driver_class=driver_class,
-            log_verbosity=log_verbosity,
-        )
+        driver_class: Type[Driver] | None = None,
+        css_path: CSSPathType | None = None,
+        watch_css: bool = False,
+    ):
+        super().__init__(driver_class, css_path, watch_css)
         self.config = config
 
         self.topic_service = TopicService(self.config)
@@ -50,208 +82,37 @@ class Tui(App):
         self.cluster = self.cluster_service.current()
         self.topics = self.topic_service.list()
 
-        self.footer_widget = Footer()
-        self.header_widget = Header()
+    def compose(self) -> ComposeResult:
+        yield Header()
+        yield Container(Title(), Body(DataTable()))
+        yield Footer()
 
-        self.help_widget = Help()
-        self.error_widget = Error()
+    def on_mount(self) -> None:
+        header = self.query_one(Header)
+        header.cluster = self.cluster
 
-        self.topic_list_widget = TopicList()
-        self.topic_header_widget = TopicHeader()
+        title = self.query_one(Title)
+        title.message = Text.from_markup(f"[bold]total topics:[/] {len(self.topics)}")
 
-        self.describer_mode_widget = DescriberMode()
-        self.consumer_mode_widget = ConsumerMode()
+        table = self.query_one(DataTable)
+        table.cursor_type = "row"
+        table.fixed_columns = 1
 
-        self.focusables = CircularList(
-            [
-                self.topic_list_widget,
-                self.describer_mode_widget,
-                self.consumer_mode_widget,
+        table.add_column("name")
+        table.add_column("partitions", width=10)
+        table.add_column("replicas", width=10)
+        table.add_column("in sync", width=10)
+        table.add_column("groups", width=10)
+        table.add_column("records", width=10)
+        table.add_column("lag", width=10)
+        for topic in self.topics:
+            row = [
+                f"[b]{topic.name}[/b]",
+                topic.partitions_count(),
+                topic.replicas_count(),
+                topic.isrs_count(),
+                topic.groups_count(),
+                topic.messages_count(),
+                topic.lag_count(),
             ]
-        )
-
-    def background_execution(self, refresh_rate: float) -> None:
-        self.background_lock = Event()
-        while self.is_running and not self.background_lock.wait(refresh_rate):
-            logger.debug("Background thread is running")
-            self.reload_content()
-        logger.debug("Closing background thread")
-
-    def log(self, *args: Any, verbosity: int = 1, **kwargs: Any) -> None:
-        if verbosity > self.log_verbosity:
-            return
-
-        message = " ".join(str(arg) for arg in args)
-        if kwargs:
-            key_values = " ".join(f"{key}={value}" for key, value in kwargs.items())
-            message = " ".join((message, key_values))
-
-        logger.debug(message)
-
-    async def on_mount(self) -> None:
-        self.help_widget.visible = False
-        self.error_widget.visible = False
-        self.consumer_mode_widget.visible = False
-
-        await self.view.dock(self.header_widget, edge="top")
-        await self.view.dock(self.footer_widget, edge="bottom")
-        await self.view.dock(self.topic_list_widget, edge="left", size=40)
-        await self.view.dock(
-            self.topic_header_widget,
-            self.describer_mode_widget,
-            self.consumer_mode_widget,
-            edge="top",
-            size=1000,
-        )
-        await self.view.dock(self.error_widget, edge="right", size=40, z=1)
-        await self.view.dock(self.help_widget, edge="right", size=40, z=1)
-
-        refresh_config = self.config.kaskade.get("refresh")
-
-        if refresh_config is None:
-            refresh = True
-        else:
-            refresh = bool(refresh_config)
-
-        if refresh:
-            refresh_rate_config = self.config.kaskade.get("refresh.rate")
-
-            if refresh_rate_config is None:
-                refresh_rate = 5.0
-            else:
-                refresh_rate = float(refresh_rate_config)
-
-            logger.debug("Refresh enable with %.1f secs", refresh_rate)
-            background_thread = Thread(
-                target=self.background_execution, args=(refresh_rate,)
-            )
-            background_thread.start()
-            self.set_interval(refresh_rate, self.topic_list_widget.refresh)
-            self.set_interval(refresh_rate, self.topic_header_widget.refresh)
-            self.set_interval(refresh_rate, self.describer_mode_widget.refresh)
-        else:
-            logger.debug("Auto-refresh disabled")
-
-    async def on_load(self) -> None:
-        await self.bind(Keys.ControlC, "quit")
-        await self.bind(Keys.ControlR, "toggle_consumer_mode")
-        await self.bind(Keys.ControlD, "toggle_describer_mode")
-        await self.bind("?", "toggle_help")
-        await self.bind(Keys.Escape, "back")
-        await self.bind(Keys.F5, "reload_content")
-        await self.bind(Keys.Left, "change_focus('{}')".format(Keys.Left))
-        await self.bind(Keys.Right, "change_focus('{}')".format(Keys.Right))
-
-    async def action_toggle_consumer_mode(self) -> None:
-        self.focusables.current = self.consumer_mode_widget
-        await self.set_focus(self.consumer_mode_widget)
-        self.view.refresh()
-        self.enable_consumer_mode()
-
-    def enable_consumer_mode(self) -> None:
-        self.footer_widget.mode = "consumer"
-        self.consumer_mode_widget.visible = True
-        self.describer_mode_widget.visible = False
-        self.consumer_mode_widget.refresh()
-        self.consumer_mode_widget.consume_topic()
-        self.consumer_mode_widget.load_messages()
-
-    async def action_toggle_describer_mode(self) -> None:
-        self.focusables.current = self.describer_mode_widget
-        await self.set_focus(self.describer_mode_widget)
-        self.view.refresh()
-        self.enable_describer_mode()
-
-    def enable_describer_mode(self) -> None:
-        self.footer_widget.mode = "describer"
-        self.consumer_mode_widget.visible = False
-        self.describer_mode_widget.visible = True
-        self.describer_mode_widget.reset()
-        self.describer_mode_widget.refresh()
-
-    async def action_quit(self) -> None:
-        if self.background_lock is not None:
-            logger.debug("Shutdown received")
-            self.background_lock.set()
-        await self.shutdown()
-
-    async def shutdown(self) -> None:
-        driver = self._driver
-        if driver is None:
-            raise Exception("Driver is None")
-        driver.disable_input()
-        await self.close_messages()
-
-    async def watch_error(self, error: str) -> None:
-        show_error = bool(error)
-        self.error_widget.message = error
-        self.error_widget.visible = show_error
-
-    async def watch_show_help(self, show_help: bool) -> None:
-        self.help_widget.visible = show_help
-
-    async def action_toggle_help(self) -> None:
-        self.show_help = not self.show_help
-
-    async def action_back(self) -> None:
-        self.show_help = False
-        self.error = ""
-
-    def handle_exception(self, exception: Exception) -> None:
-        message = str(exception)
-
-        if isinstance(exception, KafkaException):
-            message = exception.args[0].str()
-
-        self.error = message
-
-        logger.error("Error in runtime: %s", message)
-        logger.exception(exception)
-
-    async def action_reload_content(self) -> None:
-        self.reload_content()
-        self.topic_list_widget.refresh()
-        self.topic_header_widget.refresh()
-        self.describer_mode_widget.refresh()
-
-    def reload_content(self) -> None:
-        selected_topic: Optional[Topic] = None
-
-        if self.topic is not None:
-            selected_topic = self.topic
-
-        logger.debug("Reloading content - started")
-        try:
-            self.topics = self.topic_service.list()
-        except Exception as ex:
-            self.topics = []
-            self.handle_exception(ex)
-        logger.debug("Reloading content - finished")
-
-        try:
-            if self.topic is not None:
-                self.topic = self.topics[self.topics.index(self.topic)]
-        except Exception as ex:
-            self.error = f"Selected topic [yellow bold]{selected_topic}[/] not found"
-            logger.exception(ex)
-            self.topic = None
-
-    @property
-    def topic(self) -> Optional[Topic]:
-        return self.__topic
-
-    @topic.setter
-    def topic(self, topic: Optional[Topic]) -> None:
-        self.__topic = topic
-        self.describer_mode_widget.table = None
-        self.describer_mode_widget.refresh()
-        self.topic_header_widget.refresh()
-
-    async def action_change_focus(self, key: Keys) -> None:
-        focused: Widget = (
-            self.focusables.next() if Keys.Right == key else self.focusables.previous()
-        )
-        if focused.visible:
-            await focused.focus()
-        else:
-            await self.action_change_focus(key)
+            table.add_row(*row)

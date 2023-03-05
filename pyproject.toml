@@ -26,10 +26,10 @@ packages = [
 [tool.poetry.dependencies]
 python = "^3.10"
 click = "^8.0.1"
-rich = "^12.4.4"
+rich = "^13.3.1"
 pyfiglet = "^0.8.post1"
-textual = "^0.1.12"
-confluent-kafka = {extras = ["avro", "json", "protobuf"], version = "^1.9.0"}
+textual =  {extras = ["dev"], version = "^0.13.0"}
+confluent-kafka = {extras = ["avro", "json", "protobuf"], version = "^2.0.2"}
 PyYAML = "^5.4.1"
 typing-extensions = "^4.3.0"
 requests = "^2.28.1"
@@ -61,7 +61,16 @@ profile = "black"
 [tool.coverage.run]
 source = ["kaskade"]
 branch = true
-omit = ["*tests/*", "*scripts/*", "*__init__.py", "*kaskade/app.py", "*kaskade/__main__.py"]
+omit = [
+    "*tests/*",
+    "*scripts/*",
+    "*__init__.py",
+    "*kaskade/app.py",
+    "*kaskade/tui.py",
+    "*kaskade/renderables/*",
+    "*kaskade/widgets/*",
+    "*kaskade/__main__.py"
+]
 
 [tool.coverage.report]
 exclude_lines = ['if __name__ == "__main__":', "@abstractmethod"]

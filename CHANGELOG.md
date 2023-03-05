@@ -5,6 +5,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Changed
+- New styles
+- textual and confluent-kafka upgraded
+### Removed
+- Unit test, confluent-kafka and textual are changing a lot
 
 ## [1.1.8] - 2022-07-26
 ### Fixed

@@ -1,7 +1,7 @@
 from pyfiglet import Figlet
 from rich.text import Text
 
-from kaskade import APP_NAME
+from kaskade import APP_NAME, APP_VERSION
 
 
 class KaskadeName:
@@ -11,4 +11,6 @@ class KaskadeName:
         return figlet_string
 
     def __rich__(self) -> Text:
-        return Text.from_markup("[magenta]{}[/]".format(self))
+        return Text.from_markup(
+            "[magenta]{}[/]\n[green bold]v{}[/]".format(self, APP_VERSION)
+        )

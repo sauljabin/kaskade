@@ -6,12 +6,9 @@ from tests import faker
 
 
 class TestCli(unittest.TestCase):
-    @patch("kaskade.cli.KaskadeVersion")
     @patch("kaskade.cli.KaskadeName")
     @patch("kaskade.cli.Console")
-    def test_print_version_option(
-        self, mock_class_console, mock_class_kaskade_name, mock_class_kaskade_version
-    ):
+    def test_print_version_option(self, mock_class_console, mock_class_kaskade_name):
         mock_console = MagicMock()
         mock_class_console.return_value = mock_console
         cli = Cli(
@@ -25,10 +22,7 @@ class TestCli(unittest.TestCase):
         with self.assertRaises(SystemExit):
             cli.run()
 
-        calls = [
-            call(mock_class_kaskade_name.return_value),
-            call(mock_class_kaskade_version.return_value),
-        ]
+        calls = [call(mock_class_kaskade_name.return_value)]
         mock_console.print.assert_has_calls(calls)
 
     @patch("kaskade.cli.Config")
@@ -46,10 +40,8 @@ class TestCli(unittest.TestCase):
         )
         cli.run()
         mock_class_config.assert_called_once_with(random_path)
-
-        mock_class_tui.run.assert_called_once_with(
-            config=mock_class_config.return_value
-        )
+        mock_class_tui.assert_called_once_with(config=mock_class_config.return_value)
+        mock_class_tui.return_value.run.assert_called_once_with()
 
     @patch("kaskade.cli.Console")
     def test_print_exception(self, mock_class_console):
