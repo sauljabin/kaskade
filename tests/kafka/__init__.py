@@ -76,6 +76,7 @@ def random_topics(nb_elements=10, variable_nb_elements=True):
 def random_cluster():
     return Cluster(
         brokers=random_brokers(),
+        topics=random_topics(),
         version=faker.bothify("#.#.#"),
         has_schemas=faker.pybool(),
         protocol=faker.random.choice(["plain", "ssl"]),

@@ -12,7 +12,7 @@ $grey: #e1d9f0;
 Header {
     dock: top;
     height: 6;
-    margin: 0 0 0 1;
+    margin: 0 0 1 1;
 }
 
 Footer {
@@ -77,10 +77,4 @@ DataTable > .datatable--fixed-cursor {
 
 Help {
     border: $grey;
-}
-
-Title {
-    margin: 1 0 0 0;
-    color: $main-color;
-    background: $boost;
 }

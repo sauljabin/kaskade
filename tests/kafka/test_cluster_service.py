@@ -23,8 +23,11 @@ class TestClusterService(TestCase):
 
         self.assertEqual("Config not found", str(context.exception))
 
+    @patch("kaskade.kafka.cluster_service.TopicService")
     @patch("kaskade.kafka.cluster_service.AdminClient")
-    def test_version_unknown_and_protocol_plain(self, mock_class_client):
+    def test_version_unknown_and_protocol_plain(
+        self, mock_class_client, mock_class_topic_service
+    ):
         expected_config = {"bootstrap.servers": faker.hostname()}
 
         config = MagicMock()
@@ -37,8 +40,9 @@ class TestClusterService(TestCase):
         self.assertEqual("unknown", actual.version)
         self.assertEqual("plain", actual.protocol)
 
+    @patch("kaskade.kafka.cluster_service.TopicService")
     @patch("kaskade.kafka.cluster_service.AdminClient")
-    def test_has_schemas_false(self, mock_class_client):
+    def test_has_schemas_false(self, mock_class_client, mock_class_topic_service):
         expected_config = {"bootstrap.servers": faker.hostname()}
 
         config = MagicMock()
@@ -51,8 +55,9 @@ class TestClusterService(TestCase):
 
         self.assertFalse(actual.has_schemas)
 
+    @patch("kaskade.kafka.cluster_service.TopicService")
     @patch("kaskade.kafka.cluster_service.AdminClient")
-    def test_has_schemas_true(self, mock_class_client):
+    def test_has_schemas_true(self, mock_class_client, mock_class_topic_service):
         expected_config = {"bootstrap.servers": faker.hostname()}
 
         config = MagicMock()
@@ -65,8 +70,9 @@ class TestClusterService(TestCase):
 
         self.assertTrue(actual.has_schemas)
 
+    @patch("kaskade.kafka.cluster_service.TopicService")
     @patch("kaskade.kafka.cluster_service.AdminClient")
-    def test_protocol(self, mock_class_client):
+    def test_protocol(self, mock_class_client, mock_class_topic_service):
         protocol = faker.word().upper()
         expected_config = {
             "bootstrap.servers": faker.hostname(),
@@ -83,8 +89,9 @@ class TestClusterService(TestCase):
 
         self.assertEqual(protocol.lower(), actual.protocol)
 
+    @patch("kaskade.kafka.cluster_service.TopicService")
     @patch("kaskade.kafka.cluster_service.AdminClient")
-    def test_get_brokers_in_order(self, mock_class_client):
+    def test_get_brokers_in_order(self, mock_class_client, mock_class_topic_service):
         broker1 = BrokerMetadata()
         broker1.id = 1
         broker2 = BrokerMetadata()
@@ -120,10 +127,11 @@ class TestClusterService(TestCase):
         self.assertEqual(actual[1].id, broker2.id)
         self.assertEqual(actual[2].id, broker3.id)
 
+    @patch("kaskade.kafka.cluster_service.TopicService")
     @patch("kaskade.kafka.cluster_service.ConfigResource")
     @patch("kaskade.kafka.cluster_service.AdminClient")
     def test_get_version_from_config(
-        self, mock_class_client, mock_class_config_resource
+        self, mock_class_client, mock_class_config_resource, mock_class_topic_service
     ):
         broker1 = BrokerMetadata()
         broker1.id = 1
@@ -166,8 +174,11 @@ class TestClusterService(TestCase):
         )
         self.assertEqual(expected_version, actual.version)
 
+    @patch("kaskade.kafka.cluster_service.TopicService")
     @patch("kaskade.kafka.cluster_service.AdminClient")
-    def test_get_unknown_version_if_config_does_not_exists(self, mock_class_client):
+    def test_get_unknown_version_if_config_does_not_exists(
+        self, mock_class_client, mock_class_topic_service
+    ):
         mock_client = MagicMock()
         mock_client.list_topics.return_value.brokers = {1: MagicMock()}
 
@@ -189,8 +200,11 @@ class TestClusterService(TestCase):
 
         self.assertEqual("unknown", actual.version)
 
+    @patch("kaskade.kafka.cluster_service.TopicService")
     @patch("kaskade.kafka.cluster_service.AdminClient")
-    def test_get_unknown_version_if_result_is_none(self, mock_class_client):
+    def test_get_unknown_version_if_result_is_none(
+        self, mock_class_client, mock_class_topic_service
+    ):
         mock_client = MagicMock()
         mock_client.list_topics.return_value.brokers = {1: MagicMock()}
 

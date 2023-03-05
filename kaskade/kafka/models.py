@@ -227,14 +227,14 @@ class Topic:
             else 0
         )
 
-    def lag_count(self) -> int:
+    def lag(self) -> int:
         return (
             max([group.lag_count() for group in self.groups], default=0)
             if self.groups is not None
             else 0
         )
 
-    def messages_count(self) -> int:
+    def records_count(self) -> int:
         return (
             sum([partition.messages_count() for partition in self.partitions])
             if self.partitions is not None
@@ -257,11 +257,13 @@ class Cluster:
     def __init__(
         self,
         brokers: List[Broker] = [],
+        topics: List[Topic] = [],
         version: str = "",
         has_schemas: bool = False,
         protocol: str = "plain",
     ) -> None:
         self.brokers = brokers
+        self.topics = topics
         self.version = version
         self.has_schemas = has_schemas
         self.protocol = protocol
@@ -273,6 +275,7 @@ class Cluster:
         return str(
             {
                 "brokers": self.brokers,
+                "topics": self.topics,
                 "version": self.version,
                 "has_schemas": self.has_schemas,
                 "protocol": self.protocol,
@@ -281,6 +284,9 @@ class Cluster:
 
     def brokers_count(self) -> int:
         return len(self.brokers) if self.brokers is not None else 0
+
+    def topics_count(self) -> int:
+        return len(self.topics) if self.topics is not None else 0
 
 
 class Schema:

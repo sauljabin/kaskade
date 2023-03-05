@@ -6,6 +6,7 @@ from kaskade.config import Config
 from kaskade.kafka import TIMEOUT
 from kaskade.kafka.mappers import metadata_to_broker
 from kaskade.kafka.models import Cluster
+from kaskade.kafka.topic_service import TopicService
 
 
 class ClusterService:
@@ -20,6 +21,8 @@ class ClusterService:
         security_protocol = self.config.kafka.get("security.protocol")
         protocol = security_protocol.lower() if security_protocol else "plain"
         admin_client = AdminClient(self.config.kafka)
+        topic_service = TopicService(self.config)
+        topics = topic_service.list()
 
         brokers = list(admin_client.list_topics(timeout=TIMEOUT).brokers.values())
         brokers = sorted(brokers, key=attrgetter("id"))
@@ -38,7 +41,11 @@ class ClusterService:
                     version = protocol_version.value.split("-")[0]
 
         return Cluster(
-            brokers=brokers, protocol=protocol, version=version, has_schemas=has_schemas
+            brokers=brokers,
+            topics=topics,
+            protocol=protocol,
+            version=version,
+            has_schemas=has_schemas,
         )
 
 

@@ -15,23 +15,22 @@ from textual.widgets import DataTable, Footer, Static
 from kaskade.config import Config
 from kaskade.kafka.cluster_service import ClusterService
 from kaskade.kafka.models import Cluster
-from kaskade.kafka.topic_service import TopicService
 from kaskade.renderables.cluster_info import ClusterInfo
 from kaskade.renderables.kaskade_name import KaskadeName
-from kaskade.styles.unicodes import DOWN, UP
+from kaskade.styles.unicodes import APPROXIMATION, DOWN, UP
 
 
 class Help(Screen):
-    BINDINGS = [Binding("escape,space,q,question_mark", "pop_screen", "Close")]
+    BINDINGS = [Binding("escape,space,q,question_mark", "pop_screen", "CLOSE")]
 
     md_doc = f"""
 # Help
 ## Navigation
-- **navigate**: {UP} {DOWN}
-- **focus on next**: {Keys.Tab}
-- **quit**: {Keys.ControlC}
-- **help window**: ?
-- **close dialog**: {Keys.Escape}
+- **Navigate**: {UP} {DOWN}
+- **Focus on next**: {Keys.Tab}
+- **Quit**: {Keys.ControlC}
+- **Help window**: ?
+- **Close dialog**: {Keys.Escape}
     """
 
     def compose(self) -> ComposeResult:
@@ -62,8 +61,8 @@ class Tui(App[None]):
     CSS_PATH = "tui.css"
     SCREENS = {"help": Help}
     BINDINGS = [
-        Binding(Keys.ControlC, "quit", "quit"),
-        Binding("question_mark", "push_screen('help')", "help", key_display="?"),
+        Binding(Keys.ControlC, "quit", "QUIT"),
+        Binding("question_mark", "push_screen('help')", "HELP", key_display="?"),
     ]
 
     def __init__(
@@ -76,43 +75,41 @@ class Tui(App[None]):
         super().__init__(driver_class, css_path, watch_css)
         self.config = config
 
-        self.topic_service = TopicService(self.config)
         self.cluster_service = ClusterService(self.config)
-
         self.cluster = self.cluster_service.current()
-        self.topics = self.topic_service.list()
 
     def compose(self) -> ComposeResult:
         yield Header()
-        yield Container(Title(), Body(DataTable()))
+        yield Container(Body(DataTable()))
         yield Footer()
 
     def on_mount(self) -> None:
         header = self.query_one(Header)
         header.cluster = self.cluster
 
-        title = self.query_one(Title)
-        title.message = Text.from_markup(f"[bold] total topics:[/] {len(self.topics)}")
-
         table = self.query_one(DataTable)
         table.cursor_type = "row"
         table.fixed_columns = 1
 
-        table.add_column("name")
-        table.add_column("partitions", width=10)
-        table.add_column("replicas", width=10)
-        table.add_column("in sync", width=10)
-        table.add_column("groups", width=10)
-        table.add_column("records", width=10)
-        table.add_column("lag", width=10)
-        for topic in self.topics:
+        table.add_column("NAME")
+        table.add_column("PARTITIONS", width=10)
+        table.add_column("REPLICAS", width=10)
+        table.add_column("IN SYNC", width=10)
+        table.add_column("GROUPS", width=10)
+        table.add_column("RECORDS", width=10)
+        table.add_column("LAG", width=10)
+        for topic in self.cluster.topics:
             row = [
                 f"[b]{topic.name}[/b]",
                 topic.partitions_count(),
                 topic.replicas_count(),
                 topic.isrs_count(),
                 topic.groups_count(),
-                topic.messages_count(),
-                topic.lag_count(),
+                f"{APPROXIMATION}{topic.records_count()}"
+                if topic.records_count() > 0
+                else f"{topic.records_count()}",
+                f"{APPROXIMATION}{topic.lag()}"
+                if topic.lag() > 0
+                else f"{topic.lag()}",
             ]
             table.add_row(*row)

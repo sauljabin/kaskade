@@ -2,7 +2,13 @@ from unittest import TestCase
 
 from kaskade.kafka.models import Cluster, Group, Partition, Topic
 from tests import faker
-from tests.kafka import random_broker, random_cluster, random_groups, random_partitions
+from tests.kafka import (
+    random_broker,
+    random_cluster,
+    random_groups,
+    random_partitions,
+    random_topic,
+)
 
 
 class TestGroup(TestCase):
@@ -35,12 +41,14 @@ class TestBroker(TestCase):
 class TestCluster(TestCase):
     def test_str(self):
         brokers = [random_broker(), random_broker(), random_broker()]
+        topics = [random_topic(), random_topic(), random_topic()]
         version = faker.bothify("#.#.#")
         has_schemas = faker.pybool()
         protocol = faker.word()
 
         values = {
             "brokers": brokers,
+            "topics": topics,
             "version": version,
             "has_schemas": has_schemas,
             "protocol": protocol,
@@ -49,7 +57,11 @@ class TestCluster(TestCase):
         expected_str = str(values)
 
         cluster = Cluster(
-            brokers=brokers, version=version, has_schemas=has_schemas, protocol=protocol
+            brokers=brokers,
+            topics=topics,
+            version=version,
+            has_schemas=has_schemas,
+            protocol=protocol,
         )
 
         self.assertEqual(expected_str, str(cluster))
@@ -63,6 +75,15 @@ class TestCluster(TestCase):
 
         topic.brokers = None
         self.assertEqual(0, topic.brokers_count())
+
+    def test_topics_count_zero_if_None(self):
+        topic = random_cluster()
+
+        topic.topics = []
+        self.assertEqual(0, topic.topics_count())
+
+        topic.brokers = None
+        self.assertEqual(0, topic.topics_count())
 
 
 class TestTopic(TestCase):
