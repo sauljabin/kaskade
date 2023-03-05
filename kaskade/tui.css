@@ -41,7 +41,7 @@ Footer > .footer--key {
 }
 
 DataTable {
-    margin: 1;
+    margin: 0 0 1 0;
 }
 
 DataTable > .datatable--header {
@@ -80,7 +80,7 @@ Help {
 }
 
 Title {
-    margin: 1 1 0 1;
+    margin: 1 0 0 0;
     color: $main-color;
     background: $boost;
 }

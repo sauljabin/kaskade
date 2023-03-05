@@ -92,7 +92,7 @@ class Tui(App[None]):
         header.cluster = self.cluster
 
         title = self.query_one(Title)
-        title.message = Text.from_markup(f"[bold]total topics:[/] {len(self.topics)}")
+        title.message = Text.from_markup(f"[bold] total topics:[/] {len(self.topics)}")
 
         table = self.query_one(DataTable)
         table.cursor_type = "row"
