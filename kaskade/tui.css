@@ -40,10 +40,6 @@ Footer > .footer--key {
     background: $main-dark-color;
 }
 
-DataTable {
-    margin: 0 0 1 0;
-}
-
 DataTable > .datatable--header {
     text-style: bold;
     background: $boost;

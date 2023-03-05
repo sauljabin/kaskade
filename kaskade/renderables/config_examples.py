@@ -1,8 +1,6 @@
-from rich.columns import Columns
-from rich.console import Group
 from rich.markdown import Markdown
 
-md_doc = """
+config_example_md = """
 ### Kafka
 
 Simple connection example:
@@ -74,5 +72,5 @@ schema.registry:
 
 
 class ConfigExamples:
-    def __rich__(self) -> Group:
-        return Group(Columns([Markdown(md_doc, code_theme="ansi_dark")], width=100))
+    def __rich__(self) -> Markdown:
+        return Markdown(config_example_md, code_theme="ansi_dark")
