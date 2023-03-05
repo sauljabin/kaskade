@@ -1,6 +1,7 @@
 import asyncio
 from typing import Any, List
 
+from rich.text import Text
 from textual.app import ComposeResult
 from textual.containers import Container
 from textual.screen import Screen
@@ -46,16 +47,26 @@ class TopicList(Screen):
         for topic in topics:
             row = [
                 f"[b]{topic.name}[/b]",
-                topic.partitions_count(),
-                topic.replicas_count(),
-                topic.isrs_count(),
-                topic.groups_count(),
-                f"{APPROXIMATION}{topic.records_count()}"
-                if topic.records_count() > 0
-                else f"{topic.records_count()}",
-                f"{APPROXIMATION}{topic.lag()}"
-                if topic.lag() > 0
-                else f"{topic.lag()}",
+                Text(str(topic.partitions_count()), justify="right"),
+                Text(str(topic.replicas_count()), justify="right"),
+                Text(str(topic.isrs_count()), justify="right"),
+                Text(str(topic.groups_count()), justify="right"),
+                Text(
+                    str(
+                        f"{APPROXIMATION}{topic.records_count()}"
+                        if topic.records_count() > 0
+                        else f"{topic.records_count()}"
+                    ),
+                    justify="right",
+                ),
+                Text(
+                    str(
+                        f"{APPROXIMATION}{topic.lag()}"
+                        if topic.lag() > 0
+                        else f"{topic.lag()}"
+                    ),
+                    justify="right",
+                ),
             ]
             table.add_row(*row)
 
