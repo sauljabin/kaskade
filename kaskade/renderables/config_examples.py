@@ -1,5 +1,7 @@
 from rich.markdown import Markdown
 
+from kaskade.styles.themes import MD_THEME
+
 config_example_md = """
 ### Kafka
 
@@ -45,8 +47,6 @@ Next settings are optional:
 ```yaml
 kaskade:
   debug: off # enable debug mode, default off
-  refresh: on # enable auto-refresh, default on
-  refresh.rate: 5 # auto-refresh rate, default 5 secs
   show.internals: off # show internal topics, default off
 ```
 
@@ -73,4 +73,4 @@ schema.registry:
 
 class ConfigExamples:
     def __rich__(self) -> Markdown:
-        return Markdown(config_example_md, code_theme="ansi_dark")
+        return Markdown(config_example_md, code_theme=MD_THEME)
