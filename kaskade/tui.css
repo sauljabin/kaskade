@@ -2,11 +2,16 @@ $main-color: #a483e1;
 $main-light-color: #b79fe3;
 $main-dark-color: #745e9d;
 $grey: #e1d9f0;
+$green: #a5c75d;
 
 * {
     scrollbar-color-hover: $main-color;
-    scrollbar-color: $main-dark-color;
-    scrollbar-color-active: $main-light-color;
+    scrollbar-color: $main-color 20%;
+    scrollbar-color-active: $main-color;
+
+    scrollbar-background: $surface;
+    scrollbar-background-active: $surface;
+    scrollbar-background-hover: $surface;
 }
 
 Header {
@@ -23,32 +28,29 @@ Footer {
 }
 
 Footer > .footer--highlight {
-    background: $surface;
-    text-style: bold;
+    background: $boost;
     color: $main-color;
 }
 
 Footer > .footer--highlight-key {
     background: $main-color;
-    text-style: bold;
-    color: $grey;
+    color: black;
 }
 
 Footer > .footer--key {
-    text-style: bold;
-    color: $grey;
+    color: black;
     background: $main-dark-color;
 }
 
 DataTable > .datatable--header {
     text-style: bold;
-    background: $boost;
+    background: $surface;
     color: $main-color;
 }
 
 DataTable > .datatable--header-hover {
     text-style: bold;
-    background: $boost;
+    background: $surface;
     color: $main-color;
 }
 
@@ -56,18 +58,26 @@ DataTable > .datatable--hover {
     background: $main-color 20%;
 }
 
-DataTable >  .datatable--cursor {
-    background: $main-light-color;
+DataTable > .datatable--cursor {
+    background: $main-color;
     color: $text;
 }
 
+DataTable {
+    border: solid $grey;
+}
+
+DataTable:focus {
+    border: solid $green;
+}
+
 DataTable > .datatable--fixed {
-    background: $boost;
+    background: $surface;
     color: $text;
 }
 
 DataTable > .datatable--fixed-cursor {
-    background: $main-light-color;
+    background: $main-color;
     color: $text;
 }
 
@@ -76,21 +86,30 @@ Help {
 }
 
 Input {
-    background: $boost;
+    background: $surface;
     color: $text;
-    padding: 0;
-    border: blank $background;
+    padding: 0 1;
+    border: solid $grey;
     width: 100%;
     height: 1;
     min-height: 1;
 }
 
 Input:focus {
-    border: blank;
+    border: solid $green;
 }
 
 Input > .input--cursor {
     background: $surface;
     color: $text;
     text-style: reverse;
+}
+
+Label {
+    text-style: bold;
+    background: $surface;
+    color: $main-color;
+
+    width: 100%;
+    text-align: center;
 }

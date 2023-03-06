@@ -5,7 +5,7 @@ from rich.text import Text
 from textual.app import ComposeResult
 from textual.containers import Container
 from textual.screen import Screen
-from textual.widgets import DataTable, Footer, Input
+from textual.widgets import DataTable, Footer, Input, Label
 
 from kaskade import logger
 from kaskade.kafka.models import Cluster, Topic
@@ -18,11 +18,15 @@ class TopicList(Screen):
 
     def compose(self) -> ComposeResult:
         yield Header()
-        yield Input()
+        yield Label()
         yield Container(DataTable())
+        yield Input()
         yield Footer()
 
     def on_mount(self) -> None:
+        label = self.query_one(Label)
+        label.renderable = Text("TOPIC LIST")
+
         input_filter = self.query_one(Input)
         input_filter.placeholder = "FILTER"
         input_filter.focus()
@@ -35,12 +39,12 @@ class TopicList(Screen):
         table.fixed_columns = 1
 
         table.add_column("NAME")
-        table.add_column("PARTITIONS", width=10)
-        table.add_column("REPLICAS", width=10)
-        table.add_column("IN SYNC", width=10)
-        table.add_column("GROUPS", width=10)
-        table.add_column("RECORDS", width=10)
-        table.add_column("LAG", width=10)
+        table.add_column(Text(str("PARTITIONS"), justify="right"), width=10)
+        table.add_column(Text(str("REPLICAS"), justify="right"), width=10)
+        table.add_column(Text(str("IN SYNC"), justify="right"), width=10)
+        table.add_column(Text(str("GROUPS"), justify="right"), width=10)
+        table.add_column(Text(str("RECORDS"), justify="right"), width=10)
+        table.add_column(Text(str("LAG"), justify="right"), width=10)
         self.fill_table(table, self.cluster.topics)
 
     def fill_table(self, table: DataTable[Any], topics: List[Topic]) -> None:
@@ -68,9 +72,9 @@ class TopicList(Screen):
                     justify="right",
                 ),
             ]
-            table.add_row(*row)
+            table.add_row(*row, key=topic.name)
 
-    async def on_input_submitted(self, message: Input.Changed) -> None:
+    async def on_input_submitted(self, message: Input.Submitted) -> None:
         asyncio.create_task(self.filter_topics(message.value))
 
     async def filter_topics(self, word: str) -> None:

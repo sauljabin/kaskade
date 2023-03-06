@@ -16,7 +16,7 @@ class Tui(App[None]):
     SCREENS = {"help": Help}
     BINDINGS = [
         Binding(Keys.ControlC, "quit", "QUIT"),
-        Binding("question_mark", "push_screen('help')", "HELP", key_display="?"),
+        Binding(Keys.F1, "push_screen('help')", "HELP"),
     ]
 
     def __init__(
