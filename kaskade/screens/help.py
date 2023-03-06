@@ -14,6 +14,8 @@ help_md = f"""
 - `CTRL+C` Quit.
 - `F1` Help window.
 - `ESCAPE` Close window.
+- `UP` Scroll up.
+- `DOWN` Scroll down.
 
 #  Tables
 
