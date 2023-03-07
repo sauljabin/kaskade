@@ -23,31 +23,31 @@ packages = [
 
 [tool.poetry.dependencies]
 python = "^3.10"
-click = "^8.0.1"
-rich = "^13.3.1"
-pyfiglet = "^0.8.post1"
-textual =  {extras = ["dev"], version = "^0.13.0"}
-confluent-kafka = {extras = ["avro", "json", "protobuf"], version = "^2.0.2"}
-PyYAML = "^5.4.1"
-typing-extensions = "^4.3.0"
-requests = "^2.28.1"
+click = "^8"
+rich = "^13"
+pyfiglet = "^0"
+textual =  "^0"
+confluent-kafka = {extras = ["avro", "json", "protobuf"], version = "^2"}
+PyYAML = "^5"
+typing-extensions = "^4"
+requests = "^2"
 
 [tool.poetry.dev-dependencies]
-black = "^22.3.0"
-isort = "^5.9.3"
-bandit = "^1.7.0"
-unittest = "^0.0"
-Faker = "^8.13.2"
-coverage = {extras = ["toml"], version = "^5.5"}
-autoflake = "^1.4"
-toml = "^0.10.2"
-pre-commit = "^2.15.0"
-flake8 = "^3.9.2"
-mypy = "^0.910"
-types-PyYAML = "^5.4.10"
-types-attrs = "^19.1.0"
-types-setuptools = "^57.4.0"
-types-toml = "^0.10.0"
+black = "*"
+isort = "*"
+bandit = "*"
+unittest = "*"
+Faker = "*"
+coverage = {extras = ["toml"], version = "*"}
+autoflake = "*"
+toml = "^0"
+pre-commit = "^2"
+flake8 = "*"
+mypy = "^0"
+types-PyYAML = "^5"
+types-attrs = "^19"
+types-toml = "^0"
+types-setuptools = "^67"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

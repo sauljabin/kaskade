@@ -1,12 +1,12 @@
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.0.1
+    rev: v4.4.0
     hooks:
       - id: check-yaml
       - id: trailing-whitespace
       - id: check-added-large-files
   - repo: https://github.com/hadolint/hadolint
-    rev: v2.7.0
+    rev: v2.12.1-beta
     hooks:
       - id: hadolint
   - repo: local
