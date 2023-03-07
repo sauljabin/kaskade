@@ -13,7 +13,7 @@
 <br>
 <a href="https://kafka.apache.org/"><img alt="Kafka" width="60" height="20" src="https://img.shields.io/badge/-kafka-e3e3e3?logo=apache-kafka&logoColor=202020"></a>
 <a href="https://pypi.org/project/confluent-kafka/"><img alt="Kafka Client" src="https://img.shields.io/pypi/v/confluent-kafka?label=client">
-<a href="https://kafka.apache.org/"><img alt="Kafka" src="https://img.shields.io/badge/kafka-2.8%20%7C%203.0%20%7C%203.1%20%7C%203.2-blue"/></a>
+<a href="https://kafka.apache.org/"><img alt="Kafka" src="https://img.shields.io/badge/kafka-3.x-blue"/></a>
 </a>
 <br>
 <a href="https://www.docker.com/"><img alt="Docker" width="60" height="20" src="https://img.shields.io/badge/-docker-blue?logo=docker&logoColor=white"></a>
@@ -24,8 +24,6 @@
 
 :rocket: This project is powered by [textual](https://github.com/willmcgugan/textual)
 and [rich](https://github.com/willmcgugan/rich)!.
-
-For a local kafka environment go to https://github.com/sauljabin/kafka-docker.
 
 # Table of Contents
 
@@ -107,7 +105,7 @@ kaskade my-config.yml
 Using docker (remember to set a `network` and `volume`):
 
 ```shell
-docker run --rm -it --network kafka \
+docker run --rm -it --network cluster \
 --volume $(pwd):/kaskade \
 sauljabin/kaskade:latest
 ```
@@ -115,7 +113,7 @@ sauljabin/kaskade:latest
 Aliases:
 
 ```shell
-alias kaskade='docker run --rm -it --network kafka \
+alias kaskade='docker run --rm -it --network cluster \
 --volume $(pwd):/kaskade \
 sauljabin/kaskade:latest'
 alias kskd=kaskade
@@ -212,10 +210,6 @@ schema.registry:
 
 # Development
 
-Python supported versions:
-
-<a href="https://pypi.org/project/kaskade"><img alt="Python Versions" src="https://img.shields.io/pypi/pyversions/kaskade?label="></a>
-
 Installing poetry:
 
 ```shell
@@ -278,6 +272,17 @@ Generate readme banner:
 poetry run python -m scripts.banner
 ```
 
+### Kafka Cluster
+
+Run local cluster:
+
+```shell
+cd cluster
+docker compose up -d
+```
+
+> Open <http://localhost:8080/>
+
 ### Docker
 
 Build docker:
@@ -291,7 +296,7 @@ poetry run python -m scripts.docker-build
 Run with docker (create a `config.yml` file):
 
 ```shell
-docker run --rm -it --network kafka \
+docker run --rm -it --network cluster \
 --volume $(pwd):/kaskade \
 sauljabin/kaskade:latest
 ```
