@@ -1,9 +1,7 @@
 from rich.markdown import Markdown
 
-from kaskade.styles.themes import MD_THEME
-
 config_example_md = """
-### Kafka
+## Kafka
 
 Simple connection example:
 
@@ -31,7 +29,7 @@ kafka:
   bootstrap.servers: ${BOOTSTRAP_SERVERS}
 ```
 
-### Schema Registry
+## Schema Registry
 
 Simple connection example:
 
@@ -40,7 +38,7 @@ schema.registry:
   url: http://localhost:8081
 ```
 
-### Kaskade
+## Kaskade
 
 Next settings are optional:
 
@@ -52,7 +50,7 @@ kaskade:
 
 > `debug` enabled will generate logs into a specific log file, execute `kaskade --info` to get the log path.
 
-### Other Examples
+## Other Examples
 
 Confluent Cloud:
 
@@ -73,4 +71,4 @@ schema.registry:
 
 class ConfigExamples:
     def __rich__(self) -> Markdown:
-        return Markdown(config_example_md, code_theme=MD_THEME)
+        return Markdown(config_example_md)

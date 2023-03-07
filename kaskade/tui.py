@@ -9,6 +9,7 @@ from kaskade.config import Config
 from kaskade.kafka.cluster_service import ClusterService
 from kaskade.screens.help import Help
 from kaskade.screens.topic_list import TopicList
+from kaskade.styles.colors import DESIGN
 
 
 class Tui(App[None]):
@@ -35,3 +36,6 @@ class Tui(App[None]):
         topic_list_widget = TopicList()
         topic_list_widget.cluster = self.cluster
         self.push_screen(topic_list_widget)
+
+        self.design = DESIGN
+        self.refresh_css()

@@ -2,6 +2,7 @@ from pyfiglet import Figlet
 from rich.text import Text
 
 from kaskade import APP_NAME, APP_VERSION
+from kaskade.styles.colors import PRIMARY, SECONDARY
 
 
 class KaskadeName:
@@ -12,5 +13,5 @@ class KaskadeName:
 
     def __rich__(self) -> Text:
         return Text.from_markup(
-            "[magenta]{}[/]\n[green bold]v{}[/]".format(self, APP_VERSION)
+            f"[{PRIMARY} bold]{str(self)}[/]\n[{SECONDARY} bold]v{APP_VERSION}[/]"
         )

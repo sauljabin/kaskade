@@ -1,11 +1,9 @@
-from rich.markdown import Markdown
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.screen import Screen
-from textual.widgets import Static
+from textual.widgets import MarkdownViewer
 
 from kaskade.renderables.config_examples import config_example_md
-from kaskade.styles.themes import MD_THEME
 
 help_md = f"""
 # Navigation
@@ -48,4 +46,4 @@ class Help(Screen):
     BINDINGS = [Binding("escape,space,q,question_mark", "pop_screen", "CLOSE")]
 
     def compose(self) -> ComposeResult:
-        yield Static(Markdown(help_md, code_theme=MD_THEME))
+        yield MarkdownViewer(help_md, show_table_of_contents=True)

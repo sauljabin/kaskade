@@ -1,6 +1,7 @@
 from rich.table import Table
 
 from kaskade import APP_DOC, APP_HOME, APP_LICENSE, APP_LOG
+from kaskade.styles.colors import PRIMARY, SECONDARY
 
 
 class KaskadeInfo:
@@ -12,10 +13,10 @@ class KaskadeInfo:
             show_edge=False,
             padding=(0, 1, 0, 0),
         )
-        info.add_column(style="bright_magenta bold")
-        info.add_column(style="yellow bold")
-        info.add_row("home path:", APP_HOME)
-        info.add_row("logs path:", APP_LOG)
-        info.add_row("license:", APP_LICENSE)
-        info.add_row("docs:", APP_DOC)
+        info.add_column(style=f"{PRIMARY} bold")
+        info.add_column(style=f"{SECONDARY} bold")
+        info.add_row("HOME:", APP_HOME)
+        info.add_row("LOGS:", APP_LOG)
+        info.add_row("LICENSE:", APP_LICENSE)
+        info.add_row("DOC:", APP_DOC)
         return info
