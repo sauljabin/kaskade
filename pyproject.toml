@@ -40,14 +40,14 @@ unittest = "*"
 Faker = "*"
 coverage = {extras = ["toml"], version = "*"}
 autoflake = "*"
-toml = "^0"
-pre-commit = "^2"
+toml = "*"
+pre-commit = "*"
 flake8 = "*"
-mypy = "^0"
+mypy = "*"
 types-PyYAML = "^5"
-types-attrs = "^19"
-types-toml = "^0"
-types-setuptools = "^67"
+types-attrs = "*"
+types-toml = "*"
+types-setuptools = "*"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
