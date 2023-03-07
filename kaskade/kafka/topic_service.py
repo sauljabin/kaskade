@@ -34,9 +34,13 @@ class TopicService:
 
         groups: List[Group] = []
 
-        group_items = self.admin_client.describe_consumer_groups(
-            group_names, request_timeout=TIMEOUT
-        ).items()
+        group_items = (
+            self.admin_client.describe_consumer_groups(
+                group_names, request_timeout=TIMEOUT
+            ).items()
+            if group_names
+            else []
+        )
 
         for group_id, group_future_request in group_items:
             group_metadata: ConsumerGroupDescription = group_future_request.result()

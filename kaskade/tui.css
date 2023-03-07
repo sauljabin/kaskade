@@ -24,7 +24,7 @@ Footer {
     dock: bottom;
     height: 1;
     background: $surface;
-    color: $main-color;
+    color: $main-dark-color;
 }
 
 Footer > .footer--highlight {
