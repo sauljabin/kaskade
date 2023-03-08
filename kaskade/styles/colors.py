@@ -1,7 +1,7 @@
 from textual.design import ColorSystem
 
 PRIMARY = "#af5fd7"
-SECONDARY = "#87d7d7"
+SECONDARY = "#00af87"
 DESIGN = {
     "dark": ColorSystem(
         primary=PRIMARY,

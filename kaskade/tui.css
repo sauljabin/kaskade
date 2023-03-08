@@ -39,11 +39,11 @@ DataTable > .datatable--header-hover {
 }
 
 DataTable {
-    border: solid $background-lighten-3;
+    border: solid $secondary-background;
 }
 
 DataTable:focus {
-    border: solid $secondary;
+    border: heavy $secondary;
 }
 
 DataTable > .datatable--hover {
@@ -73,14 +73,14 @@ Input {
     background: $surface;
     color: $text;
     padding: 0 1;
-    border: solid $background-lighten-3;
+    border: solid $secondary-background;
     width: 100%;
     height: 1;
     min-height: 1;
 }
 
 Input:focus {
-    border: solid $secondary;
+    border: heavy $secondary;
 }
 
 Input > .input--cursor {
