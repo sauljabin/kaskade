@@ -113,10 +113,6 @@ class TopicService:
         ]
 
         for raw_topic in raw_topics:
-            if not bool(self.config.kaskade.get("show.internals")):
-                if raw_topic.topic.strip().startswith("_"):
-                    continue
-
             topics.append(self.map_raw_topic(raw_topic, groups))
 
         return topics

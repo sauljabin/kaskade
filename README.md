@@ -20,7 +20,7 @@
 <a href="https://hub.docker.com/r/sauljabin/kaskade"><img alt="Docker Image Version (latest by date)" src="https://img.shields.io/docker/v/sauljabin/kaskade?label=tag"></a>
 <a href="https://hub.docker.com/r/sauljabin/kaskade"><img alt="Docker Image Size (latest by date)" src="https://img.shields.io/docker/image-size/sauljabin/kaskade"></a>
 
-**kaskade** is a read-only tui (text user interface) for [kafka](https://kafka.apache.org/).
+**kaskade** is a [kafka](https://kafka.apache.org/) TUI (text user interface).
 
 :rocket: This project is powered by [textual](https://github.com/willmcgugan/textual)
 and [rich](https://github.com/willmcgugan/rich)!.

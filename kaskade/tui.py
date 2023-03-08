@@ -35,6 +35,7 @@ class Tui(App[None]):
     def on_mount(self) -> None:
         topic_list_widget = TopicList()
         topic_list_widget.cluster = self.cluster
+        topic_list_widget.config = self.config
         self.push_screen(topic_list_widget)
 
         self.design = DESIGN

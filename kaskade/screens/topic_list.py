@@ -8,13 +8,15 @@ from textual.screen import Screen
 from textual.widgets import DataTable, Footer, Input, Label
 
 from kaskade import logger
+from kaskade.config import Config
 from kaskade.kafka.models import Cluster, Topic
 from kaskade.styles.unicodes import APPROXIMATION
 from kaskade.widgets.header import Header
 
 
 class TopicList(Screen):
-    cluster: Cluster = Cluster()
+    config: Config | None = None
+    cluster = Cluster()
 
     def compose(self) -> ComposeResult:
         yield Header()
@@ -45,7 +47,7 @@ class TopicList(Screen):
         table.add_column(Text(str("GROUPS"), justify="right"), width=10)
         table.add_column(Text(str("RECORDS"), justify="right"), width=10)
         table.add_column(Text(str("LAG"), justify="right"), width=10)
-        self.fill_table(table, self.cluster.topics)
+        asyncio.create_task(self.filter_topics(""))
 
     def fill_table(self, table: DataTable[Any], topics: List[Topic]) -> None:
         for topic in topics:
@@ -78,14 +80,18 @@ class TopicList(Screen):
         asyncio.create_task(self.filter_topics(message.value))
 
     async def filter_topics(self, word: str) -> None:
-        logger.debug(f"Filtering topics: {word}")
+        logger.debug(f"Filtering topics: '{word}'")
         table = self.query_one(DataTable)
         table.clear()
 
-        if word.strip() == "":
-            self.fill_table(table, self.cluster.topics)
+        if self.config and not bool(self.config.kaskade.get("show.internals")):
+            filtered_topics = [
+                topic
+                for topic in self.cluster.topics
+                if not topic.name.startswith("_") and word.strip() in topic.name
+            ]
         else:
             filtered_topics = [
-                topic for topic in self.cluster.topics if word in topic.name
+                topic for topic in self.cluster.topics if word.strip() in topic.name
             ]
-            self.fill_table(table, filtered_topics)
+        self.fill_table(table, filtered_topics)
