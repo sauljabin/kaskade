@@ -4,9 +4,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 
 class Node:
-    def __init__(
-        self, id: int = -1, host: str = "", port: int = -1, rack: str = ""
-    ) -> None:
+    def __init__(self, id: int = -1, host: str = "", port: int = -1, rack: str = "") -> None:
         self.id = id
         self.host = host
         self.port = port
@@ -356,12 +354,8 @@ class Record:
             "headers": self.headers,
             "key": self.key,
             "value": self.value,
-            "key_schema": self.key_schema.dict()
-            if self.key_schema is not None
-            else None,
-            "value_schema": self.value_schema.dict()
-            if self.value_schema is not None
-            else None,
+            "key_schema": self.key_schema.dict() if self.key_schema is not None else None,
+            "value_schema": self.value_schema.dict() if self.value_schema is not None else None,
         }
 
     def json(self) -> str:
@@ -369,20 +363,18 @@ class Record:
             "date": str(self.date),
             "partition": self.partition,
             "offset": self.offset,
-            "headers": [
-                (key, str(value) if isinstance(value, bytes) else value)
-                for (key, value) in self.headers
-            ]
-            if self.headers is not None
-            else self.headers,
+            "headers": (
+                [
+                    (key, str(value) if isinstance(value, bytes) else value)
+                    for (key, value) in self.headers
+                ]
+                if self.headers is not None
+                else self.headers
+            ),
             "key": str(self.key) if isinstance(self.key, bytes) else self.key,
             "value": str(self.value) if isinstance(self.value, bytes) else self.value,
-            "key_schema": self.key_schema.dict()
-            if self.key_schema is not None
-            else None,
-            "value_schema": self.value_schema.dict()
-            if self.value_schema is not None
-            else None,
+            "key_schema": self.key_schema.dict() if self.key_schema is not None else None,
+            "value_schema": self.value_schema.dict() if self.value_schema is not None else None,
         }
 
         return json.dumps(decoded, indent=4)

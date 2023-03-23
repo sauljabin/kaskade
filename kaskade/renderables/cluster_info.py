@@ -22,9 +22,7 @@ class ClusterInfo:
         table.add_row("SCHEMAS:", "yes" if self.cluster.has_schemas else "no")
         table.add_row(
             "PROTOCOL:",
-            self.cluster.protocol.lower()
-            if self.cluster.protocol is not None
-            else "plain",
+            self.cluster.protocol.lower() if self.cluster.protocol is not None else "plain",
         )
 
         return table

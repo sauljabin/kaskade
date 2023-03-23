@@ -41,9 +41,7 @@ class Config:
         for file_variable in re.findall(pattern, self.text):
             system_variable = os.environ.get(file_variable)
             if system_variable is None:
-                raise Exception(
-                    f"Environment variable ${file_variable} not found in the system"
-                )
+                raise Exception(f"Environment variable ${file_variable} not found in the system")
             self.text = self.text.replace(f"${{{file_variable}}}", system_variable)
 
         self.yaml = yaml.safe_load(self.text)

@@ -1,0 +1,157 @@
+{
+    "repository": "https://github.com/sauljabin/kaskade",
+    "versions": [
+        {
+            "version": "Unreleased",
+            "changes": [
+                {
+                    "type": "Added",
+                    "entries": [
+                        "Update scripts",
+                        "Add chageloggh"
+                    ]
+                },
+                {
+                    "type": "Changed",
+                    "entries": [
+                        "New styles",
+                        "textual and confluent-kafka upgraded"
+                    ]
+                },
+                {
+                    "type": "Removed",
+                    "entries": [
+                        "Unit test, confluent-kafka and textual are changing a lot"
+                    ]
+                }
+            ]
+        },
+        {
+            "version": "1.1.8",
+            "date": "2022-07-26",
+            "changes": [
+                {
+                    "type": "Fixed",
+                    "entries": [
+                        "Fix scrolling"
+                    ]
+                }
+            ]
+        },
+        {
+            "version": "1.1.7",
+            "date": "2022-07-25",
+            "changes": [
+                {
+                    "type": "Fixed",
+                    "entries": [
+                        "Error when looking for config files"
+                    ]
+                }
+            ]
+        },
+        {
+            "version": "1.1.6",
+            "date": "2022-07-25",
+            "changes": [
+                {
+                    "type": "Fixed",
+                    "entries": [
+                        "Unpack schema id error"
+                    ]
+                }
+            ]
+        },
+        {
+            "version": "1.1.5",
+            "date": "2022-07-25",
+            "changes": [
+                {
+                    "type": "Fixed",
+                    "entries": [
+                        "Schema registry error accessing internal object"
+                    ]
+                }
+            ]
+        },
+        {
+            "version": "1.1.4",
+            "date": "2022-07-25",
+            "changes": [
+                {
+                    "type": "Fixed",
+                    "entries": [
+                        "Close session error when None"
+                    ]
+                }
+            ]
+        },
+        {
+            "version": "1.1.3",
+            "date": "2022-07-25",
+            "changes": [
+                {
+                    "type": "Fixed",
+                    "entries": [
+                        "Unicode error",
+                        "Close socket error when calling schema registry"
+                    ]
+                }
+            ]
+        },
+        {
+            "version": "1.1.2",
+            "date": "2022-07-24",
+            "changes": [
+                {
+                    "type": "Fixed",
+                    "entries": [
+                        "Error when consuming key and value None"
+                    ]
+                }
+            ]
+        },
+        {
+            "version": "1.1.1",
+            "date": "2022-07-24",
+            "changes": [
+                {
+                    "type": "Fixed",
+                    "entries": [
+                        "Remove an unused setting"
+                    ]
+                }
+            ]
+        },
+        {
+            "version": "1.1.0",
+            "date": "2022-07-24",
+            "changes": [
+                {
+                    "type": "Added",
+                    "entries": [
+                        "Show/Hide internal topics"
+                    ]
+                },
+                {
+                    "type": "Fixed",
+                    "entries": [
+                        "Error when kafka has empty groups"
+                    ]
+                }
+            ]
+        },
+        {
+            "version": "1.0.0",
+            "date": "2022-07-24",
+            "changes": [
+                {
+                    "type": "Add",
+                    "entries": [
+                        "Schema registry support"
+                    ]
+                }
+            ]
+        }
+    ]
+}

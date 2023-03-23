@@ -25,9 +25,7 @@ class TestClusterService(TestCase):
 
     @patch("kaskade.kafka.cluster_service.TopicService")
     @patch("kaskade.kafka.cluster_service.AdminClient")
-    def test_version_unknown_and_protocol_plain(
-        self, mock_class_client, mock_class_topic_service
-    ):
+    def test_version_unknown_and_protocol_plain(self, mock_class_client, mock_class_topic_service):
         expected_config = {"bootstrap.servers": faker.hostname()}
 
         config = MagicMock()
@@ -115,9 +113,7 @@ class TestClusterService(TestCase):
 
         config_entry = ConfigEntry("inter.broker.protocol.version", "")
         mock_task = MagicMock()
-        mock_task.result = MagicMock(
-            return_value={"inter.broker.protocol.version": config_entry}
-        )
+        mock_task.result = MagicMock(return_value={"inter.broker.protocol.version": config_entry})
 
         mock_client.describe_configs.return_value = {1: mock_task}
 
@@ -160,9 +156,7 @@ class TestClusterService(TestCase):
         kafka = ClusterService(config)
 
         mock_task = MagicMock()
-        mock_task.result = MagicMock(
-            return_value={"inter.broker.protocol.version": config_entry}
-        )
+        mock_task.result = MagicMock(return_value={"inter.broker.protocol.version": config_entry})
 
         mock_client.describe_configs.return_value = {1: mock_task}
 

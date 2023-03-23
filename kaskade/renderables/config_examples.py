@@ -20,7 +20,7 @@ kafka:
 
 > For more information about SSL encryption and SSL authentication go to
 > [confluent-kafka](https://github.com/confluentinc/confluent-kafka-python#ssl-certificates) and
-> [librdkafka](https://github.com/edenhill/librdkafka/wiki/Using-SSL-with-librdkafka#configure-librdkafka-client).
+> [librdkafka](https://github.com/edenhill/librdkafka/wiki/Using-SSL-with-librdkafka).
 
 Support for env variables:
 
@@ -48,7 +48,8 @@ kaskade:
   show.internals: off # show internal topics, default off
 ```
 
-> `debug` enabled will generate logs into a specific log file, execute `kaskade --info` to get the log path.
+> `debug` enabled will generate logs into a specific log file,
+> execute `kaskade --info` to get the log path.
 
 ## Other Examples
 

@@ -27,17 +27,13 @@ class TopicService:
         config_copy["group.id"] = str(uuid.uuid4())
         self.consumer = Consumer(config_copy)
 
-    def groups_by_topic(
-        self, topic: TopicMetadata, group_names: List[str]
-    ) -> List[Group]:
+    def groups_by_topic(self, topic: TopicMetadata, group_names: List[str]) -> List[Group]:
         partitions = [TopicPartition(topic.topic, p) for p in topic.partitions]
 
         groups: List[Group] = []
 
         group_items = (
-            self.admin_client.describe_consumer_groups(
-                group_names, request_timeout=TIMEOUT
-            ).items()
+            self.admin_client.describe_consumer_groups(group_names, request_timeout=TIMEOUT).items()
             if group_names
             else []
         )

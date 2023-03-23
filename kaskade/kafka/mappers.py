@@ -25,9 +25,7 @@ def metadata_to_broker(metadata: BrokerMetadata) -> Broker:
 
 
 def metadata_to_node(metadata: NodeMetadata) -> Node:
-    return Node(
-        id=metadata.id, host=metadata.host, port=metadata.port, rack=metadata.rack
-    )
+    return Node(id=metadata.id, host=metadata.host, port=metadata.port, rack=metadata.rack)
 
 
 def metadata_to_group(metadata: GroupMetadata) -> Group:
@@ -51,9 +49,7 @@ def metadata_to_group_member(group: str, metadata: MemberMetadata) -> GroupMembe
     )
 
 
-def metadata_to_group_partition(
-    group: str, metadata: GroupPartitionMetadata
-) -> GroupPartition:
+def metadata_to_group_partition(group: str, metadata: GroupPartitionMetadata) -> GroupPartition:
     return GroupPartition(
         id=metadata.partition,
         topic=metadata.topic,

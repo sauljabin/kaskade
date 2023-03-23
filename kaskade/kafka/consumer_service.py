@@ -65,11 +65,7 @@ class ConsumerService:
             records_read += 1
 
             timestamp_available, timestamp = raw_record.timestamp()
-            date = (
-                datetime.fromtimestamp(timestamp / 1000)
-                if timestamp_available > 0
-                else None
-            )
+            date = datetime.fromtimestamp(timestamp / 1000) if timestamp_available > 0 else None
 
             record = Record(
                 date=date,

@@ -18,11 +18,13 @@ class CommandProcessor:
                 self.console.print(
                     "\n[bold red]Error:exclamation:[/] when executing "
                     f'[bold blue]"{name}" ([bold yellow]{command}[/])[/]:\n'
-                    f"[red]{result.stdout.decode().strip()}[/]\n"
-                    "Rolling back."
+                    f"[red]{result.stdout.decode().strip()}{result.stderr.decode().strip()}[/]\n"
                 )
-                for rollback_name, rollback_command in self.rollback.items():
-                    self.execute_command(rollback_name, rollback_command)
+
+                if self.rollback:
+                    self.console.print("[bold yellow]Rolling back:[/]")
+                    for rollback_name, rollback_command in self.rollback.items():
+                        self.execute_command(rollback_name, rollback_command)
 
                 sys.exit(result.returncode)
 

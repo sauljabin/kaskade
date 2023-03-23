@@ -3,7 +3,7 @@ from scripts import CommandProcessor
 
 def main():
     commands = {
-        "checking types": "poetry run mypy kayak/",
+        "checking types": "poetry run mypy kaskade/",
         "black": "poetry run black --check .",
         "ruff": "poetry run ruff check .",
     }

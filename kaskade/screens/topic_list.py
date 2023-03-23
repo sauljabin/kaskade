@@ -66,11 +66,7 @@ class TopicList(Screen):
                     justify="right",
                 ),
                 Text(
-                    str(
-                        f"{APPROXIMATION}{topic.lag()}"
-                        if topic.lag() > 0
-                        else f"{topic.lag()}"
-                    ),
+                    str(f"{APPROXIMATION}{topic.lag()}" if topic.lag() > 0 else f"{topic.lag()}"),
                     justify="right",
                 ),
             ]
@@ -91,7 +87,5 @@ class TopicList(Screen):
                 if not topic.name.startswith("_") and word.strip() in topic.name
             ]
         else:
-            filtered_topics = [
-                topic for topic in self.cluster.topics if word.strip() in topic.name
-            ]
+            filtered_topics = [topic for topic in self.cluster.topics if word.strip() in topic.name]
         self.fill_table(table, filtered_topics)

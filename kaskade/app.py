@@ -7,9 +7,7 @@ from kaskade.cli import Cli
 @click.option("--version", is_flag=True, help="Show the app version and exit.")
 @click.option("--info", is_flag=True, help="Show app information and exit.")
 @click.option("--configs", is_flag=True, help="Show config examples and exit.")
-@click.option(
-    "--yml", is_flag=True, help="Generate a default yml config file and exit."
-)
+@click.option("--yml", is_flag=True, help="Generate a default yml config file and exit.")
 @click.argument(
     "config_file",
     metavar="<config file>",
