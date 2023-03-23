@@ -109,14 +109,14 @@ files = [
 
 [[package]]
 name = "changeloggh"
-version = "1.0.2"
+version = "1.0.3"
 description = "changeloggh is a command line tool that generates changelog files for github"
 category = "dev"
 optional = false
 python-versions = ">=3.10,<4.0"
 files = [
-    {file = "changeloggh-1.0.2-py3-none-any.whl", hash = "sha256:0bf3c7510dbe3204cee9e6c7e4bc951a33613ee7ef0bdd9eb89f9cc5ed6d9c15"},
-    {file = "changeloggh-1.0.2.tar.gz", hash = "sha256:d568096362a2465ea0a038372b99f37213feae70c268ee57a9f32815bf7283d5"},
+    {file = "changeloggh-1.0.3-py3-none-any.whl", hash = "sha256:f5094a3eed337f50dc0c9ef28f85f45e3ff9f3cdd3418983fdafd9714d8eb26a"},
+    {file = "changeloggh-1.0.3.tar.gz", hash = "sha256:269bd12847db8504edbab42d030cc575f2ff37e4aa65929c5e6d28b455d769ac"},
 ]
 
 [package.dependencies]
