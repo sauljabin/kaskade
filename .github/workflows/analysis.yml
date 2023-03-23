@@ -19,7 +19,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
       - name: Docker Linter
-        uses: hadolint/hadolint-action@v1.6.0
+        uses: hadolint/hadolint-action@v3.1.0
         with:
           dockerfile: docker/Dockerfile
       - name: Set up Python ${{ matrix.python-version }}
@@ -34,6 +34,6 @@ jobs:
       - name: Python Code Analysis
         run: poetry run python -m scripts.analyze
       - name: Run Tests
-        run: poetry run python -m scripts.tests-coverage
+        run: poetry run python -m scripts.coverage
       - name: Publish Coverage
         uses: codecov/codecov-action@v3
