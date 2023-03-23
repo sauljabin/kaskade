@@ -16,8 +16,8 @@ class CommandProcessor:
             result = self.execute_command(name, command)
             if result.returncode:
                 self.console.print(
-                    "\n[bold red]Error:exclamation:[/] when executing "
-                    f'[bold blue]"{name}" ([bold yellow]{command}[/])[/]:\n'
+                    "\n[bold red]Error[/] when executing "
+                    f'[bold blue]"{name}" ([bold yellow]{command}[/])[/]:exclamation::\n'
                     f"[red]{result.stdout.decode().strip()}{result.stderr.decode().strip()}[/]\n"
                 )
 
