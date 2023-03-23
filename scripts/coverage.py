@@ -3,8 +3,8 @@ from scripts import CommandProcessor
 
 def main():
     commands = {
-        "executing tests coverage :test_tube:": "poetry run coverage run -m unittest -v",
-        "coverage report :page_facing_up:": "poetry run coverage report -m",
+        "tests coverage": "poetry run coverage run -m unittest -v",
+        "coverage report": "poetry run coverage report -m",
         "coverage report html": "poetry run coverage html",
         "coverage report xml": "poetry run coverage xml",
     }

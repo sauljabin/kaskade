@@ -1,7 +1,7 @@
 import logging
 from pathlib import Path
 
-import pkg_resources
+from importlib.metadata import version
 
 APP_NAME = "kaskade"
 
@@ -14,7 +14,7 @@ def get_kaskade_home() -> Path:
     return kaskade_path
 
 
-__version__ = APP_VERSION = pkg_resources.get_distribution(APP_NAME).version
+__version__ = APP_VERSION = version(APP_NAME)
 APP_HOME = str(get_kaskade_home())
 APP_LOG = str(get_kaskade_home().joinpath(APP_NAME + ".log"))
 

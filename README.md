@@ -27,20 +27,43 @@ and [rich](https://github.com/willmcgugan/rich)!.
 
 # Table of Contents
 
-- [Table of Contents](#table-of-contents)
-- [Installation and Usage](#installation-and-usage)
-- [Running with Docker](#running-with-docker)
-- [Configuration](#configuration)
-    - [Kafka](#kafka)
-    - [Schema Registry](#schema-registry)
-    - [Kaskade](#kaskade)
-    - [Other Examples](#other-examples)
-- [Screenshots](#screenshots)
-- [Alternatives](#alternatives)
-- [Development](#development)
-    - [Scripts](#scripts)
-    - [Docker](#docker)
-    - [Bumping Version](#bumping-version)
+<!-- TOC -->
+* [Table of Contents](#table-of-contents)
+* [Features](#features)
+* [Screenshots](#screenshots)
+* [Installation and Usage](#installation-and-usage)
+* [Running with Docker](#running-with-docker)
+* [Configuration](#configuration)
+    * [Kafka](#kafka)
+    * [Schema Registry](#schema-registry)
+    * [Kaskade](#kaskade)
+    * [Other Examples](#other-examples)
+* [Alternatives](#alternatives)
+* [Development](#development)
+    * [Scripts](#scripts)
+    * [Kafka Cluster](#kafka-cluster)
+    * [Docker](#docker)
+    * [Bumping Version](#bumping-version)
+<!-- TOC -->
+
+# Features
+
+- List topics, partitions, groups, members
+- Topic infor like lag, replicas, record count
+- Consume from a topic
+- Schema registry support
+  - Avro support
+- Secure connection
+
+# Screenshots
+
+<p align="center">
+<img alt="kaskade" src="https://raw.githubusercontent.com/sauljabin/kaskade/main/screenshots/dashboard.png">
+</p>
+
+<p align="center">
+<img alt="kaskade" src="https://raw.githubusercontent.com/sauljabin/kaskade/main/screenshots/consumer.png">
+</p>
 
 # Installation and Usage
 
@@ -105,17 +128,13 @@ kaskade my-config.yml
 Using docker (remember to set a `network` and `volume`):
 
 ```shell
-docker run --rm -it --network cluster \
---volume $(pwd):/kaskade \
-sauljabin/kaskade:latest
+docker run --rm -it --network cluster --volume $(pwd):/kaskade sauljabin/kaskade:latest
 ```
 
 Aliases:
 
 ```shell
-alias kaskade='docker run --rm -it --network cluster \
---volume $(pwd):/kaskade \
-sauljabin/kaskade:latest'
+alias kaskade='docker run --rm -it --network cluster --volume $(pwd):/kaskade sauljabin/kaskade:latest'
 alias kskd=kaskade
 ```
 
@@ -192,16 +211,6 @@ schema.registry:
   basic.auth.user.info: ${SR_API_KEY}:${SR_API_SECRET}
 ```
 
-# Screenshots
-
-<p align="center">
-<img alt="kaskade" src="https://raw.githubusercontent.com/sauljabin/kaskade/main/screenshots/dashboard.png">
-</p>
-
-<p align="center">
-<img alt="kaskade" src="https://raw.githubusercontent.com/sauljabin/kaskade/main/screenshots/consumer.png">
-</p>
-
 # Alternatives
 
 - cli: [[kcat](https://github.com/edenhill/kcat), [zoe](https://github.com/adevinta/zoe), [kaf](https://github.com/birdayz/kaf)]
@@ -257,13 +266,7 @@ poetry run python -m scripts.analyze
 Running code coverage:
 
 ```shell
-poetry run python -m scripts.tests-coverage
-```
-
-Running pre-commit hooks:
-
-```shell
-poetry run python -m scripts.pre-commit
+poetry run python -m scripts.coverage
 ```
 
 Generate readme banner:
@@ -288,7 +291,7 @@ docker compose up -d
 Build docker:
 
 ```shell
-poetry run python -m scripts.docker-build
+poetry run python -m scripts.docker
 ```
 
 > Image tag `sauljabin/kaskade:latest`.
@@ -296,9 +299,7 @@ poetry run python -m scripts.docker-build
 Run with docker (create a `config.yml` file):
 
 ```shell
-docker run --rm -it --network cluster \
---volume $(pwd):/kaskade \
-sauljabin/kaskade:latest
+docker run --rm -it --network cluster --volume $(pwd):/kaskade sauljabin/kaskade:latest
 ```
 
 ### Bumping Version
@@ -306,7 +307,7 @@ sauljabin/kaskade:latest
 Help:
 
 ```shell
-poetry run python -m scripts.release --help
+poetry run python -m scripts.bump --help
 ```
 
 > More info at https://python-poetry.org/docs/cli/#version and https://semver.org/.
@@ -314,5 +315,5 @@ poetry run python -m scripts.release --help
 Upgrade (`major.minor.patch`):
 
 ```shell
-poetry run python -m scripts.release patch
+poetry run python -m scripts.bump patch
 ```

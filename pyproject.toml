@@ -25,36 +25,32 @@ packages = [
 python = "^3.10"
 click = "^8"
 rich = "^13"
-pyfiglet = "^0"
-textual =  "^0"
+pyfiglet = "*"
+textual =  "*"
 confluent-kafka = {extras = ["avro", "json", "protobuf"], version = "^2"}
-PyYAML = "^5"
-typing-extensions = "^4"
-requests = "^2"
+pyyaml = "^6"
 
 [tool.poetry.dev-dependencies]
 black = "*"
-isort = "*"
-bandit = "*"
-unittest = "*"
-Faker = "*"
+faker = "*"
 coverage = {extras = ["toml"], version = "*"}
-autoflake = "*"
 toml = "*"
 pre-commit = "*"
-flake8 = "*"
+ruff = "*"
 mypy = "*"
-types-PyYAML = "^5"
+types-pyyaml = "^6"
 types-attrs = "*"
-types-toml = "*"
-types-setuptools = "*"
+changeloggh = "*"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
 
-[tool.isort]
-profile = "black"
+[tool.black]
+line-length = 100
+
+[tool.ruff]
+line-length = 100
 
 [tool.coverage.run]
 source = ["kaskade"]
