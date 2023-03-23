@@ -7,7 +7,7 @@ from kaskade.renderables.kaskade_name import KaskadeName
 
 def main():
     console = Console()
-    panel = Panel.fit(KaskadeName(), box=box.DOUBLE, border_style="magenta")
+    panel = Panel.fit(KaskadeName(False), box=box.DOUBLE, border_style="magenta")
     console.print(panel)
 
 
