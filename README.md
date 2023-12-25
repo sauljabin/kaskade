@@ -22,24 +22,22 @@ and [rich](https://github.com/willmcgugan/rich)!.
 
 # Table of Contents
 
-<!-- TOC -->
-* [Table of Contents](#table-of-contents)
-* [Features](#features)
-* [Screenshots](#screenshots)
-* [Installation and Usage](#installation-and-usage)
-* [Running with Docker](#running-with-docker)
-* [Configuration](#configuration)
-    * [Kafka](#kafka)
-    * [Schema Registry](#schema-registry)
-    * [Kaskade](#kaskade)
-    * [Other Examples](#other-examples)
-* [Alternatives](#alternatives)
-* [Development](#development)
-    * [Scripts](#scripts)
-    * [Kafka Cluster](#kafka-cluster)
-    * [Docker](#docker)
-    * [Bumping Version](#bumping-version)
-<!-- TOC -->
+- [Table of Contents](#table-of-contents)
+- [Features](#features)
+- [Screenshots](#screenshots)
+- [Installation and Usage](#installation-and-usage)
+- [Running with Docker](#running-with-docker)
+- [Configuration](#configuration)
+    - [Kafka](#kafka)
+    - [Schema Registry](#schema-registry)
+    - [Kaskade](#kaskade)
+    - [Other Examples](#other-examples)
+- [Development](#development)
+    - [Scripts](#scripts)
+    - [Kafka Cluster](#kafka-cluster)
+    - [Docker](#docker)
+    - [Bumping Version](#bumping-version)
+
 
 # Features
 
