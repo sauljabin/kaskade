@@ -17,9 +17,6 @@
 
 **kaskade** is a [kafka](https://kafka.apache.org/) TUI (text user interface).
 
-:rocket: This project is powered by [textual](https://github.com/willmcgugan/textual)
-and [rich](https://github.com/willmcgugan/rich)!.
-
 # Table of Contents
 
 - [Table of Contents](#table-of-contents)
