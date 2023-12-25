@@ -22,13 +22,13 @@ packages = [
 ]
 
 [tool.poetry.dependencies]
-python = "^3.10"
-click = "^8"
-rich = "^13"
-pyfiglet = "*"
-textual =  "*"
-confluent-kafka = {extras = ["avro", "json", "protobuf"], version = "^2"}
-pyyaml = "^6"
+python = ">=3.10 <3.12"
+click = "^8.1"
+rich = "^13.7"
+pyfiglet = "^1.0"
+textual =  "^0.46"
+confluent-kafka = {extras = ["avro", "json", "protobuf"], version = "^2.3"}
+pyyaml = "^6.0"
 
 [tool.poetry.dev-dependencies]
 black = "*"
@@ -38,7 +38,7 @@ toml = "*"
 pre-commit = "*"
 ruff = "*"
 mypy = "*"
-types-pyyaml = "^6"
+types-pyyaml = "^6.0"
 types-attrs = "*"
 changeloggh = "*"
 

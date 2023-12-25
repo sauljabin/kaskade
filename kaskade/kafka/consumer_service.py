@@ -32,15 +32,13 @@ class ConsumerService:
             self.schema_service = SchemaService(self.config)
 
     def __str__(self) -> str:
-        return str(
-            {
-                "id": self.id,
-                "topic": self.topic,
-                "config": self.kafka_config,
-                "subscribed": self.subscribed,
-                "open": self.open,
-            }
-        )
+        return str({
+            "id": self.id,
+            "topic": self.topic,
+            "config": self.kafka_config,
+            "subscribed": self.subscribed,
+            "open": self.open,
+        })
 
     def consume(self, limit: int) -> List[Record]:
         if not self.subscribed:

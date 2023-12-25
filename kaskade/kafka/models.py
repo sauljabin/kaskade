@@ -59,14 +59,12 @@ class GroupMember:
         return str(self)
 
     def __str__(self) -> str:
-        return str(
-            {
-                "id": self.id,
-                "group": self.group,
-                "client_id": self.client_id,
-                "host": self.host,
-            }
-        )
+        return str({
+            "id": self.id,
+            "group": self.group,
+            "client_id": self.client_id,
+            "host": self.host,
+        })
 
     def __eq__(self, other: Any) -> bool:
         if isinstance(other, GroupMember):
@@ -95,16 +93,14 @@ class GroupPartition:
         return str(self)
 
     def __str__(self) -> str:
-        return str(
-            {
-                "id": self.id,
-                "group": self.group,
-                "topic": self.topic,
-                "offset": self.offset,
-                "low": self.low,
-                "high": self.high,
-            }
-        )
+        return str({
+            "id": self.id,
+            "group": self.group,
+            "topic": self.topic,
+            "offset": self.offset,
+            "low": self.low,
+            "high": self.high,
+        })
 
     def lag_count(self) -> int:
         if self.high < 0:
@@ -270,15 +266,13 @@ class Cluster:
         return str(self)
 
     def __str__(self) -> str:
-        return str(
-            {
-                "brokers": self.brokers,
-                "topics": self.topics,
-                "version": self.version,
-                "has_schemas": self.has_schemas,
-                "protocol": self.protocol,
-            }
-        )
+        return str({
+            "brokers": self.brokers,
+            "topics": self.topics,
+            "version": self.version,
+            "has_schemas": self.has_schemas,
+            "protocol": self.protocol,
+        })
 
     def brokers_count(self) -> int:
         return len(self.brokers) if self.brokers is not None else 0

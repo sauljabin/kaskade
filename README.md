@@ -11,14 +11,13 @@
 <a href="https://pypi.org/project/kaskade"><img alt="Python Versions" src="https://img.shields.io/pypi/pyversions/kaskade"></a>
 <a href="https://pypi.org/project/kaskade"><img alt="Platform" src="https://img.shields.io/badge/platform-linux%20%7C%20osx-0da5e0"></a>
 <br>
-<a href="https://kafka.apache.org/"><img alt="Kafka" width="60" height="20" src="https://img.shields.io/badge/-kafka-e3e3e3?logo=apache-kafka&logoColor=202020"></a>
-<a href="https://pypi.org/project/confluent-kafka/"><img alt="Kafka Client" src="https://img.shields.io/pypi/v/confluent-kafka?label=client">
-<a href="https://kafka.apache.org/"><img alt="Kafka" src="https://img.shields.io/badge/kafka-3.x-blue"/></a>
-</a>
-<br>
 <a href="https://www.docker.com/"><img alt="Docker" width="60" height="20" src="https://img.shields.io/badge/-docker-blue?logo=docker&logoColor=white"></a>
 <a href="https://hub.docker.com/r/sauljabin/kaskade"><img alt="Docker Image Version (latest by date)" src="https://img.shields.io/docker/v/sauljabin/kaskade?label=tag"></a>
 <a href="https://hub.docker.com/r/sauljabin/kaskade"><img alt="Docker Image Size (latest by date)" src="https://img.shields.io/docker/image-size/sauljabin/kaskade"></a>
+<br>
+<a href="https://kafka.apache.org/"><img alt="Kafka" width="60" height="20" src="https://img.shields.io/badge/-kafka-e3e3e3?logo=apache-kafka&logoColor=202020"></a>
+<a href="https://kafka.apache.org/"><img alt="Kafka" src="https://img.shields.io/badge/kafka-3.x-blue"/></a>
+</a>
 
 **kaskade** is a [kafka](https://kafka.apache.org/) TUI (text user interface).
 
@@ -211,12 +210,6 @@ schema.registry:
   basic.auth.user.info: ${SR_API_KEY}:${SR_API_SECRET}
 ```
 
-# Alternatives
-
-- cli: [[kcat](https://github.com/edenhill/kcat), [zoe](https://github.com/adevinta/zoe), [kaf](https://github.com/birdayz/kaf)]
-- wui: [[akhq](https://github.com/tchiotludo/akhq)]
-- tui: [[kcli](https://github.com/cswank/kcli)]
-
 # Development
 
 Installing poetry:
@@ -241,6 +234,13 @@ Running kaskade:
 
 ```shell
 poetry run kaskade
+```
+
+Run textual console:
+
+```shell
+poetry run textual console
+poetry run textual run --dev kaskade
 ```
 
 ### Scripts
@@ -310,10 +310,11 @@ Help:
 poetry run python -m scripts.bump --help
 ```
 
-> More info at https://python-poetry.org/docs/cli/#version and https://semver.org/.
-
 Upgrade (`major.minor.patch`):
 
 ```shell
 poetry run python -m scripts.bump patch
 ```
+
+> More info at https://python-poetry.org/docs/cli/#version and https://semver.org/.
+> For changelog management check https://github.com/sauljabin/changeloggh.
