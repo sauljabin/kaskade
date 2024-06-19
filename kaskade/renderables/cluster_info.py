@@ -16,12 +16,12 @@ class ClusterInfo:
         table.add_column(style=f"bold {SECONDARY}")
         table.add_column()
 
-        table.add_row("KAFKA:", self.cluster.version)
-        table.add_row("BROKERS:", str(self.cluster.brokers_count()))
-        table.add_row("TOPICS:", str(self.cluster.topics_count()))
-        table.add_row("SCHEMAS:", "yes" if self.cluster.has_schemas else "no")
+        table.add_row("kafka:", self.cluster.version)
+        table.add_row("brokers:", str(self.cluster.brokers_count()))
+        table.add_row("topics:", str(self.cluster.topics_count()))
+        table.add_row("schemas:", "yes" if self.cluster.has_schemas else "no")
         table.add_row(
-            "PROTOCOL:",
+            "protocol:",
             self.cluster.protocol.lower() if self.cluster.protocol is not None else "plain",
         )
 

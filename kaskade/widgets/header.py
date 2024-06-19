@@ -11,6 +11,6 @@ class Header(Static):
     cluster = Cluster()
 
     def render(self) -> RenderableType:
-        kaskade_name = KaskadeName()
+        kaskade_name = KaskadeName(include_version=True)
         cluster_info = ClusterInfo(self.cluster)
         return Columns([kaskade_name, cluster_info], padding=3)

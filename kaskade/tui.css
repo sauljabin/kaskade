@@ -40,6 +40,7 @@ DataTable > .datatable--header-hover {
 
 DataTable {
     border: solid $secondary-background;
+    border-subtitle-align: center;
 }
 
 DataTable:focus {

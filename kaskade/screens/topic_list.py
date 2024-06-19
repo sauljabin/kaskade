@@ -20,15 +20,11 @@ class TopicList(Screen):
 
     def compose(self) -> ComposeResult:
         yield Header()
-        yield Label()
         yield Container(DataTable())
         yield Input()
         yield Footer()
 
     def on_mount(self) -> None:
-        label = self.query_one(Label)
-        label.renderable = Text("TOPIC LIST")
-
         input_filter = self.query_one(Input)
         input_filter.placeholder = "FILTER"
         input_filter.focus()
@@ -39,14 +35,15 @@ class TopicList(Screen):
         table = self.query_one(DataTable)
         table.cursor_type = "row"
         table.fixed_columns = 1
+        table.border_title = "topics"
 
-        table.add_column("NAME")
-        table.add_column(Text(str("PARTITIONS"), justify="right"), width=10)
-        table.add_column(Text(str("REPLICAS"), justify="right"), width=10)
-        table.add_column(Text(str("IN SYNC"), justify="right"), width=10)
-        table.add_column(Text(str("GROUPS"), justify="right"), width=10)
-        table.add_column(Text(str("RECORDS"), justify="right"), width=10)
-        table.add_column(Text(str("LAG"), justify="right"), width=10)
+        table.add_column("name")
+        table.add_column(Text("partitions", justify="right"), width=10)
+        table.add_column(Text("replicas", justify="right"), width=10)
+        table.add_column(Text("in sync", justify="right"), width=10)
+        table.add_column(Text("groups", justify="right"), width=10)
+        table.add_column(Text("records", justify="right"), width=10)
+        table.add_column(Text("lag", justify="right"), width=10)
         asyncio.create_task(self.filter_topics(""))
 
     def fill_table(self, table: DataTable[Any], topics: List[Topic]) -> None:
@@ -88,4 +85,5 @@ class TopicList(Screen):
             ]
         else:
             filtered_topics = [topic for topic in self.cluster.topics if word.strip() in topic.name]
+        table.border_title = f"topics ({len(filtered_topics)})"
         self.fill_table(table, filtered_topics)

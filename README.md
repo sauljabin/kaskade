@@ -41,7 +41,7 @@
 - Topic infor like lag, replicas, record count
 - Consume from a topic
 - Schema registry support
-  - Avro support
+    - Avro support
 - Secure connection
 
 # Screenshots

@@ -6,7 +6,8 @@ from kaskade.styles.colors import PRIMARY, SECONDARY
 
 
 class KaskadeName:
-    def __init__(self, include_version: bool = True):
+    def __init__(self, include_version: bool = False, include_slogan: bool = False):
+        self.include_slogan = include_slogan
         self.include_version = include_version
 
     def __str__(self) -> str:
@@ -18,6 +19,9 @@ class KaskadeName:
         text = Text(str(self), style=f"{PRIMARY} bold")
 
         if self.include_version:
-            text.append(f"v{APP_VERSION}", style=f"{SECONDARY} bold")
+            text.append(f"\nv{APP_VERSION}", style=f"{SECONDARY}")
+
+        if self.include_slogan:
+            text.append(f"\na kafka text user interface", style=f"{SECONDARY}")
 
         return text

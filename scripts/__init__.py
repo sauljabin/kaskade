@@ -6,7 +6,9 @@ from rich.console import Console
 
 
 class CommandProcessor:
-    def __init__(self, commands, rollback={}):
+    def __init__(self, commands, rollback=None):
+        if rollback is None:
+            rollback = {}
         self.commands = commands
         self.rollback = rollback
         self.console = Console()
