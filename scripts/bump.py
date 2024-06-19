@@ -40,7 +40,7 @@ def main(rule):
 
 def changelog_release(version):
     init_commands = {
-        f"bumping changelog to a [purple bold]{version}[/] version": (
+        f"upgrading changelog to a [purple bold]{version}[/] version": (
             f"poetry run changeloggh release {version}"
         ),
     }
@@ -56,7 +56,7 @@ def bump_version(rule):
         "checking pending changes": "git diff --exit-code",
         "checking pending changes in stage": "git diff --staged --exit-code",
         "checking not pushed commits": "git diff --exit-code main origin/main",
-        f"bumping to a [purple bold]{rule}[/] version": f"poetry version {rule}",
+        f"upgrading to a [purple bold]{rule}[/] version": f"poetry version {rule}",
     }
     command_processor = CommandProcessor(init_commands)
     command_processor.run()
@@ -65,7 +65,7 @@ def bump_version(rule):
 def confirm_changes(app_version):
     confirm_commands = {
         "adding new version": "git add --all",
-        "committing new version": f"git commit -m 'bumping version to {app_version}'",
+        "committing new version": f"git commit -m 'upgrading version to {app_version}'",
         "adding new version tag": f"git tag v{app_version}",
         "pushing new changes": "git push origin main",
         "pushing tag": "git push --tags",

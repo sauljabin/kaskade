@@ -15,26 +15,25 @@
 <a href="https://hub.docker.com/r/sauljabin/kaskade"><img alt="Docker Image Version (latest by date)" src="https://img.shields.io/docker/v/sauljabin/kaskade?label="></a>
 <a href="https://hub.docker.com/r/sauljabin/kaskade"><img alt="Docker Image Size (latest by date)" src="https://img.shields.io/docker/image-size/sauljabin/kaskade?label="></a>
 
-**kaskade** is a [kafka](https://kafka.apache.org/) TUI (text user interface).
-
 # Table of Contents
 
-- [Table of Contents](#table-of-contents)
-- [Features](#features)
-- [Screenshots](#screenshots)
-- [Installation and Usage](#installation-and-usage)
-- [Running with Docker](#running-with-docker)
-- [Configuration](#configuration)
-    - [Kafka](#kafka)
-    - [Schema Registry](#schema-registry)
-    - [Kaskade](#kaskade)
-    - [Other Examples](#other-examples)
-- [Development](#development)
-    - [Scripts](#scripts)
-    - [Kafka Cluster](#kafka-cluster)
-    - [Docker](#docker)
-    - [Bumping Version](#bumping-version)
-
+<!-- TOC -->
+* [Table of Contents](#table-of-contents)
+* [Features](#features)
+* [Screenshots](#screenshots)
+* [Installation and Usage](#installation-and-usage)
+* [Running with Docker](#running-with-docker)
+* [Configuration](#configuration)
+    * [Kafka](#kafka)
+    * [Schema Registry](#schema-registry)
+    * [Kaskade](#kaskade)
+    * [Other Examples](#other-examples)
+* [Development](#development)
+    * [Scripts](#scripts)
+    * [Kafka Cluster](#kafka-cluster)
+    * [Docker](#docker)
+    * [Release](#release)
+<!-- TOC -->
 
 # Features
 
@@ -57,18 +56,18 @@
 
 # Installation and Usage
 
-Install with pip:
+Install with `pipx`:
 
 ```shell
-pip install kaskade
+pipx install kaskade
 ```
 
-> `pip` will install `kaskade` and `kskd` aliases.
+> `pipx` will install `kaskade` and `kskd` aliases.
 
-Upgrade with pip:
+Upgrade with `pipx`:
 
 ```shell
-pip install --upgrade kaskade
+pipx upgrade kaskade
 ```
 
 Help:
@@ -206,7 +205,7 @@ schema.registry:
 Installing poetry:
 
 ```shell
-pip install poetry
+pipx install poetry
 ```
 
 Installing development dependencies:
@@ -293,7 +292,7 @@ Run with docker (create a `config.yml` file):
 docker run --rm -it --network cluster --volume $(pwd):/kaskade sauljabin/kaskade:latest
 ```
 
-### Bumping Version
+### Release
 
 Help:
 

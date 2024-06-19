@@ -22,12 +22,12 @@ packages = [
 ]
 
 [tool.poetry.dependencies]
-python = ">=3.10 <3.12"
+python = ">=3.10 <3.13"
 click = "^8.1"
 rich = "^13.7"
 pyfiglet = "^1.0"
-textual =  "^0.46"
-confluent-kafka = {extras = ["avro", "json", "protobuf"], version = "^2.3"}
+textual =  "^0.70"
+confluent-kafka = {extras = ["avro", "json", "protobuf"], version = "^2.4"}
 pyyaml = "^6.0"
 
 [tool.poetry.dev-dependencies]
