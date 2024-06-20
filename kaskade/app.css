@@ -1,12 +1,12 @@
 Header {
-    layout: horizontal;
+   height: 10;
+   layout: horizontal;
 }
 
-Header > Static {
+KaskadeBanner {
     width: 36;
-    height: 7;
 }
 
-#name{
-    dock: right
+Shortcuts {
+    padding: 1;
 }

@@ -7,6 +7,7 @@ from rich.console import Console
 from textual.app import ComposeResult, App
 
 from kaskade import APP_VERSION
+from kaskade.services import ClusterService
 from kaskade.widgets import Header
 
 
@@ -18,9 +19,11 @@ class KaskadeApp(App):
         self.kafka_conf = kafka_conf
         self.registry_conf = registry_conf
 
+        self.cluster_service = ClusterService(self.kafka_conf)
+        self.cluster = self.cluster_service.get()
+
     def compose(self) -> ComposeResult:
-        self.log.debug(f"Kafka config: {self.kafka_conf}\nRegistry config: {self.registry_conf}")
-        yield Header()
+        yield Header(self.cluster)
 
 
 @click.command(epilog="More info at https://github.com/sauljabin/kaskade.")
@@ -47,9 +50,9 @@ class KaskadeApp(App):
     multiple=True,
 )
 def main(
-        bootstrap_servers_input: str,
-        kafka_properties_input: Tuple[str],
-        registry_properties_input: Tuple[str],
+    bootstrap_servers_input: str,
+    kafka_properties_input: Tuple[str],
+    registry_properties_input: Tuple[str],
 ) -> None:
     """
 

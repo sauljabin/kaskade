@@ -245,12 +245,6 @@ Running code coverage:
 poetry run python -m scripts.coverage
 ```
 
-Generate readme banner:
-
-```shell
-poetry run python -m scripts.banner
-```
-
 ### Kafka Cluster
 
 Run local cluster:
