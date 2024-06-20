@@ -22,6 +22,6 @@ class KaskadeName:
             text.append(f"\nv{APP_VERSION}", style=f"{SECONDARY}")
 
         if self.include_slogan:
-            text.append(f"\na kafka text user interface", style=f"{SECONDARY}")
+            text.append("\na kafka text user interface", style=f"{SECONDARY}")
 
         return text

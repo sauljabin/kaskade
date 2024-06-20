@@ -3,9 +3,7 @@ from textual.binding import Binding
 from textual.screen import Screen
 from textual.widgets import MarkdownViewer
 
-from kaskade.renderables.config_examples import config_example_md
-
-help_md = f"""
+help_md = """
 # Navigation
 
 - `TAB` Focus on next element.
@@ -35,10 +33,6 @@ help_md = f"""
 - `CTRL+U` Delete everything to the left of the cursor.
 - `CTRL+F` Delete the word to the right of the cursor.
 - `CTRL+K` Delete everything to the right of the cursor.
-
-# Configurations
-
-{config_example_md}
 """
 
 

@@ -15,25 +15,9 @@
 <a href="https://hub.docker.com/r/sauljabin/kaskade"><img alt="Docker Image Version (latest by date)" src="https://img.shields.io/docker/v/sauljabin/kaskade?label="></a>
 <a href="https://hub.docker.com/r/sauljabin/kaskade"><img alt="Docker Image Size (latest by date)" src="https://img.shields.io/docker/image-size/sauljabin/kaskade?label="></a>
 
-# Table of Contents
+# Kaskade
 
-<!-- TOC -->
-* [Table of Contents](#table-of-contents)
-* [Features](#features)
-* [Screenshots](#screenshots)
-* [Installation and Usage](#installation-and-usage)
-* [Running with Docker](#running-with-docker)
-* [Configuration](#configuration)
-    * [Kafka](#kafka)
-    * [Schema Registry](#schema-registry)
-    * [Kaskade](#kaskade)
-    * [Other Examples](#other-examples)
-* [Development](#development)
-    * [Scripts](#scripts)
-    * [Kafka Cluster](#kafka-cluster)
-    * [Docker](#docker)
-    * [Release](#release)
-<!-- TOC -->
+Kaskade is a text user interface (TUI) for Apache Kafka, built with [Textual](https://github.com/Textualize/textual).
 
 # Features
 
@@ -171,6 +155,8 @@ schema.registry:
   url: http://localhost:8081
 ```
 
+More Schema Registry configurations at: [confluent-kafka-python documentation](https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#schemaregistry-client).
+
 ### Kaskade
 
 Next settings are optional:
@@ -229,8 +215,8 @@ poetry run kaskade
 Run textual console:
 
 ```shell
-poetry run textual console
-poetry run textual run --dev kaskade
+poetry run textual console --port 7342
+poetry run textual run --port 7342 --dev -c kaskade -b localhost:9092
 ```
 
 ### Scripts

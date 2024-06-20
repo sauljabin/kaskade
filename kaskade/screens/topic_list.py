@@ -5,9 +5,8 @@ from rich.text import Text
 from textual.app import ComposeResult
 from textual.containers import Container
 from textual.screen import Screen
-from textual.widgets import DataTable, Footer, Input, Label
+from textual.widgets import DataTable, Footer, Input
 
-from kaskade import logger
 from kaskade.config import Config
 from kaskade.kafka.models import Cluster, Topic
 from kaskade.styles.unicodes import APPROXIMATION
@@ -73,7 +72,6 @@ class TopicList(Screen):
         asyncio.create_task(self.filter_topics(message.value))
 
     async def filter_topics(self, word: str) -> None:
-        logger.debug(f"Filtering topics: '{word}'")
         table = self.query_one(DataTable)
         table.clear()
 
