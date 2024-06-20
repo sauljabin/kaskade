@@ -4,7 +4,6 @@ from rich.text import Text
 from textual.app import ComposeResult, RenderResult
 from textual.keys import Keys
 from textual.widget import Widget
-from textual.widgets import Static
 
 from kaskade import APP_NAME, APP_VERSION
 from kaskade.colors import PRIMARY, SECONDARY
@@ -49,7 +48,7 @@ class KaskadeBanner(Widget):
         return text
 
 
-class Header(Static):
+class Header(Widget):
     def __init__(self, cluster: Cluster):
         super().__init__()
         self.cluster = cluster

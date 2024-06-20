@@ -45,14 +45,7 @@ class GroupMember:
         return str(self)
 
     def __str__(self) -> str:
-        return str(
-            {
-                "id": self.id,
-                "group": self.group,
-                "client_id": self.client_id,
-                "host": self.host,
-            }
-        )
+        return str(self.id)
 
     def __eq__(self, other: Any) -> bool:
         if isinstance(other, GroupMember):
@@ -81,16 +74,7 @@ class GroupPartition:
         return str(self)
 
     def __str__(self) -> str:
-        return str(
-            {
-                "id": self.id,
-                "group": self.group,
-                "topic": self.topic,
-                "offset": self.offset,
-                "low": self.low,
-                "high": self.high,
-            }
-        )
+        return str(self.id)
 
     def lag_count(self) -> int:
         if self.high < 0:
@@ -110,17 +94,17 @@ class Group:
     def __init__(
         self,
         id: str = "",
-        broker: Node = Node(),
+        coordinator: None | Node = None,
         state: str = "",
         partition_assignor: str = "",
-        members: List[GroupMember] = None,
-        partitions: List[GroupPartition] = None,
+        members: None | List[GroupMember] = None,
+        partitions: None | List[GroupPartition] = None,
     ) -> None:
         if partitions is None:
             partitions = []
         if members is None:
             members = []
-        self.broker = broker
+        self.coordinator = coordinator
         self.id = id
         self.state = state
         self.partition_assignor = partition_assignor
@@ -157,10 +141,11 @@ class Partition:
         self,
         id: int = -1,
         leader: int = -1,
-        replicas: List[int] = None,
-        isrs: List[int] = None,
+        replicas: None | List[int] = None,
+        isrs: None | List[int] = None,
         low: int = 0,
         high: int = 0,
+        topic: str = "",
     ) -> None:
         if isrs is None:
             isrs = []
@@ -172,6 +157,7 @@ class Partition:
         self.isrs = isrs
         self.low = low
         self.high = high
+        self.topic = topic
 
     def __repr__(self) -> str:
         return str(self)
@@ -192,8 +178,8 @@ class Topic:
     def __init__(
         self,
         name: str = "",
-        partitions: List[Partition] = None,
-        groups: List[Group] = None,
+        partitions: None | List[Partition] = None,
+        groups: None | List[Group] = None,
     ) -> None:
         if groups is None:
             groups = []
@@ -253,8 +239,8 @@ class Cluster:
     def __init__(
         self,
         id: str = "",
-        controller: Node = None,
-        nodes: List[Node] = None,
+        controller: None | Node = None,
+        nodes: None | List[Node] = None,
     ) -> None:
         if nodes is None:
             nodes = []
@@ -267,3 +253,8 @@ class Cluster:
 
     def __repr__(self) -> str:
         return str(self)
+
+    def __eq__(self, other: Any) -> bool:
+        if isinstance(other, Cluster):
+            return self.id == other.id
+        return False
