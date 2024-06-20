@@ -9,7 +9,7 @@ from textual.widgets import DataTable, Footer, Input
 
 from kaskade.config import Config
 from kaskade.kafka.models import Cluster, Topic
-from kaskade.styles.unicodes import APPROXIMATION
+from kaskade.unicodes import APPROXIMATION
 from kaskade.widgets.header import Header
 
 

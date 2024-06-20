@@ -5,12 +5,13 @@ import click
 from confluent_kafka import KafkaException
 from rich.console import Console
 from textual.app import ComposeResult, App
-from textual.widgets import Header, Footer
 
 from kaskade import APP_VERSION
+from kaskade.widgets import Header
 
 
 class KaskadeApp(App):
+    CSS_PATH = "app.css"
 
     def __init__(self, kafka_conf: dict[str, str], registry_conf: dict[str, str]):
         super().__init__()
@@ -20,7 +21,6 @@ class KaskadeApp(App):
     def compose(self) -> ComposeResult:
         self.log.debug(f"Kafka config: {self.kafka_conf}\nRegistry config: {self.registry_conf}")
         yield Header()
-        yield Footer()
 
 
 @click.command(epilog="More info at https://github.com/sauljabin/kaskade.")
@@ -47,9 +47,9 @@ class KaskadeApp(App):
     multiple=True,
 )
 def main(
-    bootstrap_servers_input: str,
-    kafka_properties_input: Tuple[str],
-    registry_properties_input: Tuple[str],
+        bootstrap_servers_input: str,
+        kafka_properties_input: Tuple[str],
+        registry_properties_input: Tuple[str],
 ) -> None:
     """
 

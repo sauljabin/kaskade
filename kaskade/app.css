@@ -1,0 +1,12 @@
+Header {
+    layout: horizontal;
+}
+
+Header > Static {
+    width: 36;
+    height: 7;
+}
+
+#name{
+    dock: right
+}

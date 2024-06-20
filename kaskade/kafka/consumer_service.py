@@ -129,7 +129,7 @@ class ConsumerService:
 if __name__ == "__main__":
     from rich import print
 
-    from kaskade.renderables.kafka_record import KafkaRecord
+    from kaskade.renderables2.kafka_record import KafkaRecord
 
     config = Config("kaskade.yml")
     topic = Topic(name="test")

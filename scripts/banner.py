@@ -2,7 +2,7 @@ from rich import box
 from rich.console import Console
 from rich.panel import Panel
 
-from kaskade.renderables.kaskade_name import KaskadeName
+from kaskade.renderables import KaskadeName
 
 
 def main():
