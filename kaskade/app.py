@@ -69,9 +69,9 @@ def main(
         kaskade -b localhost:9092 -X security.protocol=SSL
         kaskade -b localhost:9092 -S url=http://localhost:8081
     """
-    kafka_conf = {k: v for (k, v) in [pair.split("=") for pair in kafka_properties_input]}
+    kafka_conf = {k: v for (k, v) in [pair.split("=", 1) for pair in kafka_properties_input]}
     kafka_conf["bootstrap.servers"] = bootstrap_servers_input
-    registry_conf = {k: v for (k, v) in [pair.split("=") for pair in registry_properties_input]}
+    registry_conf = {k: v for (k, v) in [pair.split("=", 1) for pair in registry_properties_input]}
 
     try:
         kaskade_app = KaskadeApp(kafka_conf, registry_conf)
