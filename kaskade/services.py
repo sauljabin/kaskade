@@ -57,35 +57,14 @@ class TopicService:
         self.consumer = Consumer(self.config | {"group.id": uuid.uuid4()})
 
     def list(self) -> List[Topic]:
-        topics_metadata = self._list_topics_metadata()
-        groups_metadata = self._list_groups_metadata()
+        topics = self._map_topics(self._list_topics_metadata())
+        self._map_groups_into_topics(self._list_groups_metadata(), topics)
+        return topics
 
-        topics = []
-
-        for topic_metadata in topics_metadata:
-            topic = Topic(name=topic_metadata.topic)
-            topics.append(topic)
-
-            for topic_partition_metadata in topic_metadata.partitions.values():
-                low_topic_partition_watermark, high_topic_partition_watermark = (
-                    self._get_watermarks(topic_metadata, topic_partition_metadata)
-                )
-
-                partition = Partition(
-                    id=topic_partition_metadata.id,
-                    topic=topic_metadata.topic,
-                    leader=topic_partition_metadata.leader,
-                    replicas=topic_partition_metadata.replicas,
-                    isrs=topic_partition_metadata.isrs,
-                    high=high_topic_partition_watermark,
-                    low=low_topic_partition_watermark,
-                )
-
-                topic.partitions.append(partition)
-
+    def _map_groups_into_topics(
+        self, groups_metadata: List[ConsumerGroupDescription], topics: List[Topic]
+    ) -> None:
         for group_metadata in groups_metadata:
-            group_consumer = Consumer(self.config | {"group.id": group_metadata.group_id})
-
             coordinator = Node(
                 id=group_metadata.coordinator.id,
                 host=group_metadata.coordinator.host,
@@ -100,6 +79,7 @@ class TopicService:
                 coordinator=coordinator,
             )
 
+            group_consumer = Consumer(self.config | {"group.id": group_metadata.group_id})
             for topic in topics:
                 topic_partitions_for_this_group_metadata = [
                     TopicPartition(topic.name, partition.id) for partition in topic.partitions
@@ -144,6 +124,29 @@ class TopicService:
                                 group.members.append(member)
                                 break
                     topic.groups.append(group)
+
+    def _map_topics(self, topics_metadata: List[TopicMetadata]) -> List[Topic]:
+        topics = []
+        for topic_metadata in topics_metadata:
+            topic = Topic(name=topic_metadata.topic)
+            topics.append(topic)
+
+            for topic_partition_metadata in topic_metadata.partitions.values():
+                low_topic_partition_watermark, high_topic_partition_watermark = (
+                    self._get_watermarks(topic_metadata, topic_partition_metadata)
+                )
+
+                partition = Partition(
+                    id=topic_partition_metadata.id,
+                    topic=topic_metadata.topic,
+                    leader=topic_partition_metadata.leader,
+                    replicas=topic_partition_metadata.replicas,
+                    isrs=topic_partition_metadata.isrs,
+                    high=high_topic_partition_watermark,
+                    low=low_topic_partition_watermark,
+                )
+
+                topic.partitions.append(partition)
 
         return topics
 
