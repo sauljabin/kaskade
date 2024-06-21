@@ -150,8 +150,11 @@ class TopicService:
     def _get_watermarks(
         self, topic_metadata: TopicMetadata, partition_metadata: PartitionMetadata
     ) -> Tuple[int, int]:
-        low, high = self.consumer.get_watermark_offsets(TopicPartition(topic_metadata.topic, partition_metadata.id),
-                                                      timeout=DEFAULT_TIMEOUT, cached=False, )
+        low, high = self.consumer.get_watermark_offsets(
+            TopicPartition(topic_metadata.topic, partition_metadata.id),
+            timeout=DEFAULT_TIMEOUT,
+            cached=False,
+        )
         return low, high
 
     def _list_groups_metadata(self) -> List[ConsumerGroupDescription]:

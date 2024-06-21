@@ -5,7 +5,7 @@ def main():
     commands = {
         "removing old packages": "rm -rf dist",
         "building the project": "poetry build",
-        "creating docker image": "docker build -t sauljabin/kaskade:latest -f docker/Dockerfile .",
+        "creating docker image": "docker build -t sauljabin/kaskade:latest .",
     }
     command_processor = CommandProcessor(commands)
     command_processor.run()

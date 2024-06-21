@@ -1,6 +1,11 @@
+$kaskade-green: #00af87;
+$kaskade-orchid: #af5fd7;
+$kaskade-orchid-dark: #5b4666;
+
 Header {
-   height: 10;
+   height: 7;
    layout: horizontal;
+   dock: top;
 }
 
 KaskadeBanner {
@@ -8,5 +13,55 @@ KaskadeBanner {
 }
 
 Shortcuts {
-    padding: 1;
+    padding: 1 0 0 1;
+}
+
+DataTable {
+    border: solid $kaskade-green 50%;
+    border-subtitle-align: center;
+    height: 100%;
+
+    scrollbar-color: $kaskade-orchid 60%;
+    scrollbar-color-active: $kaskade-orchid;
+    scrollbar-color-hover: $kaskade-orchid 90%;
+
+    scrollbar-background: $kaskade-orchid-dark;
+    scrollbar-background-active: $kaskade-orchid-dark;
+    scrollbar-background-hover: $kaskade-orchid-dark;
+    scrollbar-corner-color: $kaskade-orchid-dark;
+}
+
+DataTable:focus {
+    border: $kaskade-green;
+}
+
+DataTable > .datatable--header {
+    text-style: bold;
+    background: $surface;
+    color: $kaskade-orchid;
+}
+
+DataTable > .datatable--header-hover {
+    text-style: bold;
+    background: $surface;
+    color: $kaskade-orchid;
+}
+
+DataTable > .datatable--hover {
+    background: $kaskade-green 20%;
+}
+
+DataTable > .datatable--cursor {
+    background: $kaskade-green 80%;
+    color: $text;
+}
+
+DataTable > .datatable--fixed {
+    background: $surface;
+    color: $text;
+}
+
+DataTable > .datatable--fixed-cursor {
+    background: $kaskade-green 80%;
+    color: $text;
 }

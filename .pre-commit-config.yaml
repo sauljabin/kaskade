@@ -1,30 +1,26 @@
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.4.0
+    rev: v4.6.0
     hooks:
       - id: check-yaml
       - id: trailing-whitespace
       - id: check-added-large-files
-  - repo: https://github.com/hadolint/hadolint
-    rev: v2.12.1-beta
-    hooks:
-      - id: hadolint
   - repo: local
     hooks:
       - id: tests
-        name: Running Tests
+        name: running tests
         language: system
         always_run: true
         pass_filenames: false
         entry: poetry run python -m scripts.tests
       - id: styles
-        name: Applying Styles
+        name: applying styles
         language: system
         always_run: true
         pass_filenames: false
         entry: poetry run python -m scripts.styles
       - id: analyze
-        name: Code Analysis
+        name: code analysis
         language: system
         always_run: true
         pass_filenames: false

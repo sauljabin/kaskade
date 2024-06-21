@@ -7,8 +7,8 @@ from rich.console import Console
 from textual.app import ComposeResult, App
 
 from kaskade import APP_VERSION
-from kaskade.services import ClusterService
-from kaskade.widgets import Header
+from kaskade.services import ClusterService, TopicService
+from kaskade.widgets import Header, Body
 
 
 class KaskadeApp(App):
@@ -19,11 +19,15 @@ class KaskadeApp(App):
         self.kafka_conf = kafka_conf
         self.registry_conf = registry_conf
 
-        self.cluster_service = ClusterService(self.kafka_conf)
-        self.cluster = self.cluster_service.get()
+        cluster_service = ClusterService(self.kafka_conf)
+        self.cluster = cluster_service.get()
+
+        topic_service = TopicService(self.kafka_conf)
+        self.topics = topic_service.list()
 
     def compose(self) -> ComposeResult:
         yield Header(self.cluster)
+        yield Body(self.topics)
 
 
 @click.command(epilog="More info at https://github.com/sauljabin/kaskade.")
