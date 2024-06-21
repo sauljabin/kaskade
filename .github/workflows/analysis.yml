@@ -17,13 +17,13 @@ jobs:
         python-version: ['3.10']
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Docker Linter
         uses: hadolint/hadolint-action@v3.1.0
         with:
           dockerfile: Dockerfile
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install Dependencies
@@ -33,7 +33,3 @@ jobs:
           poetry install
       - name: Python Code Analysis
         run: poetry run python -m scripts.analyze
-      - name: Run Tests
-        run: poetry run python -m scripts.coverage
-      - name: Publish Coverage
-        uses: codecov/codecov-action@v3

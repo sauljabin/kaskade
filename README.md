@@ -1,25 +1,16 @@
 <p align="center">
 <a href="https://github.com/sauljabin/kaskade"><img alt="kaskade" src="https://raw.githubusercontent.com/sauljabin/kaskade/main/screenshots/banner.png"></a>
 </p>
-<a href="https://github.com"><img alt="GitHub" width="60" height="20" src="https://img.shields.io/badge/-github-blueviolet?logo=github&logoColor=white"></a>
+<a href="https://github.com/sauljabin/kaskade"><img alt="GitHub" height="20" src="https://img.shields.io/badge/-github-blueviolet?logo=github&logoColor=white"></a>
 <a href="https://github.com/sauljabin/kaskade/blob/main/LICENSE"><img alt="MIT License" src="https://img.shields.io/github/license/sauljabin/kaskade"></a>
-<a href="https://github.com/sauljabin/kaskade/actions"><img alt="GitHub Workflow Status" src="https://img.shields.io/github/actions/workflow/status/sauljabin/kaskade/main.yml?branch=main"></a>
-<a href="https://app.codecov.io/gh/sauljabin/kaskade"><img alt="Codecov" src="https://img.shields.io/codecov/c/github/sauljabin/kaskade"></a>
-<br>
-<a href="https://www.python.org/"><img alt="Python" width="60" height="20" src="https://img.shields.io/badge/-python-brightgreen?logo=python&logoColor=white"></a>
-<a href="https://pypi.org/project/kaskade"><img alt="Version" src="https://img.shields.io/pypi/v/kaskade?label="></a>
-<a href="https://pypi.org/project/kaskade"><img alt="Python Versions" src="https://img.shields.io/pypi/pyversions/kaskade?label="></a>
-<a href="https://pypi.org/project/kaskade"><img alt="Platform" src="https://img.shields.io/badge/-linux%20%7C%20osx-blue"></a>
-<br>
-<a href="https://www.docker.com/"><img alt="Docker" width="60" height="20" src="https://img.shields.io/badge/-docker-blue?logo=docker&logoColor=white"></a>
-<a href="https://hub.docker.com/r/sauljabin/kaskade"><img alt="Docker Image Version (latest by date)" src="https://img.shields.io/docker/v/sauljabin/kaskade?label="></a>
-<a href="https://hub.docker.com/r/sauljabin/kaskade"><img alt="Docker Image Size (latest by date)" src="https://img.shields.io/docker/image-size/sauljabin/kaskade?label="></a>
+<a href="https://pypi.org/project/kaskade"><img alt="Version" src="https://img.shields.io/pypi/v/kaskade?label=latest"></a>
+<a href="https://pypi.org/project/kaskade"><img alt="Python Versions" src="https://img.shields.io/pypi/pyversions/kaskade?label=python"></a>
+<a href="https://pypi.org/project/kaskade"><img alt="Platform" src="https://img.shields.io/badge/os-linux%20%7C%20macos-blue"></a>
 
 # Kaskade
 
 Kaskade is a text user interface (TUI) for Apache Kafka, built with [Textual](https://github.com/Textualize/textual).
-
-# Features
+It includes features like:
 
 - List topics, partitions, groups, members
 - Topic information like lag, replicas, records count
@@ -28,14 +19,8 @@ Kaskade is a text user interface (TUI) for Apache Kafka, built with [Textual](ht
 - String, Avro, Json and Protobuf deserialization
 - Secure connection
 
-# Screenshots
-
 <p align="center">
-<img alt="kaskade" src="https://raw.githubusercontent.com/sauljabin/kaskade/main/screenshots/dashboard.png">
-</p>
-
-<p align="center">
-<img alt="kaskade" src="https://raw.githubusercontent.com/sauljabin/kaskade/main/screenshots/consumer.png">
+<img alt="kaskade" src="https://raw.githubusercontent.com/sauljabin/kaskade/main/images/screenshot.png">
 </p>
 
 # Installation
@@ -53,6 +38,8 @@ Upgrade with `pipx`:
 ```shell
 pipx upgrade kaskade
 ```
+
+<a href="https://hub.docker.com/r/sauljabin/kaskade"><img alt="docker image available" height="20" src="https://img.shields.io/badge/-docker image available-blue?logo=docker&logoColor=white"></a>
 
 # Running Kaskade
 
@@ -72,7 +59,7 @@ kaskade --help
 
 ### SSL encryption example:
 
-```bash
+```shell
 kaskade -b localhost:9092 -X security.protocol=SSL
 ```
 
@@ -81,13 +68,13 @@ to `librdkafka` official page: [Configure librdkafka client](https://github.com/
 
 ### Multiple bootstrap servers:
 
-```bash
+```shell
 kaskade -b broker1:9092,broker2:9092
 ```
 
 ### Schema Registry simple connection:
 
-```bash
+```shell
 kaskade -b localhost:9092 -S url=http://localhost:8081
 ```
 
@@ -95,7 +82,7 @@ More Schema Registry configurations at: [confluent-kafka-python documentation](h
 
 ### Confluent Cloud:
 
-```bash
+```shell
 kaskade -b ${BOOTSTRAP_SERVERS} \
         -X security.protocol=SASL_SSL \
         -X sasl.mechanism=PLAIN \

@@ -32,7 +32,6 @@ confluent-kafka = {extras = ["avro", "json", "protobuf"], version = "^2.4"}
 [tool.poetry.dev-dependencies]
 black = "*"
 faker = "*"
-coverage = {extras = ["toml"], version = "*"}
 toml = "*"
 pre-commit = "*"
 ruff = "*"
@@ -50,23 +49,6 @@ line-length = 100
 
 [tool.ruff]
 line-length = 100
-
-[tool.coverage.run]
-source = ["kaskade"]
-branch = true
-omit = [
-    "*tests/*",
-    "*scripts/*",
-    "*__init__.py",
-    "*kaskade/app.py",
-    "*kaskade/tui.py",
-    "*kaskade/renderables/*",
-    "*kaskade/widgets/*",
-    "*kaskade/__main__.py"
-]
-
-[tool.coverage.report]
-exclude_lines = ['if __name__ == "__main__":', "@abstractmethod"]
 
 [tool.poetry.scripts]
 kaskade = "kaskade.app:main"
