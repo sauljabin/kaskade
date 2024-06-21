@@ -83,30 +83,30 @@ class TopicService:
 
                 topic.partitions.append(partition)
 
-            for group_metadata in groups_metadata:
-                group_consumer = Consumer(self.config | {"group.id": group_metadata.group_id})
+        for group_metadata in groups_metadata:
+            group_consumer = Consumer(self.config | {"group.id": group_metadata.group_id})
 
+            coordinator = Node(
+                id=group_metadata.coordinator.id,
+                host=group_metadata.coordinator.host,
+                port=group_metadata.coordinator.port,
+                rack=group_metadata.coordinator.rack,
+            )
+
+            group = Group(
+                id=group_metadata.group_id,
+                partition_assignor=group_metadata.partition_assignor,
+                state=str(group_metadata.state.name.lower()),
+                coordinator=coordinator,
+            )
+
+            for topic in topics:
                 topic_partitions_for_this_group_metadata = [
-                    TopicPartition(topic_metadata.topic, partition)
-                    for partition in topic_metadata.partitions
+                    TopicPartition(topic.name, partition.id) for partition in topic.partitions
                 ]
 
                 committed_partitions_metadata = group_consumer.committed(
                     topic_partitions_for_this_group_metadata, timeout=DEFAULT_TIMEOUT
-                )
-
-                coordinator = Node(
-                    id=group_metadata.coordinator.id,
-                    host=group_metadata.coordinator.host,
-                    port=group_metadata.coordinator.port,
-                    rack=group_metadata.coordinator.rack,
-                )
-
-                group = Group(
-                    id=group_metadata.group_id,
-                    partition_assignor=group_metadata.partition_assignor,
-                    state=str(group_metadata.state.name.lower()),
-                    coordinator=coordinator,
                 )
 
                 for group_partition_metadata in committed_partitions_metadata:
@@ -133,7 +133,7 @@ class TopicService:
                 if len(group.partitions) > 0:
                     for member_metadata in group_metadata.members:
                         for topic_partition in member_metadata.assignment.topic_partitions:
-                            if topic_metadata.topic == topic_partition.topic:
+                            if topic.name == topic_partition.topic:
                                 member = GroupMember(
                                     id=member_metadata.member_id,
                                     group=group_metadata.group_id,
