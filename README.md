@@ -1,5 +1,5 @@
 <p align="center">
-<a href="https://github.com/sauljabin/kaskade"><img alt="kaskade" src="https://raw.githubusercontent.com/sauljabin/kaskade/main/screenshots/banner.png"></a>
+<a href="https://github.com/sauljabin/kaskade"><img alt="kaskade" src="https://raw.githubusercontent.com/sauljabin/kaskade/main/images/banner.png"></a>
 </p>
 <a href="https://github.com/sauljabin/kaskade"><img alt="GitHub" height="20" src="https://img.shields.io/badge/-github-blueviolet?logo=github&logoColor=white"></a>
 <a href="https://github.com/sauljabin/kaskade/blob/main/LICENSE"><img alt="MIT License" src="https://img.shields.io/github/license/sauljabin/kaskade"></a>
@@ -7,7 +7,7 @@
 <a href="https://pypi.org/project/kaskade"><img alt="Python Versions" src="https://img.shields.io/pypi/pyversions/kaskade?label=python"></a>
 <a href="https://pypi.org/project/kaskade"><img alt="Platform" src="https://img.shields.io/badge/os-linux%20%7C%20macos-blue"></a>
 
-# Kaskade
+## Kaskade
 
 Kaskade is a text user interface (TUI) for Apache Kafka, built with [Textual](https://github.com/Textualize/textual).
 It includes features like:
@@ -20,10 +20,10 @@ It includes features like:
 - Secure connection
 
 <p align="center">
-<img alt="kaskade" src="https://raw.githubusercontent.com/sauljabin/kaskade/main/images/screenshot.png">
+<img alt="kaskade" src="https://raw.githubusercontent.com/sauljabin/kaskade/main/screenshots/dashboard.png">
 </p>
 
-# Installation
+## Installation
 
 Install with `pipx`:
 
@@ -41,7 +41,7 @@ pipx upgrade kaskade
 
 <a href="https://hub.docker.com/r/sauljabin/kaskade"><img alt="docker image available" height="20" src="https://img.shields.io/badge/-docker image available-blue?logo=docker&logoColor=white"></a>
 
-# Running Kaskade
+## Running Kaskade
 
 Pass the option `-b` (boostrap servers):
 
@@ -55,7 +55,7 @@ Help:
 kaskade --help
 ```
 
-# Configuration Examples
+## Configuration Examples
 
 ### SSL encryption example:
 
@@ -64,7 +64,7 @@ kaskade -b localhost:9092 -X security.protocol=SSL
 ```
 
 For more information about SSL encryption and SSL authentication go
-to `librdkafka` official page: [Configure librdkafka client](https://github.com/edenhill/librdkafka/wiki/Using-SSL-with-librdkafka#configure-librdkafka-client).
+to the `librdkafka` official page: [Configure librdkafka client](https://github.com/edenhill/librdkafka/wiki/Using-SSL-with-librdkafka#configure-librdkafka-client).
 
 ### Multiple bootstrap servers:
 
@@ -92,6 +92,6 @@ kaskade -b ${BOOTSTRAP_SERVERS} \
         -S basic.auth.user.info=${SR_API_KEY}:${SR_API_SECRET}
 ```
 
-# Development
+## Development
 
 For development instructions see [DEVELOPMENT.md](DEVELOPMENT.md).
