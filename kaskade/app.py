@@ -40,16 +40,16 @@ class KaskadeApp(App):
     required=True,
 )
 @click.option(
-    "-S",
+    "-s",
     "registry_properties_input",
-    help="Schema Registry property. Set a SchemaRegistryClient property. Multiple -S are allowed.",
+    help="Schema Registry property. Set a SchemaRegistryClient property. Multiple -s are allowed.",
     metavar="property=value",
     multiple=True,
 )
 @click.option(
-    "-X",
+    "-x",
     "kafka_properties_input",
-    help="Kafka property. Set a librdkafka configuration property. Multiple -X are allowed.",
+    help="Kafka property. Set a librdkafka configuration property. Multiple -x are allowed.",
     metavar="property=value",
     multiple=True,
 )
@@ -66,8 +66,8 @@ def main(
     Examples:
         kaskade -b localhost:9092
         kaskade -b broker1:9092,broker2:9092
-        kaskade -b localhost:9092 -X security.protocol=SSL
-        kaskade -b localhost:9092 -S url=http://localhost:8081
+        kaskade -b localhost:9092 -x security.protocol=SSL
+        kaskade -b localhost:9092 -s url=http://localhost:8081
     """
     kafka_conf = {k: v for (k, v) in [pair.split("=", 1) for pair in kafka_properties_input]}
     kafka_conf["bootstrap.servers"] = bootstrap_servers_input

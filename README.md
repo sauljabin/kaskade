@@ -60,7 +60,7 @@ kaskade --help
 ### SSL encryption example:
 
 ```shell
-kaskade -b localhost:9092 -X security.protocol=SSL
+kaskade -b localhost:9092 -x security.protocol=SSL
 ```
 
 For more information about SSL encryption and SSL authentication go
@@ -75,7 +75,7 @@ kaskade -b broker1:9092,broker2:9092
 ### Schema Registry simple connection:
 
 ```shell
-kaskade -b localhost:9092 -S url=http://localhost:8081
+kaskade -b localhost:9092 -s url=http://localhost:8081
 ```
 
 More Schema Registry configurations at: [confluent-kafka-python documentation](https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#schemaregistry-client).
@@ -84,12 +84,12 @@ More Schema Registry configurations at: [confluent-kafka-python documentation](h
 
 ```shell
 kaskade -b ${BOOTSTRAP_SERVERS} \
-        -X security.protocol=SASL_SSL \
-        -X sasl.mechanism=PLAIN \
-        -X sasl.username=${CLUSTER_API_KEY} \
-        -X sasl.password=${CLUSTER_API_SECRET} \
-        -S url=${SCHEMA_REGISTRY_URL} \
-        -S basic.auth.user.info=${SR_API_KEY}:${SR_API_SECRET}
+        -x security.protocol=SASL_SSL \
+        -x sasl.mechanism=PLAIN \
+        -x sasl.username=${CLUSTER_API_KEY} \
+        -x sasl.password=${CLUSTER_API_SECRET} \
+        -s url=${SCHEMA_REGISTRY_URL} \
+        -s basic.auth.user.info=${SR_API_KEY}:${SR_API_SECRET}
 ```
 
 ## Development

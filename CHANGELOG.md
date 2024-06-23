@@ -11,11 +11,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Update scripts
 - Add chageloggh
+- New arguments
+- Add filter
+- Add json and protobuf serialization
 
 ### Changed
 
 - New styles
 - textual and confluent-kafka upgraded
+- New package structure
+- New command for the consumer mode
 
 ### Removed
 

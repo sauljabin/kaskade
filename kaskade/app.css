@@ -65,3 +65,19 @@ DataTable > .datatable--fixed-cursor {
     background: $kaskade-green 80%;
     color: $text;
 }
+
+Input {
+    padding: 0 0 0 1;
+    border: solid $kaskade-green 50%;
+    background: $surface;
+    width: 60%;
+}
+
+Input:focus {
+    border: $kaskade-green;
+    background: $surface;
+}
+
+SearchScreen {
+    align: center middle;
+}

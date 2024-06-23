@@ -6,11 +6,12 @@ from rich.text import Text
 from textual.app import ComposeResult, RenderResult
 from textual.containers import Container
 from textual.keys import Keys
+from textual.screen import ModalScreen
 from textual.widget import Widget
-from textual.widgets import DataTable
+from textual.widgets import DataTable, Input
 
 from kaskade import APP_NAME, APP_VERSION
-from kaskade.colors import PRIMARY, SECONDARY
+from kaskade.colors import PRIMARY, SECONDARY, THIRD
 from kaskade.models import Cluster, Topic
 from kaskade.unicodes import APPROXIMATION
 
@@ -63,7 +64,26 @@ class Header(Widget):
         yield Shortcuts(self.cluster)
 
 
+class SearchScreen(ModalScreen[str]):
+    BINDINGS = [(Keys.Escape, "close")]
+
+    def compose(self) -> ComposeResult:
+        yield Input()
+
+    def on_mount(self) -> None:
+        search = self.query_one(Input)
+        search.border_title = f"[{SECONDARY}]search[/]"
+
+    def on_input_submitted(self, event: Input.Submitted) -> None:
+        self.dismiss(event.value)
+
+    def action_close(self) -> None:
+        self.dismiss()
+
+
 class Body(Container):
+    BINDINGS = [("/", "search")]
+
     def __init__(self, topics: List[Topic]):
         super().__init__()
         self.topics = topics
@@ -75,7 +95,6 @@ class Body(Container):
         table = self.query_one(DataTable)
         table.cursor_type = "row"
         table.fixed_columns = 1
-        table.border_title = f"topics ([{PRIMARY}]{len(self.topics)}[/])"
 
         table.add_column("name")
         table.add_column(Text("partitions", justify="right"), width=10)
@@ -87,12 +106,23 @@ class Body(Container):
 
         self.run_worker(self.fill_table(), exclusive=True)
 
-    async def fill_table(self) -> None:
-        table = self.query_one(DataTable)
+    def action_search(self) -> None:
+        def on_dismiss(result: str) -> None:
+            self.run_worker(self.fill_table(result), exclusive=True)
 
-        for topic in self.topics:
+        self.app.push_screen(SearchScreen(), on_dismiss)
+
+    async def fill_table(self, with_filter: None | str = None) -> None:
+        filtered_topics = [
+            topic for topic in self.topics if not with_filter or with_filter in topic.name
+        ]
+        table = self.query_one(DataTable)
+        table.clear()
+        table.border_title = f"[{SECONDARY}]topics ([{PRIMARY}]{len(filtered_topics)}[/])[/]{f" <[{THIRD}]{with_filter}[/]>" if with_filter else ""}"
+
+        for topic in filtered_topics:
             row = [
-                f"[b]{topic.name}[/b]",
+                topic.name,
                 Text(str(topic.partitions_count()), justify="right"),
                 Text(str(topic.replicas_count()), justify="right"),
                 Text(str(topic.isrs_count()), justify="right"),
