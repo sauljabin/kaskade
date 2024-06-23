@@ -29,3 +29,5 @@ jobs:
           poetry install
       - name: Run Tests
         run: poetry run python -m scripts.tests
+      - name: Python Code Analysis
+        run: poetry run python -m scripts.analyze
