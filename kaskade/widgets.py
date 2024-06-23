@@ -118,7 +118,9 @@ class Body(Container):
         ]
         table = self.query_one(DataTable)
         table.clear()
-        table.border_title = f"[{SECONDARY}]topics ([{PRIMARY}]{len(filtered_topics)}[/])[/]{f" <[{THIRD}]{with_filter}[/]>" if with_filter else ""}"
+
+        border_title_filter_info = f" <[{THIRD}]{with_filter}[/]>" if with_filter else ""
+        table.border_title = f"[{SECONDARY}]topics ([{PRIMARY}]{len(filtered_topics)}[/])[/]{border_title_filter_info}"
 
         for topic in filtered_topics:
             row = [
