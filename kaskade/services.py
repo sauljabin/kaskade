@@ -1,3 +1,5 @@
+import asyncio
+import functools
 import uuid
 from datetime import datetime
 from operator import attrgetter
@@ -27,33 +29,29 @@ from kaskade.models import (
 class ConsumerService:
     def __init__(
         self,
-        config: dict[str, str],
         topic: str,
+        kafka_config: dict[str, str],
         *,
-        page_size: int = 20,
+        page_size: int = 30,
         max_retries: int = 5,
-        timeout: float = 0.5,
+        timeout: float = 1.0,
     ) -> None:
         self.topic = topic
         self.page_size = page_size
         self.max_retries = max_retries
         self.timeout = timeout
         self.consumer = Consumer(
-            config
-            | {
-                "group.id": f"kaskade-{str(uuid.uuid4())[:8]}",
-                "enable.auto.commit": False,
-                "enable.auto.offset.store": False,
-                "session.timeout.ms": 6000,
-            }
+            kafka_config | {"group.id": f"kaskade-{uuid.uuid4()}", "enable.auto.commit": False}
         )
         self.consumer.subscribe([topic])
+        self.loop = asyncio.get_running_loop()
+        self.poll = functools.partial(self.consumer.poll, self.timeout)
 
     def close(self) -> None:
         self.consumer.unsubscribe()
         self.consumer.close()
 
-    def consume(self) -> List[Record]:
+    async def consume(self) -> List[Record]:
         records: List[Record] = []
         retries = 0
 
@@ -61,15 +59,16 @@ class ConsumerService:
             if retries >= self.max_retries:
                 break
 
-            record_metadata = self.consumer.poll(self.timeout)
+            record_metadata = await self.loop.run_in_executor(None, self.poll)
 
             if record_metadata is None:
                 retries += 1
                 continue
-            retries = 0
 
             if record_metadata.error():
                 raise KafkaException(record_metadata.error())
+
+            retries = 0
 
             timestamp_available, timestamp = record_metadata.timestamp()
             date = datetime.fromtimestamp(timestamp / 1000) if timestamp_available > 0 else None
@@ -80,16 +79,9 @@ class ConsumerService:
                 key=record_metadata.key(),
                 value=record_metadata.value(),
                 date=date,
+                headers=record_metadata.headers(),
             )
             records.append(record)
-
-            print(
-                record_metadata.partition(),
-                record_metadata.offset(),
-                date,
-                record_metadata.key(),
-                record_metadata.value(),
-            )
 
         return records
 
@@ -133,7 +125,7 @@ class TopicService:
         self.timeout = timeout
         self.config = config.copy()
         self.admin_client = AdminClient(self.config)
-        self.consumer = Consumer(self.config | {"group.id": uuid.uuid4()})
+        self.consumer = Consumer(self.config | {"group.id": f"kaskade-{uuid.uuid4()}"})
 
     def list(self) -> List[Topic]:
         topics = self._map_topics(self._list_topics_metadata())

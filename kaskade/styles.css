@@ -49,7 +49,7 @@ DataTable > .datatable--header-hover {
 }
 
 DataTable > .datatable--hover {
-    background: $kaskade-green 20%;
+    background: $kaskade-green 30%;
 }
 
 DataTable > .datatable--cursor {
@@ -67,6 +67,10 @@ DataTable > .datatable--fixed-cursor {
     color: $text;
 }
 
+DataTable > .datatable--even-row {
+    background: $kaskade-green 5%;
+}
+
 SearchScreen > Input {
     padding: 0 0 0 1;
     border: solid $kaskade-green 50%;
@@ -82,4 +86,8 @@ Input:focus {
 
 SearchScreen {
     align: center middle;
+}
+
+.-textual-loading-indicator {
+    background: $surface;
 }

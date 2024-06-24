@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Any, List
+from typing import Any, List, Tuple
 
 
 class Node:
@@ -269,14 +269,21 @@ class Record:
         date: datetime | None = None,
         key: bytes | None = None,
         value: bytes | None = None,
+        headers: List[Tuple[str, bytes]] | None = None,
     ) -> None:
         self.partition = partition
         self.offset = offset
         self.date = date
         self.key = key
         self.value = value
+        if headers is None:
+            headers = []
+        self.headers = headers
 
     def __eq__(self, other: Any) -> bool:
         if isinstance(other, Record):
             return self.partition == other.partition and self.offset == other.offset
         return False
+
+    def headers_count(self) -> int:
+        return len(self.headers) if self.headers is not None else 0

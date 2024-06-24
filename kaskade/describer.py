@@ -2,7 +2,6 @@ from typing import List
 
 from rich.table import Table
 from rich.text import Text
-from textual import events
 from textual.app import ComposeResult, RenderResult, App
 from textual.containers import Container
 from textual.keys import Keys
@@ -18,10 +17,6 @@ from kaskade.widgets import KaskadeBanner
 
 
 class Shortcuts(Widget):
-
-    def on_mount(self, event: events.Mount) -> None:
-
-        self.auto_refresh = 1 / 16
 
     def render(self) -> RenderResult:
         table = Table(box=None, show_header=False, padding=(0, 1, 0, 0))
@@ -77,8 +72,8 @@ class Body(Container):
     def on_mount(self) -> None:
         table = self.query_one(DataTable)
         table.cursor_type = "row"
-        table.fixed_columns = 1
         table.border_subtitle = f"\\[[{PRIMARY}]describer mode[/]]"
+        table.zebra_stripes = True
 
         table.add_column("name")
         table.add_column(Text("partitions", justify="right"), width=10)
@@ -91,11 +86,11 @@ class Body(Container):
         self.action_all()
 
     def action_all(self) -> None:
-        self.run_worker(self.fill_table(), exclusive=True)
+        self.run_worker(self.fill_table())
 
     def action_search(self) -> None:
         def on_dismiss(result: str) -> None:
-            self.run_worker(self.fill_table(result), exclusive=True)
+            self.run_worker(self.fill_table(result))
 
         self.app.push_screen(SearchScreen(), on_dismiss)
 
@@ -125,7 +120,8 @@ class Body(Container):
                     justify="right",
                 ),
             ]
-            table.add_row(*row, key=topic.name)
+            table.add_row(*row)
+        table.focus()
 
 
 class KaskadeDescriber(App):
@@ -135,6 +131,9 @@ class KaskadeDescriber(App):
         super().__init__()
         topic_service = TopicService(kafka_conf)
         self.topics = topic_service.list()
+
+    def on_mount(self) -> None:
+        self.use_command_palette = False
 
     def compose(self) -> ComposeResult:
         yield Header()
