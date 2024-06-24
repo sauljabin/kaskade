@@ -1,4 +1,5 @@
 import sys
+import uuid
 from typing import Tuple
 
 import click
@@ -6,6 +7,7 @@ from confluent_kafka import KafkaException
 from rich.console import Console
 
 from kaskade import APP_VERSION
+from kaskade.consumer import KaskadeConsumer
 from kaskade.describer import KaskadeDescriber
 
 
@@ -120,12 +122,19 @@ def consumer(
     \b
     Examples:
         kaskade -b localhost:9092 -t my-topic
-        kaskade -b localhost:9092 -t my-topic -x security.protocol=SSL
+        kaskade -b localhost:9092 -t my-topic -x auto.offset.reset=earliest
         kaskade -b localhost:9092 -t my-topic -s url=http://localhost:8081
 
     More at https://github.com/sauljabin/kaskade.
     """
-    pass
+    kafka_conf = {k: v for (k, v) in [pair.split("=", 1) for pair in kafka_properties_input]}
+    kafka_conf["bootstrap.servers"] = bootstrap_servers_input
+    kafka_conf["group.id"] = f"kaskade-{str(uuid.uuid4())[:8]}"
+    kafka_conf["enable.auto.commit"] = "false"
+    schemas_conf = {k: v for (k, v) in [pair.split("=", 1) for pair in registry_properties_input]}
+
+    kaskade_app = KaskadeConsumer(topic, kafka_conf, schemas_conf)
+    kaskade_app.run()
 
 
 if __name__ == "__main__":

@@ -2,6 +2,7 @@ from typing import List
 
 from rich.table import Table
 from rich.text import Text
+from textual import events
 from textual.app import ComposeResult, RenderResult, App
 from textual.containers import Container
 from textual.keys import Keys
@@ -9,7 +10,7 @@ from textual.screen import ModalScreen
 from textual.widget import Widget
 from textual.widgets import DataTable, Input
 
-from kaskade.colors import PRIMARY, SECONDARY, THIRD
+from kaskade.colors import PRIMARY, SECONDARY
 from kaskade.models import Topic
 from kaskade.services import TopicService
 from kaskade.unicodes import APPROXIMATION, DOWN, LEFT, RIGHT, UP
@@ -18,16 +19,20 @@ from kaskade.widgets import KaskadeBanner
 
 class Shortcuts(Widget):
 
+    def on_mount(self, event: events.Mount) -> None:
+
+        self.auto_refresh = 1 / 16
+
     def render(self) -> RenderResult:
         table = Table(box=None, show_header=False, padding=(0, 1, 0, 0))
-        table.add_column(style=f"bold {PRIMARY}", justify="right")
+        table.add_column(style=f"bold {PRIMARY}")
         table.add_column()
 
-        table.add_row(Keys.ControlC, "quit")
-        table.add_row(f"{LEFT} {RIGHT} {UP} {DOWN}", "scroll")
-        table.add_row(Keys.Enter, "describe")
-        table.add_row("/", "search")
-        table.add_row(Keys.Escape, "all")
+        table.add_row("describe", "enter")
+        table.add_row("scroll", f"{LEFT} {RIGHT} {UP} {DOWN}")
+        table.add_row("search", "/")
+        table.add_row("quit", Keys.ControlC)
+        table.add_row("all", "escape")
 
         return table
 
@@ -48,6 +53,9 @@ class SearchScreen(ModalScreen[str]):
     def on_mount(self) -> None:
         search = self.query_one(Input)
         search.border_title = f"[{SECONDARY}]search[/]"
+        search.border_subtitle = (
+            f"[{PRIMARY}]back[/] escape [{SECONDARY}]|[/] [{PRIMARY}]search[/] enter"
+        )
 
     def on_input_submitted(self, event: Input.Submitted) -> None:
         self.dismiss(event.value)
@@ -70,6 +78,7 @@ class Body(Container):
         table = self.query_one(DataTable)
         table.cursor_type = "row"
         table.fixed_columns = 1
+        table.border_subtitle = f"\\[[{PRIMARY}]describer mode[/]]"
 
         table.add_column("name")
         table.add_column(Text("partitions", justify="right"), width=10)
@@ -97,8 +106,8 @@ class Body(Container):
         table = self.query_one(DataTable)
         table.clear()
 
-        border_title_filter_info = f" <[{THIRD}]{with_filter}[/]>" if with_filter else ""
-        table.border_title = f"[{SECONDARY}]topics ([{PRIMARY}]{len(filtered_topics)}[/])[/]{border_title_filter_info}"
+        border_title_filter_info = f" \\[[{PRIMARY}]*{with_filter}*[/]]" if with_filter else ""
+        table.border_title = f"[{SECONDARY}]topics{border_title_filter_info} \\[[{PRIMARY}]{len(filtered_topics)}[/]][/]"
 
         for topic in filtered_topics:
             row = [

@@ -20,7 +20,6 @@ Shortcuts {
 
 DataTable {
     border: solid $kaskade-green 50%;
-    border-subtitle-align: center;
     height: 100%;
 
     scrollbar-color: $kaskade-orchid 60%;
@@ -73,6 +72,7 @@ SearchScreen > Input {
     border: solid $kaskade-green 50%;
     background: $surface;
     width: 60%;
+    border-subtitle-color: $text;
 }
 
 Input:focus {
