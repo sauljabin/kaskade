@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Any, List
 
 
@@ -257,4 +258,25 @@ class Cluster:
     def __eq__(self, other: Any) -> bool:
         if isinstance(other, Cluster):
             return self.id == other.id
+        return False
+
+
+class Record:
+    def __init__(
+        self,
+        partition: int = -1,
+        offset: int = -1,
+        date: datetime | None = None,
+        key: bytes | None = None,
+        value: bytes | None = None,
+    ) -> None:
+        self.partition = partition
+        self.offset = offset
+        self.date = date
+        self.key = key
+        self.value = value
+
+    def __eq__(self, other: Any) -> bool:
+        if isinstance(other, Record):
+            return self.partition == other.partition and self.offset == other.offset
         return False

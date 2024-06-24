@@ -1,8 +1,9 @@
 import uuid
+from datetime import datetime
 from operator import attrgetter
 from typing import List, Tuple
 
-from confluent_kafka import Consumer, TopicPartition, OFFSET_INVALID
+from confluent_kafka import Consumer, TopicPartition, OFFSET_INVALID, KafkaException
 from confluent_kafka.admin import (
     AdminClient,
     TopicMetadata,
@@ -11,19 +12,96 @@ from confluent_kafka.admin import (
     PartitionMetadata,
 )
 
-from kaskade.models import Topic, Cluster, Node, Partition, Group, GroupPartition, GroupMember
+from kaskade.models import (
+    Topic,
+    Cluster,
+    Node,
+    Partition,
+    Group,
+    GroupPartition,
+    GroupMember,
+    Record,
+)
 
-DEFAULT_TIMEOUT = 2.0
+
+class ConsumerService:
+    def __init__(
+        self,
+        config: dict[str, str],
+        topic: str,
+        *,
+        page_size: int = 20,
+        max_retries: int = 5,
+        timeout: float = 0.5,
+    ) -> None:
+        self.topic = topic
+        self.page_size = page_size
+        self.max_retries = max_retries
+        self.timeout = timeout
+        self.consumer = Consumer(
+            config
+            | {
+                "group.id": f"kaskade-{str(uuid.uuid4())[:8]}",
+                "enable.auto.commit": False,
+                "enable.auto.offset.store": False,
+                "session.timeout.ms": 6000,
+            }
+        )
+        self.consumer.subscribe([topic])
+
+    def close(self) -> None:
+        self.consumer.unsubscribe()
+        self.consumer.close()
+
+    def consume(self) -> List[Record]:
+        records: List[Record] = []
+        retries = 0
+
+        while len(records) < self.page_size:
+            if retries >= self.max_retries:
+                break
+
+            record_metadata = self.consumer.poll(self.timeout)
+
+            if record_metadata is None:
+                retries += 1
+                continue
+            retries = 0
+
+            if record_metadata.error():
+                raise KafkaException(record_metadata.error())
+
+            timestamp_available, timestamp = record_metadata.timestamp()
+            date = datetime.fromtimestamp(timestamp / 1000) if timestamp_available > 0 else None
+
+            record = Record(
+                partition=record_metadata.partition(),
+                offset=record_metadata.offset(),
+                key=record_metadata.key(),
+                value=record_metadata.value(),
+                date=date,
+            )
+            records.append(record)
+
+            print(
+                record_metadata.partition(),
+                record_metadata.offset(),
+                date,
+                record_metadata.key(),
+                record_metadata.value(),
+            )
+
+        return records
 
 
 class ClusterService:
-    def __init__(self, config: dict[str, str]) -> None:
-        self.config = config.copy()
-        self.admin_client = AdminClient(self.config)
+    def __init__(self, config: dict[str, str], *, timeout: float = 2.0) -> None:
+        self.timeout = timeout
+        self.admin_client = AdminClient(config)
 
     def get(self) -> Cluster:
         cluster_metadata: DescribeClusterResult = self.admin_client.describe_cluster(
-            request_timeout=DEFAULT_TIMEOUT
+            request_timeout=self.timeout
         ).result()
 
         controller = Node(
@@ -51,7 +129,8 @@ class ClusterService:
 
 
 class TopicService:
-    def __init__(self, config: dict[str, str]) -> None:
+    def __init__(self, config: dict[str, str], *, timeout: float = 2.0) -> None:
+        self.timeout = timeout
         self.config = config.copy()
         self.admin_client = AdminClient(self.config)
         self.consumer = Consumer(self.config | {"group.id": uuid.uuid4()})
@@ -86,7 +165,7 @@ class TopicService:
                 ]
 
                 committed_partitions_metadata = group_consumer.committed(
-                    topic_partitions_for_this_group_metadata, timeout=DEFAULT_TIMEOUT
+                    topic_partitions_for_this_group_metadata, timeout=self.timeout
                 )
 
                 for group_partition_metadata in committed_partitions_metadata:
@@ -95,7 +174,7 @@ class TopicService:
 
                     low_group_partition_watermark, high_group_partition_watermark = (
                         group_consumer.get_watermark_offsets(
-                            group_partition_metadata, timeout=DEFAULT_TIMEOUT, cached=False
+                            group_partition_metadata, timeout=self.timeout, cached=False
                         )
                     )
 
@@ -155,7 +234,7 @@ class TopicService:
     ) -> Tuple[int, int]:
         low, high = self.consumer.get_watermark_offsets(
             TopicPartition(topic_metadata.topic, partition_metadata.id),
-            timeout=DEFAULT_TIMEOUT,
+            timeout=self.timeout,
             cached=False,
         )
         return low, high
@@ -163,7 +242,7 @@ class TopicService:
     def _list_groups_metadata(self) -> List[ConsumerGroupDescription]:
         group_names: List[str] = [
             group.group_id
-            for group in self.admin_client.list_consumer_groups(request_timeout=DEFAULT_TIMEOUT)
+            for group in self.admin_client.list_consumer_groups(request_timeout=self.timeout)
             .result()
             .valid
         ]
@@ -174,12 +253,12 @@ class TopicService:
         return [
             future.result()
             for group_id, future in self.admin_client.describe_consumer_groups(
-                group_names, request_timeout=DEFAULT_TIMEOUT
+                group_names, request_timeout=self.timeout
             ).items()
         ]
 
     def _list_topics_metadata(self) -> List[TopicMetadata]:
         return sorted(
-            list(self.admin_client.list_topics(timeout=DEFAULT_TIMEOUT).topics.values()),
+            list(self.admin_client.list_topics(timeout=self.timeout).topics.values()),
             key=attrgetter("topic"),
         )

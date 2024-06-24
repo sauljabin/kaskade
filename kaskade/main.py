@@ -1,5 +1,4 @@
 import sys
-import uuid
 from typing import Tuple
 
 import click
@@ -129,8 +128,6 @@ def consumer(
     """
     kafka_conf = {k: v for (k, v) in [pair.split("=", 1) for pair in kafka_properties_input]}
     kafka_conf["bootstrap.servers"] = bootstrap_servers_input
-    kafka_conf["group.id"] = f"kaskade-{str(uuid.uuid4())[:8]}"
-    kafka_conf["enable.auto.commit"] = "false"
     schemas_conf = {k: v for (k, v) in [pair.split("=", 1) for pair in registry_properties_input]}
 
     kaskade_app = KaskadeConsumer(topic, kafka_conf, schemas_conf)
