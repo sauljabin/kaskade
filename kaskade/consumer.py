@@ -54,6 +54,7 @@ class Body(Container):
         table.cursor_type = "row"
         table.border_subtitle = f"\\[[{PRIMARY}]consumer mode[/]]"
         table.zebra_stripes = True
+        table.border_title = self.topic
 
         table.add_column("message", width=50)
         table.add_column("date", width=10)
@@ -66,7 +67,6 @@ class Body(Container):
 
     async def action_consume(self) -> None:
         table = self.query_one(DataTable)
-        table.border_title = f"{self.topic} [{PRIMARY}]loading...[/]"
         table.loading = True
 
         try:
