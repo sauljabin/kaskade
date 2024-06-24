@@ -51,5 +51,5 @@ line-length = 100
 line-length = 100
 
 [tool.poetry.scripts]
-kaskade = "kaskade.app:main"
-kskd = "kaskade.app:main"
+kaskade = "kaskade.main:cli"
+kskd = "kaskade.main:cli"

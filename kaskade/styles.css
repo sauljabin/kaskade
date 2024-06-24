@@ -3,17 +3,19 @@ $kaskade-orchid: #af5fd7;
 $kaskade-orchid-dark: #5b4666;
 
 Header {
-   height: 7;
+   height: 6;
    layout: horizontal;
    dock: top;
 }
 
 KaskadeBanner {
+    dock: right;
     width: 36;
+    margin: 0 1 0 0;
 }
 
 Shortcuts {
-    padding: 1 0 0 1;
+    margin: 0 0 0 1;
 }
 
 DataTable {
@@ -66,7 +68,7 @@ DataTable > .datatable--fixed-cursor {
     color: $text;
 }
 
-Input {
+SearchScreen > Input {
     padding: 0 0 0 1;
     border: solid $kaskade-green 50%;
     background: $surface;
