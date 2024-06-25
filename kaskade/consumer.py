@@ -1,6 +1,5 @@
 from confluent_kafka import KafkaException
 from rich.table import Table
-from rich.text import Text
 from textual.app import App, ComposeResult, RenderResult
 from textual.binding import Binding
 from textual.containers import Container
@@ -36,7 +35,7 @@ class Header(Widget):
         yield Shortcuts()
 
 
-class ConsumeTopicBody(Container):
+class ListRecords(Container):
     BINDINGS = [Binding(">", "consume")]
 
     def __init__(self, topic: str, kafka_conf: dict[str, str]):
@@ -55,14 +54,14 @@ class ConsumeTopicBody(Container):
         table.cursor_type = "row"
         table.border_subtitle = f"\\[[{PRIMARY}]consumer mode[/]]"
         table.zebra_stripes = True
-        table.border_title = f"messages \\[[{PRIMARY}]{self.topic}[/]]\\[[{PRIMARY}]0[/]]"
+        table.border_title = f"records \\[[{PRIMARY}]{self.topic}[/]]\\[[{PRIMARY}]0[/]]"
 
         table.add_column("message", width=50)
         table.add_column("date", width=10)
         table.add_column("time", width=8)
-        table.add_column(Text("partition", justify="right"), width=9)
-        table.add_column(Text("offset", justify="right"), width=9)
-        table.add_column(Text("headers", justify="right"), width=9)
+        table.add_column("partition", width=9)
+        table.add_column("offset", width=9)
+        table.add_column("headers", width=9)
 
         self.run_worker(self.action_consume())
 
@@ -82,16 +81,14 @@ class ConsumeTopicBody(Container):
                     key_and_value,
                     str(record.date.strftime("%Y-%m-%d")) if record.date else "",
                     str(record.date.strftime("%H:%M:%S")) if record.date else "",
-                    Text(str(record.partition), justify="right"),
-                    Text(str(record.offset), justify="right"),
-                    Text(str(record.headers_count()), justify="right"),
+                    str(record.partition),
+                    str(record.offset),
+                    str(record.headers_count()),
                 ]
                 table.add_row(*row, height=2)
             table.border_title = (
-                f"messages \\[[{PRIMARY}]{self.topic}[/]]\\[[{PRIMARY}]{table.row_count}[/]]"
+                f"records \\[[{PRIMARY}]{self.topic}[/]]\\[[{PRIMARY}]{table.row_count}[/]]"
             )
-            table.loading = False
-            table.focus()
         except Exception as ex:
             if isinstance(ex, KafkaException):
                 message = ex.args[0].str()
@@ -99,6 +96,9 @@ class ConsumeTopicBody(Container):
                 message = str(ex)
 
             self.notify(message, severity="error", title="kafka error")
+
+        table.loading = False
+        table.focus()
 
 
 class KaskadeConsumer(App):
@@ -114,4 +114,4 @@ class KaskadeConsumer(App):
 
     def compose(self) -> ComposeResult:
         yield Header()
-        yield ConsumeTopicBody(self.topic, self.kafka_conf)
+        yield ListRecords(self.topic, self.kafka_conf)

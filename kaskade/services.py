@@ -136,22 +136,23 @@ class TopicService:
         self, groups_metadata: List[ConsumerGroupDescription], topics: List[Topic]
     ) -> None:
         for group_metadata in groups_metadata:
-            coordinator = Node(
-                id=group_metadata.coordinator.id,
-                host=group_metadata.coordinator.host,
-                port=group_metadata.coordinator.port,
-                rack=group_metadata.coordinator.rack,
-            )
-
-            group = Group(
-                id=group_metadata.group_id,
-                partition_assignor=group_metadata.partition_assignor,
-                state=str(group_metadata.state.name.lower()),
-                coordinator=coordinator,
-            )
-
             group_consumer = Consumer(self.config | {"group.id": group_metadata.group_id})
             for topic in topics:
+
+                coordinator = Node(
+                    id=group_metadata.coordinator.id,
+                    host=group_metadata.coordinator.host,
+                    port=group_metadata.coordinator.port,
+                    rack=group_metadata.coordinator.rack,
+                )
+
+                group = Group(
+                    id=group_metadata.group_id,
+                    partition_assignor=group_metadata.partition_assignor,
+                    state=str(group_metadata.state.name.lower()),
+                    coordinator=coordinator,
+                )
+
                 topic_partitions_for_this_group_metadata = [
                     TopicPartition(topic.name, partition.id) for partition in topic.partitions
                 ]
@@ -183,17 +184,22 @@ class TopicService:
 
                 if len(group.partitions) > 0:
                     for member_metadata in group_metadata.members:
-                        for topic_partition in member_metadata.assignment.topic_partitions:
-                            if topic.name == topic_partition.topic:
-                                member = GroupMember(
-                                    id=member_metadata.member_id,
-                                    group=group_metadata.group_id,
-                                    client_id=member_metadata.client_id,
-                                    host=member_metadata.host,
-                                    instance_id=member_metadata.group_instance_id,
-                                )
-                                group.members.append(member)
-                                break
+                        member_partitions = [
+                            topic_partition.partition
+                            for topic_partition in member_metadata.assignment.topic_partitions
+                            if topic.name == topic_partition.topic
+                        ]
+                        if len(member_partitions) > 0:
+                            member = GroupMember(
+                                id=member_metadata.member_id,
+                                group=group_metadata.group_id,
+                                client_id=member_metadata.client_id,
+                                host=member_metadata.host,
+                                instance_id=member_metadata.group_instance_id,
+                                assignment=member_partitions,
+                            )
+                            group.members.append(member)
+
                     topic.groups.append(group)
 
     def _map_topics(self, topics_metadata: List[TopicMetadata]) -> List[Topic]:

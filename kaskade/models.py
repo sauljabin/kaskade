@@ -35,12 +35,17 @@ class GroupMember:
         group: str = "",
         host: str = "",
         instance_id: str = "",
+        assignment: List[int] | None = None,
     ) -> None:
         self.id = id
         self.client_id = client_id
         self.group = group
         self.host = host
         self.instance_id = instance_id
+
+        if assignment is None:
+            assignment = []
+        self.assignment = assignment
 
     def __repr__(self) -> str:
         return str(self)
