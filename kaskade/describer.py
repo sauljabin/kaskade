@@ -146,7 +146,8 @@ class DescribeTopicScreen(ModalScreen):
 
     def action_change(self) -> None:
         self.current_tab = next(self.tabs)
-        render_table = getattr(self, f"render_{self.current_tab.replace(" ", "_")}")
+        method_name = self.current_tab.replace(" ", "_")
+        render_table = getattr(self, f"render_{method_name}")
         render_table()
 
     def action_close(self) -> None:
