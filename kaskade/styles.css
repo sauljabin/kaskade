@@ -10,7 +10,7 @@ Header {
 
 KaskadeBanner {
     dock: right;
-    width: 36;
+    width: 20;
     margin: 0 1 0 0;
 }
 
@@ -71,21 +71,30 @@ DataTable > .datatable--even-row {
     background: $kaskade-green 5%;
 }
 
-SearchScreen > Input {
+SearchTopicScreen {
+    align: center middle;
+}
+
+SearchTopicScreen > Input {
     padding: 0 0 0 1;
     border: solid $kaskade-green 50%;
     background: $surface;
     width: 60%;
-    border-subtitle-color: $text;
 }
 
-Input:focus {
+SearchTopicScreen > Input:focus {
     border: $kaskade-green;
     background: $surface;
 }
 
-SearchScreen {
+DescribeTopicScreen {
     align: center middle;
+}
+
+DescribeTopicScreen > Container {
+    width: 100%;
+    height: 100%;
+    border: $kaskade-green;
 }
 
 .-textual-loading-indicator {

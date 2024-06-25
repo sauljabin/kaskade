@@ -2,12 +2,13 @@ from confluent_kafka import KafkaException
 from rich.table import Table
 from rich.text import Text
 from textual.app import App, ComposeResult, RenderResult
+from textual.binding import Binding
 from textual.containers import Container
 from textual.keys import Keys
 from textual.widget import Widget
 from textual.widgets import DataTable
 
-from kaskade.colors import PRIMARY
+from kaskade.colors import PRIMARY, SECONDARY
 from kaskade.services import ConsumerService
 from kaskade.unicodes import LEFT, RIGHT, UP, DOWN
 from kaskade.widgets import KaskadeBanner
@@ -17,13 +18,13 @@ class Shortcuts(Widget):
 
     def render(self) -> RenderResult:
         table = Table(box=None, show_header=False, padding=(0, 1, 0, 0))
-        table.add_column(style=f"bold {PRIMARY}")
-        table.add_column()
+        table.add_column(style=PRIMARY)
+        table.add_column(style=SECONDARY)
 
-        table.add_row("show", "enter")
-        table.add_row("scroll", f"{LEFT} {RIGHT} {UP} {DOWN}")
-        table.add_row("more", ">")
-        table.add_row("quit", Keys.ControlC)
+        table.add_row("show:", "enter")
+        table.add_row("scroll:", f"{LEFT} {RIGHT} {UP} {DOWN}")
+        table.add_row("more:", ">")
+        table.add_row("quit:", Keys.ControlC)
 
         return table
 
@@ -31,12 +32,12 @@ class Shortcuts(Widget):
 class Header(Widget):
 
     def compose(self) -> ComposeResult:
-        yield KaskadeBanner(short=False, include_version=True, include_slogan=True)
+        yield KaskadeBanner(short=True, include_version=True, include_slogan=False)
         yield Shortcuts()
 
 
-class Body(Container):
-    BINDINGS = [(">", "consume")]
+class ConsumeTopicBody(Container):
+    BINDINGS = [Binding(">", "consume")]
 
     def __init__(self, topic: str, kafka_conf: dict[str, str]):
         super().__init__()
@@ -54,7 +55,7 @@ class Body(Container):
         table.cursor_type = "row"
         table.border_subtitle = f"\\[[{PRIMARY}]consumer mode[/]]"
         table.zebra_stripes = True
-        table.border_title = self.topic
+        table.border_title = f"messages \\[[{PRIMARY}]{self.topic}[/]]\\[[{PRIMARY}]0[/]]"
 
         table.add_column("message", width=50)
         table.add_column("date", width=10)
@@ -86,7 +87,9 @@ class Body(Container):
                     Text(str(record.headers_count()), justify="right"),
                 ]
                 table.add_row(*row, height=2)
-            table.border_title = f"{self.topic} \\[[{PRIMARY}]{table.row_count}[/]]"
+            table.border_title = (
+                f"messages \\[[{PRIMARY}]{self.topic}[/]]\\[[{PRIMARY}]{table.row_count}[/]]"
+            )
             table.loading = False
             table.focus()
         except Exception as ex:
@@ -111,4 +114,4 @@ class KaskadeConsumer(App):
 
     def compose(self) -> ComposeResult:
         yield Header()
-        yield Body(self.topic, self.kafka_conf)
+        yield ConsumeTopicBody(self.topic, self.kafka_conf)

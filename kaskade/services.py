@@ -127,7 +127,7 @@ class TopicService:
         self.admin_client = AdminClient(self.config)
         self.consumer = Consumer(self.config | {"group.id": f"kaskade-{uuid.uuid4()}"})
 
-    def list(self) -> List[Topic]:
+    def all(self) -> List[Topic]:
         topics = self._map_topics(self._list_topics_metadata())
         self._map_groups_into_topics(self._list_groups_metadata(), topics)
         return topics

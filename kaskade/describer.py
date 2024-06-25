@@ -3,6 +3,7 @@ from typing import List
 from rich.table import Table
 from rich.text import Text
 from textual.app import ComposeResult, RenderResult, App
+from textual.binding import Binding
 from textual.containers import Container
 from textual.keys import Keys
 from textual.screen import ModalScreen
@@ -20,14 +21,14 @@ class Shortcuts(Widget):
 
     def render(self) -> RenderResult:
         table = Table(box=None, show_header=False, padding=(0, 1, 0, 0))
-        table.add_column(style=f"bold {PRIMARY}")
-        table.add_column()
+        table.add_column(style=PRIMARY)
+        table.add_column(style=SECONDARY)
 
-        table.add_row("describe", "enter")
-        table.add_row("scroll", f"{LEFT} {RIGHT} {UP} {DOWN}")
-        table.add_row("search", "/")
-        table.add_row("quit", Keys.ControlC)
-        table.add_row("all", "escape")
+        table.add_row("describe:", "enter")
+        table.add_row("scroll:", f"{LEFT} {RIGHT} {UP} {DOWN}")
+        table.add_row("filter:", "/")
+        table.add_row("quit:", Keys.ControlC)
+        table.add_row("all:", "escape")
 
         return table
 
@@ -35,21 +36,21 @@ class Shortcuts(Widget):
 class Header(Widget):
 
     def compose(self) -> ComposeResult:
-        yield KaskadeBanner(short=False, include_version=True, include_slogan=True)
+        yield KaskadeBanner(short=True, include_version=True, include_slogan=False)
         yield Shortcuts()
 
 
-class SearchScreen(ModalScreen[str]):
-    BINDINGS = [(Keys.Escape, "close")]
+class SearchTopicScreen(ModalScreen[str]):
+    BINDINGS = [Binding(Keys.Escape, "close")]
 
     def compose(self) -> ComposeResult:
         yield Input()
 
     def on_mount(self) -> None:
-        search = self.query_one(Input)
-        search.border_title = f"[{SECONDARY}]search[/]"
-        search.border_subtitle = (
-            f"[{PRIMARY}]back[/] escape [{SECONDARY}]|[/] [{PRIMARY}]search[/] enter"
+        input_filter = self.query_one(Input)
+        input_filter.border_title = f"[{SECONDARY}]filter[/]"
+        input_filter.border_subtitle = (
+            f"[{PRIMARY}]back:[/] scape [{SECONDARY}]|[/] [{PRIMARY}]filter:[/] enter"
         )
 
     def on_input_submitted(self, event: Input.Submitted) -> None:
@@ -59,12 +60,36 @@ class SearchScreen(ModalScreen[str]):
         self.dismiss()
 
 
-class Body(Container):
-    BINDINGS = [("/", "search"), (Keys.Escape, "all")]
+class DescribeTopicScreen(ModalScreen):
+    BINDINGS = [Binding(Keys.Escape, "close")]
+
+    def __init__(self, topic: Topic):
+        super().__init__()
+        self.topic = topic
+
+    def compose(self) -> ComposeResult:
+        yield Container()
+
+    def on_mount(self) -> None:
+        table = self.query_one(Container)
+        table.border_title = f"topic \\[[{PRIMARY}]{self.topic.name}[/]]"
+        table.border_subtitle = f"[{PRIMARY}]back:[/] scape"
+
+    def action_close(self) -> None:
+        self.dismiss()
+
+
+class DescribeTopicBody(Container):
+    BINDINGS = [
+        Binding("/", "filter"),
+        Binding(Keys.Escape, "all"),
+        Binding(Keys.Enter, "describe", priority=True),
+    ]
 
     def __init__(self, topics: List[Topic]):
         super().__init__()
-        self.topics = topics
+        self.topics = {topic.name: topic for topic in topics}
+        self.current_topic: Topic | None = None
 
     def compose(self) -> ComposeResult:
         yield DataTable()
@@ -85,26 +110,34 @@ class Body(Container):
 
         self.action_all()
 
+    def on_data_table_row_highlighted(self, data: DataTable.RowHighlighted) -> None:
+        if data.row_key.value is None:
+            return
+        self.current_topic = self.topics.get(data.row_key.value)
+
+    def action_describe(self) -> None:
+        if self.current_topic is None:
+            return
+        self.app.push_screen(DescribeTopicScreen(self.current_topic))
+
     def action_all(self) -> None:
         self.run_worker(self.fill_table())
 
-    def action_search(self) -> None:
+    def action_filter(self) -> None:
         def on_dismiss(result: str) -> None:
             self.run_worker(self.fill_table(result))
 
-        self.app.push_screen(SearchScreen(), on_dismiss)
+        self.app.push_screen(SearchTopicScreen(), on_dismiss)
 
     async def fill_table(self, with_filter: None | str = None) -> None:
-        filtered_topics = [
-            topic for topic in self.topics if not with_filter or with_filter in topic.name
-        ]
         table = self.query_one(DataTable)
         table.clear()
 
-        border_title_filter_info = f"\\[[{PRIMARY}]*{with_filter}*[/]]" if with_filter else ""
-        table.border_title = f"[{SECONDARY}]topics {border_title_filter_info}\\[[{PRIMARY}]{len(filtered_topics)}[/]][/]"
-
-        for topic in filtered_topics:
+        total_count = 0
+        for topic in self.topics.values():
+            if with_filter is not None and with_filter not in topic.name:
+                continue
+            total_count += 1
             row = [
                 topic.name,
                 Text(str(topic.partitions_count()), justify="right"),
@@ -120,7 +153,12 @@ class Body(Container):
                     justify="right",
                 ),
             ]
-            table.add_row(*row)
+            table.add_row(*row, key=topic.name)
+
+        border_title_filter_info = f"\\[[{PRIMARY}]*{with_filter}*[/]]" if with_filter else ""
+        table.border_title = (
+            f"[{SECONDARY}]topics {border_title_filter_info}\\[[{PRIMARY}]{total_count}[/]][/]"
+        )
         table.focus()
 
 
@@ -130,11 +168,11 @@ class KaskadeDescriber(App):
     def __init__(self, kafka_conf: dict[str, str]):
         super().__init__()
         topic_service = TopicService(kafka_conf)
-        self.topics = topic_service.list()
+        self.topics = topic_service.all()
 
     def on_mount(self) -> None:
         self.use_command_palette = False
 
     def compose(self) -> ComposeResult:
         yield Header()
-        yield Body(self.topics)
+        yield DescribeTopicBody(self.topics)

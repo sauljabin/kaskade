@@ -55,7 +55,7 @@ class TestTopicService(unittest.TestCase):
         # asserts
         topic_service = TopicService({"bootstrap.servers": faker.hostname()})
 
-        topics_list = topic_service.list()
+        topics_list = topic_service.all()
         self.assertEqual(1, len(topics_list))
 
         topic = topics_list[0]
@@ -152,7 +152,7 @@ class TestTopicService(unittest.TestCase):
         # asserts
         topic_service = TopicService({"bootstrap.servers": faker.hostname()})
 
-        topics_list = topic_service.list()
+        topics_list = topic_service.all()
         self.assertEqual(1, len(topics_list))
 
         topic = topics_list[0]
