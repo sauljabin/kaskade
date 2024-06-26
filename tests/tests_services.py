@@ -16,11 +16,11 @@ from kaskade.services import TopicService
 from tests import faker
 
 
-class TestTopicService(unittest.TestCase):
+class TestTopicService(unittest.IsolatedAsyncioTestCase):
 
     @patch("kaskade.services.Consumer")
     @patch("kaskade.services.AdminClient")
-    def test_get_topics_without_group(self, mock_class_admin, mock_class_consumer):
+    async def test_get_topics_without_group(self, mock_class_admin, mock_class_consumer):
         # prepare get_watermark
         expected_low_watermark = 0
         expected_high_watermark = 50
@@ -55,7 +55,7 @@ class TestTopicService(unittest.TestCase):
         # asserts
         topic_service = TopicService({"bootstrap.servers": faker.hostname()})
 
-        topics_list = topic_service.all()
+        topics_list = await topic_service.all()
         self.assertEqual(1, len(topics_list))
 
         topic = topics_list[expected_topic_name]
@@ -80,7 +80,7 @@ class TestTopicService(unittest.TestCase):
 
     @patch("kaskade.services.Consumer")
     @patch("kaskade.services.AdminClient")
-    def test_get_topics_with_group(self, mock_class_admin, mock_class_consumer):
+    async def test_get_topics_with_group(self, mock_class_admin, mock_class_consumer):
         # prepare get_watermark
         expected_low_watermark = 0
         expected_high_watermark = 50
@@ -152,7 +152,7 @@ class TestTopicService(unittest.TestCase):
         # asserts
         topic_service = TopicService({"bootstrap.servers": faker.hostname()})
 
-        topics_list = topic_service.all()
+        topics_list = await topic_service.all()
         self.assertEqual(1, len(topics_list))
 
         topic = topics_list[expected_topic_name]

@@ -272,6 +272,7 @@ class ListTopics(Container):
     def compose(self) -> ComposeResult:
         table: DataTable = DataTable()
         table.cursor_type = "row"
+        table.border_title = f"[{SECONDARY}]topics \\[[{PRIMARY}]0[/]][/]"
         table.border_subtitle = f"\\[[{PRIMARY}]admin mode[/]]"
         table.zebra_stripes = True
 
@@ -298,7 +299,7 @@ class ListTopics(Container):
         table.loading = True
 
         try:
-            self.topics = self.topic_service.all()
+            self.topics = await self.topic_service.all()
         except Exception as ex:
             self.notify_error(ex)
         self.run_worker(self.fill_table())

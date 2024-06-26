@@ -3,7 +3,7 @@ import functools
 import uuid
 from datetime import datetime
 from operator import attrgetter
-from typing import Tuple
+from typing import Tuple, Any, Callable
 
 from confluent_kafka import Consumer, TopicPartition, OFFSET_INVALID, KafkaException
 from confluent_kafka.admin import (
@@ -28,15 +28,21 @@ from kaskade.models import (
 )
 
 
+async def _make_it_async(func: Callable[..., Any], /, *args: Any, **keywords: Any) -> Any:
+    return await asyncio.get_running_loop().run_in_executor(
+        None, functools.partial(func, *args, **keywords)
+    )
+
+
 class ConsumerService:
     def __init__(
         self,
         topic: str,
         kafka_config: dict[str, str],
         *,
-        page_size: int = 30,
+        page_size: int = 20,
         max_retries: int = 5,
-        timeout: float = 1.0,
+        timeout: float = 1,
     ) -> None:
         self.topic = topic
         self.page_size = page_size
@@ -52,8 +58,6 @@ class ConsumerService:
             }
         )
         self.consumer.subscribe([topic])
-        self.loop = asyncio.get_running_loop()
-        self.poll = functools.partial(self.consumer.poll, self.timeout)
 
     def close(self) -> None:
         self.consumer.unsubscribe()
@@ -67,7 +71,7 @@ class ConsumerService:
             if retries >= self.max_retries:
                 break
 
-            record_metadata = await self.loop.run_in_executor(None, self.poll)
+            record_metadata = await _make_it_async(self.consumer.poll, self.timeout)
 
             if record_metadata is None:
                 retries += 1
@@ -145,12 +149,12 @@ class TopicService:
         for future in futures.values():
             future.result()
 
-    def all(self) -> dict[str, Topic]:
-        topics = self._map_topics(self._list_topics_metadata())
-        self._map_groups_into_topics(self._list_groups_metadata(), topics)
+    async def all(self) -> dict[str, Topic]:
+        topics = await self._map_topics(self._list_topics_metadata())
+        await self._map_groups_into_topics(self._list_groups_metadata(), topics)
         return topics
 
-    def _map_groups_into_topics(
+    async def _map_groups_into_topics(
         self, groups_metadata: list[ConsumerGroupDescription], topics: dict[str, Topic]
     ) -> None:
         for group_metadata in groups_metadata:
@@ -175,19 +179,29 @@ class TopicService:
                     TopicPartition(topic.name, partition.id) for partition in topic.partitions
                 ]
 
-                committed_partitions_metadata = group_consumer.committed(
-                    topic_partitions_for_this_group_metadata, timeout=self.timeout
+                committed_partitions_metadata = await _make_it_async(
+                    group_consumer.committed,
+                    topic_partitions_for_this_group_metadata,
+                    timeout=self.timeout,
                 )
 
                 for group_partition_metadata in committed_partitions_metadata:
                     if group_partition_metadata.offset == OFFSET_INVALID:
                         continue
 
-                    low_group_partition_watermark, high_group_partition_watermark = (
-                        group_consumer.get_watermark_offsets(
-                            group_partition_metadata, timeout=self.timeout, cached=False
+                    low_group_partition_watermark, high_group_partition_watermark = 0, 0
+
+                    try:
+                        low_group_partition_watermark, high_group_partition_watermark = (
+                            await _make_it_async(
+                                group_consumer.get_watermark_offsets,
+                                group_partition_metadata,
+                                timeout=self.timeout,
+                                cached=False,
+                            )
                         )
-                    )
+                    except KafkaException as ex:
+                        logger.exception(ex)
 
                     group_partition = GroupPartition(
                         id=group_partition_metadata.partition,
@@ -220,7 +234,7 @@ class TopicService:
 
                     topic.groups.append(group)
 
-    def _map_topics(self, topics_metadata: list[TopicMetadata]) -> dict[str, Topic]:
+    async def _map_topics(self, topics_metadata: list[TopicMetadata]) -> dict[str, Topic]:
         topics = {}
         for topic_metadata in topics_metadata:
             topic = Topic(name=topic_metadata.topic)
@@ -228,7 +242,7 @@ class TopicService:
 
             for topic_partition_metadata in topic_metadata.partitions.values():
                 low_topic_partition_watermark, high_topic_partition_watermark = (
-                    self._get_watermarks(topic_metadata, topic_partition_metadata)
+                    await self._get_watermarks(topic_metadata, topic_partition_metadata)
                 )
 
                 partition = Partition(
@@ -245,14 +259,20 @@ class TopicService:
 
         return topics
 
-    def _get_watermarks(
+    async def _get_watermarks(
         self, topic_metadata: TopicMetadata, partition_metadata: PartitionMetadata
     ) -> Tuple[int, int]:
-        low, high = self.consumer.get_watermark_offsets(
-            TopicPartition(topic_metadata.topic, partition_metadata.id),
-            timeout=self.timeout,
-            cached=False,
-        )
+        low, high = 0, 0
+        try:
+            low, high = await _make_it_async(
+                self.consumer.get_watermark_offsets,
+                TopicPartition(topic_metadata.topic, partition_metadata.id),
+                timeout=self.timeout,
+                cached=False,
+            )
+        except KafkaException as ex:
+            logger.exception(ex)
+
         return low, high
 
     def _list_groups_metadata(self) -> list[ConsumerGroupDescription]:
