@@ -15,6 +15,7 @@ from confluent_kafka.admin import (
 )
 from confluent_kafka.cimpl import NewTopic
 
+from kaskade import logger
 from kaskade.models import (
     Topic,
     Cluster,
@@ -42,7 +43,13 @@ class ConsumerService:
         self.max_retries = max_retries
         self.timeout = timeout
         self.consumer = Consumer(
-            kafka_config | {"group.id": f"kaskade-{uuid.uuid4()}", "enable.auto.commit": False}
+            kafka_config
+            | {
+                "group.id": f"kaskade-{uuid.uuid4()}",
+                "enable.auto.commit": False,
+                "max.poll.interval.ms": 86400000,
+                "logger": logger,
+            }
         )
         self.consumer.subscribe([topic])
         self.loop = asyncio.get_running_loop()
@@ -90,7 +97,7 @@ class ConsumerService:
 class ClusterService:
     def __init__(self, config: dict[str, str], *, timeout: float = 2.0) -> None:
         self.timeout = timeout
-        self.admin_client = AdminClient(config)
+        self.admin_client = AdminClient(config | {"logger": logger})
 
     def get(self) -> Cluster:
         cluster_metadata: DescribeClusterResult = self.admin_client.describe_cluster(
@@ -124,7 +131,7 @@ class ClusterService:
 class TopicService:
     def __init__(self, config: dict[str, str], *, timeout: float = 2.0) -> None:
         self.timeout = timeout
-        self.config = config.copy()
+        self.config = config.copy() | {"logger": logger}
         self.admin_client = AdminClient(self.config)
         self.consumer = Consumer(self.config | {"group.id": f"kaskade-{uuid.uuid4()}"})
 
