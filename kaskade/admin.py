@@ -99,23 +99,21 @@ class DescribeTopicScreen(ModalScreen):
         super().__init__()
         self.topic = topic
         self.tabs = cycle(["partitions", "groups", "group members"])
-        self.current_tab = next(self.tabs)
 
     def compose(self) -> ComposeResult:
         table: DataTable = DataTable()
         table.cursor_type = "row"
         table.zebra_stripes = True
         table.border_subtitle = f"[{PRIMARY}]next:[/] {NEXT_SHORTCUT} [{SECONDARY}]|[/] [{PRIMARY}]back:[/] {BACK_SHORTCUT}"
-
         yield table
 
     def on_mount(self) -> None:
-        self.render_partitions()
+        self.action_next()
 
     def render_partitions(self) -> None:
         table = self.query_one(DataTable)
         table.clear(columns=True)
-        table.border_title = f"topic [[{PRIMARY}]{self.topic}[/]] > {self.current_tab}"
+        table.border_title = f"partitions [[{PRIMARY}]{self.topic}[/]]\\[[{PRIMARY}]{self.topic.partitions_count()}[/]]"
         table.add_column("id")
         table.add_column("leader")
         table.add_column("isrs")
@@ -135,7 +133,9 @@ class DescribeTopicScreen(ModalScreen):
     def render_groups(self) -> None:
         table = self.query_one(DataTable)
         table.clear(columns=True)
-        table.border_title = f"topic [[{PRIMARY}]{self.topic}[/]] > {self.current_tab}"
+        table.border_title = (
+            f"groups [[{PRIMARY}]{self.topic}[/]]\\[[{PRIMARY}]{self.topic.groups_count()}[/]]"
+        )
         table.add_column("id")
         table.add_column("coordinator")
         table.add_column("state")
@@ -159,7 +159,7 @@ class DescribeTopicScreen(ModalScreen):
     def render_group_members(self) -> None:
         table = self.query_one(DataTable)
         table.clear(columns=True)
-        table.border_title = f"topic [[{PRIMARY}]{self.topic}[/]] > {self.current_tab}"
+        table.border_title = f"group members [[{PRIMARY}]{self.topic}[/]]\\[[{PRIMARY}]{self.topic.group_members_count()}[/]]"
         table.add_column("group")
         table.add_column("client id")
         table.add_column("member id")
@@ -178,8 +178,8 @@ class DescribeTopicScreen(ModalScreen):
                 table.add_row(*row)
 
     def action_next(self) -> None:
-        self.current_tab = next(self.tabs)
-        method_name = self.current_tab.replace(" ", "_")
+        current_tab = next(self.tabs)
+        method_name = current_tab.replace(" ", "_")
         render_table = getattr(self, f"render_{method_name}")
         render_table()
 

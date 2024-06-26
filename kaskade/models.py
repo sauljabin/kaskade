@@ -201,6 +201,11 @@ class Topic:
     def groups_count(self) -> int:
         return len(self.groups) if self.groups is not None else 0
 
+    def group_members_count(self) -> int:
+        return (
+            sum([group.members_count() for group in self.groups]) if self.groups is not None else 0
+        )
+
     def replicas_count(self) -> int:
         return (
             max([len(partition.replicas) for partition in self.partitions], default=0)
