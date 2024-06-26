@@ -14,7 +14,7 @@ from textual.widgets import DataTable, Input, Label, RadioSet, RadioButton
 
 from kaskade.colors import PRIMARY, SECONDARY
 from kaskade.models import Topic
-from kaskade.services import TopicService
+from kaskade.services import TopicService, MILLISECONDS_24H
 from kaskade.unicodes import APPROXIMATION, DOWN, LEFT, RIGHT, UP
 from kaskade.widgets import KaskadeBanner
 
@@ -200,7 +200,7 @@ class CreateTopicScreen(ModalScreen[NewTopic]):
         input_replication = Input(id="replication", type="integer", value="1")
         input_replication.border_title = "replication"
 
-        input_retention = Input(id="retention", type="integer", value="86400000")
+        input_retention = Input(id="retention", type="integer", value=f"{MILLISECONDS_24H}")
         input_retention.border_title = "retention (ms)"
 
         radio_set = RadioSet(id="cleanup")

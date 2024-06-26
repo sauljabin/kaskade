@@ -2,7 +2,6 @@ import asyncio
 import functools
 import uuid
 from datetime import datetime
-from operator import attrgetter
 from typing import Tuple, Any, Callable
 
 from confluent_kafka import Consumer, TopicPartition, OFFSET_INVALID, KafkaException
@@ -26,6 +25,8 @@ from kaskade.models import (
     GroupMember,
     Record,
 )
+
+MILLISECONDS_24H = 86400000
 
 
 async def _make_it_async(func: Callable[..., Any], /, *args: Any, **keywords: Any) -> Any:
@@ -53,7 +54,7 @@ class ConsumerService:
             | {
                 "group.id": f"kaskade-{uuid.uuid4()}",
                 "enable.auto.commit": False,
-                "max.poll.interval.ms": 86400000,
+                "max.poll.interval.ms": MILLISECONDS_24H,
                 "logger": logger,
             }
         )
@@ -236,6 +237,7 @@ class TopicService:
 
     async def _map_topics(self, topics_metadata: list[TopicMetadata]) -> dict[str, Topic]:
         topics = {}
+
         for topic_metadata in topics_metadata:
             topic = Topic(name=topic_metadata.topic)
             topics[topic_metadata.topic] = topic
@@ -263,6 +265,7 @@ class TopicService:
         self, topic_metadata: TopicMetadata, partition_metadata: PartitionMetadata
     ) -> Tuple[int, int]:
         low, high = 0, 0
+
         try:
             low, high = await _make_it_async(
                 self.consumer.get_watermark_offsets,
@@ -294,7 +297,10 @@ class TopicService:
         ]
 
     def _list_topics_metadata(self) -> list[TopicMetadata]:
+        def sort_by_topic_name(topic: TopicMetadata) -> Any:
+            return topic.topic.lower()
+
         return sorted(
             list(self.admin_client.list_topics(timeout=self.timeout).topics.values()),
-            key=attrgetter("topic"),
+            key=sort_by_topic_name,
         )
