@@ -2,20 +2,33 @@ import asyncio
 from itertools import cycle
 
 from confluent_kafka import KafkaException
+from confluent_kafka.cimpl import NewTopic
 from rich.table import Table
 from textual.app import ComposeResult, RenderResult, App
 from textual.binding import Binding
 from textual.containers import Container
-from textual.keys import Keys
+
 from textual.screen import ModalScreen
 from textual.widget import Widget
-from textual.widgets import DataTable, Input, Label
+from textual.widgets import DataTable, Input, Label, RadioSet, RadioButton
 
 from kaskade.colors import PRIMARY, SECONDARY
 from kaskade.models import Topic
 from kaskade.services import TopicService
 from kaskade.unicodes import APPROXIMATION, DOWN, LEFT, RIGHT, UP
 from kaskade.widgets import KaskadeBanner
+
+FILTER_TOPICS_ACTION = "/"
+BACK_SHORTCUT = "escape"
+ALL_TOPICS_SHORTCUT = BACK_SHORTCUT
+SUBMIT_SHORTCUT = "enter"
+NEXT_SHORTCUT = ">"
+SAVE_SHORTCUT = "ctrl+s"
+DESCRIBE_TOPIC_SHORTCUT = SUBMIT_SHORTCUT
+NEW_TOPIC_SHORTCUT = "ctrl+n"
+DELETE_TOPIC_SHORTCUT = "ctrl+d"
+REFRESH_TOPICS_SHORTCUT = "ctrl+r"
+QUIT_SHORTCUT = "ctrl+c"
 
 
 class Shortcuts(Widget):
@@ -31,11 +44,11 @@ class Shortcuts(Widget):
             "describe:",
             "enter",
             "create:",
-            Keys.ControlN,
+            NEW_TOPIC_SHORTCUT,
         )
-        table.add_row("scroll:", f"{LEFT} {RIGHT} {UP} {DOWN}", "delete:", Keys.ControlD)
-        table.add_row("filter:", "/", "refresh:", Keys.ControlR)
-        table.add_row("all:", "escape", "quit:", Keys.ControlC)
+        table.add_row("scroll:", f"{LEFT} {RIGHT} {UP} {DOWN}", "delete:", DELETE_TOPIC_SHORTCUT)
+        table.add_row("filter:", "/", "refresh:", REFRESH_TOPICS_SHORTCUT)
+        table.add_row("all:", "escape", "quit:", QUIT_SHORTCUT)
 
         return table
 
@@ -48,18 +61,13 @@ class Header(Widget):
 
 
 class FilterTopicsScreen(ModalScreen[str]):
-    BINDINGS = [Binding(Keys.Escape, "close")]
+    BINDINGS = [Binding(BACK_SHORTCUT, "close")]
 
     def compose(self) -> ComposeResult:
-        yield Input()
-
-    def on_mount(self) -> None:
-        input_filter = self.query_one(Input)
-        input_filter.border_title = f"[{SECONDARY}]filter[/]"
-        input_filter.border_subtitle = (
-            f"[{PRIMARY}]filter:[/] enter [{SECONDARY}]|[/] [{PRIMARY}]back:[/] scape"
-        )
-        input_filter.focus()
+        input_filter = Input()
+        input_filter.border_title = "filter topic"
+        input_filter.border_subtitle = f"[{PRIMARY}]filter:[/] {SUBMIT_SHORTCUT} [{SECONDARY}]|[/] [{PRIMARY}]back:[/] {BACK_SHORTCUT}"
+        yield input_filter
 
     def on_input_submitted(self, event: Input.Submitted) -> None:
         self.dismiss(event.value)
@@ -69,17 +77,13 @@ class FilterTopicsScreen(ModalScreen[str]):
 
 
 class ConfirmationScreen(ModalScreen[bool]):
-    BINDINGS = [Binding(Keys.Escape, "no"), Binding(Keys.Enter, "yes")]
+    BINDINGS = [Binding(BACK_SHORTCUT, "no"), Binding(SUBMIT_SHORTCUT, "yes")]
 
     def compose(self) -> ComposeResult:
-        yield Label("Are you sure?")
-
-    def on_mount(self) -> None:
-        label = self.query_one(Label)
-        label.border_subtitle = (
-            f"[{PRIMARY}]yes:[/] enter [{SECONDARY}]|[/] [{PRIMARY}]no:[/] scape"
-        )
-        label.focus()
+        label = Label("Are you sure?")
+        label.border_title = "delete topic"
+        label.border_subtitle = f"[{PRIMARY}]yes:[/] {SUBMIT_SHORTCUT} [{SECONDARY}]|[/] [{PRIMARY}]no:[/] {BACK_SHORTCUT}"
+        yield label
 
     def action_yes(self) -> None:
         self.dismiss(True)
@@ -89,7 +93,7 @@ class ConfirmationScreen(ModalScreen[bool]):
 
 
 class DescribeTopicScreen(ModalScreen):
-    BINDINGS = [Binding(Keys.Escape, "close"), Binding(">", "change")]
+    BINDINGS = [Binding(BACK_SHORTCUT, "close"), Binding(NEXT_SHORTCUT, "next")]
 
     def __init__(self, topic: Topic):
         super().__init__()
@@ -98,13 +102,14 @@ class DescribeTopicScreen(ModalScreen):
         self.current_tab = next(self.tabs)
 
     def compose(self) -> ComposeResult:
-        yield DataTable()
-
-    def on_mount(self) -> None:
-        table = self.query_one(DataTable)
+        table: DataTable = DataTable()
         table.cursor_type = "row"
         table.zebra_stripes = True
-        table.border_subtitle = f"[{PRIMARY}]next:[/] > [{SECONDARY}]|[/] [{PRIMARY}]back:[/] scape"
+        table.border_subtitle = f"[{PRIMARY}]next:[/] {NEXT_SHORTCUT} [{SECONDARY}]|[/] [{PRIMARY}]back:[/] {BACK_SHORTCUT}"
+
+        yield table
+
+    def on_mount(self) -> None:
         self.render_partitions()
 
     def render_partitions(self) -> None:
@@ -172,7 +177,7 @@ class DescribeTopicScreen(ModalScreen):
                 ]
                 table.add_row(*row)
 
-    def action_change(self) -> None:
+    def action_next(self) -> None:
         self.current_tab = next(self.tabs)
         method_name = self.current_tab.replace(" ", "_")
         render_table = getattr(self, f"render_{method_name}")
@@ -182,13 +187,79 @@ class DescribeTopicScreen(ModalScreen):
         self.dismiss()
 
 
+class CreateTopicScreen(ModalScreen[NewTopic]):
+    BINDINGS = [Binding(BACK_SHORTCUT, "back"), Binding(SAVE_SHORTCUT, "create")]
+
+    def compose(self) -> ComposeResult:
+        input_name = Input(id="name")
+        input_name.border_title = "name"
+
+        input_partitions = Input(id="partitions", type="integer", value="1")
+        input_partitions.border_title = "partitions"
+
+        input_replication = Input(id="replication", type="integer", value="1")
+        input_replication.border_title = "replication"
+
+        input_retention = Input(id="retention", type="integer", value="86400000")
+        input_retention.border_title = "retention (ms)"
+
+        radio_set = RadioSet(id="cleanup")
+        radio_set.border_title = "cleanup policy"
+
+        container = Container()
+        container.border_title = "create topic"
+        container.border_subtitle = f"[{PRIMARY}]create:[/] {SAVE_SHORTCUT} [{SECONDARY}]|[/] [{PRIMARY}]back:[/] {BACK_SHORTCUT}"
+
+        with container:
+            yield input_name
+            yield input_partitions
+            yield input_replication
+            yield input_retention
+            with radio_set:
+                yield RadioButton("delete", value=True)
+                yield RadioButton("compact")
+
+    def action_create(self) -> None:
+        name_input = self.query_one("#name", Input)
+        name = name_input.value
+
+        partitions_input = self.query_one("#partitions", Input)
+        partitions = partitions_input.value
+
+        replication_input = self.query_one("#replication", Input)
+        replication = replication_input.value
+
+        retention_input = self.query_one("#retention", Input)
+        retention = retention_input.value
+
+        cleanup_input = self.query_one("#cleanup", RadioSet)
+        cleanup = (
+            cleanup_input.pressed_button.label
+            if cleanup_input.pressed_button is not None
+            else "delete"
+        )
+
+        new_topic = NewTopic(
+            name,
+            num_partitions=int(partitions),
+            replication_factor=int(replication),
+            config={"cleanup.policy": cleanup, "delete.retention.ms": retention},
+        )
+
+        self.dismiss(new_topic)
+
+    def action_back(self) -> None:
+        self.dismiss()
+
+
 class ListTopics(Container):
     BINDINGS = [
-        Binding("/", "filter"),
-        Binding(Keys.Escape, "all"),
-        Binding(Keys.ControlR, "refresh"),
-        Binding(Keys.ControlD, "delete"),
-        Binding(Keys.Enter, "describe", priority=True),
+        Binding(FILTER_TOPICS_ACTION, "filter"),
+        Binding(ALL_TOPICS_SHORTCUT, "all"),
+        Binding(REFRESH_TOPICS_SHORTCUT, "refresh"),
+        Binding(DELETE_TOPIC_SHORTCUT, "delete"),
+        Binding(NEW_TOPIC_SHORTCUT, "new"),
+        Binding(DESCRIBE_TOPIC_SHORTCUT, "describe", priority=True),
     ]
 
     def __init__(self, kafka_conf: dict[str, str]):
@@ -199,10 +270,7 @@ class ListTopics(Container):
         self.current_filter: str | None = None
 
     def compose(self) -> ComposeResult:
-        yield DataTable()
-
-    def on_mount(self) -> None:
-        table = self.query_one(DataTable)
+        table: DataTable = DataTable()
         table.cursor_type = "row"
         table.border_subtitle = f"\\[[{PRIMARY}]admin mode[/]]"
         table.zebra_stripes = True
@@ -215,6 +283,9 @@ class ListTopics(Container):
         table.add_column("records", width=10)
         table.add_column("lag", width=10)
 
+        yield table
+
+    def on_mount(self) -> None:
         self.run_worker(self.action_refresh())
 
     def on_data_table_row_highlighted(self, data: DataTable.RowHighlighted) -> None:
@@ -231,6 +302,20 @@ class ListTopics(Container):
         except Exception as ex:
             self.notify_error(ex)
         self.run_worker(self.fill_table())
+
+    async def action_new(self) -> None:
+        async def on_dismiss(result: NewTopic) -> None:
+            if result is None:
+                return
+
+            try:
+                self.topic_service.create(result)
+                await asyncio.sleep(0.5)
+                self.run_worker(self.action_refresh())
+            except Exception as ex:
+                self.notify_error(ex)
+
+        await self.app.push_screen(CreateTopicScreen(), on_dismiss)
 
     async def action_delete(self) -> None:
         if self.current_topic is None:
@@ -311,8 +396,6 @@ class KaskadeAdmin(App):
     def __init__(self, kafka_conf: dict[str, str]):
         super().__init__()
         self.kafka_conf = kafka_conf
-
-    def on_mount(self) -> None:
         self.use_command_palette = False
 
     def compose(self) -> ComposeResult:

@@ -135,21 +135,7 @@ class TopicService:
         self.admin_client = AdminClient(self.config)
         self.consumer = Consumer(self.config | {"group.id": f"kaskade-{uuid.uuid4()}"})
 
-    def create(
-        self,
-        name: str,
-        num_partitions: int,
-        replication_factor: int,
-        *,
-        cleanup_policy: str = "delete",
-        delete_retention_ms: int = 86400000,
-    ) -> None:
-        new_topic = NewTopic(
-            name,
-            num_partitions=num_partitions,
-            replication_factor=replication_factor,
-            config={"cleanup.policy": cleanup_policy, "delete.retention.ms": delete_retention_ms},
-        )
+    def create(self, new_topic: NewTopic) -> None:
         futures = self.admin_client.create_topics([new_topic])
         for future in futures.values():
             future.result()

@@ -78,11 +78,12 @@ ConfirmationScreen {
 ConfirmationScreen > Label {
     border: solid $kaskade-green;
     background: $surface;
-    width: 60%;
+    width: 40%;
+    padding: 0 0 0 1;
 }
 
 ConfirmationScreen > Label:focus {
-    border: $kaskade-green;
+    border: solid $kaskade-green;
     background: $surface;
 }
 
@@ -105,4 +106,37 @@ FilterTopicsScreen > Input:focus {
 .-textual-loading-indicator {
     background: $surface;
     color: $kaskade-orchid;
+}
+
+CreateTopicScreen {
+    align: center middle;
+}
+
+CreateTopicScreen > Container {
+    border: $kaskade-green;
+    width: 40%;
+    height: 18;
+    background: $surface;
+    padding: 0 1 0 1;
+}
+
+CreateTopicScreen > Container > Input {
+    padding: 0 0 0 1;
+    border: solid $kaskade-green 50%;
+    background: $surface;
+}
+
+CreateTopicScreen > Container > Input:focus {
+    border: $kaskade-green;
+    background: $surface;
+}
+
+CreateTopicScreen > Container > RadioSet {
+    border: solid $kaskade-green 50%;
+    width: 100%;
+}
+
+CreateTopicScreen > Container > RadioSet:focus {
+    border: $kaskade-green;
+    background: $surface;
 }

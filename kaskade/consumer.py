@@ -3,7 +3,7 @@ from rich.table import Table
 from textual.app import App, ComposeResult, RenderResult
 from textual.binding import Binding
 from textual.containers import Container
-from textual.keys import Keys
+
 from textual.widget import Widget
 from textual.widgets import DataTable
 
@@ -13,6 +13,11 @@ from kaskade.unicodes import LEFT, RIGHT, UP, DOWN
 from kaskade.widgets import KaskadeBanner
 
 
+NEXT_SHORTCUT = ">"
+QUIT_SHORTCUT = "ctrl+c"
+SUBMIT_SHORTCUT = "enter"
+
+
 class Shortcuts(Widget):
 
     def render(self) -> RenderResult:
@@ -20,10 +25,10 @@ class Shortcuts(Widget):
         table.add_column(style=PRIMARY)
         table.add_column(style=SECONDARY)
 
-        table.add_row("show:", "enter")
+        table.add_row("show:", SUBMIT_SHORTCUT)
         table.add_row("scroll:", f"{LEFT} {RIGHT} {UP} {DOWN}")
-        table.add_row("more:", ">")
-        table.add_row("quit:", Keys.ControlC)
+        table.add_row("more:", NEXT_SHORTCUT)
+        table.add_row("quit:", QUIT_SHORTCUT)
 
         return table
 
@@ -36,7 +41,7 @@ class Header(Widget):
 
 
 class ListRecords(Container):
-    BINDINGS = [Binding(">", "consume")]
+    BINDINGS = [Binding(NEXT_SHORTCUT, "consume")]
 
     def __init__(self, topic: str, kafka_conf: dict[str, str]):
         super().__init__()
@@ -44,13 +49,7 @@ class ListRecords(Container):
         self.consumer = ConsumerService(topic, kafka_conf)
 
     def compose(self) -> ComposeResult:
-        yield DataTable()
-
-    def on_unmount(self) -> None:
-        self.consumer.close()
-
-    def on_mount(self) -> None:
-        table = self.query_one(DataTable)
+        table: DataTable = DataTable()
         table.cursor_type = "row"
         table.border_subtitle = f"\\[[{PRIMARY}]consumer mode[/]]"
         table.zebra_stripes = True
@@ -63,6 +62,12 @@ class ListRecords(Container):
         table.add_column("offset", width=9)
         table.add_column("headers", width=9)
 
+        yield table
+
+    def on_unmount(self) -> None:
+        self.consumer.close()
+
+    def on_mount(self) -> None:
         self.run_worker(self.action_consume())
 
     async def action_consume(self) -> None:
@@ -110,8 +115,6 @@ class KaskadeConsumer(App):
         super().__init__()
         self.topic = topic
         self.kafka_conf = kafka_conf
-
-    def on_mount(self) -> None:
         self.use_command_palette = False
 
     def compose(self) -> ComposeResult:
