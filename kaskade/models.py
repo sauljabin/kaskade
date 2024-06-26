@@ -1,5 +1,4 @@
-from datetime import datetime
-from typing import Any, Tuple
+from typing import Any
 
 
 class Node:
@@ -19,7 +18,7 @@ class Node:
         return str(self)
 
     def __str__(self) -> str:
-        return "{}:{}/{}".format(self.host, self.port, self.id)
+        return f"{self.host}:{self.port}/{self.id}"
 
     def __eq__(self, other: Any) -> bool:
         if isinstance(other, Node):
@@ -274,13 +273,15 @@ class Cluster:
 class Record:
     def __init__(
         self,
+        topic: str = "",
         partition: int = -1,
         offset: int = -1,
-        date: datetime | None = None,
+        date: str = "",
         key: bytes | None = None,
         value: bytes | None = None,
-        headers: list[Tuple[str, bytes]] | None = None,
+        headers: list[tuple[str, bytes]] | None = None,
     ) -> None:
+        self.topic = topic
         self.partition = partition
         self.offset = offset
         self.date = date
@@ -290,6 +291,12 @@ class Record:
             headers = []
         self.headers = headers
 
+    def __repr__(self) -> str:
+        return str(self)
+
+    def __str__(self) -> str:
+        return f"{self.partition}/{self.offset}"
+
     def __eq__(self, other: Any) -> bool:
         if isinstance(other, Record):
             return self.partition == other.partition and self.offset == other.offset
@@ -297,3 +304,21 @@ class Record:
 
     def headers_count(self) -> int:
         return len(self.headers) if self.headers is not None else 0
+
+    def dict(self) -> dict[str, Any]:
+        return {
+            "date": self.date,
+            "offset": self.offset,
+            "partition": self.partition,
+            "headers": (
+                {
+                    key: str(value) if isinstance(value, bytes) else value
+                    for key, value in self.headers
+                }
+                if self.headers is not None
+                else self.headers
+            ),
+            "key": str(self.key) if isinstance(self.key, bytes) else self.key,
+            "value": str(self.value) if isinstance(self.value, bytes) else self.value,
+            "pepe": "ljkanskfdjnasdf skadfgbnksdjafngk asdfkgjnasdfk ngkadsf g kljandsolgnmasld gasldknmg lasdgl asjdlgk as,dg lasdkjglasmdffg, asdflgjjnasldfgaszdlgnsalg al,eesd gkleajdfgn ,asdm gaskldjgn,asdm galsdjnglasmd gl,asjdnfglasd g,as dlgj a",
+        }

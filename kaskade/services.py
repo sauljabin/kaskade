@@ -2,7 +2,7 @@ import asyncio
 import functools
 import uuid
 from datetime import datetime
-from typing import Tuple, Any, Callable
+from typing import Any, Callable
 
 from confluent_kafka import Consumer, TopicPartition, OFFSET_INVALID, KafkaException
 from confluent_kafka.admin import (
@@ -84,9 +84,14 @@ class ConsumerService:
             retries = 0
 
             timestamp_available, timestamp = record_metadata.timestamp()
-            date = datetime.fromtimestamp(timestamp / 1000) if timestamp_available > 0 else None
+            date = (
+                datetime.fromtimestamp(timestamp / 1000).strftime("%Y-%m-%d %H:%M:%S")
+                if timestamp_available > 0
+                else ""
+            )
 
             record = Record(
+                topic=self.topic,
                 partition=record_metadata.partition(),
                 offset=record_metadata.offset(),
                 key=record_metadata.key(),
@@ -140,8 +145,8 @@ class TopicService:
         self.admin_client = AdminClient(self.config)
         self.consumer = Consumer(self.config | {"group.id": f"kaskade-{uuid.uuid4()}"})
 
-    def create(self, new_topic: NewTopic) -> None:
-        futures = self.admin_client.create_topics([new_topic])
+    def create(self, new_topics: list[NewTopic]) -> None:
+        futures = self.admin_client.create_topics(new_topics)
         for future in futures.values():
             future.result()
 
@@ -263,7 +268,7 @@ class TopicService:
 
     async def _get_watermarks(
         self, topic_metadata: TopicMetadata, partition_metadata: PartitionMetadata
-    ) -> Tuple[int, int]:
+    ) -> tuple[int, int]:
         low, high = 0, 0
 
         try:

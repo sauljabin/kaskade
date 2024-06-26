@@ -1,5 +1,4 @@
 import sys
-from typing import Tuple
 
 import click
 from confluent_kafka import KafkaException
@@ -36,7 +35,7 @@ def cli() -> None:
 @click.option(
     "-b",
     "bootstrap_servers_input",
-    help="Bootstrap server(s). Comma-separated list of host and port pairs. Example: localhost:9091,localhost:9092. ",
+    help="Bootstrap server(s). Comma-separated list of host and port pairs. Example: localhost:9091,localhost:9092.",
     metavar="host:port",
     required=True,
 )
@@ -49,7 +48,7 @@ def cli() -> None:
 )
 def admin(
     bootstrap_servers_input: str,
-    kafka_properties_input: Tuple[str],
+    kafka_properties_input: tuple[str, ...],
 ) -> None:
     """
 
@@ -83,7 +82,7 @@ def admin(
 @click.option(
     "-b",
     "bootstrap_servers_input",
-    help="Bootstrap server(s). Comma-separated list of host and port pairs. Example: localhost:9091,localhost:9092. ",
+    help="Bootstrap server(s). Comma-separated list of host and port pairs. Example: localhost:9091,localhost:9092.",
     metavar="host:port",
     required=True,
 )
@@ -110,8 +109,8 @@ def admin(
 )
 def consumer(
     bootstrap_servers_input: str,
-    kafka_properties_input: Tuple[str],
-    registry_properties_input: Tuple[str],
+    kafka_properties_input: tuple[str, ...],
+    registry_properties_input: tuple[str, ...],
     topic: str,
 ) -> None:
     """

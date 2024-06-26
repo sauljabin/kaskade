@@ -12,6 +12,7 @@ from textual.screen import ModalScreen
 from textual.widget import Widget
 from textual.widgets import DataTable, Input, Label, RadioSet, RadioButton
 
+from kaskade import logger
 from kaskade.colors import PRIMARY, SECONDARY
 from kaskade.models import Topic
 from kaskade.services import TopicService, MILLISECONDS_24H
@@ -310,7 +311,7 @@ class ListTopics(Container):
                 return
 
             try:
-                self.topic_service.create(result)
+                self.topic_service.create([result])
                 await asyncio.sleep(0.5)
                 self.run_worker(self.action_refresh())
             except Exception as ex:
@@ -343,6 +344,7 @@ class ListTopics(Container):
             message = ex.args[0].str()
         else:
             message = str(ex)
+        logger.exception(ex)
         self.notify(message, severity="error", title="kafka error")
 
     def action_describe(self) -> None:

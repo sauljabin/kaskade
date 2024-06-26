@@ -140,3 +140,9 @@ CreateTopicScreen > Container > RadioSet:focus {
     border: $kaskade-green;
     background: $surface;
 }
+
+TopicScreen > Pretty {
+    height: 100%;
+    background: $surface;
+    border: $kaskade-green;
+}
