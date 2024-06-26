@@ -3,7 +3,7 @@ import functools
 import uuid
 from datetime import datetime
 from operator import attrgetter
-from typing import List, Tuple
+from typing import Tuple
 
 from confluent_kafka import Consumer, TopicPartition, OFFSET_INVALID, KafkaException
 from confluent_kafka.admin import (
@@ -13,6 +13,7 @@ from confluent_kafka.admin import (
     ConsumerGroupDescription,
     PartitionMetadata,
 )
+from confluent_kafka.cimpl import NewTopic
 
 from kaskade.models import (
     Topic,
@@ -51,8 +52,8 @@ class ConsumerService:
         self.consumer.unsubscribe()
         self.consumer.close()
 
-    async def consume(self) -> List[Record]:
-        records: List[Record] = []
+    async def consume(self) -> list[Record]:
+        records: list[Record] = []
         retries = 0
 
         while len(records) < self.page_size:
@@ -127,17 +128,41 @@ class TopicService:
         self.admin_client = AdminClient(self.config)
         self.consumer = Consumer(self.config | {"group.id": f"kaskade-{uuid.uuid4()}"})
 
-    def all(self) -> List[Topic]:
+    def create(
+        self,
+        name: str,
+        num_partitions: int,
+        replication_factor: int,
+        *,
+        cleanup_policy: str = "delete",
+        delete_retention_ms: int = 86400000,
+    ) -> None:
+        new_topic = NewTopic(
+            name,
+            num_partitions=num_partitions,
+            replication_factor=replication_factor,
+            config={"cleanup.policy": cleanup_policy, "delete.retention.ms": delete_retention_ms},
+        )
+        futures = self.admin_client.create_topics([new_topic])
+        for future in futures.values():
+            future.result()
+
+    def delete(self, name: str) -> None:
+        futures = self.admin_client.delete_topics([name])
+        for future in futures.values():
+            future.result()
+
+    def all(self) -> dict[str, Topic]:
         topics = self._map_topics(self._list_topics_metadata())
         self._map_groups_into_topics(self._list_groups_metadata(), topics)
         return topics
 
     def _map_groups_into_topics(
-        self, groups_metadata: List[ConsumerGroupDescription], topics: List[Topic]
+        self, groups_metadata: list[ConsumerGroupDescription], topics: dict[str, Topic]
     ) -> None:
         for group_metadata in groups_metadata:
             group_consumer = Consumer(self.config | {"group.id": group_metadata.group_id})
-            for topic in topics:
+            for topic in topics.values():
 
                 coordinator = Node(
                     id=group_metadata.coordinator.id,
@@ -202,11 +227,11 @@ class TopicService:
 
                     topic.groups.append(group)
 
-    def _map_topics(self, topics_metadata: List[TopicMetadata]) -> List[Topic]:
-        topics = []
+    def _map_topics(self, topics_metadata: list[TopicMetadata]) -> dict[str, Topic]:
+        topics = {}
         for topic_metadata in topics_metadata:
             topic = Topic(name=topic_metadata.topic)
-            topics.append(topic)
+            topics[topic_metadata.topic] = topic
 
             for topic_partition_metadata in topic_metadata.partitions.values():
                 low_topic_partition_watermark, high_topic_partition_watermark = (
@@ -237,8 +262,8 @@ class TopicService:
         )
         return low, high
 
-    def _list_groups_metadata(self) -> List[ConsumerGroupDescription]:
-        group_names: List[str] = [
+    def _list_groups_metadata(self) -> list[ConsumerGroupDescription]:
+        group_names: list[str] = [
             group.group_id
             for group in self.admin_client.list_consumer_groups(request_timeout=self.timeout)
             .result()
@@ -255,7 +280,7 @@ class TopicService:
             ).items()
         ]
 
-    def _list_topics_metadata(self) -> List[TopicMetadata]:
+    def _list_topics_metadata(self) -> list[TopicMetadata]:
         return sorted(
             list(self.admin_client.list_topics(timeout=self.timeout).topics.values()),
             key=attrgetter("topic"),

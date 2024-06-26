@@ -90,15 +90,17 @@ class ListRecords(Container):
                 f"records \\[[{PRIMARY}]{self.topic}[/]]\\[[{PRIMARY}]{table.row_count}[/]]"
             )
         except Exception as ex:
-            if isinstance(ex, KafkaException):
-                message = ex.args[0].str()
-            else:
-                message = str(ex)
-
-            self.notify(message, severity="error", title="kafka error")
+            self.notify_error(ex)
 
         table.loading = False
         table.focus()
+
+    def notify_error(self, ex: Exception) -> None:
+        if isinstance(ex, KafkaException):
+            message = ex.args[0].str()
+        else:
+            message = str(ex)
+        self.notify(message, severity="error", title="kafka error")
 
 
 class KaskadeConsumer(App):

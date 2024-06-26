@@ -1,6 +1,7 @@
+import asyncio
 from itertools import cycle
-from typing import List
 
+from confluent_kafka import KafkaException
 from rich.table import Table
 from textual.app import ComposeResult, RenderResult, App
 from textual.binding import Binding
@@ -8,7 +9,7 @@ from textual.containers import Container
 from textual.keys import Keys
 from textual.screen import ModalScreen
 from textual.widget import Widget
-from textual.widgets import DataTable, Input
+from textual.widgets import DataTable, Input, Label
 
 from kaskade.colors import PRIMARY, SECONDARY
 from kaskade.models import Topic
@@ -23,12 +24,18 @@ class Shortcuts(Widget):
         table = Table(box=None, show_header=False, padding=(0, 1, 0, 0))
         table.add_column(style=PRIMARY)
         table.add_column(style=SECONDARY)
+        table.add_column(style=PRIMARY)
+        table.add_column(style=SECONDARY)
 
-        table.add_row("describe:", "enter")
-        table.add_row("scroll:", f"{LEFT} {RIGHT} {UP} {DOWN}")
-        table.add_row("filter:", "/")
-        table.add_row("quit:", Keys.ControlC)
-        table.add_row("all:", "escape")
+        table.add_row(
+            "describe:",
+            "enter",
+            "create:",
+            Keys.ControlN,
+        )
+        table.add_row("scroll:", f"{LEFT} {RIGHT} {UP} {DOWN}", "delete:", Keys.ControlD)
+        table.add_row("filter:", "/", "refresh:", Keys.ControlR)
+        table.add_row("all:", "escape", "quit:", Keys.ControlC)
 
         return table
 
@@ -52,12 +59,33 @@ class FilterTopicsScreen(ModalScreen[str]):
         input_filter.border_subtitle = (
             f"[{PRIMARY}]filter:[/] enter [{SECONDARY}]|[/] [{PRIMARY}]back:[/] scape"
         )
+        input_filter.focus()
 
     def on_input_submitted(self, event: Input.Submitted) -> None:
         self.dismiss(event.value)
 
     def action_close(self) -> None:
         self.dismiss()
+
+
+class ConfirmationScreen(ModalScreen[bool]):
+    BINDINGS = [Binding(Keys.Escape, "no"), Binding(Keys.Enter, "yes")]
+
+    def compose(self) -> ComposeResult:
+        yield Label("Are you sure?")
+
+    def on_mount(self) -> None:
+        label = self.query_one(Label)
+        label.border_subtitle = (
+            f"[{PRIMARY}]yes:[/] enter [{SECONDARY}]|[/] [{PRIMARY}]no:[/] scape"
+        )
+        label.focus()
+
+    def action_yes(self) -> None:
+        self.dismiss(True)
+
+    def action_no(self) -> None:
+        self.dismiss(False)
 
 
 class DescribeTopicScreen(ModalScreen):
@@ -158,13 +186,17 @@ class ListTopics(Container):
     BINDINGS = [
         Binding("/", "filter"),
         Binding(Keys.Escape, "all"),
+        Binding(Keys.ControlR, "refresh"),
+        Binding(Keys.ControlD, "delete"),
         Binding(Keys.Enter, "describe", priority=True),
     ]
 
-    def __init__(self, topics: List[Topic]):
+    def __init__(self, kafka_conf: dict[str, str]):
         super().__init__()
-        self.topics = {topic.name: topic for topic in topics}
+        self.topic_service = TopicService(kafka_conf)
+        self.topics: dict[str, Topic] = {}
         self.current_topic: Topic | None = None
+        self.current_filter: str | None = None
 
     def compose(self) -> ComposeResult:
         yield DataTable()
@@ -172,7 +204,7 @@ class ListTopics(Container):
     def on_mount(self) -> None:
         table = self.query_one(DataTable)
         table.cursor_type = "row"
-        table.border_subtitle = f"\\[[{PRIMARY}]describer mode[/]]"
+        table.border_subtitle = f"\\[[{PRIMARY}]admin mode[/]]"
         table.zebra_stripes = True
 
         table.add_column("name")
@@ -183,12 +215,49 @@ class ListTopics(Container):
         table.add_column("records", width=10)
         table.add_column("lag", width=10)
 
-        self.action_all()
+        self.run_worker(self.action_refresh())
 
     def on_data_table_row_highlighted(self, data: DataTable.RowHighlighted) -> None:
         if data.row_key.value is None:
             return
         self.current_topic = self.topics.get(data.row_key.value)
+
+    async def action_refresh(self) -> None:
+        table = self.query_one(DataTable)
+        table.loading = True
+
+        try:
+            self.topics = self.topic_service.all()
+        except Exception as ex:
+            self.notify_error(ex)
+        self.run_worker(self.fill_table())
+
+    async def action_delete(self) -> None:
+        if self.current_topic is None:
+            return
+
+        async def on_dismiss(result: bool) -> None:
+            if not result:
+                return
+
+            if self.current_topic is None:
+                return
+
+            try:
+                self.topic_service.delete(self.current_topic.name)
+                await asyncio.sleep(0.5)
+                self.run_worker(self.action_refresh())
+            except Exception as ex:
+                self.notify_error(ex)
+
+        await self.app.push_screen(ConfirmationScreen(), on_dismiss)
+
+    def notify_error(self, ex: Exception) -> None:
+        if isinstance(ex, KafkaException):
+            message = ex.args[0].str()
+        else:
+            message = str(ex)
+        self.notify(message, severity="error", title="kafka error")
 
     def action_describe(self) -> None:
         if self.current_topic is None:
@@ -196,21 +265,23 @@ class ListTopics(Container):
         self.app.push_screen(DescribeTopicScreen(self.current_topic))
 
     def action_all(self) -> None:
+        self.current_filter = None
         self.run_worker(self.fill_table())
 
     def action_filter(self) -> None:
         def on_dismiss(result: str) -> None:
-            self.run_worker(self.fill_table(result))
+            self.current_filter = result
+            self.run_worker(self.fill_table())
 
         self.app.push_screen(FilterTopicsScreen(), on_dismiss)
 
-    async def fill_table(self, with_filter: None | str = None) -> None:
+    async def fill_table(self) -> None:
         table = self.query_one(DataTable)
         table.clear()
 
         total_count = 0
         for topic in self.topics.values():
-            if with_filter is not None and with_filter not in topic.name:
+            if self.current_filter is not None and self.current_filter not in topic.name:
                 continue
             total_count += 1
             row = [
@@ -224,24 +295,26 @@ class ListTopics(Container):
             ]
             table.add_row(*row, key=topic.name)
 
-        border_title_filter_info = f"\\[[{PRIMARY}]*{with_filter}*[/]]" if with_filter else ""
+        border_title_filter_info = (
+            f"\\[[{PRIMARY}]*{self.current_filter}*[/]]" if self.current_filter else ""
+        )
         table.border_title = (
             f"[{SECONDARY}]topics {border_title_filter_info}\\[[{PRIMARY}]{total_count}[/]][/]"
         )
+        table.loading = False
         table.focus()
 
 
-class KaskadeDescriber(App):
+class KaskadeAdmin(App):
     CSS_PATH = "styles.css"
 
     def __init__(self, kafka_conf: dict[str, str]):
         super().__init__()
-        topic_service = TopicService(kafka_conf)
-        self.topics = topic_service.all()
+        self.kafka_conf = kafka_conf
 
     def on_mount(self) -> None:
         self.use_command_palette = False
 
     def compose(self) -> ComposeResult:
         yield Header()
-        yield ListTopics(self.topics)
+        yield ListTopics(self.kafka_conf)

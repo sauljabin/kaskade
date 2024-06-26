@@ -58,7 +58,7 @@ class TestTopicService(unittest.TestCase):
         topics_list = topic_service.all()
         self.assertEqual(1, len(topics_list))
 
-        topic = topics_list[0]
+        topic = topics_list[expected_topic_name]
         self.assertEqual(expected_topic_name, topic.name)
 
         partitions_list = topic.partitions
@@ -155,7 +155,7 @@ class TestTopicService(unittest.TestCase):
         topics_list = topic_service.all()
         self.assertEqual(1, len(topics_list))
 
-        topic = topics_list[0]
+        topic = topics_list[expected_topic_name]
         self.assertEqual(expected_topic_name, topic.name)
 
         partitions_list = topic.partitions

@@ -71,6 +71,21 @@ DataTable > .datatable--even-row {
     background: $kaskade-green 5%;
 }
 
+ConfirmationScreen {
+    align: center middle;
+}
+
+ConfirmationScreen > Label {
+    border: solid $kaskade-green;
+    background: $surface;
+    width: 60%;
+}
+
+ConfirmationScreen > Label:focus {
+    border: $kaskade-green;
+    background: $surface;
+}
+
 FilterTopicsScreen {
     align: center middle;
 }

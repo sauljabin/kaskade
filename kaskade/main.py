@@ -7,7 +7,7 @@ from rich.console import Console
 
 from kaskade import APP_VERSION
 from kaskade.consumer import KaskadeConsumer
-from kaskade.describer import KaskadeDescriber
+from kaskade.admin import KaskadeAdmin
 
 
 @click.group()
@@ -18,9 +18,9 @@ def cli() -> None:
     kaskade is a terminal user interface for kafka.
 
     \b
-    Describer mode:
+    Admin mode:
         Allows you to list and search topics.
-        Run <kaskade describer --help> for more information.
+        Run <kaskade admin --help> for more information.
 
     \b
     Consumer mode:
@@ -47,18 +47,18 @@ def cli() -> None:
     metavar="property=value",
     multiple=True,
 )
-def describer(
+def admin(
     bootstrap_servers_input: str,
     kafka_properties_input: Tuple[str],
 ) -> None:
     """
 
-    kaskade describer mode allows you to list topics and see their settings.
+    kaskade admin mode allows you to list topics and see their settings.
 
     \b
     Examples:
-        kaskade describer -b localhost:9092
-        kaskade describer -b localhost:9092 -x security.protocol=SSL
+        kaskade admin -b localhost:9092
+        kaskade admin -b localhost:9092 -x security.protocol=SSL
 
     More at https://github.com/sauljabin/kaskade.
     """
@@ -66,7 +66,7 @@ def describer(
     kafka_conf["bootstrap.servers"] = bootstrap_servers_input
 
     try:
-        kaskade_app = KaskadeDescriber(kafka_conf)
+        kaskade_app = KaskadeAdmin(kafka_conf)
         kaskade_app.run()
     except Exception as ex:
         if isinstance(ex, KafkaException):

@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Any, List, Tuple
+from typing import Any, Tuple
 
 
 class Node:
@@ -35,7 +35,7 @@ class GroupMember:
         group: str = "",
         host: str = "",
         instance_id: str = "",
-        assignment: List[int] | None = None,
+        assignment: list[int] | None = None,
     ) -> None:
         self.id = id
         self.client_id = client_id
@@ -103,8 +103,8 @@ class Group:
         coordinator: None | Node = None,
         state: str = "",
         partition_assignor: str = "",
-        members: None | List[GroupMember] = None,
-        partitions: None | List[GroupPartition] = None,
+        members: None | list[GroupMember] = None,
+        partitions: None | list[GroupPartition] = None,
     ) -> None:
         if partitions is None:
             partitions = []
@@ -147,8 +147,8 @@ class Partition:
         self,
         id: int = -1,
         leader: int = -1,
-        replicas: None | List[int] = None,
-        isrs: None | List[int] = None,
+        replicas: None | list[int] = None,
+        isrs: None | list[int] = None,
         low: int = 0,
         high: int = 0,
         topic: str = "",
@@ -184,8 +184,8 @@ class Topic:
     def __init__(
         self,
         name: str = "",
-        partitions: None | List[Partition] = None,
-        groups: None | List[Group] = None,
+        partitions: None | list[Partition] = None,
+        groups: None | list[Group] = None,
     ) -> None:
         if groups is None:
             groups = []
@@ -246,7 +246,7 @@ class Cluster:
         self,
         id: str = "",
         controller: None | Node = None,
-        nodes: None | List[Node] = None,
+        nodes: None | list[Node] = None,
     ) -> None:
         if nodes is None:
             nodes = []
@@ -274,7 +274,7 @@ class Record:
         date: datetime | None = None,
         key: bytes | None = None,
         value: bytes | None = None,
-        headers: List[Tuple[str, bytes]] | None = None,
+        headers: list[Tuple[str, bytes]] | None = None,
     ) -> None:
         self.partition = partition
         self.offset = offset

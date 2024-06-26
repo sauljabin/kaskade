@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - New arguments
 - Add filter
 - Add json and protobuf serialization
+- Add create and delete topic
 
 ### Changed
 
