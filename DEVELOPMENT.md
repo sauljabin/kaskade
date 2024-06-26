@@ -59,6 +59,11 @@ Running code analysis:
 python -m scripts.analyze
 ```
 
+Running banner:
+
+```shell
+python -m scripts.banner
+```
 ### Kafka Cluster
 
 Run local cluster:
