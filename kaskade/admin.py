@@ -429,9 +429,9 @@ class KaskadeBanner(Widget):
         version_text = Text("", justify="right")
 
         if self.include_slogan:
-            version_text.append("a kafka text user interface ", style=f"{SECONDARY}")
+            version_text.append("a text user interface for kafka ", style=f"{SECONDARY}")
 
         if self.include_version:
-            version_text.append(f"v{APP_VERSION} ", style=f"{SECONDARY}")
+            version_text.append(f"v{APP_VERSION}", style=f"{SECONDARY}")
 
         return Group(kaskade_name, version_text)

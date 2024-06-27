@@ -1,5 +1,5 @@
 <p align="center">
-<a href="https://github.com/sauljabin/kaskade"><img alt="kaskade" src="https://raw.githubusercontent.com/sauljabin/kaskade/main/images/banner.png"></a>
+<a href="https://github.com/sauljabin/kaskade"><img alt="kaskade" src="https://raw.githubusercontent.com/sauljabin/kaskade/main/screenshots/banner.png"></a>
 </p>
 <a href="https://github.com/sauljabin/kaskade"><img alt="GitHub" height="20" src="https://img.shields.io/badge/-github-blueviolet?logo=github&logoColor=white"></a>
 <a href="https://github.com/sauljabin/kaskade/blob/main/LICENSE"><img alt="MIT License" src="https://img.shields.io/github/license/sauljabin/kaskade"></a>
@@ -13,15 +13,41 @@ Kaskade is a text user interface (TUI) for Apache Kafka, built with [Textual](ht
 It includes features like:
 
 - Admin:
-  - List topics, partitions, groups and group members
-  - Topic information like lag, replicas, records count
-  - Create and delete topics
+    - List topics, partitions, groups and group members
+    - Topic information like lag, replicas, records count
+    - Create and delete topics
 - Consumer:
-  - Json and Protobuf deserialization
+    - Json, string, integer and double deserialization
 
-<p align="center">
-<img alt="kaskade" src="https://raw.githubusercontent.com/sauljabin/kaskade/main/screenshots/dashboard.png">
-</p>
+## Screenshots
+
+<table>
+
+<tr>
+
+<td>
+<img alt="kaskade" src="https://raw.githubusercontent.com/sauljabin/kaskade/main/screenshots/admin.png">
+</td>
+
+<td>
+<img alt="kaskade" src="https://raw.githubusercontent.com/sauljabin/kaskade/main/screenshots/create-topic.png">
+</td>
+
+</tr>
+
+<tr>
+
+<td>
+<img alt="kaskade" src="https://raw.githubusercontent.com/sauljabin/kaskade/main/screenshots/consumer.png">
+</td>
+
+<td>
+<img alt="kaskade" src="https://raw.githubusercontent.com/sauljabin/kaskade/main/screenshots/record.png">
+</td>
+
+</tr>
+
+</table>
 
 ## Installation
 
@@ -64,7 +90,8 @@ kaskade -b localhost:9092 -x security.protocol=SSL
 ```
 
 For more information about SSL encryption and SSL authentication go
-to the `librdkafka` official page: [Configure librdkafka client](https://github.com/edenhill/librdkafka/wiki/Using-SSL-with-librdkafka#configure-librdkafka-client).
+to the `librdkafka` official
+page: [Configure librdkafka client](https://github.com/edenhill/librdkafka/wiki/Using-SSL-with-librdkafka#configure-librdkafka-client).
 
 ### Multiple bootstrap servers:
 

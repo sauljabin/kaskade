@@ -285,8 +285,6 @@ class Format(Enum):
     DOUBLE = auto()
     JSON = auto()
 
-    # AVRO = auto()
-    # PROTOBUF = auto()
     @classmethod
     def from_str(cls, value: str) -> "Format":
         return Format[value.upper()]
@@ -351,7 +349,6 @@ class Record:
         return len(self.headers) if self.headers is not None else 0
 
     def dict(self) -> dict[str, Any]:
-
         return {
             "topic": self.topic,
             "partition": self.partition,
@@ -370,3 +367,9 @@ class Record:
             "key": _deserialize(self.key_format, self.key),
             "value": _deserialize(self.value_format, self.value),
         }
+
+    def key_str(self) -> str:
+        return str(_deserialize(self.key_format, self.key))
+
+    def value_str(self) -> str:
+        return str(_deserialize(self.value_format, self.value))

@@ -12,22 +12,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Update scripts
 - Add chageloggh
 - New arguments
-- Add filter
-- Add json and protobuf deserialization
-- Add create and delete topic
+- Topic filter
+- Json deserialization
+- Create and delete topic
 
 ### Changed
 
 - New styles
 - textual and confluent-kafka upgraded
-- New package structure
-- New command for the consumer mode
+- Command admin and consumer
 
 ### Removed
 
 - Unit test, confluent-kafka and textual are changing a lot
-- Avro deserialization
-- Schema registry connection
+- Schema registry
 
 ## [1.1.8] - 2022-07-26
 

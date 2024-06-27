@@ -64,6 +64,7 @@ Running banner:
 ```shell
 python -m scripts.banner
 ```
+
 ### Kafka Cluster
 
 Run local cluster:

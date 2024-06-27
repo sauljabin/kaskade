@@ -1,8 +1,4 @@
-import sys
-
 import click
-from confluent_kafka import KafkaException
-from rich.console import Console
 
 from kaskade import APP_VERSION
 from kaskade.consumer import KaskadeConsumer
@@ -65,18 +61,8 @@ def admin(
     kafka_conf = {k: v for (k, v) in [pair.split("=", 1) for pair in kafka_properties_input]}
     kafka_conf["bootstrap.servers"] = bootstrap_servers_input
 
-    try:
-        kaskade_app = KaskadeAdmin(kafka_conf)
-        kaskade_app.run()
-    except Exception as ex:
-        if isinstance(ex, KafkaException):
-            message = ex.args[0].str()
-        else:
-            message = str(ex)
-
-        console = Console()
-        console.print(f'[bold red]A problem has occurred: "{message}"[/]')
-        sys.exit(1)
+    kaskade_app = KaskadeAdmin(kafka_conf)
+    kaskade_app.run()
 
 
 @cli.command()

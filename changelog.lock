@@ -8,20 +8,26 @@
                     "type": "Added",
                     "entries": [
                         "Update scripts",
-                        "Add chageloggh"
+                        "Add chageloggh",
+                        "New arguments",
+                        "Topic filter",
+                        "Json deserialization",
+                        "Create and delete topic"
                     ]
                 },
                 {
                     "type": "Changed",
                     "entries": [
                         "New styles",
-                        "textual and confluent-kafka upgraded"
+                        "textual and confluent-kafka upgraded",
+                        "Command admin and consumer"
                     ]
                 },
                 {
                     "type": "Removed",
                     "entries": [
-                        "Unit test, confluent-kafka and textual are changing a lot"
+                        "Unit test, confluent-kafka and textual are changing a lot",
+                        "Schema registry"
                     ]
                 }
             ]
