@@ -3,12 +3,15 @@ from time import sleep
 
 import click
 from confluent_kafka.cimpl import NewTopic, Producer
+from confluent_kafka.serialization import DoubleSerializer, IntegerSerializer
 from faker import Faker
 
 from kaskade.services import TopicService
 
 TOPIC_STRING = "kaskade.string"
 TOPIC_JSON = "kaskade.json"
+TOPIC_INTEGER = "kaskade.integer"
+TOPIC_DOUBLE = "kaskade.double"
 
 
 def delivery_report(err, msg):
@@ -49,12 +52,38 @@ def produce_strings(config):
         producer.flush()
 
 
+def produce_integers(config):
+    producer = Producer(config)
+    faker = Faker()
+    serializer = IntegerSerializer()
+    print("start producing to", TOPIC_INTEGER)
+    for i in range(1, 101):
+        value = faker.pyint()
+        producer.produce(TOPIC_INTEGER, value=serializer(value), on_delivery=delivery_report)
+        producer.poll(0)
+        producer.flush()
+
+
+def produce_doubles(config):
+    producer = Producer(config)
+    faker = Faker()
+    serializer = DoubleSerializer()
+    print("start producing to", TOPIC_DOUBLE)
+    for i in range(1, 101):
+        value = faker.pyfloat()
+        producer.produce(TOPIC_DOUBLE, value=serializer(value), on_delivery=delivery_report)
+        producer.poll(0)
+        producer.flush()
+
+
 def create_all_topics(config):
     topic_service = TopicService(config)
     print("creating topics")
     topics = [
         make_new_topic(TOPIC_STRING),
         make_new_topic(TOPIC_JSON),
+        make_new_topic(TOPIC_INTEGER),
+        make_new_topic(TOPIC_DOUBLE),
     ]
     topic_service.create(topics)
 
@@ -83,6 +112,8 @@ def main(bootstrap_servers_input: str, create_topics: bool):
 
     produce_strings(config)
     produce_jsons(config)
+    produce_integers(config)
+    produce_doubles(config)
 
 
 if __name__ == "__main__":

@@ -2,6 +2,12 @@ import json
 from enum import Enum, auto
 from typing import Any
 
+from confluent_kafka.serialization import (
+    IntegerDeserializer,
+    DoubleDeserializer,
+    StringDeserializer,
+)
+
 
 class Node:
     def __init__(
@@ -286,6 +292,25 @@ class Format(Enum):
         return Format[value.upper()]
 
 
+def _deserialize(format: Format, value: bytes | None) -> Any:
+    if value is None:
+        return
+
+    match format:
+        case Format.STRING:
+            deserializer = StringDeserializer()
+        case Format.JSON:
+            deserializer = json.loads
+        case Format.INTEGER:
+            deserializer = IntegerDeserializer()
+        case Format.DOUBLE:
+            deserializer = DoubleDeserializer()
+        case _:
+            deserializer = str
+
+    return deserializer(value)
+
+
 class Record:
     def __init__(
         self,
@@ -325,30 +350,6 @@ class Record:
     def headers_count(self) -> int:
         return len(self.headers) if self.headers is not None else 0
 
-    def _deserialize_key(self) -> Any:
-        if self.key is None:
-            return
-
-        match self.key_format:
-            case Format.STRING:
-                return self.key.decode("utf8")
-            case Format.JSON:
-                return json.loads(self.key)
-            case _:
-                return str(self.key)
-
-    def _deserialize_value(self) -> Any:
-        if self.value is None:
-            return
-
-        match self.value_format:
-            case Format.STRING:
-                return self.value.decode("utf8")
-            case Format.JSON:
-                return json.loads(self.value)
-            case _:
-                return str(self.value)
-
     def dict(self) -> dict[str, Any]:
 
         return {
@@ -366,6 +367,6 @@ class Record:
             ),
             "key format": self.key_format.name,
             "value format": self.value_format.name,
-            "key": self._deserialize_key(),
-            "value": self._deserialize_value(),
+            "key": _deserialize(self.key_format, self.key),
+            "value": _deserialize(self.value_format, self.value),
         }

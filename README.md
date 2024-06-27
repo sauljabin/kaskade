@@ -1,5 +1,5 @@
 <p align="center">
-<a href="https://github.com/sauljabin/kaskade"><img alt="kaskade" src="https://raw.githubusercontent.com/sauljabin/kaskade/v2/images/banner.png"></a>
+<a href="https://github.com/sauljabin/kaskade"><img alt="kaskade" src="https://raw.githubusercontent.com/sauljabin/kaskade/main/images/banner.png"></a>
 </p>
 <a href="https://github.com/sauljabin/kaskade"><img alt="GitHub" height="20" src="https://img.shields.io/badge/-github-blueviolet?logo=github&logoColor=white"></a>
 <a href="https://github.com/sauljabin/kaskade/blob/main/LICENSE"><img alt="MIT License" src="https://img.shields.io/github/license/sauljabin/kaskade"></a>
@@ -12,12 +12,12 @@
 Kaskade is a text user interface (TUI) for Apache Kafka, built with [Textual](https://github.com/Textualize/textual).
 It includes features like:
 
-- List topics, partitions, groups and group members
-- Topic information like lag, replicas, records count
-- Consume from a topic
-- Json and Protobuf deserialization
-- Secure connection
-- Create and delete topics
+- Admin:
+  - List topics, partitions, groups and group members
+  - Topic information like lag, replicas, records count
+  - Create and delete topics
+- Consumer:
+  - Json and Protobuf deserialization
 
 <p align="center">
 <img alt="kaskade" src="https://raw.githubusercontent.com/sauljabin/kaskade/main/screenshots/dashboard.png">
