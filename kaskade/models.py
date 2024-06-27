@@ -292,11 +292,11 @@ class Format(Enum):
         return Format[value.upper()]
 
 
-def _deserialize(format: Format, value: bytes | None) -> Any:
+def _deserialize(deserialization_format: Format, value: bytes | None) -> Any:
     if value is None:
         return
 
-    match format:
+    match deserialization_format:
         case Format.STRING:
             deserializer = StringDeserializer()
         case Format.JSON:

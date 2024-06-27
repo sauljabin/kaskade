@@ -13,7 +13,7 @@ from kaskade.colors import PRIMARY, SECONDARY
 from kaskade.models import Record, Format
 from kaskade.services import ConsumerService
 from kaskade.unicodes import LEFT, RIGHT, UP, DOWN
-from kaskade.widgets import KaskadeBanner, notify_error
+from kaskade.admin import notify_error, KaskadeBanner
 
 NEXT_SHORTCUT = ">"
 QUIT_SHORTCUT = "ctrl+c"

@@ -1,8 +1,12 @@
 import asyncio
 from itertools import cycle
 
+from confluent_kafka import KafkaException
 from confluent_kafka.cimpl import NewTopic
+from pyfiglet import Figlet
+from rich.console import Group
 from rich.table import Table
+from rich.text import Text
 from textual.app import ComposeResult, RenderResult, App
 from textual.binding import Binding
 from textual.containers import Container
@@ -11,11 +15,11 @@ from textual.screen import ModalScreen
 from textual.widget import Widget
 from textual.widgets import DataTable, Input, Label, RadioSet, RadioButton
 
+from kaskade import logger, APP_NAME_SHORT, APP_NAME, APP_VERSION
 from kaskade.colors import PRIMARY, SECONDARY
 from kaskade.models import Topic
 from kaskade.services import TopicService, MILLISECONDS_24H
 from kaskade.unicodes import APPROXIMATION, DOWN, LEFT, RIGHT, UP
-from kaskade.widgets import KaskadeBanner, notify_error
 
 FILTER_TOPICS_ACTION = "/"
 BACK_SHORTCUT = "escape"
@@ -394,3 +398,40 @@ class KaskadeAdmin(App):
     def compose(self) -> ComposeResult:
         yield Header()
         yield ListTopics(TopicService(self.kafka_conf))
+
+
+def notify_error(application: App, title: str, ex: Exception) -> None:
+    message = str(ex)
+
+    if isinstance(ex, KafkaException):
+        if len(ex.args) > 0 and hasattr(ex.args[0], "str"):
+            message = ex.args[0].str()
+
+    logger.exception(ex)
+    application.notify(message, severity="error", title=title)
+
+
+class KaskadeBanner(Widget):
+    def __init__(
+        self, *, include_version: bool = False, include_slogan: bool = False, short: bool = False
+    ):
+        super().__init__()
+        self.include_slogan = include_slogan
+        self.include_version = include_version
+        self.short = short
+
+    def render(self) -> Group:
+        figlet = Figlet(font="standard")
+        kaskade_name = Text(
+            figlet.renderText(APP_NAME_SHORT if self.short else APP_NAME).rstrip(),
+            style=f"{PRIMARY} bold",
+        )
+        version_text = Text("", justify="right")
+
+        if self.include_slogan:
+            version_text.append("a kafka text user interface ", style=f"{SECONDARY}")
+
+        if self.include_version:
+            version_text.append(f"v{APP_VERSION} ", style=f"{SECONDARY}")
+
+        return Group(kaskade_name, version_text)
