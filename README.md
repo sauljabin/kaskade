@@ -12,12 +12,12 @@
 Kaskade is a text user interface (TUI) for Apache Kafka, built with [Textual](https://github.com/Textualize/textual).
 It includes features like:
 
-- List topics, partitions, groups, members
+- List topics, partitions, groups and group members
 - Topic information like lag, replicas, records count
 - Consume from a topic
-- Schema registry support
-- String, Avro, Json and Protobuf deserialization
+- Json and Protobuf deserialization
 - Secure connection
+- Create and delete topics
 
 <p align="center">
 <img alt="kaskade" src="https://raw.githubusercontent.com/sauljabin/kaskade/main/screenshots/dashboard.png">

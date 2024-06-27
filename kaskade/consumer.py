@@ -19,6 +19,7 @@ from kaskade.widgets import KaskadeBanner
 NEXT_SHORTCUT = ">"
 QUIT_SHORTCUT = "ctrl+c"
 SUBMIT_SHORTCUT = "enter"
+BACK_SHORTCUT = "escape"
 
 
 class Shortcuts(Widget):
@@ -45,6 +46,8 @@ class Header(Widget):
 
 class TopicScreen(ModalScreen):
 
+    BINDINGS = [Binding(BACK_SHORTCUT, "close")]
+
     def __init__(self, record: Record):
         super().__init__()
         self.record = record
@@ -52,7 +55,11 @@ class TopicScreen(ModalScreen):
     def compose(self) -> ComposeResult:
         pretty = Pretty(self.record.dict())
         pretty.border_title = f"record \\[[{PRIMARY}]{self.record.topic}[/]]\\[[{PRIMARY}]{self.record.partition}[/]]\\[[{PRIMARY}]{self.record.offset}[/]]"
+        pretty.border_subtitle = f"[{PRIMARY}]back:[/] {BACK_SHORTCUT}"
         yield pretty
+
+    def action_close(self) -> None:
+        self.dismiss()
 
 
 class ListRecords(Container):

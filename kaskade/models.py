@@ -320,5 +320,4 @@ class Record:
             ),
             "key": str(self.key) if isinstance(self.key, bytes) else self.key,
             "value": str(self.value) if isinstance(self.value, bytes) else self.value,
-            "pepe": "ljkanskfdjnasdf skadfgbnksdjafngk asdfkgjnasdfk ngkadsf g kljandsolgnmasld gasldknmg lasdgl asjdlgk as,dg lasdkjglasmdffg, asdflgjjnasldfgaszdlgnsalg al,eesd gkleajdfgn ,asdm gaskldjgn,asdm galsdjnglasmd gl,asjdnfglasd g,as dlgj a",
         }

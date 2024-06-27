@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add chageloggh
 - New arguments
 - Add filter
-- Add json and protobuf serialization
+- Add json and protobuf deserialization
 - Add create and delete topic
 
 ### Changed
@@ -26,6 +26,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 - Unit test, confluent-kafka and textual are changing a lot
+- Avro deserialization
+- Schema registry connection
 
 ## [1.1.8] - 2022-07-26
 
