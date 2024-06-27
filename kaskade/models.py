@@ -1,3 +1,5 @@
+import json
+from enum import Enum, auto
 from typing import Any
 
 
@@ -270,6 +272,20 @@ class Cluster:
         return False
 
 
+class Format(Enum):
+    BYTES = auto()
+    STRING = auto()
+    INTEGER = auto()
+    DOUBLE = auto()
+    JSON = auto()
+
+    # AVRO = auto()
+    # PROTOBUF = auto()
+    @classmethod
+    def from_str(cls, value: str) -> "Format":
+        return Format[value.upper()]
+
+
 class Record:
     def __init__(
         self,
@@ -280,6 +296,8 @@ class Record:
         key: bytes | None = None,
         value: bytes | None = None,
         headers: list[tuple[str, bytes]] | None = None,
+        key_format: Format = Format.BYTES,
+        value_format: Format = Format.BYTES,
     ) -> None:
         self.topic = topic
         self.partition = partition
@@ -290,6 +308,8 @@ class Record:
         if headers is None:
             headers = []
         self.headers = headers
+        self.key_format = key_format
+        self.value_format = value_format
 
     def __repr__(self) -> str:
         return str(self)
@@ -305,11 +325,37 @@ class Record:
     def headers_count(self) -> int:
         return len(self.headers) if self.headers is not None else 0
 
+    def _deserialize_key(self) -> Any:
+        if self.key is None:
+            return
+
+        match self.key_format:
+            case Format.STRING:
+                return self.key.decode("utf8")
+            case Format.JSON:
+                return json.loads(self.key)
+            case _:
+                return str(self.key)
+
+    def _deserialize_value(self) -> Any:
+        if self.value is None:
+            return
+
+        match self.value_format:
+            case Format.STRING:
+                return self.value.decode("utf8")
+            case Format.JSON:
+                return json.loads(self.value)
+            case _:
+                return str(self.value)
+
     def dict(self) -> dict[str, Any]:
+
         return {
-            "date": self.date,
-            "offset": self.offset,
+            "topic": self.topic,
             "partition": self.partition,
+            "offset": self.offset,
+            "date": self.date,
             "headers": (
                 {
                     key: str(value) if isinstance(value, bytes) else value
@@ -318,6 +364,8 @@ class Record:
                 if self.headers is not None
                 else self.headers
             ),
-            "key": str(self.key) if isinstance(self.key, bytes) else self.key,
-            "value": str(self.value) if isinstance(self.value, bytes) else self.value,
+            "key format": self.key_format.name,
+            "value format": self.value_format.name,
+            "key": self._deserialize_key(),
+            "value": self._deserialize_value(),
         }

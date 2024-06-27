@@ -7,6 +7,7 @@ from rich.console import Console
 from kaskade import APP_VERSION
 from kaskade.consumer import KaskadeConsumer
 from kaskade.admin import KaskadeAdmin
+from kaskade.models import Format
 
 
 @click.group()
@@ -94,24 +95,34 @@ def admin(
     required=True,
 )
 @click.option(
-    "-s",
-    "registry_properties_input",
-    help="Schema Registry property. Set a SchemaRegistryClient property. Multiple -s are allowed.",
-    metavar="property=value",
-    multiple=True,
-)
-@click.option(
     "-x",
     "kafka_properties_input",
     help="Kafka property. Set a librdkafka configuration property. Multiple -x are allowed.",
     metavar="property=value",
     multiple=True,
 )
+@click.option(
+    "-k",
+    "key_format",
+    type=click.Choice([key_format.name.lower() for key_format in Format], False),
+    help="Key format.",
+    default=Format.BYTES.name.lower(),
+    show_default=True,
+)
+@click.option(
+    "-v",
+    "value_format",
+    type=click.Choice([key_format.name.lower() for key_format in Format], False),
+    help="Value format.",
+    default=Format.BYTES.name.lower(),
+    show_default=True,
+)
 def consumer(
     bootstrap_servers_input: str,
     kafka_properties_input: tuple[str, ...],
-    registry_properties_input: tuple[str, ...],
     topic: str,
+    key_format: str,
+    value_format: str,
 ) -> None:
     """
 
@@ -121,15 +132,15 @@ def consumer(
     Examples:
         kaskade -b localhost:9092 -t my-topic
         kaskade -b localhost:9092 -t my-topic -x auto.offset.reset=earliest
-        kaskade -b localhost:9092 -t my-topic -s url=http://localhost:8081
 
     More at https://github.com/sauljabin/kaskade.
     """
     kafka_conf = {k: v for (k, v) in [pair.split("=", 1) for pair in kafka_properties_input]}
     kafka_conf["bootstrap.servers"] = bootstrap_servers_input
-    schemas_conf = {k: v for (k, v) in [pair.split("=", 1) for pair in registry_properties_input]}
 
-    kaskade_app = KaskadeConsumer(topic, kafka_conf, schemas_conf)
+    kaskade_app = KaskadeConsumer(
+        topic, kafka_conf, Format.from_str(key_format), Format.from_str(value_format)
+    )
     kaskade_app.run()
 
 

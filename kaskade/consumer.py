@@ -1,8 +1,10 @@
+from typing import Any
+
 from confluent_kafka import KafkaException
 from rich.table import Table
 from textual.app import App, ComposeResult, RenderResult
 from textual.binding import Binding
-from textual.containers import Container
+from textual.containers import Container, ScrollableContainer
 from textual.screen import ModalScreen
 
 from textual.widget import Widget
@@ -10,7 +12,7 @@ from textual.widgets import DataTable, Pretty
 
 from kaskade import logger
 from kaskade.colors import PRIMARY, SECONDARY
-from kaskade.models import Record
+from kaskade.models import Record, Format
 from kaskade.services import ConsumerService
 from kaskade.unicodes import LEFT, RIGHT, UP, DOWN
 from kaskade.widgets import KaskadeBanner
@@ -48,15 +50,19 @@ class TopicScreen(ModalScreen):
 
     BINDINGS = [Binding(BACK_SHORTCUT, "close")]
 
-    def __init__(self, record: Record):
+    def __init__(self, topic: str, partition: int, offset: int, data: dict[str, Any]):
         super().__init__()
-        self.record = record
+        self.data = data
+        self.topic = topic
+        self.partition = partition
+        self.record_offset = offset
 
     def compose(self) -> ComposeResult:
-        pretty = Pretty(self.record.dict())
-        pretty.border_title = f"record \\[[{PRIMARY}]{self.record.topic}[/]]\\[[{PRIMARY}]{self.record.partition}[/]]\\[[{PRIMARY}]{self.record.offset}[/]]"
-        pretty.border_subtitle = f"[{PRIMARY}]back:[/] {BACK_SHORTCUT}"
-        yield pretty
+        container = ScrollableContainer()
+        container.border_title = f"record \\[[{PRIMARY}]{self.topic}[/]]\\[[{PRIMARY}]{self.partition}[/]]\\[[{PRIMARY}]{self.record_offset}[/]]"
+        container.border_subtitle = f"[{PRIMARY}]back:[/] {BACK_SHORTCUT}"
+        with container:
+            yield Pretty(self.data)
 
     def action_close(self) -> None:
         self.dismiss()
@@ -68,12 +74,12 @@ class ListRecords(Container):
         Binding(SUBMIT_SHORTCUT, "show_message", priority=True),
     ]
 
-    def __init__(self, topic: str, kafka_conf: dict[str, str]):
+    def __init__(self, consumer: ConsumerService):
         super().__init__()
-        self.topic = topic
+        self.topic = consumer.topic
+        self.consumer = consumer
         self.records: dict[str, Record] = {}
         self.current_record: Record | None = None
-        self.consumer = ConsumerService(topic, kafka_conf)
 
     def compose(self) -> ComposeResult:
         table: DataTable = DataTable()
@@ -99,7 +105,17 @@ class ListRecords(Container):
     def action_show_message(self) -> None:
         if self.current_record is None:
             return
-        self.app.push_screen(TopicScreen(self.current_record))
+        try:
+            self.app.push_screen(
+                TopicScreen(
+                    self.current_record.topic,
+                    self.current_record.partition,
+                    self.current_record.offset,
+                    self.current_record.dict(),
+                )
+            )
+        except Exception as ex:
+            self.notify_error("deserialization error", ex)
 
     def on_data_table_row_highlighted(self, data: DataTable.RowHighlighted) -> None:
         if data.row_key.value is None:
@@ -131,29 +147,40 @@ class ListRecords(Container):
                 f"records \\[[{PRIMARY}]{self.topic}[/]]\\[[{PRIMARY}]{table.row_count}[/]]"
             )
         except Exception as ex:
-            self.notify_error(ex)
+            self.notify_error("error consuming records", ex)
 
         table.loading = False
         table.focus()
 
-    def notify_error(self, ex: Exception) -> None:
+    def notify_error(self, title: str, ex: Exception) -> None:
         if isinstance(ex, KafkaException):
             message = ex.args[0].str()
         else:
             message = str(ex)
         logger.exception(ex)
-        self.notify(message, severity="error", title="kafka error")
+        self.notify(message, severity="error", title=title)
 
 
 class KaskadeConsumer(App):
     CSS_PATH = "styles.css"
 
-    def __init__(self, topic: str, kafka_conf: dict[str, str], schema_conf: dict[str, str]):
+    def __init__(
+        self, topic: str, kafka_conf: dict[str, str], key_format: Format, value_format: Format
+    ):
         super().__init__()
         self.topic = topic
         self.kafka_conf = kafka_conf
         self.use_command_palette = False
+        self.key_format = key_format
+        self.value_format = value_format
 
     def compose(self) -> ComposeResult:
         yield Header()
-        yield ListRecords(self.topic, self.kafka_conf)
+        yield ListRecords(
+            ConsumerService(
+                self.topic,
+                self.kafka_conf,
+                key_format=self.key_format,
+                value_format=self.value_format,
+            )
+        )

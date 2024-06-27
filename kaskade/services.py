@@ -24,6 +24,7 @@ from kaskade.models import (
     GroupPartition,
     GroupMember,
     Record,
+    Format,
 )
 
 MILLISECONDS_24H = 86400000
@@ -40,15 +41,19 @@ class ConsumerService:
         self,
         topic: str,
         kafka_config: dict[str, str],
+        key_format: Format,
+        value_format: Format,
         *,
-        page_size: int = 20,
+        page_size: int = 25,
         max_retries: int = 5,
-        timeout: float = 1,
+        timeout: float = 1.0,
     ) -> None:
         self.topic = topic
         self.page_size = page_size
         self.max_retries = max_retries
         self.timeout = timeout
+        self.key_format = key_format
+        self.value_format = value_format
         self.consumer = Consumer(
             kafka_config
             | {
@@ -98,6 +103,8 @@ class ConsumerService:
                 value=record_metadata.value(),
                 date=date,
                 headers=record_metadata.headers(),
+                key_format=self.key_format,
+                value_format=self.value_format,
             )
             records.append(record)
 

@@ -141,8 +141,16 @@ CreateTopicScreen > Container > RadioSet:focus {
     background: $surface;
 }
 
-TopicScreen > Pretty {
-    height: 100%;
+TopicScreen > ScrollableContainer {
     background: $surface;
     border: $kaskade-green;
+
+    scrollbar-color: $kaskade-orchid 60%;
+    scrollbar-color-active: $kaskade-orchid;
+    scrollbar-color-hover: $kaskade-orchid 90%;
+
+    scrollbar-background: $kaskade-orchid-dark;
+    scrollbar-background-active: $kaskade-orchid-dark;
+    scrollbar-background-hover: $kaskade-orchid-dark;
+    scrollbar-corner-color: $kaskade-orchid-dark;
 }

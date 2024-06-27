@@ -147,9 +147,3 @@ cython_debug/
 ## pycharm
 
 .idea/
-
-# kaskade
-kaskade.yml
-kaskade.yaml
-config.yml
-config.yaml

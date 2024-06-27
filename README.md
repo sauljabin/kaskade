@@ -72,14 +72,6 @@ to the `librdkafka` official page: [Configure librdkafka client](https://github.
 kaskade -b broker1:9092,broker2:9092
 ```
 
-### Schema Registry simple connection:
-
-```shell
-kaskade -b localhost:9092 -s url=http://localhost:8081
-```
-
-More Schema Registry configurations at: [confluent-kafka-python documentation](https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#schemaregistry-client).
-
 ### Confluent Cloud:
 
 ```shell
@@ -87,9 +79,7 @@ kaskade -b ${BOOTSTRAP_SERVERS} \
         -x security.protocol=SASL_SSL \
         -x sasl.mechanism=PLAIN \
         -x sasl.username=${CLUSTER_API_KEY} \
-        -x sasl.password=${CLUSTER_API_SECRET} \
-        -s url=${SCHEMA_REGISTRY_URL} \
-        -s basic.auth.user.info=${SR_API_KEY}:${SR_API_SECRET}
+        -x sasl.password=${CLUSTER_API_SECRET}
 ```
 
 ## Development

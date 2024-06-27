@@ -263,9 +263,9 @@ class ListTopics(Container):
         Binding(DESCRIBE_TOPIC_SHORTCUT, "describe", priority=True),
     ]
 
-    def __init__(self, kafka_conf: dict[str, str]):
+    def __init__(self, topic_service: TopicService):
         super().__init__()
-        self.topic_service = TopicService(kafka_conf)
+        self.topic_service = topic_service
         self.topics: dict[str, Topic] = {}
         self.current_topic: Topic | None = None
         self.current_filter: str | None = None
@@ -302,7 +302,7 @@ class ListTopics(Container):
         try:
             self.topics = await self.topic_service.all()
         except Exception as ex:
-            self.notify_error(ex)
+            self.notify_error("kafka error", ex)
         self.run_worker(self.fill_table())
 
     async def action_new(self) -> None:
@@ -315,7 +315,7 @@ class ListTopics(Container):
                 await asyncio.sleep(0.5)
                 self.run_worker(self.action_refresh())
             except Exception as ex:
-                self.notify_error(ex)
+                self.notify_error("kafka error", ex)
 
         await self.app.push_screen(CreateTopicScreen(), on_dismiss)
 
@@ -335,17 +335,17 @@ class ListTopics(Container):
                 await asyncio.sleep(0.5)
                 self.run_worker(self.action_refresh())
             except Exception as ex:
-                self.notify_error(ex)
+                self.notify_error("kafka error", ex)
 
         await self.app.push_screen(ConfirmationScreen(), on_dismiss)
 
-    def notify_error(self, ex: Exception) -> None:
+    def notify_error(self, title: str, ex: Exception) -> None:
         if isinstance(ex, KafkaException):
             message = ex.args[0].str()
         else:
             message = str(ex)
         logger.exception(ex)
-        self.notify(message, severity="error", title="kafka error")
+        self.notify(message, severity="error", title=title)
 
     def action_describe(self) -> None:
         if self.current_topic is None:
@@ -403,4 +403,4 @@ class KaskadeAdmin(App):
 
     def compose(self) -> ComposeResult:
         yield Header()
-        yield ListTopics(self.kafka_conf)
+        yield ListTopics(TopicService(self.kafka_conf))

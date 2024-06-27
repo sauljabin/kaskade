@@ -1,9 +1,0 @@
-kafka:
-  bootstrap.servers: localhost:19092
-
-schema.registry:
-  url: http://localhost:8081
-
-kaskade:
-  debug: on
-  show.internals: on
