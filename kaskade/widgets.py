@@ -1,10 +1,23 @@
+from confluent_kafka import KafkaException
 from pyfiglet import Figlet
 from rich.console import Group
 from rich.text import Text
+from textual.app import App
 from textual.widget import Widget
 
-from kaskade import APP_NAME, APP_VERSION, APP_NAME_SHORT
+from kaskade import APP_NAME, APP_VERSION, APP_NAME_SHORT, logger
 from kaskade.colors import PRIMARY, SECONDARY
+
+
+def notify_error(application: App, title: str, ex: Exception) -> None:
+    message = str(ex)
+
+    if isinstance(ex, KafkaException):
+        if len(ex.args) > 0 and hasattr(ex.args[0], "str"):
+            message = ex.args[0].str()
+
+    logger.exception(ex)
+    application.notify(message, severity="error", title=title)
 
 
 class KaskadeBanner(Widget):

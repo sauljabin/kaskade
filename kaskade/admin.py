@@ -1,7 +1,6 @@
 import asyncio
 from itertools import cycle
 
-from confluent_kafka import KafkaException
 from confluent_kafka.cimpl import NewTopic
 from rich.table import Table
 from textual.app import ComposeResult, RenderResult, App
@@ -12,12 +11,11 @@ from textual.screen import ModalScreen
 from textual.widget import Widget
 from textual.widgets import DataTable, Input, Label, RadioSet, RadioButton
 
-from kaskade import logger
 from kaskade.colors import PRIMARY, SECONDARY
 from kaskade.models import Topic
 from kaskade.services import TopicService, MILLISECONDS_24H
 from kaskade.unicodes import APPROXIMATION, DOWN, LEFT, RIGHT, UP
-from kaskade.widgets import KaskadeBanner
+from kaskade.widgets import KaskadeBanner, notify_error
 
 FILTER_TOPICS_ACTION = "/"
 BACK_SHORTCUT = "escape"
@@ -302,7 +300,7 @@ class ListTopics(Container):
         try:
             self.topics = await self.topic_service.all()
         except Exception as ex:
-            self.notify_error("kafka error", ex)
+            notify_error(self.app, "kafka error", ex)
         self.run_worker(self.fill_table())
 
     async def action_new(self) -> None:
@@ -315,7 +313,7 @@ class ListTopics(Container):
                 await asyncio.sleep(0.5)
                 self.run_worker(self.action_refresh())
             except Exception as ex:
-                self.notify_error("kafka error", ex)
+                notify_error(self.app, "kafka error", ex)
 
         await self.app.push_screen(CreateTopicScreen(), on_dismiss)
 
@@ -335,17 +333,9 @@ class ListTopics(Container):
                 await asyncio.sleep(0.5)
                 self.run_worker(self.action_refresh())
             except Exception as ex:
-                self.notify_error("kafka error", ex)
+                notify_error(self.app, "kafka error", ex)
 
         await self.app.push_screen(ConfirmationScreen(), on_dismiss)
-
-    def notify_error(self, title: str, ex: Exception) -> None:
-        if isinstance(ex, KafkaException):
-            message = ex.args[0].str()
-        else:
-            message = str(ex)
-        logger.exception(ex)
-        self.notify(message, severity="error", title=title)
 
     def action_describe(self) -> None:
         if self.current_topic is None:

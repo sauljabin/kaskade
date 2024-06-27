@@ -1,6 +1,5 @@
 from typing import Any
 
-from confluent_kafka import KafkaException
 from rich.table import Table
 from textual.app import App, ComposeResult, RenderResult
 from textual.binding import Binding
@@ -10,13 +9,11 @@ from textual.screen import ModalScreen
 from textual.widget import Widget
 from textual.widgets import DataTable, Pretty
 
-from kaskade import logger
 from kaskade.colors import PRIMARY, SECONDARY
 from kaskade.models import Record, Format
 from kaskade.services import ConsumerService
 from kaskade.unicodes import LEFT, RIGHT, UP, DOWN
-from kaskade.widgets import KaskadeBanner
-
+from kaskade.widgets import KaskadeBanner, notify_error
 
 NEXT_SHORTCUT = ">"
 QUIT_SHORTCUT = "ctrl+c"
@@ -115,7 +112,7 @@ class ListRecords(Container):
                 )
             )
         except Exception as ex:
-            self.notify_error("deserialization error", ex)
+            notify_error(self.app, "deserialization error", ex)
 
     def on_data_table_row_highlighted(self, data: DataTable.RowHighlighted) -> None:
         if data.row_key.value is None:
@@ -147,18 +144,10 @@ class ListRecords(Container):
                 f"records \\[[{PRIMARY}]{self.topic}[/]]\\[[{PRIMARY}]{table.row_count}[/]]"
             )
         except Exception as ex:
-            self.notify_error("error consuming records", ex)
+            notify_error(self.app, "error consuming records", ex)
 
         table.loading = False
         table.focus()
-
-    def notify_error(self, title: str, ex: Exception) -> None:
-        if isinstance(ex, KafkaException):
-            message = ex.args[0].str()
-        else:
-            message = str(ex)
-        logger.exception(ex)
-        self.notify(message, severity="error", title=title)
 
 
 class KaskadeConsumer(App):
