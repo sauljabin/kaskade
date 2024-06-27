@@ -91,23 +91,23 @@ kaskade consumer -b localhost:9092 -t my-topic
 
 ## Configuration examples
 
-### SSL encryption example:
+### SSL encryption example
 
 ```shell
 kaskade admin -b localhost:9092 -x security.protocol=SSL
 ```
 
-For more information about SSL encryption and SSL authentication go
-to the `librdkafka` official
-page: [Configure librdkafka client](https://github.com/edenhill/librdkafka/wiki/Using-SSL-with-librdkafka#configure-librdkafka-client).
+> For more information about SSL encryption and SSL authentication go
+> to the `librdkafka` official
+> page: [Configure librdkafka client](https://github.com/edenhill/librdkafka/wiki/Using-SSL-with-librdkafka#configure-librdkafka-client).
 
-### Multiple bootstrap servers:
+### Multiple bootstrap servers
 
 ```shell
 kaskade admin -b broker1:9092,broker2:9092
 ```
 
-### Confluent cloud:
+### Confluent cloud
 
 ```shell
 kaskade admin -b ${BOOTSTRAP_SERVERS} \
@@ -117,7 +117,7 @@ kaskade admin -b ${BOOTSTRAP_SERVERS} \
         -x sasl.password=${CLUSTER_API_SECRET}
 ```
 
-### Consuming and deserialization
+### Consume and deserialize
 
 ```shell
 kaskade consumer -b localhost:9092 -t my-topic -k json -v json
