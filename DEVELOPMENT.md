@@ -42,7 +42,7 @@ textual run --port 7342 --dev -c kaskade consumer -b localhost:19092 -t my-topic
 
 ### Scripts
 
-Running unit tests:
+Unit tests:
 
 ```shell
 python -m scripts.tests
@@ -60,10 +60,16 @@ Running code analysis:
 python -m scripts.analyze
 ```
 
-Running banner:
+Generate banner:
 
 ```shell
 python -m scripts.banner
+```
+
+Populate topics:
+
+```shell
+python -m scripts.producer
 ```
 
 ### Kafka Cluster
