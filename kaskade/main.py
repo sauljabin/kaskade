@@ -20,7 +20,7 @@ def cli() -> None:
 
     \b
     Consumer mode:
-        Consumes for a topic.
+        Consumes a topic.
         Run <kaskade consumer --help> for more information.
 
     More at https://github.com/sauljabin/kaskade.
@@ -49,7 +49,7 @@ def admin(
 ) -> None:
     """
 
-    kaskade admin mode allows you to list topics and see their settings.
+    kaskade admin mode allows you to manage topics.
 
     \b
     Examples:
@@ -116,8 +116,9 @@ def consumer(
 
     \b
     Examples:
-        kaskade -b localhost:9092 -t my-topic
-        kaskade -b localhost:9092 -t my-topic -x auto.offset.reset=earliest
+        kaskade consumer -b localhost:9092 -t my-topic
+        kaskade consumer -b localhost:9092 -t my-topic -v json
+        kaskade consumer -b localhost:9092 -t my-topic -x auto.offset.reset=earliest
 
     More at https://github.com/sauljabin/kaskade.
     """

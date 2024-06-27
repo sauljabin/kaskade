@@ -67,26 +67,34 @@ pipx upgrade kaskade
 
 <a href="https://hub.docker.com/r/sauljabin/kaskade"><img alt="docker image available" height="20" src="https://img.shields.io/badge/-docker image available-blue?logo=docker&logoColor=white"></a>
 
-## Running Kaskade
-
-Pass the option `-b` (boostrap servers):
-
-```shell
-kaskade -b localhost:9092
-```
+## Running kaskade
 
 Help:
 
 ```shell
 kaskade --help
+kaskade admin --help
+kaskade consumer --help
 ```
 
-## Configuration Examples
+Admin view:
+
+```shell
+kaskade admin -b localhost:9092
+```
+
+Consumer view:
+
+```shell
+kaskade consumer -b localhost:9092 -t my-topic
+```
+
+## Configuration examples
 
 ### SSL encryption example:
 
 ```shell
-kaskade -b localhost:9092 -x security.protocol=SSL
+kaskade admin -b localhost:9092 -x security.protocol=SSL
 ```
 
 For more information about SSL encryption and SSL authentication go
@@ -96,17 +104,29 @@ page: [Configure librdkafka client](https://github.com/edenhill/librdkafka/wiki/
 ### Multiple bootstrap servers:
 
 ```shell
-kaskade -b broker1:9092,broker2:9092
+kaskade admin -b broker1:9092,broker2:9092
 ```
 
-### Confluent Cloud:
+### Confluent cloud:
 
 ```shell
-kaskade -b ${BOOTSTRAP_SERVERS} \
+kaskade admin -b ${BOOTSTRAP_SERVERS} \
         -x security.protocol=SASL_SSL \
         -x sasl.mechanism=PLAIN \
         -x sasl.username=${CLUSTER_API_KEY} \
         -x sasl.password=${CLUSTER_API_SECRET}
+```
+
+### Consuming and deserialization
+
+```shell
+kaskade consumer -b localhost:9092 -t my-topic -k json -v json
+```
+
+### Consuming from the beginning
+
+```shell
+kaskade consumer -b localhost:9092 -x auto.offset.reset=earliest
 ```
 
 ## Development

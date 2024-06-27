@@ -36,7 +36,8 @@ Run textual console:
 
 ```shell
 textual console --port 7342
-textual run --port 7342 --dev -c kaskade -b localhost:19092
+textual run --port 7342 --dev -c kaskade admin -b localhost:19092
+textual run --port 7342 --dev -c kaskade consumer -b localhost:19092 -t my-topic
 ```
 
 ### Scripts
@@ -86,7 +87,7 @@ python -m scripts.docker
 Run with docker (create a `config.yml` file):
 
 ```shell
-docker run --rm -it --network cluster sauljabin/kaskade:latest -b kafka1:9092
+docker run --rm -it --network cluster sauljabin/kaskade:latest admin -b kafka1:9092
 ```
 
 ### Release
