@@ -22,31 +22,22 @@ It includes features like:
 ## Screenshots
 
 <table>
-
 <tr>
-
 <td>
 <img alt="kaskade" src="https://raw.githubusercontent.com/sauljabin/kaskade/main/screenshots/admin.png">
 </td>
-
 <td>
 <img alt="kaskade" src="https://raw.githubusercontent.com/sauljabin/kaskade/main/screenshots/create-topic.png">
 </td>
-
 </tr>
-
 <tr>
-
 <td>
 <img alt="kaskade" src="https://raw.githubusercontent.com/sauljabin/kaskade/main/screenshots/consumer.png">
 </td>
-
 <td>
 <img alt="kaskade" src="https://raw.githubusercontent.com/sauljabin/kaskade/main/screenshots/record.png">
 </td>
-
 </tr>
-
 </table>
 
 ## Installation
@@ -91,7 +82,7 @@ kaskade consumer -b localhost:9092 -t my-topic
 
 ## Configuration examples
 
-### SSL encryption example
+SSL encryption example:
 
 ```shell
 kaskade admin -b localhost:9092 -x security.protocol=SSL
@@ -101,13 +92,13 @@ kaskade admin -b localhost:9092 -x security.protocol=SSL
 > to the `librdkafka` official
 > page: [Configure librdkafka client](https://github.com/edenhill/librdkafka/wiki/Using-SSL-with-librdkafka#configure-librdkafka-client).
 
-### Multiple bootstrap servers
+Multiple bootstrap servers:
 
 ```shell
 kaskade admin -b broker1:9092,broker2:9092
 ```
 
-### Confluent cloud
+Confluent cloud:
 
 ```shell
 kaskade admin -b ${BOOTSTRAP_SERVERS} \
@@ -117,13 +108,13 @@ kaskade admin -b ${BOOTSTRAP_SERVERS} \
         -x sasl.password=${CLUSTER_API_SECRET}
 ```
 
-### Consume and deserialize
+Consume and deserialize:
 
 ```shell
 kaskade consumer -b localhost:9092 -t my-topic -k json -v json
 ```
 
-### Consuming from the beginning
+Consuming from the beginning:
 
 ```shell
 kaskade consumer -b localhost:9092 -x auto.offset.reset=earliest
