@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.1] - 2024-06-27
+
 ### Fixed
 
 - Documentation and help
@@ -98,7 +100,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Schema registry support
 
-[Unreleased]: https://github.com/sauljabin/kaskade/compare/v2.0.0...HEAD
+[Unreleased]: https://github.com/sauljabin/kaskade/compare/v2.0.1...HEAD
+[2.0.1]: https://github.com/sauljabin/kaskade/compare/v2.0.0...v2.0.1
 [2.0.0]: https://github.com/sauljabin/kaskade/compare/v1.1.8...v2.0.0
 [1.1.8]: https://github.com/sauljabin/kaskade/compare/v1.1.7...v1.1.8
 [1.1.7]: https://github.com/sauljabin/kaskade/compare/v1.1.6...v1.1.7
