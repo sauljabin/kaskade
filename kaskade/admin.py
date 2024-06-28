@@ -13,7 +13,7 @@ from textual.containers import Container
 
 from textual.screen import ModalScreen
 from textual.widget import Widget
-from textual.widgets import DataTable, Input, Label, RadioSet, RadioButton
+from textual.widgets import DataTable, Input, RadioSet, RadioButton
 
 from kaskade import logger, APP_NAME_SHORT, APP_NAME, APP_VERSION
 from kaskade.colors import PRIMARY, SECONDARY
@@ -67,7 +67,7 @@ class FilterTopicsScreen(ModalScreen[str]):
     BINDINGS = [Binding(BACK_SHORTCUT, "close")]
 
     def compose(self) -> ComposeResult:
-        input_filter = Input()
+        input_filter = Input(placeholder="word to match")
         input_filter.border_title = "filter topic"
         input_filter.border_subtitle = f"[{PRIMARY}]filter:[/] {SUBMIT_SHORTCUT} [{SECONDARY}]|[/] [{PRIMARY}]back:[/] {BACK_SHORTCUT}"
         yield input_filter
@@ -79,19 +79,26 @@ class FilterTopicsScreen(ModalScreen[str]):
         self.dismiss()
 
 
-class ConfirmationScreen(ModalScreen[bool]):
-    BINDINGS = [Binding(BACK_SHORTCUT, "no"), Binding(SUBMIT_SHORTCUT, "yes")]
+class DeleteTopicScreen(ModalScreen[bool]):
+    BINDINGS = [Binding(BACK_SHORTCUT, "cancel")]
+
+    def __init__(self, topic: Topic):
+        super().__init__()
+        self.topic = topic
 
     def compose(self) -> ComposeResult:
-        label = Label("Are you sure?")
-        label.border_title = "delete topic"
-        label.border_subtitle = f"[{PRIMARY}]yes:[/] {SUBMIT_SHORTCUT} [{SECONDARY}]|[/] [{PRIMARY}]no:[/] {BACK_SHORTCUT}"
+        label = Input(placeholder="type the topic's name")
+        label.border_title = f"delete topic [[{PRIMARY}]{self.topic}[/]]"
+        label.border_subtitle = f"[{PRIMARY}]delete:[/] {SUBMIT_SHORTCUT} [{SECONDARY}]|[/] [{PRIMARY}]cancel:[/] {BACK_SHORTCUT}"
         yield label
 
-    def action_yes(self) -> None:
-        self.dismiss(True)
+    def on_input_submitted(self, event: Input.Submitted) -> None:
+        if self.topic.name == event.value:
+            self.dismiss(True)
+        else:
+            self.notify("type the name of the topic", title="confirmation step", severity="warning")
 
-    def action_no(self) -> None:
+    def action_cancel(self) -> None:
         self.dismiss(False)
 
 
@@ -194,7 +201,7 @@ class CreateTopicScreen(ModalScreen[NewTopic]):
     BINDINGS = [Binding(BACK_SHORTCUT, "back"), Binding(SAVE_SHORTCUT, "create")]
 
     def compose(self) -> ComposeResult:
-        input_name = Input(id="name")
+        input_name = Input(id="name", placeholder="alphanumerics, '.', '_' and '-'")
         input_name.border_title = "name"
 
         input_partitions = Input(id="partitions", type="integer", value="1")
@@ -339,7 +346,7 @@ class ListTopics(Container):
             except Exception as ex:
                 notify_error(self.app, "kafka error", ex)
 
-        await self.app.push_screen(ConfirmationScreen(), on_dismiss)
+        await self.app.push_screen(DeleteTopicScreen(self.current_topic), on_dismiss)
 
     def action_describe(self) -> None:
         if self.current_topic is None:
