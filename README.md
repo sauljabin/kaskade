@@ -14,10 +14,12 @@ It includes features like:
 
 - Admin:
     - List topics, partitions, groups and group members
-    - Topic information like lag, replicas, records count
-    - Create and delete topics
+    - Topic information like lag, replicas and records count
+    - Create, edit and delete topics
+    - Filter topics
 - Consumer:
     - Json, string, integer and double deserialization
+    - Filter by key and/or value
 
 ## Screenshots
 

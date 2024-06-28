@@ -8,7 +8,8 @@
                     "type": "Added",
                     "entries": [
                         "New edit topic screen",
-                        "Enforce to type topic's name when deleting"
+                        "Enforce to type topic's name when deleting",
+                        "Modify the chunk size on the consumer"
                     ]
                 },
                 {

@@ -187,3 +187,24 @@ EditTopicScreen > Container > RadioSet:focus {
     border: $kaskade-green;
     background: $surface;
 }
+
+ChunkSizeScreen {
+    align: center middle;
+}
+
+ChunkSizeScreen > ListView {
+    border: $kaskade-green;
+    width: 40%;
+    height: 6;
+    background: $surface;
+}
+
+
+ChunkSizeScreen > ListView > ListItem.--highlight {
+    background: $kaskade-green 90%;
+}
+
+
+ChunkSizeScreen > ListView > ListItem  {
+    background: $surface;
+}

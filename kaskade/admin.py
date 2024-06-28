@@ -27,7 +27,7 @@ from kaskade.services import (
 )
 from kaskade.unicodes import APPROXIMATION
 
-FILTER_TOPICS_ACTION = "/"
+FILTER_TOPICS_SHORTCUT = "/"
 BACK_SHORTCUT = "escape"
 ALL_TOPICS_SHORTCUT = BACK_SHORTCUT
 SUBMIT_SHORTCUT = "enter"
@@ -46,7 +46,7 @@ class Shortcuts(Widget):
     SHORTCUTS = [
         ["all:", BACK_SHORTCUT, "describe:", SUBMIT_SHORTCUT],
         ["refresh:", REFRESH_TOPICS_SHORTCUT, "create:", NEW_TOPIC_SHORTCUT],
-        ["filter:", FILTER_TOPICS_ACTION, "edit:", EDIT_TOPIC_SHORTCUT],
+        ["filter:", FILTER_TOPICS_SHORTCUT, "edit:", EDIT_TOPIC_SHORTCUT],
         ["quit:", QUIT_SHORTCUT, "delete:", DELETE_TOPIC_SHORTCUT],
     ]
 
@@ -356,7 +356,7 @@ class CreateTopicScreen(ModalScreen[NewTopic]):
 
 class ListTopics(Container):
     BINDINGS = [
-        Binding(FILTER_TOPICS_ACTION, "filter"),
+        Binding(FILTER_TOPICS_SHORTCUT, "filter"),
         Binding(ALL_TOPICS_SHORTCUT, "all"),
         Binding(REFRESH_TOPICS_SHORTCUT, "refresh"),
         Binding(DELETE_TOPIC_SHORTCUT, "delete"),

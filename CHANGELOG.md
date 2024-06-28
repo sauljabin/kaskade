@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - New edit topic screen
 - Enforce to type topic's name when deleting
+- Modify the chunk size on the consumer
 
 ### Fixed
 

@@ -7,18 +7,19 @@ from textual.containers import Container, ScrollableContainer
 from textual.screen import ModalScreen
 
 from textual.widget import Widget
-from textual.widgets import DataTable, Pretty
+from textual.widgets import DataTable, Pretty, ListView, ListItem, Label
 
 from kaskade.colors import PRIMARY, SECONDARY
 from kaskade.models import Record, Format
 from kaskade.services import ConsumerService
-from kaskade.unicodes import LEFT, RIGHT, UP, DOWN
 from kaskade.admin import notify_error, KaskadeBanner
 
+CHUNKS_SHORTCUT = "#"
 NEXT_SHORTCUT = ">"
 QUIT_SHORTCUT = "ctrl+c"
 SUBMIT_SHORTCUT = "enter"
 BACK_SHORTCUT = "escape"
+FILTER_SHORTCUT = "/"
 
 
 class Shortcuts(Widget):
@@ -29,8 +30,9 @@ class Shortcuts(Widget):
         table.add_column(style=SECONDARY)
 
         table.add_row("show:", SUBMIT_SHORTCUT)
-        table.add_row("scroll:", f"{LEFT} {RIGHT} {UP} {DOWN}")
         table.add_row("more:", NEXT_SHORTCUT)
+        table.add_row("filter:", FILTER_SHORTCUT)
+        table.add_row("chunk:", CHUNKS_SHORTCUT)
         table.add_row("quit:", QUIT_SHORTCUT)
 
         return table
@@ -41,6 +43,34 @@ class Header(Widget):
     def compose(self) -> ComposeResult:
         yield KaskadeBanner(short=True, include_version=True, include_slogan=False)
         yield Shortcuts()
+
+
+class ChunkSizeScreen(ModalScreen[int]):
+    BINDINGS = [Binding(BACK_SHORTCUT, "close")]
+
+    def __init__(self, current_size: int):
+        super().__init__()
+        self.current_size = current_size
+        self.items = [ListItem(Label(size), name=size) for size in ("25", "50", "100", "500")]
+
+    def _get_index(self, size: int) -> int:
+        for i, item in enumerate(self.items):
+            if item.name == str(size):
+                return i
+        return 0
+
+    def compose(self) -> ComposeResult:
+        view = ListView(*self.items, initial_index=self._get_index(self.current_size))
+        view.border_title = "chunk size"
+        view.border_subtitle = f"[{PRIMARY}]change:[/] {SUBMIT_SHORTCUT} [{SECONDARY}]|[/] [{PRIMARY}]back:[/] {BACK_SHORTCUT}"
+        yield view
+
+    def action_close(self) -> None:
+        self.dismiss()
+
+    def on_list_view_selected(self, event: ListView.Selected) -> None:
+        chunk_size = int(event.item.name) if event.item.name is not None else self.current_size
+        self.dismiss(chunk_size)
 
 
 class TopicScreen(ModalScreen):
@@ -68,6 +98,7 @@ class TopicScreen(ModalScreen):
 class ListRecords(Container):
     BINDINGS = [
         Binding(NEXT_SHORTCUT, "consume"),
+        Binding(CHUNKS_SHORTCUT, "change_chunk"),
         Binding(SUBMIT_SHORTCUT, "show_message", priority=True),
     ]
 
@@ -98,6 +129,14 @@ class ListRecords(Container):
 
     def on_mount(self) -> None:
         self.run_worker(self.action_consume())
+
+    def action_change_chunk(self) -> None:
+        def dismiss(result: int | None) -> None:
+            if result is None:
+                return
+            self.consumer.page_size = result
+
+        self.app.push_screen(ChunkSizeScreen(self.consumer.page_size), dismiss)
 
     def action_show_message(self) -> None:
         if self.current_record is None:
