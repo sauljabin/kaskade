@@ -115,7 +115,7 @@ CreateTopicScreen {
 CreateTopicScreen > Container {
     border: $kaskade-green;
     width: 40%;
-    height: 18;
+    height: 21;
     background: $surface;
     padding: 0 1 0 1;
 }

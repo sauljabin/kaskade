@@ -28,6 +28,7 @@ from kaskade.models import (
 )
 
 MILLISECONDS_24H = 86400000
+MILLISECONDS_1W = 604800000
 
 
 async def _make_it_async(func: Callable[..., Any], /, *args: Any, **keywords: Any) -> Any:

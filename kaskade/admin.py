@@ -18,7 +18,7 @@ from textual.widgets import DataTable, Input, RadioSet, RadioButton
 from kaskade import logger, APP_NAME_SHORT, APP_NAME, APP_VERSION
 from kaskade.colors import PRIMARY, SECONDARY
 from kaskade.models import Topic
-from kaskade.services import TopicService, MILLISECONDS_24H
+from kaskade.services import TopicService, MILLISECONDS_1W
 from kaskade.unicodes import APPROXIMATION, DOWN, LEFT, RIGHT, UP
 
 FILTER_TOPICS_ACTION = "/"
@@ -207,10 +207,13 @@ class CreateTopicScreen(ModalScreen[NewTopic]):
         input_partitions = Input(id="partitions", type="integer", value="1")
         input_partitions.border_title = "partitions"
 
-        input_replication = Input(id="replication", type="integer", value="1")
-        input_replication.border_title = "replication"
+        input_replication = Input(id="replicas", type="integer", value="3")
+        input_replication.border_title = "replicas"
 
-        input_retention = Input(id="retention", type="integer", value=f"{MILLISECONDS_24H}")
+        input_min_insync = Input(id="min_insync_replicas", type="integer", value="2")
+        input_min_insync.border_title = "min insync replicas"
+
+        input_retention = Input(id="retention", type="integer", value=f"{MILLISECONDS_1W}")
         input_retention.border_title = "retention (ms)"
 
         radio_set = RadioSet(id="cleanup")
@@ -224,6 +227,7 @@ class CreateTopicScreen(ModalScreen[NewTopic]):
             yield input_name
             yield input_partitions
             yield input_replication
+            yield input_min_insync
             yield input_retention
             with radio_set:
                 yield RadioButton("delete", value=True)
@@ -236,11 +240,14 @@ class CreateTopicScreen(ModalScreen[NewTopic]):
         partitions_input = self.query_one("#partitions", Input)
         partitions = partitions_input.value
 
-        replication_input = self.query_one("#replication", Input)
+        replication_input = self.query_one("#replicas", Input)
         replication = replication_input.value
 
         retention_input = self.query_one("#retention", Input)
         retention = retention_input.value
+
+        min_insync_replicas_input = self.query_one("#min_insync_replicas", Input)
+        min_insync_replicas = min_insync_replicas_input.value
 
         cleanup_input = self.query_one("#cleanup", RadioSet)
         cleanup = (
@@ -253,7 +260,11 @@ class CreateTopicScreen(ModalScreen[NewTopic]):
             name,
             num_partitions=int(partitions),
             replication_factor=int(replication),
-            config={"cleanup.policy": cleanup, "delete.retention.ms": retention},
+            config={
+                "cleanup.policy": cleanup,
+                "retention.ms": retention,
+                "min.insync.replicas": min_insync_replicas,
+            },
         )
 
         self.dismiss(new_topic)
