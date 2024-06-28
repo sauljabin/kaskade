@@ -75,7 +75,7 @@ class FilterTopicsScreen(ModalScreen[str]):
 
     def compose(self) -> ComposeResult:
         input_filter = Input(placeholder="word to match")
-        input_filter.border_title = "filter topic"
+        input_filter.border_title = "filter topics"
         input_filter.border_subtitle = f"[{PRIMARY}]filter:[/] {SUBMIT_SHORTCUT} [{SECONDARY}]|[/] [{PRIMARY}]back:[/] {BACK_SHORTCUT}"
         yield input_filter
 

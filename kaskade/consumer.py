@@ -7,7 +7,7 @@ from textual.containers import Container, ScrollableContainer
 from textual.screen import ModalScreen
 
 from textual.widget import Widget
-from textual.widgets import DataTable, Pretty, ListView, ListItem, Label
+from textual.widgets import DataTable, Pretty, ListView, ListItem, Label, Input
 
 from kaskade.colors import PRIMARY, SECONDARY
 from kaskade.models import Record, Format
@@ -43,6 +43,50 @@ class Header(Widget):
     def compose(self) -> ComposeResult:
         yield KaskadeBanner(short=True, include_version=True, include_slogan=False)
         yield Shortcuts()
+
+
+class FilterRecordScreen(ModalScreen[tuple[str, str, str]]):
+    BINDINGS = [Binding(BACK_SHORTCUT, "back")]
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.key_filter = ""
+        self.value_filter = ""
+        self.partition_filter = ""
+
+    def compose(self) -> ComposeResult:
+        input_key = Input(id="key", placeholder="word to match with keys")
+        input_key.border_title = "key"
+
+        input_value = Input(id="value", placeholder="word to match with values")
+        input_value.border_title = "value"
+
+        input_partition = Input(id="partition", placeholder="partition number", type="integer")
+        input_partition.border_title = "partition"
+
+        container = Container()
+        container.border_title = "filter records"
+        container.border_subtitle = f"[{PRIMARY}]filter:[/] {SUBMIT_SHORTCUT} [{SECONDARY}]|[/] [{PRIMARY}]back:[/] {BACK_SHORTCUT}"
+
+        with container:
+            yield input_key
+            yield input_value
+            yield input_partition
+
+    def on_input_submitted(self) -> None:
+        input_key = self.query_one("#key", Input)
+        self.key_filter = input_key.value
+
+        input_value = self.query_one("#value", Input)
+        self.value_filter = input_value.value
+
+        input_partition = self.query_one("#partition", Input)
+        self.partition_filter = input_partition.value
+
+        self.dismiss((self.key_filter, self.value_filter, self.partition_filter))
+
+    def action_back(self) -> None:
+        self.dismiss()
 
 
 class ChunkSizeScreen(ModalScreen[int]):
@@ -99,22 +143,56 @@ class ListRecords(Container):
     BINDINGS = [
         Binding(NEXT_SHORTCUT, "consume"),
         Binding(CHUNKS_SHORTCUT, "change_chunk"),
+        Binding(FILTER_SHORTCUT, "filter"),
         Binding(SUBMIT_SHORTCUT, "show_message", priority=True),
     ]
 
-    def __init__(self, consumer: ConsumerService):
+    def __init__(
+        self, topic: str, kafka_conf: dict[str, str], key_format: Format, value_format: Format
+    ):
         super().__init__()
-        self.topic = consumer.topic
-        self.consumer = consumer
+        self.topic = topic
+        self.kafka_conf = kafka_conf
+        self.key_format = key_format
+        self.value_format = value_format
+        self.consumer = self._new_consumer()
         self.records: dict[str, Record] = {}
         self.current_record: Record | None = None
+        self.key_filter = ""
+        self.value_filter = ""
+        self.partition_filter = ""
+
+    def _new_consumer(self) -> ConsumerService:
+        return ConsumerService(
+            self.topic,
+            self.kafka_conf,
+            key_format=self.key_format,
+            value_format=self.value_format,
+        )
+
+    def _get_title(self) -> str:
+        def style(text: str) -> str:
+            return f"\\[[{PRIMARY}]{text}[/]]"
+
+        title_filter = ""
+
+        if self.key_filter:
+            title_filter += style(f"k:*{self.key_filter}*")
+
+        if self.value_filter:
+            title_filter += style(f"v:*{self.value_filter}*")
+
+        if self.partition_filter:
+            title_filter += style(f"p:{self.partition_filter}")
+
+        return f"records \\[[{PRIMARY}]{self.topic}[/]]{title_filter}\\[[{PRIMARY}]{len(self.records)}[/]]"
 
     def compose(self) -> ComposeResult:
         table: DataTable = DataTable()
         table.cursor_type = "row"
         table.border_subtitle = f"\\[[{PRIMARY}]consumer mode[/]]"
         table.zebra_stripes = True
-        table.border_title = f"records \\[[{PRIMARY}]{self.topic}[/]]\\[[{PRIMARY}]0[/]]"
+        table.border_title = self._get_title()
 
         table.add_column("message", width=50)
         table.add_column("datetime", width=10)
@@ -128,6 +206,23 @@ class ListRecords(Container):
         self.consumer.close()
 
     def on_mount(self) -> None:
+        self.run_worker(self.action_consume())
+
+    def action_filter(self) -> None:
+        def dismiss(result: tuple[str, str, str] | None) -> None:
+            if result is None:
+                return
+            self.key_filter, self.value_filter, self.partition_filter = result
+            self._filter()
+
+        self.app.push_screen(FilterRecordScreen(), dismiss)
+
+    def _filter(self) -> None:
+        table = self.query_one(DataTable)
+        table.clear()
+        self.consumer = self._new_consumer()
+        self.records = {}
+        table.border_title = self._get_title()
         self.run_worker(self.action_consume())
 
     def action_change_chunk(self) -> None:
@@ -163,7 +258,12 @@ class ListRecords(Container):
         table.loading = True
 
         try:
-            records = await self.consumer.consume()
+            records = await self.consumer.consume(
+                partition_filter=int(self.partition_filter) if self.partition_filter else None,
+                key_filter=self.key_filter if self.key_filter else None,
+                value_filter=self.value_filter if self.value_filter else None,
+            )
+
             for record in records:
                 self.records[str(record)] = record
                 key_and_value = Table(box=None, show_header=False, padding=0)
@@ -179,9 +279,7 @@ class ListRecords(Container):
                     str(record.headers_count()),
                 ]
                 table.add_row(*row, height=2, key=str(record))
-            table.border_title = (
-                f"records \\[[{PRIMARY}]{self.topic}[/]]\\[[{PRIMARY}]{table.row_count}[/]]"
-            )
+            table.border_title = self._get_title()
         except Exception as ex:
             notify_error(self.app, "error consuming records", ex)
 
@@ -196,19 +294,12 @@ class KaskadeConsumer(App):
         self, topic: str, kafka_conf: dict[str, str], key_format: Format, value_format: Format
     ):
         super().__init__()
+        self.use_command_palette = False
         self.topic = topic
         self.kafka_conf = kafka_conf
-        self.use_command_palette = False
         self.key_format = key_format
         self.value_format = value_format
 
     def compose(self) -> ComposeResult:
         yield Header()
-        yield ListRecords(
-            ConsumerService(
-                self.topic,
-                self.kafka_conf,
-                key_format=self.key_format,
-                value_format=self.value_format,
-            )
-        )
+        yield ListRecords(self.topic, self.kafka_conf, self.key_format, self.value_format)

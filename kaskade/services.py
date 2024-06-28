@@ -78,12 +78,19 @@ class ConsumerService:
         self.consumer.unsubscribe()
         self.consumer.close()
 
-    async def consume(self) -> list[Record]:
+    async def consume(
+        self,
+        *,
+        partition_filter: int | None = None,
+        key_filter: str | None = None,
+        value_filter: str | None = None,
+    ) -> list[Record]:
         records: list[Record] = []
         retries = 0
 
         while len(records) < self.page_size:
             if retries >= self.max_retries:
+                logger.info("reach maximum number of retries")
                 break
 
             record_metadata = await _make_it_async(self.consumer.poll, self.timeout)
@@ -115,6 +122,19 @@ class ConsumerService:
                 key_format=self.key_format,
                 value_format=self.value_format,
             )
+
+            if partition_filter is not None:
+                if record.partition != partition_filter:
+                    continue
+
+            if key_filter:
+                if key_filter not in record.key_str():
+                    continue
+
+            if value_filter:
+                if value_filter not in record.value_str():
+                    continue
+
             records.append(record)
 
         return records

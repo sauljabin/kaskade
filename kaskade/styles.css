@@ -197,6 +197,7 @@ ChunkSizeScreen > ListView {
     width: 40%;
     height: 6;
     background: $surface;
+    padding: 0 1 0 1;
 }
 
 
@@ -206,5 +207,28 @@ ChunkSizeScreen > ListView > ListItem.--highlight {
 
 
 ChunkSizeScreen > ListView > ListItem  {
+    background: $surface;
+}
+
+FilterRecordScreen {
+    align: center middle;
+}
+
+FilterRecordScreen > Container {
+    border: $kaskade-green;
+    width: 40%;
+    height: 11;
+    background: $surface;
+    padding: 0 1 0 1;
+}
+
+FilterRecordScreen > Container > Input {
+    padding: 0 0 0 1;
+    border: solid $kaskade-green 50%;
+    background: $surface;
+}
+
+FilterRecordScreen > Container > Input:focus {
+    border: $kaskade-green;
     background: $surface;
 }
