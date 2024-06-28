@@ -11,8 +11,13 @@ from confluent_kafka.admin import (
     DescribeClusterResult,
     ConsumerGroupDescription,
     PartitionMetadata,
+    ConfigResource,
+    ResourceType,
+    ConfigEntry,
+    AlterConfigOpType,
+    ConfigSource,
 )
-from confluent_kafka.cimpl import NewTopic
+from confluent_kafka.cimpl import NewTopic, NewPartitions
 
 from kaskade import logger
 from kaskade.models import (
@@ -29,6 +34,9 @@ from kaskade.models import (
 
 MILLISECONDS_24H = 86400000
 MILLISECONDS_1W = 604800000
+MIN_INSYNC_REPLICAS_CONFIG = "min.insync.replicas"
+RETENTION_MS_CONFIG = "retention.ms"
+CLEANUP_POLICY_CONFIG = "cleanup.policy"
 
 
 async def _make_it_async(func: Callable[..., Any], /, *args: Any, **keywords: Any) -> Any:
@@ -151,10 +159,41 @@ class TopicService:
         self.timeout = timeout
         self.config = config.copy() | {"logger": logger}
         self.admin_client = AdminClient(self.config)
-        self.consumer = Consumer(self.config | {"group.id": f"kaskade-{uuid.uuid4()}"})
 
     def create(self, new_topics: list[NewTopic]) -> None:
         futures = self.admin_client.create_topics(new_topics)
+        for future in futures.values():
+            future.result()
+
+    def get_configs(self, name: str) -> dict[str, str]:
+        resource = ConfigResource(ResourceType.TOPIC, name)
+        futures = self.admin_client.describe_configs([resource])
+        for future in futures.values():
+            configs = future.result()
+            return {config.name: config.value for config in configs.values()}
+        return {}
+
+    def edit(self, name: str, config: dict[str, str]) -> None:
+        entries = [
+            ConfigEntry(
+                name=key,
+                value=value,
+                source=ConfigSource.DYNAMIC_TOPIC_CONFIG,
+                incremental_operation=AlterConfigOpType.SET,
+            )
+            for key, value in config.items()
+        ]
+
+        resource = ConfigResource(ResourceType.TOPIC, name=name, incremental_configs=entries)
+
+        futures = self.admin_client.incremental_alter_configs([resource])
+        for future in futures.values():
+            future.result()
+
+    def add_partitions(self, name: str, partitions: int) -> None:
+        futures = self.admin_client.create_partitions(
+            [NewPartitions(name, partitions)], request_timeout=self.timeout, validate_only=False
+        )
         for future in futures.values():
             future.result()
 
@@ -279,9 +318,11 @@ class TopicService:
     ) -> tuple[int, int]:
         low, high = 0, 0
 
+        consumer = Consumer(self.config | {"group.id": f"kaskade-{uuid.uuid4()}"})
+
         try:
             low, high = await _make_it_async(
-                self.consumer.get_watermark_offsets,
+                consumer.get_watermark_offsets,
                 TopicPartition(topic_metadata.topic, partition_metadata.id),
                 timeout=self.timeout,
                 cached=False,

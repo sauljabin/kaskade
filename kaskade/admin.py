@@ -17,9 +17,15 @@ from textual.widgets import DataTable, Input, RadioSet, RadioButton
 
 from kaskade import logger, APP_NAME_SHORT, APP_NAME, APP_VERSION
 from kaskade.colors import PRIMARY, SECONDARY
-from kaskade.models import Topic
-from kaskade.services import TopicService, MILLISECONDS_1W
-from kaskade.unicodes import APPROXIMATION, DOWN, LEFT, RIGHT, UP
+from kaskade.models import Topic, CleanupPolicy
+from kaskade.services import (
+    TopicService,
+    MILLISECONDS_1W,
+    MIN_INSYNC_REPLICAS_CONFIG,
+    RETENTION_MS_CONFIG,
+    CLEANUP_POLICY_CONFIG,
+)
+from kaskade.unicodes import APPROXIMATION
 
 FILTER_TOPICS_ACTION = "/"
 BACK_SHORTCUT = "escape"
@@ -30,11 +36,19 @@ SAVE_SHORTCUT = "ctrl+s"
 DESCRIBE_TOPIC_SHORTCUT = SUBMIT_SHORTCUT
 NEW_TOPIC_SHORTCUT = "ctrl+n"
 DELETE_TOPIC_SHORTCUT = "ctrl+d"
+EDIT_TOPIC_SHORTCUT = "ctrl+e"
 REFRESH_TOPICS_SHORTCUT = "ctrl+r"
 QUIT_SHORTCUT = "ctrl+c"
 
 
 class Shortcuts(Widget):
+
+    SHORTCUTS = [
+        ["all:", BACK_SHORTCUT, "describe:", SUBMIT_SHORTCUT],
+        ["refresh:", REFRESH_TOPICS_SHORTCUT, "create:", NEW_TOPIC_SHORTCUT],
+        ["filter:", FILTER_TOPICS_ACTION, "edit:", EDIT_TOPIC_SHORTCUT],
+        ["quit:", QUIT_SHORTCUT, "delete:", DELETE_TOPIC_SHORTCUT],
+    ]
 
     def render(self) -> RenderResult:
         table = Table(box=None, show_header=False, padding=(0, 1, 0, 0))
@@ -43,15 +57,8 @@ class Shortcuts(Widget):
         table.add_column(style=PRIMARY)
         table.add_column(style=SECONDARY)
 
-        table.add_row(
-            "describe:",
-            "enter",
-            "create:",
-            NEW_TOPIC_SHORTCUT,
-        )
-        table.add_row("scroll:", f"{LEFT} {RIGHT} {UP} {DOWN}", "delete:", DELETE_TOPIC_SHORTCUT)
-        table.add_row("filter:", "/", "refresh:", REFRESH_TOPICS_SHORTCUT)
-        table.add_row("all:", "escape", "quit:", QUIT_SHORTCUT)
+        for shortcuts in self.SHORTCUTS:
+            table.add_row(*shortcuts)
 
         return table
 
@@ -197,6 +204,80 @@ class DescribeTopicScreen(ModalScreen):
         self.dismiss()
 
 
+class EditTopicScreen(ModalScreen[bool]):
+    BINDINGS = [Binding(BACK_SHORTCUT, "back"), Binding(SAVE_SHORTCUT, "edit")]
+
+    def __init__(
+        self,
+        topic_name: str,
+        partitions: str,
+        min_insync_replicas: str,
+        cleanup_policy: str,
+        retention: str,
+    ):
+        super().__init__()
+        self.topic_name = topic_name
+        self.partitions = partitions
+        self.min_insync_replicas = min_insync_replicas
+        self.cleanup_policy = cleanup_policy
+        self.retention = retention
+
+    def compose(self) -> ComposeResult:
+        input_partitions = Input(id="partitions", type="integer", value=self.partitions)
+        input_partitions.border_title = "partitions"
+
+        input_min_insync = Input(
+            id="min_insync_replicas", type="integer", value=self.min_insync_replicas
+        )
+        input_min_insync.border_title = "min insync replicas"
+
+        input_retention = Input(id="retention", type="integer", value=self.retention)
+        input_retention.border_title = "retention (ms)"
+
+        radio_set = RadioSet(id="cleanup")
+        radio_set.border_title = "cleanup policy"
+
+        container = Container()
+        container.border_title = f"edit topic [[{PRIMARY}]{self.topic_name}[/]]"
+        container.border_subtitle = f"[{PRIMARY}]save:[/] {SAVE_SHORTCUT} [{SECONDARY}]|[/] [{PRIMARY}]back:[/] {BACK_SHORTCUT}"
+
+        with container:
+            yield input_partitions
+            yield input_min_insync
+            yield input_retention
+            with radio_set:
+                yield RadioButton(
+                    str(CleanupPolicy.DELETE),
+                    value=self.cleanup_policy == str(CleanupPolicy.DELETE),
+                )
+                yield RadioButton(
+                    str(CleanupPolicy.COMPACT),
+                    value=self.cleanup_policy == str(CleanupPolicy.COMPACT),
+                )
+
+    def action_edit(self) -> None:
+        partitions_input = self.query_one("#partitions", Input)
+        self.partitions = partitions_input.value
+
+        retention_input = self.query_one("#retention", Input)
+        self.retention = retention_input.value
+
+        min_insync_replicas_input = self.query_one("#min_insync_replicas", Input)
+        self.min_insync_replicas = min_insync_replicas_input.value
+
+        cleanup_input = self.query_one("#cleanup", RadioSet)
+        self.cleanup_policy = (
+            str(cleanup_input.pressed_button.label)
+            if cleanup_input.pressed_button is not None
+            else str(CleanupPolicy.DELETE)
+        )
+
+        self.dismiss(True)
+
+    def action_back(self) -> None:
+        self.dismiss(False)
+
+
 class CreateTopicScreen(ModalScreen[NewTopic]):
     BINDINGS = [Binding(BACK_SHORTCUT, "back"), Binding(SAVE_SHORTCUT, "create")]
 
@@ -230,8 +311,8 @@ class CreateTopicScreen(ModalScreen[NewTopic]):
             yield input_min_insync
             yield input_retention
             with radio_set:
-                yield RadioButton("delete", value=True)
-                yield RadioButton("compact")
+                yield RadioButton(str(CleanupPolicy.DELETE), value=True)
+                yield RadioButton(str(CleanupPolicy.COMPACT))
 
     def action_create(self) -> None:
         name_input = self.query_one("#name", Input)
@@ -251,9 +332,9 @@ class CreateTopicScreen(ModalScreen[NewTopic]):
 
         cleanup_input = self.query_one("#cleanup", RadioSet)
         cleanup = (
-            cleanup_input.pressed_button.label
+            str(cleanup_input.pressed_button.label)
             if cleanup_input.pressed_button is not None
-            else "delete"
+            else str(CleanupPolicy.DELETE)
         )
 
         new_topic = NewTopic(
@@ -261,9 +342,9 @@ class CreateTopicScreen(ModalScreen[NewTopic]):
             num_partitions=int(partitions),
             replication_factor=int(replication),
             config={
-                "cleanup.policy": cleanup,
-                "retention.ms": retention,
-                "min.insync.replicas": min_insync_replicas,
+                CLEANUP_POLICY_CONFIG: cleanup,
+                RETENTION_MS_CONFIG: retention,
+                MIN_INSYNC_REPLICAS_CONFIG: min_insync_replicas,
             },
         )
 
@@ -280,6 +361,7 @@ class ListTopics(Container):
         Binding(REFRESH_TOPICS_SHORTCUT, "refresh"),
         Binding(DELETE_TOPIC_SHORTCUT, "delete"),
         Binding(NEW_TOPIC_SHORTCUT, "new"),
+        Binding(EDIT_TOPIC_SHORTCUT, "edit"),
         Binding(DESCRIBE_TOPIC_SHORTCUT, "describe", priority=True),
     ]
 
@@ -338,6 +420,49 @@ class ListTopics(Container):
                 notify_error(self.app, "kafka error", ex)
 
         await self.app.push_screen(CreateTopicScreen(), on_dismiss)
+
+    async def action_edit(self) -> None:
+        if self.current_topic is None:
+            return
+
+        topic_configs = self.topic_service.get_configs(self.current_topic.name)
+
+        edit_topic_screen = EditTopicScreen(
+            self.current_topic.name,
+            str(self.current_topic.partitions_count()),
+            topic_configs[MIN_INSYNC_REPLICAS_CONFIG],
+            topic_configs[CLEANUP_POLICY_CONFIG],
+            topic_configs[RETENTION_MS_CONFIG],
+        )
+
+        async def on_dismiss(result: bool) -> None:
+            if not result:
+                return
+
+            if self.current_topic is None:
+                return
+
+            try:
+                if int(edit_topic_screen.partitions) - self.current_topic.partitions_count() > 0:
+                    self.topic_service.add_partitions(
+                        self.current_topic.name, int(edit_topic_screen.partitions)
+                    )
+
+                self.topic_service.edit(
+                    self.current_topic.name,
+                    {
+                        MIN_INSYNC_REPLICAS_CONFIG: edit_topic_screen.min_insync_replicas,
+                        CLEANUP_POLICY_CONFIG: edit_topic_screen.cleanup_policy,
+                        RETENTION_MS_CONFIG: edit_topic_screen.retention,
+                    },
+                )
+
+                await asyncio.sleep(0.5)
+                self.run_worker(self.action_refresh())
+            except Exception as ex:
+                notify_error(self.app, "kafka error", ex)
+
+        await self.app.push_screen(edit_topic_screen, on_dismiss)
 
     async def action_delete(self) -> None:
         if self.current_topic is None:

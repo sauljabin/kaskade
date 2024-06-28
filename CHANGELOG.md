@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- New edit topic screen
+- Enforce to type topic's name when deleting
+
+### Fixed
+
+- Using the right retention config name
+
 ## [2.0.1] - 2024-06-27
 
 ### Fixed

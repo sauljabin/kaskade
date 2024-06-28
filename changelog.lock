@@ -2,7 +2,22 @@
     "repository": "https://github.com/sauljabin/kaskade",
     "versions": [
         {
-            "version": "Unreleased"
+            "version": "Unreleased",
+            "changes": [
+                {
+                    "type": "Added",
+                    "entries": [
+                        "New edit topic screen",
+                        "Enforce to type topic's name when deleting"
+                    ]
+                },
+                {
+                    "type": "Fixed",
+                    "entries": [
+                        "Using the right retention config name"
+                    ]
+                }
+            ]
         },
         {
             "version": "2.0.1",

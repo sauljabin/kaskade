@@ -154,3 +154,36 @@ TopicScreen > ScrollableContainer {
     scrollbar-background-hover: $kaskade-orchid-dark;
     scrollbar-corner-color: $kaskade-orchid-dark;
 }
+
+EditTopicScreen {
+    align: center middle;
+}
+
+EditTopicScreen > Container {
+    border: $kaskade-green;
+    width: 40%;
+    height: 15;
+    background: $surface;
+    padding: 0 1 0 1;
+}
+
+EditTopicScreen > Container > Input {
+    padding: 0 0 0 1;
+    border: solid $kaskade-green 50%;
+    background: $surface;
+}
+
+EditTopicScreen > Container > Input:focus {
+    border: $kaskade-green;
+    background: $surface;
+}
+
+EditTopicScreen > Container > RadioSet {
+    border: solid $kaskade-green 50%;
+    width: 100%;
+}
+
+EditTopicScreen > Container > RadioSet:focus {
+    border: $kaskade-green;
+    background: $surface;
+}

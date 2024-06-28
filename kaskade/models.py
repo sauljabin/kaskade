@@ -278,6 +278,25 @@ class Cluster:
         return False
 
 
+class CleanupPolicy(Enum):
+    DELETE = auto()
+    COMPACT = auto()
+
+    def __str__(self) -> str:
+        return self.name.lower()
+
+    def __repr__(self) -> str:
+        return str(self)
+
+    @classmethod
+    def from_str(cls, value: str) -> "CleanupPolicy":
+        return CleanupPolicy[value.upper()]
+
+    @classmethod
+    def str_list(cls) -> list[str]:
+        return [str(policy) for policy in CleanupPolicy]
+
+
 class Format(Enum):
     BYTES = auto()
     STRING = auto()
@@ -285,9 +304,19 @@ class Format(Enum):
     DOUBLE = auto()
     JSON = auto()
 
+    def __str__(self) -> str:
+        return self.name.lower()
+
+    def __repr__(self) -> str:
+        return str(self)
+
     @classmethod
     def from_str(cls, value: str) -> "Format":
         return Format[value.upper()]
+
+    @classmethod
+    def str_list(cls) -> list[str]:
+        return [str(key_format) for key_format in Format]
 
 
 def _deserialize(deserialization_format: Format, value: bytes | None) -> Any:

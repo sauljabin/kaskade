@@ -90,17 +90,17 @@ def admin(
 @click.option(
     "-k",
     "key_format",
-    type=click.Choice([key_format.name.lower() for key_format in Format], False),
+    type=click.Choice(Format.str_list(), False),
     help="Key format.",
-    default=Format.BYTES.name.lower(),
+    default=str(Format.BYTES),
     show_default=True,
 )
 @click.option(
     "-v",
     "value_format",
-    type=click.Choice([key_format.name.lower() for key_format in Format], False),
+    type=click.Choice(Format.str_list(), False),
     help="Value format.",
-    default=Format.BYTES.name.lower(),
+    default=str(Format.BYTES),
     show_default=True,
 )
 def consumer(
