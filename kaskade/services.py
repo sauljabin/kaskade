@@ -31,6 +31,7 @@ from kaskade.models import (
     Record,
     Format,
     Header,
+    DeserializerFactory,
 )
 
 MILLISECONDS_24H = 86400000
@@ -62,6 +63,7 @@ class ConsumerService:
         self,
         topic: str,
         kafka_config: dict[str, str],
+        schemas_conf: dict[str, str],
         key_format: Format,
         value_format: Format,
         *,
@@ -85,6 +87,7 @@ class ConsumerService:
             }
         )
         self.consumer.subscribe([topic])
+        self.deserializer_factory = DeserializerFactory(schemas_conf)
 
     def close(self) -> None:
         self.consumer.unsubscribe()
@@ -132,12 +135,21 @@ class ConsumerService:
                 value=record_metadata.value(),
                 date=date,
                 headers=(
-                    [Header(key=key, value=value) for key, value in record_metadata.headers()]
+                    [
+                        Header(
+                            key=key,
+                            value=value,
+                            deserializer=self.deserializer_factory.make_deserializer(Format.STRING),
+                        )
+                        for key, value in record_metadata.headers()
+                    ]
                     if record_metadata.headers() is not None
                     else []
                 ),
                 key_format=self.key_format,
                 value_format=self.value_format,
+                key_deserializer=self.deserializer_factory.make_deserializer(self.key_format),
+                value_deserializer=self.deserializer_factory.make_deserializer(self.value_format),
             )
 
             if partition_filter is not None:

@@ -1,9 +1,21 @@
+import sys
+
 import click
 
 from kaskade import APP_VERSION
 from kaskade.consumer import KaskadeConsumer
 from kaskade.admin import KaskadeAdmin
 from kaskade.models import Format
+
+SR_URL_MESSAGE_VALIDATION = """Usage: kaskade consumer [OPTIONS]
+Try 'kaskade consumer --help' for help.
+
+Error: Missing option '-s url=<my url>'"""
+
+SR_AVRO_FORMAT_VALIDATION = """Usage: kaskade consumer [OPTIONS]
+Try 'kaskade consumer --help' for help.
+
+Error: Missing option '-k avro' and/or '-v avro'"""
 
 
 @click.group()
@@ -74,13 +86,6 @@ def admin(
     required=True,
 )
 @click.option(
-    "-t",
-    "topic",
-    help="Topic.",
-    metavar="name",
-    required=True,
-)
-@click.option(
     "-x",
     "kafka_properties_input",
     help="Kafka property. Set a librdkafka configuration property. Multiple -x are allowed.",
@@ -88,8 +93,15 @@ def admin(
     multiple=True,
 )
 @click.option(
+    "-t",
+    "topic",
+    help="Topic.",
+    metavar="name",
+    required=True,
+)
+@click.option(
     "-k",
-    "key_format",
+    "key_format_str",
     type=click.Choice(Format.str_list(), False),
     help="Key format.",
     default=str(Format.BYTES),
@@ -97,7 +109,7 @@ def admin(
 )
 @click.option(
     "-v",
-    "value_format",
+    "value_format_str",
     type=click.Choice(Format.str_list(), False),
     help="Value format.",
     default=str(Format.BYTES),
@@ -106,7 +118,8 @@ def admin(
 @click.option(
     "-s",
     "registry_properties_input",
-    help="Schema Registry property. Set a SchemaRegistryClient property. Multiple -s are allowed.",
+    help="Schema Registry property. Set a SchemaRegistryClient property. Multiple -s are allowed. Needed if -k avro "
+    "or -v avro were passed.",
     metavar="property=value",
     multiple=True,
 )
@@ -115,8 +128,8 @@ def consumer(
     kafka_properties_input: tuple[str, ...],
     registry_properties_input: tuple[str, ...],
     topic: str,
-    key_format: str,
-    value_format: str,
+    key_format_str: str,
+    value_format_str: str,
 ) -> None:
     """
 
@@ -134,10 +147,22 @@ def consumer(
     kafka_conf = {k: v for (k, v) in [pair.split("=", 1) for pair in kafka_properties_input]}
     kafka_conf["bootstrap.servers"] = bootstrap_servers_input
     schemas_conf = {k: v for (k, v) in [pair.split("=", 1) for pair in registry_properties_input]}
+    key_format = Format.from_str(key_format_str)
+    value_format = Format.from_str(value_format_str)
 
-    kaskade_app = KaskadeConsumer(
-        topic, kafka_conf, schemas_conf, Format.from_str(key_format), Format.from_str(value_format)
-    )
+    if len(schemas_conf) > 0 and schemas_conf.get("url") is None:
+        print(SR_URL_MESSAGE_VALIDATION)
+        sys.exit(1)
+
+    if len(schemas_conf) == 0 and (key_format == Format.AVRO or value_format == Format.AVRO):
+        print(SR_URL_MESSAGE_VALIDATION)
+        sys.exit(1)
+
+    if len(schemas_conf) > 0 and key_format != Format.AVRO and value_format != Format.AVRO:
+        print(SR_AVRO_FORMAT_VALIDATION)
+        sys.exit(1)
+
+    kaskade_app = KaskadeConsumer(topic, kafka_conf, schemas_conf, key_format, value_format)
     kaskade_app.run()
 
 

@@ -110,7 +110,7 @@ kaskade -b localhost:9092 -s url=http://localhost:8081 -k avro -v avro
 
 > More Schema Registry configurations at: [SchemaRegistryClient](https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#schemaregistry-client).
 
-> `librdkafka` clients do not currently support AVRO Unions in (de)serialization, more at: [Limitations for librdkafka clients](https://docs.confluent.io/platform/current/schema-registry/fundamentals/serdes-develop/serdes-avro.html#limitations-for-librdkafka-clients).
+> librdkafka clients do not currently support AVRO Unions in (de)serialization, more at: [Limitations for librdkafka clients](https://docs.confluent.io/platform/current/schema-registry/fundamentals/serdes-develop/serdes-avro.html#limitations-for-librdkafka-clients).
 
 #### SSL encryption example:
 

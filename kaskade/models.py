@@ -1,7 +1,16 @@
 import json
 import struct
 from enum import Enum, auto
-from typing import Any
+from io import BytesIO
+from typing import Any, Callable
+
+import avro.schema
+from avro.io import BinaryDecoder, DatumReader
+from confluent_kafka.schema_registry import SchemaRegistryClient
+
+
+NULL = "null"
+MAGIC_BYTES = 0
 
 
 class Node:
@@ -318,66 +327,87 @@ class Format(Enum):
         return [str(key_format) for key_format in Format]
 
 
-def _deserialize(deserialization_format: Format, value: bytes | None) -> Any:
-    if value is None:
-        return
+class DeserializerFactory:
+    def __init__(self, schema_registry_config: dict[str, str] | None):
+        if schema_registry_config:
+            self.schema_registry_client = SchemaRegistryClient(schema_registry_config)
 
-    deserializer: Any = str
+    def make_deserializer(self, deserialization_format: Format) -> Callable[[bytes], Any]:
+        def avro_deserializer(raw_bytes: bytes) -> Any:
+            if self.schema_registry_client is None:
+                raise Exception("Schema Registry is not configured")
 
-    match deserialization_format:
-        case Format.STRING:
+            magic, schema_id = struct.unpack(">bI", raw_bytes[:5])
 
-            def string_deserializer(raw_bytes: bytes) -> Any:
-                return raw_bytes.decode("utf-8")
+            if magic != MAGIC_BYTES:
+                raise Exception(
+                    "Unexpected magic byte. This message was not produced with a Confluent Schema Registry serializer"
+                )
 
-            deserializer = string_deserializer
-        case Format.JSON:
+            schema = avro.schema.parse(self.schema_registry_client.get_schema(schema_id).schema_str)
+            binary_value = BinaryDecoder(BytesIO(raw_bytes[5:]))
+            reader = DatumReader(schema)
+            return reader.read(binary_value)
 
-            def json_deserializer(raw_bytes: bytes) -> Any:
-                try:
-                    return json.loads(raw_bytes)
-                except UnicodeDecodeError:
-                    return json.loads(raw_bytes[5:])
+        def default_deserializer(raw_bytes: bytes) -> Any:
+            return str(raw_bytes)
 
-            deserializer = json_deserializer
-        case Format.INTEGER:
+        def string_deserializer(raw_bytes: bytes) -> Any:
+            return raw_bytes.decode("utf-8")
 
-            def integer_deserializer(raw_bytes: bytes) -> Any:
-                return struct.unpack(">i", raw_bytes)[0]
+        def integer_deserializer(raw_bytes: bytes) -> Any:
+            return struct.unpack(">i", raw_bytes)[0]
 
-            deserializer = integer_deserializer
-        case Format.LONG:
+        def json_deserializer(raw_bytes: bytes) -> Any:
+            try:
+                return json.loads(raw_bytes)
+            except UnicodeDecodeError:
+                # in case that the json has a confluent schema registry magic byte
+                return json.loads(raw_bytes[5:])
 
-            def long_deserializer(raw_bytes: bytes) -> Any:
-                return struct.unpack(">q", raw_bytes)[0]
+        def long_deserializer(raw_bytes: bytes) -> Any:
+            return struct.unpack(">q", raw_bytes)[0]
 
-            deserializer = long_deserializer
-        case Format.DOUBLE:
+        def double_deserializer(raw_bytes: bytes) -> Any:
+            return struct.unpack(">d", raw_bytes)[0]
 
-            def double_deserializer(raw_bytes: bytes) -> Any:
-                return struct.unpack(">d", raw_bytes)[0]
+        def float_deserializer(raw_bytes: bytes) -> Any:
+            return struct.unpack(">f", raw_bytes)[0]
 
-            deserializer = double_deserializer
-        case Format.FLOAT:
+        def bool_deserializer(raw_bytes: bytes) -> Any:
+            return struct.unpack(">?", raw_bytes)[0]
 
-            def float_deserializer(raw_bytes: bytes) -> Any:
-                return struct.unpack(">f", raw_bytes)[0]
-
-            deserializer = float_deserializer
-        case Format.BOOLEAN:
-
-            def bool_deserializer(raw_bytes: bytes) -> Any:
-                return struct.unpack(">?", raw_bytes)[0]
-
-            deserializer = bool_deserializer
-
-    return deserializer(value)
+        match deserialization_format:
+            case Format.STRING:
+                return string_deserializer
+            case Format.JSON:
+                return json_deserializer
+            case Format.INTEGER:
+                return integer_deserializer
+            case Format.LONG:
+                return long_deserializer
+            case Format.DOUBLE:
+                return double_deserializer
+            case Format.FLOAT:
+                return float_deserializer
+            case Format.BOOLEAN:
+                return bool_deserializer
+            case Format.AVRO:
+                return avro_deserializer
+            case _:
+                return default_deserializer
 
 
 class Header:
-    def __init__(self, key: str = "", value: bytes | None = None):
+    def __init__(
+        self,
+        key: str = "",
+        value: bytes | None = None,
+        deserializer: Callable[[bytes], Any] | None = None,
+    ):
         self.key = key
         self.value = value
+        self.deserializer = deserializer
 
     def __repr__(self) -> str:
         return str(self)
@@ -391,8 +421,14 @@ class Header:
         return False
 
     def value_str(self) -> str:
+        if self.value is None:
+            return NULL
+
+        if self.deserializer is None:
+            return str(self.value)
+
         try:
-            return str(_deserialize(Format.STRING, self.value))
+            return str(self.deserializer(self.value))
         except Exception:
             return str(self.value)
 
@@ -409,6 +445,8 @@ class Record:
         headers: list[Header] | None = None,
         key_format: Format = Format.BYTES,
         value_format: Format = Format.BYTES,
+        key_deserializer: Callable[[bytes], Any] | None = None,
+        value_deserializer: Callable[[bytes], Any] | None = None,
     ) -> None:
         self.topic = topic
         self.partition = partition
@@ -421,6 +459,8 @@ class Record:
         self.headers = headers
         self.key_format = key_format
         self.value_format = value_format
+        self.key_deserializer = key_deserializer
+        self.value_deserializer = value_deserializer
 
     def __repr__(self) -> str:
         return str(self)
@@ -449,12 +489,30 @@ class Record:
             ),
             "key format": self.key_format.name,
             "value format": self.value_format.name,
-            "key": _deserialize(self.key_format, self.key),
-            "value": _deserialize(self.value_format, self.value),
+            "key": self.key_deserialized(),
+            "value": self.value_deserialized(),
         }
 
+    def key_deserialized(self) -> Any:
+        if self.key is None:
+            return NULL
+
+        if self.key_deserializer is None:
+            return str(self.key)
+
+        return self.key_deserializer(self.key)
+
+    def value_deserialized(self) -> Any:
+        if self.value is None:
+            return NULL
+
+        if self.value_deserializer is None:
+            return str(self.value)
+
+        return self.value_deserializer(self.value)
+
     def key_str(self) -> str:
-        return str(_deserialize(self.key_format, self.key))
+        return str(self.key_deserialized())
 
     def value_str(self) -> str:
-        return str(_deserialize(self.value_format, self.value))
+        return str(self.value_deserialized())
