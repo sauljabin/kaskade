@@ -1,10 +1,9 @@
 import json
+import struct
 from enum import Enum, auto
 from typing import Any
 
 from confluent_kafka.serialization import (
-    IntegerDeserializer,
-    DoubleDeserializer,
     StringDeserializer,
     SerializationError,
 )
@@ -300,9 +299,12 @@ class CleanupPolicy(Enum):
 
 class Format(Enum):
     BYTES = auto()
+    BOOLEAN = auto()
     STRING = auto()
+    LONG = auto()
     INTEGER = auto()
     DOUBLE = auto()
+    FLOAT = auto()
     JSON = auto()
 
     def __str__(self) -> str:
@@ -324,17 +326,47 @@ def _deserialize(deserialization_format: Format, value: bytes | None) -> Any:
     if value is None:
         return
 
+    deserializer: Any = str
+
     match deserialization_format:
         case Format.STRING:
-            deserializer = StringDeserializer()
+
+            def string_deserializer(raw_bytes: bytes) -> Any:
+                return raw_bytes.decode("utf8")
+
+            deserializer = string_deserializer
         case Format.JSON:
             deserializer = json.loads
         case Format.INTEGER:
-            deserializer = IntegerDeserializer()
+
+            def integer_deserializer(raw_bytes: bytes) -> Any:
+                return struct.unpack(">i", raw_bytes)[0]
+
+            deserializer = integer_deserializer
+        case Format.LONG:
+
+            def long_deserializer(raw_bytes: bytes) -> Any:
+                return struct.unpack(">q", raw_bytes)[0]
+
+            deserializer = long_deserializer
         case Format.DOUBLE:
-            deserializer = DoubleDeserializer()
-        case _:
-            deserializer = str
+
+            def double_deserializer(raw_bytes: bytes) -> Any:
+                return struct.unpack(">d", raw_bytes)[0]
+
+            deserializer = double_deserializer
+        case Format.FLOAT:
+
+            def float_deserializer(raw_bytes: bytes) -> Any:
+                return struct.unpack(">f", raw_bytes)[0]
+
+            deserializer = float_deserializer
+        case Format.BOOLEAN:
+
+            def bool_deserializer(raw_bytes: bytes) -> Any:
+                return struct.unpack(">?", raw_bytes)[0]
+
+            deserializer = bool_deserializer
 
     return deserializer(value)
 
