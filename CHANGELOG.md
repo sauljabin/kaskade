@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Enforce to type topic's name when deleting
 - Modify the chunk size on the consumer
 - Consumer filters
+- Remove schema registry magic bytes on json deserializer
+- Add support for native deserialization: boolean, floata dn long
 
 ### Fixed
 
