@@ -336,7 +336,14 @@ def _deserialize(deserialization_format: Format, value: bytes | None) -> Any:
 
             deserializer = string_deserializer
         case Format.JSON:
-            deserializer = json.loads
+
+            def json_deserializer(raw_bytes: bytes) -> Any:
+                try:
+                    return json.loads(raw_bytes)
+                except UnicodeDecodeError:
+                    return json.loads(raw_bytes[5:])
+
+            deserializer = json_deserializer
         case Format.INTEGER:
 
             def integer_deserializer(raw_bytes: bytes) -> Any:
