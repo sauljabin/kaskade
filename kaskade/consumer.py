@@ -45,7 +45,7 @@ class Header(Widget):
         yield Shortcuts()
 
 
-class FilterRecordScreen(ModalScreen[tuple[str, str, str]]):
+class FilterRecordScreen(ModalScreen[tuple[str, str, str, str]]):
     BINDINGS = [Binding(BACK_SHORTCUT, "back")]
 
     def __init__(self) -> None:
@@ -53,6 +53,7 @@ class FilterRecordScreen(ModalScreen[tuple[str, str, str]]):
         self.key_filter = ""
         self.value_filter = ""
         self.partition_filter = ""
+        self.header_filter = ""
 
     def compose(self) -> ComposeResult:
         input_key = Input(id="key", placeholder="word to match with keys")
@@ -64,6 +65,9 @@ class FilterRecordScreen(ModalScreen[tuple[str, str, str]]):
         input_partition = Input(id="partition", placeholder="partition number", type="integer")
         input_partition.border_title = "partition"
 
+        input_header = Input(id="header", placeholder="word to match with header values")
+        input_header.border_title = "header"
+
         container = Container()
         container.border_title = "filter records"
         container.border_subtitle = f"[{PRIMARY}]filter:[/] {SUBMIT_SHORTCUT} [{SECONDARY}]|[/] [{PRIMARY}]back:[/] {BACK_SHORTCUT}"
@@ -72,6 +76,7 @@ class FilterRecordScreen(ModalScreen[tuple[str, str, str]]):
             yield input_key
             yield input_value
             yield input_partition
+            yield input_header
 
     def on_input_submitted(self) -> None:
         input_key = self.query_one("#key", Input)
@@ -83,7 +88,12 @@ class FilterRecordScreen(ModalScreen[tuple[str, str, str]]):
         input_partition = self.query_one("#partition", Input)
         self.partition_filter = input_partition.value
 
-        self.dismiss((self.key_filter, self.value_filter, self.partition_filter))
+        input_header = self.query_one("#header", Input)
+        self.header_filter = input_header.value
+
+        self.dismiss(
+            (self.key_filter, self.value_filter, self.partition_filter, self.header_filter)
+        )
 
     def action_back(self) -> None:
         self.dismiss()
@@ -161,6 +171,7 @@ class ListRecords(Container):
         self.key_filter = ""
         self.value_filter = ""
         self.partition_filter = ""
+        self.header_filter = ""
 
     def _new_consumer(self) -> ConsumerService:
         return ConsumerService(
@@ -184,6 +195,9 @@ class ListRecords(Container):
 
         if self.partition_filter:
             title_filter += style(f"p:{self.partition_filter}")
+
+        if self.header_filter:
+            title_filter += style(f"h:*{self.header_filter}*")
 
         return f"records \\[[{PRIMARY}]{self.topic}[/]]{title_filter}\\[[{PRIMARY}]{len(self.records)}[/]]"
 
@@ -209,10 +223,10 @@ class ListRecords(Container):
         self.run_worker(self.action_consume())
 
     def action_filter(self) -> None:
-        def dismiss(result: tuple[str, str, str] | None) -> None:
+        def dismiss(result: tuple[str, str, str, str] | None) -> None:
             if result is None:
                 return
-            self.key_filter, self.value_filter, self.partition_filter = result
+            self.key_filter, self.value_filter, self.partition_filter, self.header_filter = result
             self._filter()
 
         self.app.push_screen(FilterRecordScreen(), dismiss)
@@ -262,6 +276,7 @@ class ListRecords(Container):
                 partition_filter=int(self.partition_filter) if self.partition_filter else None,
                 key_filter=self.key_filter if self.key_filter else None,
                 value_filter=self.value_filter if self.value_filter else None,
+                header_filter=self.header_filter if self.header_filter else None,
             )
 
             for record in records:

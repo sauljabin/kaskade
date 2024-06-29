@@ -30,6 +30,7 @@ from kaskade.models import (
     GroupMember,
     Record,
     Format,
+    Header,
 )
 
 MILLISECONDS_24H = 86400000
@@ -84,6 +85,7 @@ class ConsumerService:
         partition_filter: int | None = None,
         key_filter: str | None = None,
         value_filter: str | None = None,
+        header_filter: str | None = None,
     ) -> list[Record]:
         records: list[Record] = []
         retries = 0
@@ -118,7 +120,11 @@ class ConsumerService:
                 key=record_metadata.key(),
                 value=record_metadata.value(),
                 date=date,
-                headers=record_metadata.headers(),
+                headers=(
+                    [Header(key=key, value=value) for key, value in record_metadata.headers()]
+                    if record_metadata.headers() is not None
+                    else []
+                ),
                 key_format=self.key_format,
                 value_format=self.value_format,
             )
@@ -135,9 +141,23 @@ class ConsumerService:
                 if value_filter not in record.value_str():
                     continue
 
+            if header_filter:
+                if not self._match_header(header_filter, record.headers):
+                    continue
+
             records.append(record)
 
         return records
+
+    def _match_header(self, header_filter: str, headers: list[Header]) -> bool:
+        if headers is None:
+            return False
+
+        for header in headers:
+            if header_filter in header.value_str():
+                return True
+
+        return False
 
 
 class ClusterService:

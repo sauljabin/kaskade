@@ -58,8 +58,11 @@ def produce_integers(config):
     serializer = IntegerSerializer()
     print("start producing to", TOPIC_INTEGER)
     for i in range(1, 101):
+        headers = {f"{TOPIC_INTEGER}": f"message {i}"}
         value = faker.pyint()
-        producer.produce(TOPIC_INTEGER, value=serializer(value), on_delivery=delivery_report)
+        producer.produce(
+            TOPIC_INTEGER, value=serializer(value), headers=headers, on_delivery=delivery_report
+        )
         producer.poll(0)
         producer.flush()
 

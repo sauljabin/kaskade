@@ -78,7 +78,7 @@ DeleteTopicScreen {
 DeleteTopicScreen > Input {
     border: solid $kaskade-green;
     background: $surface;
-    width: 40%;
+    width: 60%;
     padding: 0 0 0 1;
 }
 
@@ -114,7 +114,7 @@ CreateTopicScreen {
 
 CreateTopicScreen > Container {
     border: $kaskade-green;
-    width: 40%;
+    width: 60%;
     height: 21;
     background: $surface;
     padding: 0 1 0 1;
@@ -161,7 +161,7 @@ EditTopicScreen {
 
 EditTopicScreen > Container {
     border: $kaskade-green;
-    width: 40%;
+    width: 60%;
     height: 15;
     background: $surface;
     padding: 0 1 0 1;
@@ -194,17 +194,15 @@ ChunkSizeScreen {
 
 ChunkSizeScreen > ListView {
     border: $kaskade-green;
-    width: 40%;
+    width: 60%;
     height: 6;
     background: $surface;
     padding: 0 1 0 1;
 }
 
-
 ChunkSizeScreen > ListView > ListItem.--highlight {
     background: $kaskade-green 90%;
 }
-
 
 ChunkSizeScreen > ListView > ListItem  {
     background: $surface;
@@ -216,8 +214,8 @@ FilterRecordScreen {
 
 FilterRecordScreen > Container {
     border: $kaskade-green;
-    width: 40%;
-    height: 11;
+    width: 60%;
+    height: 14;
     background: $surface;
     padding: 0 1 0 1;
 }

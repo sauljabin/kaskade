@@ -6,6 +6,7 @@ from confluent_kafka.serialization import (
     IntegerDeserializer,
     DoubleDeserializer,
     StringDeserializer,
+    SerializationError,
 )
 
 
@@ -338,6 +339,30 @@ def _deserialize(deserialization_format: Format, value: bytes | None) -> Any:
     return deserializer(value)
 
 
+class Header:
+    def __init__(self, key: str = "", value: bytes | None = None):
+        self.key = key
+        self.value = value
+
+    def __repr__(self) -> str:
+        return str(self)
+
+    def __str__(self) -> str:
+        return f"{self.key}:{self.value_str()}"
+
+    def __eq__(self, other: Any) -> bool:
+        if isinstance(other, Header):
+            return self.key == other.key
+        return False
+
+    def value_str(self) -> str:
+        try:
+            deserializer = StringDeserializer()
+            return str(deserializer(self.value))
+        except SerializationError:
+            return str(self.value)
+
+
 class Record:
     def __init__(
         self,
@@ -347,7 +372,7 @@ class Record:
         date: str = "",
         key: bytes | None = None,
         value: bytes | None = None,
-        headers: list[tuple[str, bytes]] | None = None,
+        headers: list[Header] | None = None,
         key_format: Format = Format.BYTES,
         value_format: Format = Format.BYTES,
     ) -> None:
@@ -384,12 +409,9 @@ class Record:
             "offset": self.offset,
             "date": self.date,
             "headers": (
-                {
-                    key: str(value) if isinstance(value, bytes) else value
-                    for key, value in self.headers
-                }
+                {header.key: header.value_str() for header in self.headers}
                 if self.headers is not None
-                else self.headers
+                else {}
             ),
             "key format": self.key_format.name,
             "value format": self.value_format.name,
