@@ -306,12 +306,18 @@ class KaskadeConsumer(App):
     CSS_PATH = "styles.css"
 
     def __init__(
-        self, topic: str, kafka_conf: dict[str, str], key_format: Format, value_format: Format
+        self,
+        topic: str,
+        kafka_conf: dict[str, str],
+        schemas_conf: dict[str, str],
+        key_format: Format,
+        value_format: Format,
     ):
         super().__init__()
         self.use_command_palette = False
         self.topic = topic
         self.kafka_conf = kafka_conf
+        self.schemas_conf = schemas_conf
         self.key_format = key_format
         self.value_format = value_format
 

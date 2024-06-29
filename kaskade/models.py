@@ -301,6 +301,7 @@ class Format(Enum):
     DOUBLE = auto()
     FLOAT = auto()
     JSON = auto()
+    AVRO = auto()
 
     def __str__(self) -> str:
         return self.name.lower()
@@ -327,7 +328,7 @@ def _deserialize(deserialization_format: Format, value: bytes | None) -> Any:
         case Format.STRING:
 
             def string_deserializer(raw_bytes: bytes) -> Any:
-                return raw_bytes.decode("utf8")
+                return raw_bytes.decode("utf-8")
 
             deserializer = string_deserializer
         case Format.JSON:

@@ -66,12 +66,6 @@ Generate banner:
 python -m scripts.banner
 ```
 
-Populate topics:
-
-```shell
-python -m scripts.producer
-```
-
 ### Kafka Cluster
 
 Run local cluster:

@@ -18,7 +18,7 @@ It includes features like:
     - Create, edit and delete topics
     - Filter topics
 - Consumer:
-    - Json, string, integer and double deserialization
+    - Json, string, integer, long, float, boolean and double deserialization
     - Filter by key and/or value
 
 ## Screenshots
@@ -44,7 +44,7 @@ It includes features like:
 
 ## Installation
 
-Install with `pipx`:
+#### Install with `pipx`:
 
 ```shell
 pipx install kaskade
@@ -52,7 +52,7 @@ pipx install kaskade
 
 > `pipx` will install `kaskade` and `kskd` aliases.
 
-Upgrade with `pipx`:
+#### Upgrade with `pipx`:
 
 ```shell
 pipx upgrade kaskade
@@ -62,7 +62,7 @@ pipx upgrade kaskade
 
 ## Running kaskade
 
-Help:
+#### Help:
 
 ```shell
 kaskade --help
@@ -70,13 +70,13 @@ kaskade admin --help
 kaskade consumer --help
 ```
 
-Admin view:
+#### Admin view:
 
 ```shell
 kaskade admin -b localhost:9092
 ```
 
-Consumer view:
+#### Consumer view:
 
 ```shell
 kaskade consumer -b localhost:9092 -t my-topic
@@ -84,23 +84,45 @@ kaskade consumer -b localhost:9092 -t my-topic
 
 ## Configuration examples
 
-SSL encryption example:
+#### Multiple bootstrap servers:
 
 ```shell
-kaskade admin -b localhost:9092 -x security.protocol=SSL
+kaskade admin -b broker1:9092,broker2:9092
+```
+
+#### Consume and deserialize:
+
+```shell
+kaskade consumer -b localhost:9092 -t my-topic -k json -v json
+```
+
+#### Consuming from the beginning:
+
+```shell
+kaskade consumer -b localhost:9092 -x auto.offset.reset=earliest
+```
+
+#### Schema registry simple connection and avro deserialization:
+
+```shell
+kaskade -b localhost:9092 -s url=http://localhost:8081 -k avro -v avro
+```
+
+> More Schema Registry configurations at: [SchemaRegistryClient](https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#schemaregistry-client).
+
+> `librdkafka` clients do not currently support AVRO Unions in (de)serialization, more at: [Limitations for librdkafka clients](https://docs.confluent.io/platform/current/schema-registry/fundamentals/serdes-develop/serdes-avro.html#limitations-for-librdkafka-clients).
+
+#### SSL encryption example:
+
+```shell
+kaskade admin -b ${BOOTSTRAP_SERVERS} -x security.protocol=SSL
 ```
 
 > For more information about SSL encryption and SSL authentication go
 > to the `librdkafka` official
 > page: [Configure librdkafka client](https://github.com/edenhill/librdkafka/wiki/Using-SSL-with-librdkafka#configure-librdkafka-client).
 
-Multiple bootstrap servers:
-
-```shell
-kaskade admin -b broker1:9092,broker2:9092
-```
-
-Confluent cloud:
+#### Confluent cloud admin:
 
 ```shell
 kaskade admin -b ${BOOTSTRAP_SERVERS} \
@@ -110,17 +132,20 @@ kaskade admin -b ${BOOTSTRAP_SERVERS} \
         -x sasl.password=${CLUSTER_API_SECRET}
 ```
 
-Consume and deserialize:
+#### Confluent cloud consumer:
 
 ```shell
-kaskade consumer -b localhost:9092 -t my-topic -k json -v json
+kaskade admin -b ${BOOTSTRAP_SERVERS} \
+        -x security.protocol=SASL_SSL \
+        -x sasl.mechanism=PLAIN \
+        -x sasl.username=${CLUSTER_API_KEY} \
+        -x sasl.password=${CLUSTER_API_SECRET} \
+        -s url=${SCHEMA_REGISTRY_URL} \
+        -s basic.auth.user.info=${SR_API_KEY}:${SR_API_SECRET} \
+        -v avro
 ```
 
-Consuming from the beginning:
-
-```shell
-kaskade consumer -b localhost:9092 -x auto.offset.reset=earliest
-```
+> More about confluent cloud configuration at: [Kafka Client Quick Start for Confluent Cloud](https://docs.confluent.io/cloud/current/client-apps/config-client.html).
 
 ## Development
 

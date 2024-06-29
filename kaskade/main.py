@@ -103,9 +103,17 @@ def admin(
     default=str(Format.BYTES),
     show_default=True,
 )
+@click.option(
+    "-s",
+    "registry_properties_input",
+    help="Schema Registry property. Set a SchemaRegistryClient property. Multiple -s are allowed.",
+    metavar="property=value",
+    multiple=True,
+)
 def consumer(
     bootstrap_servers_input: str,
     kafka_properties_input: tuple[str, ...],
+    registry_properties_input: tuple[str, ...],
     topic: str,
     key_format: str,
     value_format: str,
@@ -119,14 +127,16 @@ def consumer(
         kaskade consumer -b localhost:9092 -t my-topic
         kaskade consumer -b localhost:9092 -t my-topic -v json
         kaskade consumer -b localhost:9092 -t my-topic -x auto.offset.reset=earliest
+        kaskade consumer -b localhost:9092 -t my-topic -s url=http://localhost:8081 -v avro
 
     More at https://github.com/sauljabin/kaskade.
     """
     kafka_conf = {k: v for (k, v) in [pair.split("=", 1) for pair in kafka_properties_input]}
     kafka_conf["bootstrap.servers"] = bootstrap_servers_input
+    schemas_conf = {k: v for (k, v) in [pair.split("=", 1) for pair in registry_properties_input]}
 
     kaskade_app = KaskadeConsumer(
-        topic, kafka_conf, Format.from_str(key_format), Format.from_str(value_format)
+        topic, kafka_conf, schemas_conf, Format.from_str(key_format), Format.from_str(value_format)
     )
     kaskade_app.run()
 
