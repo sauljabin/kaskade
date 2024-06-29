@@ -3,11 +3,6 @@ import struct
 from enum import Enum, auto
 from typing import Any
 
-from confluent_kafka.serialization import (
-    StringDeserializer,
-    SerializationError,
-)
-
 
 class Node:
     def __init__(
@@ -396,9 +391,8 @@ class Header:
 
     def value_str(self) -> str:
         try:
-            deserializer = StringDeserializer()
-            return str(deserializer(self.value))
-        except SerializationError:
+            return str(_deserialize(Format.STRING, self.value))
+        except Exception:
             return str(self.value)
 
 
