@@ -46,6 +46,17 @@ async def _make_it_async(func: Callable[..., Any], /, *args: Any, **keywords: An
     )
 
 
+def _match_header(header_filter: str, headers: list[Header]) -> bool:
+    if headers is None:
+        return False
+
+    for header in headers:
+        if header_filter in header.value_str():
+            return True
+
+    return False
+
+
 class ConsumerService:
     def __init__(
         self,
@@ -142,22 +153,12 @@ class ConsumerService:
                     continue
 
             if header_filter:
-                if not self._match_header(header_filter, record.headers):
+                if not _match_header(header_filter, record.headers):
                     continue
 
             records.append(record)
 
         return records
-
-    def _match_header(self, header_filter: str, headers: list[Header]) -> bool:
-        if headers is None:
-            return False
-
-        for header in headers:
-            if header_filter in header.value_str():
-                return True
-
-        return False
 
 
 class ClusterService:
