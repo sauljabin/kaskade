@@ -18,8 +18,9 @@ It includes features like:
     - Create, edit and delete topics
     - Filter topics
 - Consumer:
-    - Json, avro, string, integer, long, float, boolean and double deserialization
+    - Json, string, integer, long, float, boolean and double deserialization
     - Filter by key, value, header and/or partition
+    - Schema Registry support with avro
 
 ## Screenshots
 
