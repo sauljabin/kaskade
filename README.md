@@ -100,13 +100,13 @@ kaskade consumer -b localhost:9092 -t my-topic -k json -v json
 #### Consuming from the beginning:
 
 ```shell
-kaskade consumer -b localhost:9092 -x auto.offset.reset=earliest
+kaskade consumer -b localhost:9092 -t my-topic -x auto.offset.reset=earliest
 ```
 
 #### Schema registry simple connection and avro deserialization:
 
 ```shell
-kaskade -b localhost:9092 -s url=http://localhost:8081 -k avro -v avro
+kaskade consumer -b localhost:9092 -s url=http://localhost:8081 -t my-topic -k avro -v avro
 ```
 
 > More Schema Registry configurations at: [SchemaRegistryClient](https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#schemaregistry-client).
@@ -136,13 +136,15 @@ kaskade admin -b ${BOOTSTRAP_SERVERS} \
 #### Confluent cloud consumer:
 
 ```shell
-kaskade admin -b ${BOOTSTRAP_SERVERS} \
+kaskade consumer -b ${BOOTSTRAP_SERVERS} \
         -x security.protocol=SASL_SSL \
         -x sasl.mechanism=PLAIN \
         -x sasl.username=${CLUSTER_API_KEY} \
         -x sasl.password=${CLUSTER_API_SECRET} \
         -s url=${SCHEMA_REGISTRY_URL} \
         -s basic.auth.user.info=${SR_API_KEY}:${SR_API_SECRET} \
+        -t my-topic \
+        -k string \
         -v avro
 ```
 
