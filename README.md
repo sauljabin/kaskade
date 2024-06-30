@@ -18,8 +18,8 @@ It includes features like:
     - Create, edit and delete topics
     - Filter topics
 - Consumer:
-    - Json, string, integer, long, float, boolean and double deserialization
-    - Filter by key and/or value
+    - Json, avro, string, integer, long, float, boolean and double deserialization
+    - Filter by key, value, header and/or partition
 
 ## Screenshots
 

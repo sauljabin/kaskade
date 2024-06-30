@@ -16,9 +16,16 @@
                     ]
                 },
                 {
+                    "type": "Changed",
+                    "entries": [
+                        "Improve consumer performance"
+                    ]
+                },
+                {
                     "type": "Fixed",
                     "entries": [
-                        "Using the right retention config name"
+                        "Using the right retention config name",
+                        "Duplicated headers were hidden. Now it shows duplicated headers"
                     ]
                 }
             ]

@@ -16,9 +16,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Remove schema registry magic bytes on json deserializer
 - Add support for native deserialization: boolean, floata dn long
 
+### Changed
+
+- Improve consumer performance
+
 ### Fixed
 
 - Using the right retention config name
+- Duplicated headers were hidden. Now it shows duplicated headers
 
 ## [2.0.1] - 2024-06-27
 

@@ -9,7 +9,6 @@ from avro.io import BinaryDecoder, DatumReader
 from confluent_kafka.schema_registry import SchemaRegistryClient
 
 
-NULL = "null"
 MAGIC_BYTES = 0
 
 
@@ -403,11 +402,11 @@ class Header:
         self,
         key: str = "",
         value: bytes | None = None,
-        deserializer: Callable[[bytes], Any] | None = None,
+        value_deserializer: Callable[[bytes], Any] | None = None,
     ):
         self.key = key
         self.value = value
-        self.deserializer = deserializer
+        self.value_deserializer = value_deserializer
 
     def __repr__(self) -> str:
         return str(self)
@@ -420,17 +419,21 @@ class Header:
             return self.key == other.key
         return False
 
-    def value_str(self) -> str:
+    def value_deserialized(self) -> Any:
         if self.value is None:
-            return NULL
+            return
 
-        if self.deserializer is None:
+        if self.value_deserializer is None:
             return str(self.value)
 
         try:
-            return str(self.deserializer(self.value))
+            return self.value_deserializer(self.value)
         except Exception:
+            # it doesn't matter to show the binaries
             return str(self.value)
+
+    def value_str(self) -> str:
+        return str(self.value_deserialized())
 
 
 class Record:
@@ -483,9 +486,9 @@ class Record:
             "offset": self.offset,
             "date": self.date,
             "headers": (
-                {header.key: header.value_str() for header in self.headers}
+                [(header.key, header.value_deserialized()) for header in self.headers]
                 if self.headers is not None
-                else {}
+                else []
             ),
             "key format": self.key_format.name,
             "value format": self.value_format.name,
@@ -495,7 +498,7 @@ class Record:
 
     def key_deserialized(self) -> Any:
         if self.key is None:
-            return NULL
+            return
 
         if self.key_deserializer is None:
             return str(self.key)
@@ -504,7 +507,7 @@ class Record:
 
     def value_deserialized(self) -> Any:
         if self.value is None:
-            return NULL
+            return
 
         if self.value_deserializer is None:
             return str(self.value)

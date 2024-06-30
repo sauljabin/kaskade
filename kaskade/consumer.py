@@ -10,7 +10,7 @@ from textual.widget import Widget
 from textual.widgets import DataTable, Pretty, ListView, ListItem, Label, Input
 
 from kaskade.colors import PRIMARY, SECONDARY
-from kaskade.models import Record, Format
+from kaskade.models import Record, Format, DeserializerFactory
 from kaskade.services import ConsumerService
 from kaskade.admin import notify_error, KaskadeBanner
 
@@ -168,7 +168,7 @@ class ListRecords(Container):
         super().__init__()
         self.topic = topic
         self.kafka_conf = kafka_conf
-        self.schemas_conf = schemas_conf
+        self.deserializer_factory = DeserializerFactory(schemas_conf)
         self.key_format = key_format
         self.value_format = value_format
         self.consumer = self._new_consumer()
@@ -183,9 +183,9 @@ class ListRecords(Container):
         return ConsumerService(
             self.topic,
             self.kafka_conf,
-            self.schemas_conf,
-            key_format=self.key_format,
-            value_format=self.value_format,
+            self.deserializer_factory,
+            self.key_format,
+            self.value_format,
         )
 
     def _get_title(self) -> str:

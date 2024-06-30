@@ -63,20 +63,23 @@ class ConsumerService:
         self,
         topic: str,
         kafka_config: dict[str, str],
-        schemas_conf: dict[str, str],
+        deserializer_factory: DeserializerFactory,
         key_format: Format,
         value_format: Format,
         *,
         page_size: int = 25,
-        max_retries: int = 5,
-        timeout: float = 1.0,
+        poll_retries: int = 2,
+        timeout: float = 0.5,
+        stabilization_retries: int = 30,
     ) -> None:
         self.topic = topic
         self.page_size = page_size
-        self.max_retries = max_retries
+        self.poll_retries = poll_retries
+        self.stabilization_retries = stabilization_retries
         self.timeout = timeout
         self.key_format = key_format
         self.value_format = value_format
+        self.stable = False
         self.consumer = Consumer(
             kafka_config
             | {
@@ -86,8 +89,11 @@ class ConsumerService:
                 "logger": logger,
             }
         )
-        self.consumer.subscribe([topic])
-        self.deserializer_factory = DeserializerFactory(schemas_conf)
+        self.consumer.subscribe([topic], on_assign=self.on_assign)
+        self.deserializer_factory = deserializer_factory
+
+    def on_assign(self, consumer: Consumer, partitions: list[TopicPartition]) -> None:
+        self.stable = True
 
     def close(self) -> None:
         self.consumer.unsubscribe()
@@ -102,23 +108,30 @@ class ConsumerService:
         header_filter: str | None = None,
     ) -> list[Record]:
         records: list[Record] = []
-        retries = 0
+        poll_retries = 0
+        stabilization_retries = 0
 
         while len(records) < self.page_size:
-            if retries >= self.max_retries:
-                logger.info("reach maximum number of retries")
+            if poll_retries >= self.poll_retries:
+                break
+
+            if stabilization_retries >= self.stabilization_retries:
                 break
 
             record_metadata = await _make_it_async(self.consumer.poll, self.timeout)
 
-            if record_metadata is None:
-                retries += 1
+            if not self.stable:
+                stabilization_retries += 1
                 continue
+            stabilization_retries = 0
+
+            if record_metadata is None:
+                poll_retries += 1
+                continue
+            poll_retries = 0
 
             if record_metadata.error():
                 raise KafkaException(record_metadata.error())
-
-            retries = 0
 
             timestamp_available, timestamp = record_metadata.timestamp()
             date = (
@@ -139,7 +152,9 @@ class ConsumerService:
                         Header(
                             key=key,
                             value=value,
-                            deserializer=self.deserializer_factory.make_deserializer(Format.STRING),
+                            value_deserializer=self.deserializer_factory.make_deserializer(
+                                Format.STRING
+                            ),
                         )
                         for key, value in record_metadata.headers()
                     ]
