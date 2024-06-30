@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.1.0] - 2024-06-30
+
 ### Added
 
 - New edit topic screen
@@ -118,7 +120,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Schema registry support
 
-[Unreleased]: https://github.com/sauljabin/kaskade/compare/v2.0.1...HEAD
+[Unreleased]: https://github.com/sauljabin/kaskade/compare/v2.1.0...HEAD
+[2.1.0]: https://github.com/sauljabin/kaskade/compare/v2.0.1...v2.1.0
 [2.0.1]: https://github.com/sauljabin/kaskade/compare/v2.0.0...v2.0.1
 [2.0.0]: https://github.com/sauljabin/kaskade/compare/v1.1.8...v2.0.0
 [1.1.8]: https://github.com/sauljabin/kaskade/compare/v1.1.7...v1.1.8
