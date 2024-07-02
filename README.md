@@ -62,7 +62,7 @@ pipx install kaskade
 pipx upgrade kaskade
 ```
 
-> How to install pipx at: https://pipx.pypa.io/stable/installation/
+> How to install pipx for your OS go to: [pipx Installation](https://pipx.pypa.io/stable/installation/).
 
 ## Running kaskade
 
