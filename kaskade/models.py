@@ -231,11 +231,7 @@ class Topic:
         )
 
     def lag(self) -> int:
-        return (
-            max([group.lag_count() for group in self.groups], default=0)
-            if self.groups is not None
-            else 0
-        )
+        return sum([group.lag_count() for group in self.groups]) if self.groups is not None else 0
 
     def records_count(self) -> int:
         return (

@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Lag is the result of a sum instead of a max
+- Upgrade textual library
+
 ## [2.1.0] - 2024-06-30
 
 ### Added

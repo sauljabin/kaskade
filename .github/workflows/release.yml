@@ -15,12 +15,14 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Git Tag
-        uses: olegtarasov/get-tag@v2.1.3
-        id: tagName
+      - name: Docker Metadata
+        id: meta
+        uses: docker/metadata-action@v5
         with:
-          tagRegex: 'v(.*)'
-          tagRegexGroup: 1
+          images: |
+            sauljabin/kaskade
+          tags: |
+            type=semver,pattern={{version}}
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
@@ -61,8 +63,7 @@ jobs:
           file: ./Dockerfile
           push: true
           platforms: linux/amd64,linux/arm64
-          tags: >-
-            ${{ secrets.DOCKER_HUB_USERNAME }}/kaskade:latest,
-            ${{ secrets.DOCKER_HUB_USERNAME }}/kaskade:${{ steps.tagName.outputs.tag }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
       - name: Image digest
         run: echo ${{ steps.docker_build.outputs.digest }}

@@ -2,7 +2,16 @@
     "repository": "https://github.com/sauljabin/kaskade",
     "versions": [
         {
-            "version": "Unreleased"
+            "version": "Unreleased",
+            "changes": [
+                {
+                    "type": "Changed",
+                    "entries": [
+                        "Lag is the result of a sum instead of a max",
+                        "Upgrade textual library"
+                    ]
+                }
+            ]
         },
         {
             "version": "2.1.0",
