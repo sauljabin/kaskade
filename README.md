@@ -89,8 +89,8 @@ kaskade consumer -b localhost:9092 -t my-topic
 #### Running with docker:
 
 ```shell
-docker run --rm -it --network my-networtk sauljabin/kaskade:latest admin -b kafka1:9092
-docker run --rm -it --network my-networtk sauljabin/kaskade:latest consumer -b kafka1:9092 -t my-topic
+docker run --rm -it --network my-networtk sauljabin/kaskade:latest admin -b my-kafka:9092
+docker run --rm -it --network my-networtk sauljabin/kaskade:latest consumer -b my-kafka:9092 -t my-topic
 ```
 
 ## Configuration examples
