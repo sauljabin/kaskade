@@ -132,9 +132,7 @@ kaskade admin -b ${BOOTSTRAP_SERVERS} -x security.protocol=SSL
 ```
 
 > For more information about SSL encryption and SSL authentication go
-> to the `librdkafka` official
->
-page: [Configure librdkafka client](https://github.com/edenhill/librdkafka/wiki/Using-SSL-with-librdkafka#configure-librdkafka-client).
+> to the `librdkafka` official page: [Configure librdkafka client](https://github.com/edenhill/librdkafka/wiki/Using-SSL-with-librdkafka#configure-librdkafka-client).
 
 #### Confluent cloud admin:
 
