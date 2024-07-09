@@ -16,14 +16,14 @@ Kaskade is a text user interface (TUI) for Apache Kafka, built with [Textual](ht
 It includes features like:
 
 - Admin:
-    - List topics, partitions, groups and group members
-    - Topic information like lag, replicas and records count
-    - Create, edit and delete topics
-    - Filter topics by name
+    - List topics, partitions, groups and group members.
+    - Topic information like lag, replicas and records count.
+    - Create, edit and delete topics.
+    - Filter topics by name.
 - Consumer:
-    - Json, string, integer, long, float, boolean and double deserialization
-    - Filter by key, value, header and/or partition
-    - Schema Registry support with avro
+    - Json, string, integer, long, float, boolean and double deserialization.
+    - Filter by key, value, header and/or partition.
+    - Schema Registry support with avro.
 
 ## Screenshots
 
