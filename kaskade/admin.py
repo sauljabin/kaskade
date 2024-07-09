@@ -3,7 +3,6 @@ from itertools import cycle
 
 from confluent_kafka import KafkaException
 from confluent_kafka.cimpl import NewTopic
-from pyfiglet import Figlet
 from rich.console import Group
 from rich.table import Table
 from rich.text import Text
@@ -15,7 +14,7 @@ from textual.screen import ModalScreen
 from textual.widget import Widget
 from textual.widgets import DataTable, Input, RadioSet, RadioButton
 
-from kaskade import logger, APP_NAME_SHORT, APP_NAME, APP_VERSION
+from kaskade import logger, APP_VERSION, APP_BANNER_SHORT, APP_BANNER
 from kaskade.colors import PRIMARY, SECONDARY
 from kaskade.models import Topic, CleanupPolicy
 from kaskade.services import (
@@ -564,9 +563,8 @@ class KaskadeBanner(Widget):
         self.short = short
 
     def render(self) -> Group:
-        figlet = Figlet(font="standard")
         kaskade_name = Text(
-            figlet.renderText(APP_NAME_SHORT if self.short else APP_NAME).rstrip(),
+            APP_BANNER_SHORT if self.short else APP_BANNER,
             style=f"{PRIMARY} bold",
         )
         version_text = Text("", justify="right")

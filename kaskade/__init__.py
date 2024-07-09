@@ -5,6 +5,16 @@ from pathlib import Path
 APP_NAME = "kaskade"
 APP_NAME_SHORT = "kskd"
 __version__ = APP_VERSION = version(APP_NAME)
+APP_BANNER = r""" _             _             _
+| | ____ _ ___| | ____ _  __| | ___
+| |/ / _` / __| |/ / _` |/ _` |/ _ \
+|   < (_| \__ \   < (_| | (_| |  __/
+|_|\_\__,_|___/_|\_\__,_|\__,_|\___|"""
+APP_BANNER_SHORT = r""" _        _       _
+| | _____| | ____| |
+| |/ / __| |/ / _` |
+|   <\__ \   < (_| |
+|_|\_\___/_|\_\__,_|"""
 
 
 def get_kaskade_home() -> Path:

@@ -224,13 +224,13 @@ files = [
 
 [[package]]
 name = "changeloggh"
-version = "1.0.9"
+version = "1.0.10"
 description = "changeloggh is a command line tool that generates changelog files for github"
 optional = false
 python-versions = "<4.0,>=3.10"
 files = [
-    {file = "changeloggh-1.0.9-py3-none-any.whl", hash = "sha256:0dc88dc3efa2051d4f897470640f95845bd94a92a9c5d4939b63007d256833a9"},
-    {file = "changeloggh-1.0.9.tar.gz", hash = "sha256:8466fd445c397241ddd43483f90aff181b86711b304a9f6895c34de047ddf830"},
+    {file = "changeloggh-1.0.10-py3-none-any.whl", hash = "sha256:eacb246486618577515dd74d1397469f874089dcb58f3b6861803e96b7bfa711"},
+    {file = "changeloggh-1.0.10.tar.gz", hash = "sha256:c8e4da3ab9e537164f80f5898d32f679cfd0f19d7c6bed726b46ddacd46abb63"},
 ]
 
 [package.dependencies]
@@ -1127,17 +1127,6 @@ files = [
 ]
 
 [[package]]
-name = "pyfiglet"
-version = "1.0.2"
-description = "Pure-python FIGlet implementation"
-optional = false
-python-versions = ">=3.9"
-files = [
-    {file = "pyfiglet-1.0.2-py3-none-any.whl", hash = "sha256:889b351d79c99e50a3f619c8f8e6ffdb27fd8c939fc43ecbd7559bd57d5f93ea"},
-    {file = "pyfiglet-1.0.2.tar.gz", hash = "sha256:758788018ab8faaddc0984e1ea05ff330d3c64be663c513cc1f105f6a3066dab"},
-]
-
-[[package]]
 name = "pygments"
 version = "2.18.0"
 description = "Pygments is a syntax highlighting package written in Python."
@@ -1714,4 +1703,4 @@ multidict = ">=4.0"
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.10 <3.13"
-content-hash = "1dcd8b5593dba70c7b73aed178b46c9c20fe1838f4cfe74ed4f7a573d8bd898b"
+content-hash = "baaae121c04f5298f6c74ee6c654932cae30d041b78f96a6c3fa13284153ca6b"
