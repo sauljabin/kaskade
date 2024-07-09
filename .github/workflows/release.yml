@@ -12,6 +12,8 @@ jobs:
       matrix:
         platform: [ubuntu-latest]
         python-version: ['3.10']
+    permissions:
+      id-token: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -29,10 +31,7 @@ jobs:
       - name: Run Build
         run: poetry build
       - name: Publish Package
-        uses: pypa/gh-action-pypi-publish@v1.9.0
-        with:
-          user: __token__
-          password: ${{ secrets.PYPI_API_TOKEN }}
+        uses: pypa/gh-action-pypi-publish@release/v1
       - name: GitHub Release
         uses: docker://antonyurchenko/git-release:v6
         env:

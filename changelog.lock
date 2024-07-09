@@ -2,7 +2,15 @@
     "repository": "https://github.com/sauljabin/kaskade",
     "versions": [
         {
-            "version": "Unreleased"
+            "version": "Unreleased",
+            "changes": [
+                {
+                    "type": "Changed",
+                    "entries": [
+                        "Upgrade pypi deployment"
+                    ]
+                }
+            ]
         },
         {
             "version": "2.1.2",
