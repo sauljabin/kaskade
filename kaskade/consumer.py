@@ -1,6 +1,8 @@
 from typing import Any
 
+from rich.style import Style
 from rich.table import Table
+from rich.theme import Theme
 from textual.app import App, ComposeResult, RenderResult
 from textual.binding import Binding
 from textual.containers import Container, ScrollableContainer
@@ -327,6 +329,9 @@ class KaskadeConsumer(App):
         self.schemas_conf = schemas_conf
         self.key_format = key_format
         self.value_format = value_format
+
+    def on_mount(self) -> None:
+        self.console.push_theme(Theme({"repr.str": Style(color=PRIMARY)}))
 
     def compose(self) -> ComposeResult:
         yield Header()
