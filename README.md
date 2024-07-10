@@ -48,21 +48,23 @@ It includes features like:
 
 ## Installation
 
-#### Install with `pipx`:
+These will install `kaskade` and `kskd` aliases.
+
+#### Install it with `brew`:
+
+```shell
+brew install kaskade
+```
+
+[brew installation](https://brew.sh/).
+
+#### Install it with `pipx`:
 
 ```shell
 pipx install kaskade
 ```
 
-> `pipx` will install `kaskade` and `kskd` aliases.
-
-#### Upgrade with `pipx`:
-
-```shell
-pipx upgrade kaskade
-```
-
-> How to install pipx for your OS at: [pipx Installation](https://pipx.pypa.io/stable/installation/).
+[pipx installation](https://pipx.pypa.io/stable/installation/).
 
 ## Running kaskade
 
