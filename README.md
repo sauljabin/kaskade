@@ -141,9 +141,7 @@ kaskade admin -b ${BOOTSTRAP_SERVERS} \
         -x sasl.mechanism=PLAIN \
         -x sasl.username=${CLUSTER_API_KEY} \
         -x sasl.password=${CLUSTER_API_SECRET}
-```
 
-```shell
 kaskade consumer -b ${BOOTSTRAP_SERVERS} \
         -x security.protocol=SASL_SSL \
         -x sasl.mechanism=PLAIN \
