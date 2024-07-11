@@ -121,11 +121,8 @@ kaskade consumer -b localhost:9092 -t my-topic -x auto.offset.reset=earliest
 kaskade consumer -b localhost:9092 -s url=http://localhost:8081 -t my-topic -k avro -v avro
 ```
 
-> More Schema Registry configurations
-> at: [SchemaRegistryClient](https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#schemaregistry-client).
-
-> librdkafka clients do not currently support AVRO Unions in (de)serialization, more
-> at: [Limitations for librdkafka clients](https://docs.confluent.io/platform/current/schema-registry/fundamentals/serdes-develop/serdes-avro.html#limitations-for-librdkafka-clients).
+> For more information about Schema Registry configurations
+> go to: [Confluent Schema Registry client](https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#schemaregistry-client).
 
 #### SSL encryption example:
 
@@ -134,9 +131,9 @@ kaskade admin -b ${BOOTSTRAP_SERVERS} -x security.protocol=SSL
 ```
 
 > For more information about SSL encryption and SSL authentication go
-> to the `librdkafka` official page: [Configure librdkafka client](https://github.com/edenhill/librdkafka/wiki/Using-SSL-with-librdkafka#configure-librdkafka-client).
+> to the `librdkafka` official page: [SSL support in librdkafka](https://github.com/edenhill/librdkafka/wiki/Using-SSL-with-librdkafka#configure-librdkafka-client).
 
-#### Confluent cloud admin:
+#### Confluent cloud admin and consumer:
 
 ```shell
 kaskade admin -b ${BOOTSTRAP_SERVERS} \
@@ -145,8 +142,6 @@ kaskade admin -b ${BOOTSTRAP_SERVERS} \
         -x sasl.username=${CLUSTER_API_KEY} \
         -x sasl.password=${CLUSTER_API_SECRET}
 ```
-
-#### Confluent cloud consumer:
 
 ```shell
 kaskade consumer -b ${BOOTSTRAP_SERVERS} \
