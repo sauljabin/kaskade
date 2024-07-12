@@ -162,15 +162,15 @@ class ListRecords(Container):
     def __init__(
         self,
         topic: str,
-        kafka_conf: dict[str, str],
-        schemas_conf: dict[str, str],
+        kafka_config: dict[str, str],
+        schema_registry_config: dict[str, str],
         key_format: Format,
         value_format: Format,
     ):
         super().__init__()
         self.topic = topic
-        self.kafka_conf = kafka_conf
-        self.deserializer_factory = DeserializerFactory(schemas_conf)
+        self.kafka_config = kafka_config
+        self.deserializer_factory = DeserializerFactory(schema_registry_config)
         self.key_format = key_format
         self.value_format = value_format
         self.consumer = self._new_consumer()
@@ -184,7 +184,7 @@ class ListRecords(Container):
     def _new_consumer(self) -> ConsumerService:
         return ConsumerService(
             self.topic,
-            self.kafka_conf,
+            self.kafka_config,
             self.deserializer_factory,
             self.key_format,
             self.value_format,
@@ -317,16 +317,16 @@ class KaskadeConsumer(App):
     def __init__(
         self,
         topic: str,
-        kafka_conf: dict[str, str],
-        schemas_conf: dict[str, str],
+        kafka_config: dict[str, str],
+        schema_registry_config: dict[str, str],
         key_format: Format,
         value_format: Format,
     ):
         super().__init__()
         self.use_command_palette = False
         self.topic = topic
-        self.kafka_conf = kafka_conf
-        self.schemas_conf = schemas_conf
+        self.kafka_config = kafka_config
+        self.schema_registry_config = schema_registry_config
         self.key_format = key_format
         self.value_format = value_format
 
@@ -336,5 +336,9 @@ class KaskadeConsumer(App):
     def compose(self) -> ComposeResult:
         yield Header()
         yield ListRecords(
-            self.topic, self.kafka_conf, self.schemas_conf, self.key_format, self.value_format
+            self.topic,
+            self.kafka_config,
+            self.schema_registry_config,
+            self.key_format,
+            self.value_format,
         )
