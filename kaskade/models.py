@@ -323,7 +323,7 @@ class Format(Enum):
 
 
 class DeserializerFactory:
-    def __init__(self, schema_registry_config: dict[str, str] | None):
+    def __init__(self, schema_registry_config: dict[str, str] | None = None):
         if schema_registry_config:
             self.schema_registry_client = SchemaRegistryClient(schema_registry_config)
 
