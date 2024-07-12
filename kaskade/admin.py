@@ -532,14 +532,14 @@ class ListTopics(Container):
 class KaskadeAdmin(App):
     CSS_PATH = "styles.css"
 
-    def __init__(self, kafka_conf: dict[str, str]):
+    def __init__(self, kafka_config: dict[str, str]):
         super().__init__()
-        self.kafka_conf = kafka_conf
+        self.kafka_config = kafka_config
         self.use_command_palette = False
 
     def compose(self) -> ComposeResult:
         yield Header()
-        yield ListTopics(TopicService(self.kafka_conf))
+        yield ListTopics(TopicService(self.kafka_config))
 
 
 def notify_error(application: App, title: str, ex: Exception) -> None:
