@@ -82,36 +82,42 @@ def admin(
         multiple=True,
     ),
 )
-@cloup.option(
-    "-t",
-    "topic",
-    help="Topic.",
-    metavar="name",
-    required=True,
+@cloup.option_group(
+    "Topic options",
+    cloup.option(
+        "-t",
+        "topic",
+        help="Topic.",
+        metavar="name",
+        required=True,
+    ),
+    cloup.option(
+        "-k",
+        "key_format_str",
+        type=cloup.Choice(Format.str_list(), False),
+        help="Key format.",
+        default=str(Format.BYTES),
+        show_default=True,
+    ),
+    cloup.option(
+        "-v",
+        "value_format_str",
+        type=cloup.Choice(Format.str_list(), False),
+        help="Value format.",
+        default=str(Format.BYTES),
+        show_default=True,
+    ),
 )
-@cloup.option(
-    "-k",
-    "key_format_str",
-    type=cloup.Choice(Format.str_list(), False),
-    help="Key format.",
-    default=str(Format.BYTES),
-    show_default=True,
-)
-@cloup.option(
-    "-v",
-    "value_format_str",
-    type=cloup.Choice(Format.str_list(), False),
-    help="Value format.",
-    default=str(Format.BYTES),
-    show_default=True,
-)
-@cloup.option(
-    "-s",
-    "registry_properties_input",
-    help="Schema Registry property. Set a SchemaRegistryClient property. Multiple -s are allowed. Needed if -k avro "
-    "or -v avro were passed.",
-    metavar="property=value",
-    multiple=True,
+@cloup.option_group(
+    "Schema Registry options",
+    cloup.option(
+        "-s",
+        "registry_properties_input",
+        help="Schema Registry property. Set a SchemaRegistryClient property. Multiple -s are allowed. Needed if -k avro "
+        "or -v avro were passed.",
+        metavar="property=value",
+        multiple=True,
+    ),
 )
 def consumer(
     bootstrap_servers_input: str,
@@ -127,7 +133,7 @@ def consumer(
     \b
     Examples:
       kaskade consumer -b localhost:9092 -t my-topic
-      kaskade consumer -b localhost:9092 -t my-topic -v json
+      kaskade consumer -b localhost:9092 -t my-topic -k string -v json
       kaskade consumer -b localhost:9092 -t my-topic -x auto.offset.reset=earliest
       kaskade consumer -b localhost:9092 -t my-topic -s url=http://localhost:8081 -v avro
     """
