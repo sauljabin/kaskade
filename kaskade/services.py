@@ -461,7 +461,7 @@ if __name__ == "__main__":
     async def main() -> None:
         deserializer = DeserializerFactory()
         consumer_service = ConsumerService(
-            "client.invoices",
+            "client.schema.invoices",
             {"bootstrap.servers": "localhost:19092", "auto.offset.reset": "earliest"},
             deserializer,
             Format.STRING,
@@ -470,6 +470,7 @@ if __name__ == "__main__":
         )
         messages = await consumer_service.consume()
         for message in messages:
+            print(message.value)
             print(deserialize(message.value))
 
     asyncio.run(main())
