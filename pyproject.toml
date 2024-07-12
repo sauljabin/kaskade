@@ -35,6 +35,7 @@ pre-commit = "*"
 ruff = "*"
 mypy = "*"
 types-attrs = "*"
+types-protobuf = "*"
 changeloggh = "*"
 textual-dev = "*"
 

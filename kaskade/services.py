@@ -18,6 +18,7 @@ from confluent_kafka.admin import (
     ConfigSource,
 )
 from confluent_kafka.cimpl import NewTopic, NewPartitions
+from google.protobuf import descriptor_pb2, message_factory, json_format
 
 from kaskade import logger
 from kaskade.models import (
@@ -426,3 +427,37 @@ class TopicService:
             list(self.admin_client.list_topics(timeout=self.timeout).topics.values()),
             key=sort_by_topic_name,
         )
+
+
+if __name__ == "__main__":
+
+    # protoc --include_imports --proto_path=. --python_out=. --descriptor_set_out=./Invoice.desc ./Invoice.proto
+    file_desc = "/home/saul/Workspace/kafka-sandbox/kafka-protobuf/src/main/proto/Invoice.desc"
+    with open(file_desc, "rb") as f:
+        file_content = f.read()
+        descriptor = descriptor_pb2.FileDescriptorSet.FromString(file_content)
+        classes = message_factory.GetMessages(descriptor.file)
+        deserialization_class = classes["Invoice"]
+
+    def deserialize(raw_message: bytes | None) -> dict[str, Any] | None:
+        if raw_message is None:
+            return None
+        new_message = deserialization_class()
+        new_message.ParseFromString(raw_message)
+        return json_format.MessageToDict(new_message)
+
+    async def main() -> None:
+        deserializer = DeserializerFactory()
+        consumer_service = ConsumerService(
+            "client.invoices",
+            {"bootstrap.servers": "localhost:19092", "auto.offset.reset": "earliest"},
+            deserializer,
+            Format.STRING,
+            Format.BYTES,
+            page_size=5,
+        )
+        messages = await consumer_service.consume()
+        for message in messages:
+            print(deserialize(message.value))
+
+    asyncio.run(main())
