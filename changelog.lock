@@ -8,7 +8,10 @@
                     "type": "Added",
                     "entries": [
                         "New unit tests",
-                        "New click facade 'cloup'"
+                        "New click facade 'cloup'",
+                        "New protobuf deserializer",
+                        "New protobuf options",
+                        "Configuration validations"
                     ]
                 },
                 {

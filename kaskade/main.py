@@ -6,9 +6,10 @@ from click import BadParameter, MissingParameter
 from kaskade import APP_VERSION
 from kaskade.admin import KaskadeAdmin
 from kaskade.consumer import KaskadeConsumer
+from kaskade.deserializers import PROTOBUF_DESERIALIZER_CONFIGS
 from kaskade.models import Format
+from kaskade.services import SCHEMA_REGISTRY_CONFIGS
 
-VALID_PROTOBUF_CONFIG = ["descriptor", "key", "value"]
 KAFKA_CONFIG_HELP = (
     "Kafka property. Set a librdkafka configuration property. Multiple '-x' are allowed."
 )
@@ -162,15 +163,12 @@ def consumer(
       kaskade consumer -b localhost:9092 -t my-topic -x auto.offset.reset=earliest
       kaskade consumer -b localhost:9092 -t my-topic -v json
       kaskade consumer -b localhost:9092 -t my-topic -v avro -s url=http://localhost:8081
-      kaskade consumer -b localhost:9092 -t my-topic -v protobuf -p descriptor=~/my-descriptor.desc -p value=MyMessage
+      kaskade consumer -b localhost:9092 -t my-topic -v protobuf -p descriptor=my-descriptor.desc -p value=MyMessage
     """
     kafka_config["bootstrap.servers"] = bootstrap_servers
 
-    validate_schema_registry_config(schema_registry_config)
-    validate_schema_registry_avro_formats(schema_registry_config, key_format, value_format)
-
-    validate_protobuf_config(protobuf_config)
-    validate_protobuf_formats(protobuf_config, key_format, value_format)
+    validate_schema_registry(schema_registry_config, key_format, value_format)
+    validate_protobuf(protobuf_config, key_format, value_format)
 
     kaskade_app = KaskadeConsumer(
         topic, kafka_config, schema_registry_config, protobuf_config, key_format, value_format
@@ -178,58 +176,58 @@ def consumer(
     kaskade_app.run()
 
 
-def validate_protobuf_formats(
-    protobuf_config: dict[str, str], key_format: Format, value_format: Format
-) -> None:
-    if len(protobuf_config) == 0 and (
-        key_format == Format.PROTOBUF or value_format == Format.PROTOBUF
-    ):
-        raise MissingParameter(param_hint="'-p'", param_type="option")
-
-    if (
-        len(protobuf_config) > 0
-        and key_format != Format.PROTOBUF
-        and value_format != Format.PROTOBUF
-    ):
-        raise MissingParameter(param_hint="'-k protobuf' and/or '-v protobuf'", param_type="option")
-
-
-def validate_schema_registry_avro_formats(
+def validate_schema_registry(
     schema_registry_config: dict[str, str], key_format: Format, value_format: Format
 ) -> None:
-    if len(schema_registry_config) == 0 and (
-        key_format == Format.AVRO or value_format == Format.AVRO
-    ):
-        raise MissingParameter(param_hint="'-s'", param_type="option")
+    if [
+        config for config in schema_registry_config.keys() if config not in SCHEMA_REGISTRY_CONFIGS
+    ]:
+        raise BadParameter(message=f"Valid properties: {SCHEMA_REGISTRY_CONFIGS}.")
 
-    if (
-        len(schema_registry_config) > 0
-        and key_format != Format.AVRO
-        and value_format != Format.AVRO
-    ):
-        raise MissingParameter(param_hint="'-k avro' and/or '-v avro'", param_type="option")
+    config_size = len(schema_registry_config)
+    url = schema_registry_config.get("url")
 
+    if config_size == 0:
+        if key_format == Format.AVRO or value_format == Format.AVRO:
+            raise MissingParameter(param_hint="'-s'", param_type="option")
 
-def validate_protobuf_config(protobuf_config: dict[str, str]) -> None:
-    if [config for config in protobuf_config.keys() if config not in VALID_PROTOBUF_CONFIG]:
-        raise BadParameter(message=f"Valid properties: {VALID_PROTOBUF_CONFIG}.")
+    if config_size > 0:
+        if key_format != Format.AVRO and value_format != Format.AVRO:
+            raise MissingParameter(param_hint="'-k avro' and/or '-v avro'", param_type="option")
 
-    if len(protobuf_config) > 0 and protobuf_config.get("descriptor") is None:
-        raise MissingParameter(param_hint="'-p descriptor=my-descriptor'", param_type="option")
+        if url is None:
+            raise MissingParameter(param_hint="'-s url=my-url'", param_type="option")
 
-    if (
-        len(protobuf_config) > 0
-        and protobuf_config.get("value") is None
-        and protobuf_config.get("key") is None
-    ):
-        raise MissingParameter(
-            param_hint="'-p key=MyMessage' or '-p value=MyMessage'", param_type="option"
-        )
+        if not url.startswith("http://") and not url.startswith("https://"):
+            raise BadParameter("Invalid url.")
 
 
-def validate_schema_registry_config(schema_registry_config: dict[str, str]) -> None:
-    if len(schema_registry_config) > 0 and schema_registry_config.get("url") is None:
-        raise MissingParameter(param_hint="'-s url=my-url'", param_type="option")
+def validate_protobuf(
+    protobuf_config: dict[str, str], key_format: Format, value_format: Format
+) -> None:
+    if [config for config in protobuf_config.keys() if config not in PROTOBUF_DESERIALIZER_CONFIGS]:
+        raise BadParameter(message=f"Valid properties: {PROTOBUF_DESERIALIZER_CONFIGS}.")
+
+    config_size = len(protobuf_config)
+
+    if config_size == 0:
+        if key_format == Format.PROTOBUF or value_format == Format.PROTOBUF:
+            raise MissingParameter(param_hint="'-p'", param_type="option")
+
+    if config_size > 0:
+        if protobuf_config.get("descriptor") is None:
+            raise MissingParameter(param_hint="'-p descriptor=my-descriptor'", param_type="option")
+
+        if protobuf_config.get("value") is None and value_format == Format.PROTOBUF:
+            raise MissingParameter(param_hint="'-p value=MyMessage'", param_type="option")
+
+        if protobuf_config.get("key") is None and key_format == Format.PROTOBUF:
+            raise MissingParameter(param_hint="'-p key=MyMessage'", param_type="option")
+
+        if key_format != Format.PROTOBUF and value_format != Format.PROTOBUF:
+            raise MissingParameter(
+                param_hint="'-k protobuf' and/or '-v protobuf'", param_type="option"
+            )
 
 
 if __name__ == "__main__":

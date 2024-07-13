@@ -123,14 +123,33 @@ class ConsumerCli(unittest.TestCase):
         self.assertGreater(result.exit_code, 0)
         self.assertIn("Invalid value for '-p': Should be property=value", result.output)
 
-    def test_validate_schema_registry_url(self):
+    def test_validate_schema_registry_no_url(self):
+        result = self.runner.invoke(
+            cli,
+            [
+                self.command,
+                "-b",
+                EXPECTED_SERVER,
+                "-t",
+                EXPECTED_TOPIC,
+                "-s",
+                "basic.auth.user.info=property",
+                "-k",
+                "avro",
+            ],
+        )
+
+        self.assertGreater(result.exit_code, 0)
+        self.assertIn("Missing option '-s url=my-url'", result.output)
+
+    def test_validate_schema_registry_invalid_config(self):
         result = self.runner.invoke(
             cli,
             [self.command, "-b", EXPECTED_SERVER, "-t", EXPECTED_TOPIC, "-s", "not.valid=property"],
         )
 
         self.assertGreater(result.exit_code, 0)
-        self.assertIn("Missing option '-s url=my-url'", result.output)
+        self.assertIn("Invalid value: Valid properties", result.output)
 
     def test_validate_schema_registry_format(self):
         result = self.runner.invoke(
@@ -140,6 +159,25 @@ class ConsumerCli(unittest.TestCase):
 
         self.assertGreater(result.exit_code, 0)
         self.assertIn("Missing option '-k avro' and/or '-v avro'", result.output)
+
+    def test_validate_schema_registry_invalid_url(self):
+        result = self.runner.invoke(
+            cli,
+            [
+                self.command,
+                "-b",
+                EXPECTED_SERVER,
+                "-t",
+                EXPECTED_TOPIC,
+                "-s",
+                "url=no.url",
+                "-k",
+                "avro",
+            ],
+        )
+
+        self.assertGreater(result.exit_code, 0)
+        self.assertIn("Invalid value: Invalid url.", result.output)
 
     def test_validate_schema_registry_is_needed_with_avro_key(self):
         result = self.runner.invoke(
@@ -267,8 +305,8 @@ class ConsumerCli(unittest.TestCase):
     @patch("kaskade.main.KaskadeConsumer")
     def test_pass_schema_registry_configs(self, mock_class_kaskade_consumer):
         expected_property_name = "url"
-        expected_property_value = "property.value"
-        expected_property_name2 = "property.name2"
+        expected_property_value = "http://my-url"
+        expected_property_name2 = "basic.auth.user.info"
         expected_property_value2 = "property.value2="
 
         result = self.runner.invoke(
@@ -340,6 +378,44 @@ class ConsumerCli(unittest.TestCase):
         self.assertGreater(result.exit_code, 0)
         self.assertIn("Missing option '-k protobuf' and/or '-v protobuf'", result.output)
 
+    def test_validate_protobuf_missing_key(self):
+        result = self.runner.invoke(
+            cli,
+            [
+                self.command,
+                "-b",
+                EXPECTED_SERVER,
+                "-t",
+                EXPECTED_TOPIC,
+                "-p",
+                "descriptor=~/my-file",
+                "-k",
+                "protobuf",
+            ],
+        )
+
+        self.assertGreater(result.exit_code, 0)
+        self.assertIn("Missing option '-p key=MyMessage'.", result.output)
+
+    def test_validate_protobuf_missing_value(self):
+        result = self.runner.invoke(
+            cli,
+            [
+                self.command,
+                "-b",
+                EXPECTED_SERVER,
+                "-t",
+                EXPECTED_TOPIC,
+                "-p",
+                "descriptor=~/my-file",
+                "-v",
+                "protobuf",
+            ],
+        )
+
+        self.assertGreater(result.exit_code, 0)
+        self.assertIn("Missing option '-p value=MyMessage'.", result.output)
+
     def test_validate_protobuf_invalid_option(self):
         result = self.runner.invoke(
             cli,
@@ -383,7 +459,7 @@ class ConsumerCli(unittest.TestCase):
         )
 
         self.assertGreater(result.exit_code, 0)
-        self.assertIn("Missing option '-p key=MyMessage' or '-p value=MyMessage'", result.output)
+        self.assertIn("Missing option '-k protobuf' and/or '-v protobuf'", result.output)
 
     @patch("kaskade.main.KaskadeConsumer")
     def test_pass_protobuf_configs(self, mock_class_kaskade_consumer):

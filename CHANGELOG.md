@@ -11,6 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - New unit tests
 - New click facade 'cloup'
+- New protobuf deserializer
+- New protobuf options
+- Configuration validations
 
 ### Changed
 
