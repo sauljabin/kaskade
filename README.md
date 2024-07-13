@@ -69,14 +69,6 @@ pipx install kaskade
 
 ## Running kaskade
 
-#### Help:
-
-```shell
-kaskade --help
-kaskade admin --help
-kaskade consumer --help
-```
-
 #### Admin view:
 
 ```shell
@@ -87,13 +79,6 @@ kaskade admin -b localhost:9092
 
 ```shell
 kaskade consumer -b localhost:9092 -t my-topic
-```
-
-#### Running with docker:
-
-```shell
-docker run --rm -it --network my-networtk sauljabin/kaskade:latest admin -b my-kafka:9092
-docker run --rm -it --network my-networtk sauljabin/kaskade:latest consumer -b my-kafka:9092 -t my-topic
 ```
 
 ## Configuration examples
@@ -159,6 +144,16 @@ kaskade consumer -b ${BOOTSTRAP_SERVERS} \
 
 > More about confluent cloud configuration
 > at: [Kafka Client Quick Start for Confluent Cloud](https://docs.confluent.io/cloud/current/client-apps/config-client.html).
+
+#### Running with docker:
+
+```shell
+docker run --rm -it --network my-networtk sauljabin/kaskade:latest admin -b my-kafka:9092
+```
+
+```
+docker run --rm -it --network my-networtk sauljabin/kaskade:latest consumer -b my-kafka:9092 -t my-topic
+```
 
 ## Development
 
