@@ -117,7 +117,7 @@ Clone the kafka sandbox:
 git clone https://github.com/sauljabin/kafka-sandbox.git
 ```
 
-> Run all the examples, got to [Kafka Sandbox](https://sauljabin.github.io/kafka-sandbox/introduction.html).
+> Run all the examples at [Kafka Sandbox](https://sauljabin.github.io/kafka-sandbox/introduction.html).
 
 Test admin:
 
@@ -183,7 +183,7 @@ kaskade consumer -b localhost:19092 -x auto.offset.reset=earliest \
 
 Test consumer protobuf:
 
-> Install `protoc` with `brew install protobuf`.
+> Install `protoc` with `brew install protobuf`
 
 ```bash
 protoc --include_imports --descriptor_set_out=./my-descriptor.desc \
