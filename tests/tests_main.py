@@ -117,6 +117,12 @@ class ConsumerCli(unittest.TestCase):
         self.assertGreater(result.exit_code, 0)
         self.assertIn("Invalid value for '-s': Should be property=value", result.output)
 
+    def test_invalid_protobuf_config(self):
+        result = self.runner.invoke(cli, [self.command, "-p", "property.name"])
+
+        self.assertGreater(result.exit_code, 0)
+        self.assertIn("Invalid value for '-p': Should be property=value", result.output)
+
     def test_validate_schema_registry_url(self):
         result = self.runner.invoke(
             cli,
@@ -124,7 +130,7 @@ class ConsumerCli(unittest.TestCase):
         )
 
         self.assertGreater(result.exit_code, 0)
-        self.assertIn("Missing option '-s url=<my url>'", result.output)
+        self.assertIn("Missing option '-s url=my-url'", result.output)
 
     def test_validate_schema_registry_format(self):
         result = self.runner.invoke(
@@ -158,7 +164,7 @@ class ConsumerCli(unittest.TestCase):
         )
 
         mock_class_kaskade_consumer.assert_called_with(
-            EXPECTED_TOPIC, {BOOTSTRAP_SERVERS: EXPECTED_SERVER}, {}, Format.BYTES, Format.BYTES
+            EXPECTED_TOPIC, {BOOTSTRAP_SERVERS: EXPECTED_SERVER}, {}, {}, Format.BYTES, Format.BYTES
         )
         self.assertEqual(0, result.exit_code)
 
@@ -188,6 +194,7 @@ class ConsumerCli(unittest.TestCase):
             EXPECTED_TOPIC,
             {BOOTSTRAP_SERVERS: EXPECTED_SERVER},
             {},
+            {},
             Format.from_str(expected_key_format),
             Format.from_str(expected_value_format),
         )
@@ -214,6 +221,7 @@ class ConsumerCli(unittest.TestCase):
         mock_class_kaskade_consumer.assert_called_with(
             EXPECTED_TOPIC,
             {BOOTSTRAP_SERVERS: EXPECTED_SERVER, expected_property_name: expected_property_value},
+            {},
             {},
             Format.BYTES,
             Format.BYTES,
@@ -249,6 +257,7 @@ class ConsumerCli(unittest.TestCase):
                 expected_property_name: expected_property_value,
                 expected_property_name2: expected_property_value2,
             },
+            {},
             {},
             Format.BYTES,
             Format.BYTES,
@@ -290,7 +299,127 @@ class ConsumerCli(unittest.TestCase):
                 expected_property_name: expected_property_value,
                 expected_property_name2: expected_property_value2,
             },
+            {},
             Format.AVRO,
             Format.AVRO,
+        )
+        self.assertEqual(0, result.exit_code)
+
+    def test_validate_protobuf_format_key(self):
+        result = self.runner.invoke(
+            cli, [self.command, "-b", EXPECTED_SERVER, "-t", EXPECTED_TOPIC, "-k", "protobuf"]
+        )
+
+        self.assertGreater(result.exit_code, 0)
+        self.assertIn("Missing option '-p'", result.output)
+
+    def test_validate_protobuf_format_value(self):
+        result = self.runner.invoke(
+            cli, [self.command, "-b", EXPECTED_SERVER, "-t", EXPECTED_TOPIC, "-v", "protobuf"]
+        )
+
+        self.assertGreater(result.exit_code, 0)
+        self.assertIn("Missing option '-p'", result.output)
+
+    def test_validate_protobuf_missing_format(self):
+        result = self.runner.invoke(
+            cli,
+            [
+                self.command,
+                "-b",
+                EXPECTED_SERVER,
+                "-t",
+                EXPECTED_TOPIC,
+                "-p",
+                "descriptor=~/my-file",
+                "-p",
+                "key=MyMessage",
+            ],
+        )
+
+        self.assertGreater(result.exit_code, 0)
+        self.assertIn("Missing option '-k protobuf' and/or '-v protobuf'", result.output)
+
+    def test_validate_protobuf_invalid_option(self):
+        result = self.runner.invoke(
+            cli,
+            [
+                self.command,
+                "-b",
+                EXPECTED_SERVER,
+                "-t",
+                EXPECTED_TOPIC,
+                "-p",
+                "descriptor=~/my-file",
+                "-p",
+                "not=valid",
+            ],
+        )
+
+        self.assertGreater(result.exit_code, 0)
+        self.assertIn("Valid properties: ['descriptor', 'key', 'value'].", result.output)
+
+    def test_validate_protobuf_descriptor_config(self):
+        result = self.runner.invoke(
+            cli,
+            [self.command, "-b", EXPECTED_SERVER, "-t", EXPECTED_TOPIC, "-p", "value=MyMessage"],
+        )
+
+        self.assertGreater(result.exit_code, 0)
+        self.assertIn("Missing option '-p descriptor=my-descriptor'", result.output)
+
+    def test_validate_protobuf_missing_key_or_value(self):
+        result = self.runner.invoke(
+            cli,
+            [
+                self.command,
+                "-b",
+                EXPECTED_SERVER,
+                "-t",
+                EXPECTED_TOPIC,
+                "-p",
+                "descriptor=~/my-file",
+            ],
+        )
+
+        self.assertGreater(result.exit_code, 0)
+        self.assertIn("Missing option '-p key=MyMessage' or '-p value=MyMessage'", result.output)
+
+    @patch("kaskade.main.KaskadeConsumer")
+    def test_pass_protobuf_configs(self, mock_class_kaskade_consumer):
+        expected_descriptor_name = "descriptor"
+        expected_descriptor_value = "my-descriptor"
+        expected_value_name = "value"
+        expected_value = "my-value"
+
+        result = self.runner.invoke(
+            cli,
+            [
+                self.command,
+                "-b",
+                EXPECTED_SERVER,
+                "-t",
+                EXPECTED_TOPIC,
+                "-p",
+                f"{expected_descriptor_name}={expected_descriptor_value}",
+                "-p",
+                f"{expected_value_name}={expected_value}",
+                "-v",
+                "protobuf",
+            ],
+        )
+
+        mock_class_kaskade_consumer.assert_called_with(
+            EXPECTED_TOPIC,
+            {
+                BOOTSTRAP_SERVERS: EXPECTED_SERVER,
+            },
+            {},
+            {
+                expected_descriptor_name: expected_descriptor_value,
+                expected_value_name: expected_value,
+            },
+            Format.BYTES,
+            Format.PROTOBUF,
         )
         self.assertEqual(0, result.exit_code)

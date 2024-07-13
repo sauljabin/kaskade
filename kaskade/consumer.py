@@ -164,13 +164,14 @@ class ListRecords(Container):
         topic: str,
         kafka_config: dict[str, str],
         schema_registry_config: dict[str, str],
+        protobuf_config: dict[str, str],
         key_format: Format,
         value_format: Format,
     ):
         super().__init__()
         self.topic = topic
         self.kafka_config = kafka_config
-        self.deserializer_factory = DeserializerFactory(schema_registry_config)
+        self.deserializer_factory = DeserializerFactory(schema_registry_config, protobuf_config)
         self.key_format = key_format
         self.value_format = value_format
         self.consumer = self._new_consumer()
@@ -319,6 +320,7 @@ class KaskadeConsumer(App):
         topic: str,
         kafka_config: dict[str, str],
         schema_registry_config: dict[str, str],
+        protobuf_config: dict[str, str],
         key_format: Format,
         value_format: Format,
     ):
@@ -327,6 +329,7 @@ class KaskadeConsumer(App):
         self.topic = topic
         self.kafka_config = kafka_config
         self.schema_registry_config = schema_registry_config
+        self.protobuf_config = protobuf_config
         self.key_format = key_format
         self.value_format = value_format
 
@@ -339,6 +342,7 @@ class KaskadeConsumer(App):
             self.topic,
             self.kafka_config,
             self.schema_registry_config,
+            self.protobuf_config,
             self.key_format,
             self.value_format,
         )

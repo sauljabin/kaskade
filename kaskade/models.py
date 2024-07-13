@@ -8,7 +8,6 @@ import avro.schema
 from avro.io import BinaryDecoder, DatumReader
 from confluent_kafka.schema_registry import SchemaRegistryClient
 
-
 MAGIC_BYTES = 0
 
 
@@ -306,6 +305,7 @@ class Format(Enum):
     FLOAT = auto()
     JSON = auto()
     AVRO = auto()
+    PROTOBUF = auto()
 
     def __str__(self) -> str:
         return self.name.lower()
@@ -322,10 +322,34 @@ class Format(Enum):
         return [str(key_format) for key_format in Format]
 
 
+class ProtobufDeserializer:
+    def __init__(self, protobuf_config: dict[str, str]):
+        self.protobuf_config = protobuf_config
+
+    @property
+    def descriptor(self) -> str | None:
+        return self.protobuf_config.get("descriptor")
+
+    @property
+    def value(self) -> str | None:
+        return self.protobuf_config.get("value")
+
+    @property
+    def key(self) -> str | None:
+        return self.protobuf_config.get("key")
+
+
 class DeserializerFactory:
-    def __init__(self, schema_registry_config: dict[str, str] | None = None):
+    def __init__(
+        self,
+        schema_registry_config: dict[str, str] | None = None,
+        protobuf_config: dict[str, str] | None = None,
+    ):
         if schema_registry_config:
             self.schema_registry_client = SchemaRegistryClient(schema_registry_config)
+
+        if protobuf_config:
+            self.protobuf_deserializer = ProtobufDeserializer(protobuf_config)
 
     def make_deserializer(self, deserialization_format: Format) -> Callable[[bytes], Any]:
         def avro_deserializer(raw_bytes: bytes) -> Any:
