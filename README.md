@@ -129,7 +129,7 @@ kaskade admin -b ${BOOTSTRAP_SERVERS} \
         -x sasl.password=${CLUSTER_API_SECRET}
 ```
 
-```
+```shell
 kaskade consumer -b ${BOOTSTRAP_SERVERS} \
         -x security.protocol=SASL_SSL \
         -x sasl.mechanism=PLAIN \
@@ -151,7 +151,7 @@ kaskade consumer -b ${BOOTSTRAP_SERVERS} \
 docker run --rm -it --network my-networtk sauljabin/kaskade:latest admin -b my-kafka:9092
 ```
 
-```
+```shell
 docker run --rm -it --network my-networtk sauljabin/kaskade:latest consumer -b my-kafka:9092 -t my-topic
 ```
 
