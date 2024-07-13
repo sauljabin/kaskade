@@ -8,7 +8,12 @@ from kaskade.admin import KaskadeAdmin
 from kaskade.consumer import KaskadeConsumer
 from kaskade.models import Format
 
-epilog = "More information at https://github.com/sauljabin/kaskade."
+VALID_PROTOBUF_CONFIG = ["descriptor", "key", "value"]
+KAFKA_CONFIG_HELP = (
+    "Kafka property. Set a librdkafka configuration property. Multiple '-x' are allowed."
+)
+BOOTSTRAP_SERVERS_HELP = "Bootstrap server(s). Comma-separated list of host and port pairs. Example: '-b localhost:9091,localhost:9092'."
+EPILOG = "More information at https://github.com/sauljabin/kaskade."
 
 
 def tuple_properties_to_dict(ctx: Any, param: Any, value: Any) -> Any:
@@ -25,27 +30,27 @@ def string_to_format(ctx: Any, param: Any, value: Any) -> Any:
     return Format.from_str(value)
 
 
-@cloup.group(epilog=epilog)
+@cloup.group(epilog=EPILOG)
 @cloup.version_option(APP_VERSION)
 def cli() -> None:
     """kaskade is a terminal user interface for kafka."""
     pass
 
 
-@cli.command(epilog=epilog)
+@cli.command(epilog=EPILOG)
 @cloup.option_group(
     "Kafka options",
     cloup.option(
         "-b",
         "bootstrap_servers",
-        help="Bootstrap server(s). Comma-separated list of host and port pairs. Example: localhost:9091,localhost:9092.",
+        help=BOOTSTRAP_SERVERS_HELP,
         metavar="host:port",
         required=True,
     ),
     cloup.option(
         "-x",
         "kafka_config",
-        help="Kafka property. Set a librdkafka configuration property. Multiple -x are allowed.",
+        help=KAFKA_CONFIG_HELP,
         metavar="property=value",
         multiple=True,
         callback=tuple_properties_to_dict,
@@ -68,20 +73,20 @@ def admin(
     kaskade_app.run()
 
 
-@cli.command(epilog=epilog)
+@cli.command(epilog=EPILOG)
 @cloup.option_group(
     "Kafka options",
     cloup.option(
         "-b",
         "bootstrap_servers",
-        help="Bootstrap server(s). Comma-separated list of host and port pairs. Example: localhost:9091,localhost:9092.",
+        help=BOOTSTRAP_SERVERS_HELP,
         metavar="host:port",
         required=True,
     ),
     cloup.option(
         "-x",
         "kafka_config",
-        help="Kafka property. Set a librdkafka configuration property. Multiple -x are allowed.",
+        help=KAFKA_CONFIG_HELP,
         metavar="property=value",
         multiple=True,
         callback=tuple_properties_to_dict,
@@ -92,7 +97,7 @@ def admin(
     cloup.option(
         "-t",
         "topic",
-        help="Topic.",
+        help="Topic name.",
         metavar="name",
         required=True,
     ),
@@ -120,8 +125,20 @@ def admin(
     cloup.option(
         "-s",
         "schema_registry_config",
-        help="Schema Registry property. Set a SchemaRegistryClient property. Multiple -s are allowed. Needed if -k avro "
-        "or -v avro were passed.",
+        help="Schema Registry property. Set a SchemaRegistryClient property. Multiple '-s' are allowed. Needed if '-k avro' "
+        "or '-v avro' were passed.",
+        metavar="property=value",
+        multiple=True,
+        callback=tuple_properties_to_dict,
+    ),
+)
+@cloup.option_group(
+    "Protobuf options",
+    cloup.option(
+        "-p",
+        "protobuf_config",
+        help="Protobuf property. Configure the protobuf deserializer. Multiple '-p' are allowed. Needed if '-k protobuf' "
+        "or '-v protobuf' were passed. Valid properties: [descriptor, key, value].",
         metavar="property=value",
         multiple=True,
         callback=tuple_properties_to_dict,
@@ -131,6 +148,7 @@ def consumer(
     bootstrap_servers: str,
     kafka_config: dict[str, str],
     schema_registry_config: dict[str, str],
+    protobuf_config: dict[str, str],
     topic: str,
     key_format: Format,
     value_format: Format,
@@ -141,22 +159,42 @@ def consumer(
     \b
     Examples:
       kaskade consumer -b localhost:9092 -t my-topic
-      kaskade consumer -b localhost:9092 -t my-topic -k string -v json
       kaskade consumer -b localhost:9092 -t my-topic -x auto.offset.reset=earliest
-      kaskade consumer -b localhost:9092 -t my-topic -s url=http://localhost:8081 -v avro
+      kaskade consumer -b localhost:9092 -t my-topic -v json
+      kaskade consumer -b localhost:9092 -t my-topic -v avro -s url=http://localhost:8081
+      kaskade consumer -b localhost:9092 -t my-topic -v protobuf -p descriptor=~/my-descriptor.desc -p value=MyMessage
     """
     kafka_config["bootstrap.servers"] = bootstrap_servers
 
-    validate_schema_registry_url(schema_registry_config)
-    validate_formats(schema_registry_config, key_format, value_format)
+    validate_schema_registry_config(schema_registry_config)
+    validate_schema_registry_avro_formats(schema_registry_config, key_format, value_format)
+
+    validate_protobuf_config(protobuf_config)
+    validate_protobuf_formats(protobuf_config, key_format, value_format)
 
     kaskade_app = KaskadeConsumer(
-        topic, kafka_config, schema_registry_config, key_format, value_format
+        topic, kafka_config, schema_registry_config, protobuf_config, key_format, value_format
     )
     kaskade_app.run()
 
 
-def validate_formats(
+def validate_protobuf_formats(
+    protobuf_config: dict[str, str], key_format: Format, value_format: Format
+) -> None:
+    if len(protobuf_config) == 0 and (
+        key_format == Format.PROTOBUF or value_format == Format.PROTOBUF
+    ):
+        raise MissingParameter(param_hint="'-p'", param_type="option")
+
+    if (
+        len(protobuf_config) > 0
+        and key_format != Format.PROTOBUF
+        and value_format != Format.PROTOBUF
+    ):
+        raise MissingParameter(param_hint="'-k protobuf' and/or '-v protobuf'", param_type="option")
+
+
+def validate_schema_registry_avro_formats(
     schema_registry_config: dict[str, str], key_format: Format, value_format: Format
 ) -> None:
     if len(schema_registry_config) == 0 and (
@@ -172,9 +210,26 @@ def validate_formats(
         raise MissingParameter(param_hint="'-k avro' and/or '-v avro'", param_type="option")
 
 
-def validate_schema_registry_url(schema_registry_config: dict[str, str]) -> None:
+def validate_protobuf_config(protobuf_config: dict[str, str]) -> None:
+    if [config for config in protobuf_config.keys() if config not in VALID_PROTOBUF_CONFIG]:
+        raise BadParameter(message=f"Valid properties: {VALID_PROTOBUF_CONFIG}.")
+
+    if len(protobuf_config) > 0 and protobuf_config.get("descriptor") is None:
+        raise MissingParameter(param_hint="'-p descriptor=my-descriptor'", param_type="option")
+
+    if (
+        len(protobuf_config) > 0
+        and protobuf_config.get("value") is None
+        and protobuf_config.get("key") is None
+    ):
+        raise MissingParameter(
+            param_hint="'-p key=MyMessage' or '-p value=MyMessage'", param_type="option"
+        )
+
+
+def validate_schema_registry_config(schema_registry_config: dict[str, str]) -> None:
     if len(schema_registry_config) > 0 and schema_registry_config.get("url") is None:
-        raise MissingParameter(param_hint="'-s url=<my url>'", param_type="option")
+        raise MissingParameter(param_hint="'-s url=my-url'", param_type="option")
 
 
 if __name__ == "__main__":
