@@ -38,17 +38,6 @@ from kaskade.deserializers import Format, DeserializerFactory
 from kaskade.utils import make_it_async
 
 
-def _match_header(header_filter: str, headers: list[Header]) -> bool:
-    if headers is None:
-        return False
-
-    for header in headers:
-        if header_filter in header.value_str():
-            return True
-
-    return False
-
-
 class ConsumerService:
     def __init__(
         self,
@@ -171,7 +160,10 @@ class ConsumerService:
                     continue
 
             if header_filter:
-                if not _match_header(header_filter, record.headers):
+                if record.headers is None:
+                    continue
+
+                if not [header for header in record.headers if header_filter in header.value_str()]:
                     continue
 
             records.append(record)
