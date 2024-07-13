@@ -11,4 +11,4 @@ SCHEMA_REGISTRY_CONFIGS = [
     "basic.auth.user.info",
 ]
 PROTOBUF_DESERIALIZER_CONFIGS = ["descriptor", "key", "value"]
-MAGIC_BYTES = 0
+SCHEMA_REGISTRY_MAGIC_BYTE = 0
