@@ -139,27 +139,27 @@ kaskade consumer -b localhost:19092 -x auto.offset.reset=earliest \
 
 ```bash
 kaskade consumer -b localhost:19092 -x auto.offset.reset=earliest \
-        -k integer -v integer -t client.integer
+        -k string -v integer -t client.integer
 ```
 
 ```bash
 kaskade consumer -b localhost:19092 -x auto.offset.reset=earliest \
-        -k long -v long -t client.long
+        -k string -v long -t client.long
 ```
 
 ```bash
 kaskade consumer -b localhost:19092 -x auto.offset.reset=earliest \
-        -k float -v float -t client.float
+        -k string -v float -t client.float
 ```
 
 ```bash
 kaskade consumer -b localhost:19092 -x auto.offset.reset=earliest \
-        -k double -v double -t client.double
+        -k string -v double -t client.double
 ```
 
 ```bash
 kaskade consumer -b localhost:19092 -x auto.offset.reset=earliest \
-        -k boolean -v boolean -t client.boolean
+        -k string -v boolean -t client.boolean
 ```
 
 Test consumer json:
