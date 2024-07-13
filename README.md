@@ -23,6 +23,7 @@ by [Textualize](https://www.textualize.io/). It includes features like:
     - Json, string, integer, long, float, boolean and double deserialization.
     - Filter by key, value, header and/or partition.
     - Schema Registry support with avro.
+    - Protobuf deserialization support.
 
 ## Screenshots
 
@@ -70,13 +71,13 @@ pipx install kaskade
 #### Admin view:
 
 ```bash
-kaskade admin -b localhost:9092
+kaskade admin -b my-kafka:9092
 ```
 
 #### Consumer view:
 
 ```bash
-kaskade consumer -b localhost:9092 -t my-topic
+kaskade consumer -b my-kafka:9092 -t my-topic
 ```
 
 ## Configuration examples
@@ -84,25 +85,25 @@ kaskade consumer -b localhost:9092 -t my-topic
 #### Multiple bootstrap servers:
 
 ```bash
-kaskade admin -b broker1:9092,broker2:9092
+kaskade admin -b my-kafka:9092,my-kafka:9093
 ```
 
 #### Consume and deserialize:
 
 ```bash
-kaskade consumer -b localhost:9092 -t my-topic -k json -v json
+kaskade consumer -b my-kafka:9092 -t my-topic -k json -v json
 ```
 
 #### Consuming from the beginning:
 
 ```bash
-kaskade consumer -b localhost:9092 -t my-topic -x auto.offset.reset=earliest
+kaskade consumer -b my-kafka:9092 -t my-topic -x auto.offset.reset=earliest
 ```
 
 #### Schema registry simple connection and avro deserialization:
 
 ```bash
-kaskade consumer -b localhost:9092 -s url=http://localhost:8081 -t my-topic -k avro -v avro
+kaskade consumer -b my-kafka:9092 -s url=http://my-kafka:8081 -t my-topic -k avro -v avro
 ```
 
 > For more information about Schema Registry configurations go
@@ -111,7 +112,7 @@ kaskade consumer -b localhost:9092 -s url=http://localhost:8081 -t my-topic -k a
 #### SSL encryption example:
 
 ```bash
-kaskade admin -b ${BOOTSTRAP_SERVERS} -x security.protocol=SSL
+kaskade admin -b my-kafka:9092 -x security.protocol=SSL
 ```
 
 > For more information about SSL encryption and SSL authentication go
@@ -153,6 +154,34 @@ docker run --rm -it --network my-networtk sauljabin/kaskade:latest \
 ```bash
 docker run --rm -it --network my-networtk sauljabin/kaskade:latest \
     consumer -b my-kafka:9092 -t my-topic
+```
+
+#### Protobuf deserialization:
+
+Install `protoc` command:
+
+```bash
+brew install protobuf
+```
+
+Generate the `FileDescriptorSet` file from your `.proto` files:
+
+```bash
+protoc --include_imports \
+       --descriptor_set_out=./my-descriptor.desc \
+       --proto_path=${PROTO_PATH} \
+       ${PROTO_PATH}/my-proto.proto
+```
+
+> More about protobuf and `FileDescriptorSet` at: [Protocol Buffers Documentation](https://protobuf.dev/programming-guides/techniques/#self-description).
+
+Consume using `my-descriptor.desc` file:
+
+```bash
+kaskade consumer -b my-kafka:9092 -x auto.offset.reset=earliest \
+        -k string -v protobuf \
+        -t my-protobuf-topic \
+        -p descriptor=my-descriptor.desc -p value=mypackage.MyMessage
 ```
 
 ## Development
