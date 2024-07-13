@@ -11,7 +11,7 @@ from confluent_kafka.schema_registry.protobuf import (
 from confluent_kafka.serialization import MessageField
 from google.protobuf.descriptor_pb2 import FileDescriptorSet
 from google.protobuf.json_format import MessageToDict
-from google.protobuf.message import Message, DecodeError
+from google.protobuf.message import Message
 from google.protobuf.message_factory import GetMessages
 
 from kaskade.utils import unpack_bytes, file_to_bytes
@@ -96,7 +96,7 @@ class JsonDeserializer(Deserializer):
     def deserialize(self, data: bytes, context: MessageField = MessageField.NONE) -> Any:
         try:
             return json.loads(data)
-        except UnicodeDecodeError:
+        except Exception:
             # in case that the json has a confluent schema registry magic byte
             # https://docs.confluent.io/platform/current/schema-registry/fundamentals/serdes-develop/index.html#wire-format
             return json.loads(data[5:])
@@ -148,7 +148,7 @@ class ProtobufDeserializer(Deserializer):
             new_message = deserialization_class()
             new_message.ParseFromString(data)
             return MessageToDict(new_message, always_print_fields_with_no_presence=True)
-        except DecodeError:
+        except Exception:
             # in case that the protobuf has a confluent schema registry magic byte
             # https://docs.confluent.io/platform/current/schema-registry/fundamentals/serdes-develop/index.html#wire-format
             protobuf_deserializer = ConfluentProtobufDeserializer(
