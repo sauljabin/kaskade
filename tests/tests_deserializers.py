@@ -7,6 +7,7 @@ from unittest.mock import patch
 
 import avro
 from avro.io import DatumWriter, BinaryEncoder
+from confluent_kafka.serialization import MessageField
 
 from kaskade.deserializers import (
     StringDeserializer,
@@ -18,8 +19,10 @@ from kaskade.deserializers import (
     DefaultDeserializer,
     JsonDeserializer,
     AvroDeserializer,
+    ProtobufDeserializer,
 )
 from tests import faker
+from tests.test_pb2 import User
 
 
 class TestDeserializer(unittest.TestCase):
@@ -124,3 +127,13 @@ class TestDeserializer(unittest.TestCase):
         result = deserializer.deserialize(b"\x00\x00\x00\x00\x00" + buffer_writer.getvalue())
 
         self.assertEqual(expected_value, result)
+
+    def test_protobuf_deserialization(self):
+        # protoc --include_imports --proto_path=. --python_out=. --pyi_out=. --descriptor_set_out=./test.desc test.proto
+        deserializer = ProtobufDeserializer({"descriptor": "./tests/test.desc", "value": "User"})
+
+        user = User()
+        user.name = "my name"
+
+        result = deserializer.deserialize(user.SerializeToString(), MessageField.VALUE)
+        self.assertEqual({"name": user.name}, result)

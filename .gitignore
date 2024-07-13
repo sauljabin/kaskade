@@ -149,3 +149,4 @@ cython_debug/
 
 ## protobuf
 *.desc
+*.proto
