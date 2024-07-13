@@ -130,10 +130,34 @@ class TestDeserializer(unittest.TestCase):
 
     def test_protobuf_deserialization(self):
         # protoc --include_imports --proto_path=. --python_out=. --pyi_out=. --descriptor_set_out=./test.desc test.proto
-        deserializer = ProtobufDeserializer({"descriptor": "./tests/test.desc", "value": "User"})
+        descriptor_file_name = "test.desc"
+        descriptor_path = (
+            f"{os.getcwd()}/{descriptor_file_name}"
+            if os.getcwd().endswith("tests")
+            else f"{os.getcwd()}/tests/{descriptor_file_name}"
+        )
+        deserializer = ProtobufDeserializer({"descriptor": descriptor_path, "value": "User"})
 
         user = User()
         user.name = "my name"
 
         result = deserializer.deserialize(user.SerializeToString(), MessageField.VALUE)
+        self.assertEqual({"name": user.name}, result)
+
+    def test_protobuf_deserialization_with_magic_byte(self):
+        # protoc --include_imports --proto_path=. --python_out=. --pyi_out=. --descriptor_set_out=./test.desc test.proto
+        descriptor_file_name = "test.desc"
+        descriptor_path = (
+            f"{os.getcwd()}/{descriptor_file_name}"
+            if os.getcwd().endswith("tests")
+            else f"{os.getcwd()}/tests/{descriptor_file_name}"
+        )
+        deserializer = ProtobufDeserializer({"descriptor": descriptor_path, "value": "User"})
+
+        user = User()
+        user.name = "my name"
+
+        result = deserializer.deserialize(
+            b"\x00\x00\x00\x00\x00\x00" + user.SerializeToString(), MessageField.VALUE
+        )
         self.assertEqual({"name": user.name}, result)
