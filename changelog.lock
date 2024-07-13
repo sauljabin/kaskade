@@ -2,7 +2,22 @@
     "repository": "https://github.com/sauljabin/kaskade",
     "versions": [
         {
-            "version": "Unreleased"
+            "version": "Unreleased",
+            "changes": [
+                {
+                    "type": "Added",
+                    "entries": [
+                        "New unit tests",
+                        "New click facade 'cloup'"
+                    ]
+                },
+                {
+                    "type": "Changed",
+                    "entries": [
+                        "Help messages"
+                    ]
+                }
+            ]
         },
         {
             "version": "2.1.6",
