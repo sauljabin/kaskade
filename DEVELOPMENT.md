@@ -1,20 +1,22 @@
 # Development Instructions
 
+### Setup
+
 Installing poetry:
 
-```shell
+```bash
 pipx install poetry
 ```
 
 Installing development dependencies:
 
-```shell
+```bash
 poetry install
 ```
 
 Open a terminal within the project's virtual environment:
 
-```shell
+```bash
 poetry shell
 ```
 
@@ -22,19 +24,19 @@ poetry shell
 
 Installing pre-commit hooks:
 
-```shell
+```bash
 pre-commit install
 ```
 
 Running kaskade:
 
-```shell
+```bash
 kaskade
 ```
 
 Run textual console:
 
-```shell
+```bash
 textual console --port 7342
 textual run --port 7342 --dev -c kaskade admin -b localhost:19092
 textual run --port 7342 --dev -c kaskade consumer -b localhost:19092 -t my-topic
@@ -44,25 +46,25 @@ textual run --port 7342 --dev -c kaskade consumer -b localhost:19092 -t my-topic
 
 Unit tests:
 
-```shell
+```bash
 python -m scripts.tests
 ```
 
 Applying code styles:
 
-```shell
+```bash
 python -m scripts.styles
 ```
 
 Running code analysis:
 
-```shell
+```bash
 python -m scripts.analyze
 ```
 
 Generate banner:
 
-```shell
+```bash
 python -m scripts.banner
 ```
 
@@ -70,7 +72,7 @@ python -m scripts.banner
 
 Run local cluster:
 
-```shell
+```bash
 docker compose up -d
 ```
 
@@ -78,7 +80,7 @@ docker compose up -d
 
 Build docker:
 
-```shell
+```bash
 python -m scripts.docker
 ```
 
@@ -86,7 +88,7 @@ python -m scripts.docker
 
 Run with docker (create a `config.yml` file):
 
-```shell
+```bash
 docker run --rm -it --network cluster sauljabin/kaskade:latest admin -b kafka1:9092
 ```
 
@@ -94,15 +96,109 @@ docker run --rm -it --network cluster sauljabin/kaskade:latest admin -b kafka1:9
 
 Help:
 
-```shell
+```bash
 python -m scripts.bump --help
 ```
 
 Upgrade (`major.minor.patch`):
 
-```shell
+```bash
 python -m scripts.bump patch
 ```
 
 > More info at https://python-poetry.org/docs/cli/#version and https://semver.org/.
 > For changelog management check https://github.com/sauljabin/changeloggh.
+
+### Manual Tests
+
+Clone the kafka sandbox:
+
+```bash
+git clone https://github.com/sauljabin/kafka-sandbox.git
+```
+
+> Run all the examples, got to [Kafka Sandbox](https://sauljabin.github.io/kafka-sandbox/introduction.html).
+
+Test admin:
+
+```bash
+kaskade admin -b localhost:19092
+```
+
+Test consumer natives:
+
+```bash
+kaskade consumer -b localhost:19092 -x auto.offset.reset=earliest -t client.string
+```
+
+```bash
+kaskade consumer -b localhost:19092 -x auto.offset.reset=earliest \
+        -k string -v string -t client.string
+```
+
+```bash
+kaskade consumer -b localhost:19092 -x auto.offset.reset=earliest \
+        -k integer -v integer -t client.integer
+```
+
+```bash
+kaskade consumer -b localhost:19092 -x auto.offset.reset=earliest \
+        -k long -v long -t client.long
+```
+
+```bash
+kaskade consumer -b localhost:19092 -x auto.offset.reset=earliest \
+        -k float -v float -t client.float
+```
+
+```bash
+kaskade consumer -b localhost:19092 -x auto.offset.reset=earliest \
+        -k double -v double -t client.double
+```
+
+```bash
+kaskade consumer -b localhost:19092 -x auto.offset.reset=earliest \
+        -k boolean -v boolean -t client.boolean
+```
+
+Test consumer json:
+
+```bash
+kaskade consumer -b localhost:19092 -x auto.offset.reset=earliest \
+        -k string -v json -t client.users
+```
+
+```bash
+kaskade consumer -b localhost:19092 -x auto.offset.reset=earliest \
+        -k string -v json -t client.schema.users
+```
+
+Test consumer avro:
+
+```bash
+kaskade consumer -b localhost:19092 -x auto.offset.reset=earliest \
+        -k string -v avro -t client.suppliers \
+        -s url=http://localhost:8081
+```
+
+Test consumer protobuf:
+
+> Install `protoc` with `brew install protobuf`.
+
+```bash
+protoc --include_imports --descriptor_set_out=./my-descriptor.desc \
+       --proto_path="${KAFKA_SANDBOX_PATH}/kafka-protobuf/src/main/proto/" \
+       "${KAFKA_SANDBOX_PATH}/kafka-protobuf/src/main/proto/Invoice.proto"
+```
+
+```bash
+kaskade consumer -b localhost:19092 -x auto.offset.reset=earliest \
+        -k string -v protobuf -t client.invoices \
+        -p descriptor=my-descriptor.desc -p value=Invoice
+```
+
+```bash
+kaskade consumer -b localhost:19092 -x auto.offset.reset=earliest \
+        -k string -v protobuf -t client.schema.invoices \
+        -p descriptor=my-descriptor.desc -p value=Invoice
+```

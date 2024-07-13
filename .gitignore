@@ -145,5 +145,7 @@ cython_debug/
 .dccache
 
 ## pycharm
-
 .idea/
+
+## protobuf
+*.desc

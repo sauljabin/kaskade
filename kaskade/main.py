@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import Any
 
 import cloup
@@ -208,14 +209,23 @@ def validate_protobuf(
         raise BadParameter(message=f"Valid properties: {PROTOBUF_DESERIALIZER_CONFIGS}.")
 
     config_size = len(protobuf_config)
+    descriptor_path_str = protobuf_config.get("descriptor")
 
     if config_size == 0:
         if key_format == Format.PROTOBUF or value_format == Format.PROTOBUF:
             raise MissingParameter(param_hint="'-p'", param_type="option")
 
     if config_size > 0:
-        if protobuf_config.get("descriptor") is None:
+        if descriptor_path_str is None:
             raise MissingParameter(param_hint="'-p descriptor=my-descriptor'", param_type="option")
+
+        descriptor_path = Path(descriptor_path_str).expanduser()
+
+        if not descriptor_path.exists():
+            raise BadParameter("File should exist.")
+
+        if descriptor_path.is_dir():
+            raise BadParameter("Path is a directory.")
 
         if protobuf_config.get("value") is None and value_format == Format.PROTOBUF:
             raise MissingParameter(param_hint="'-p value=MyMessage'", param_type="option")
