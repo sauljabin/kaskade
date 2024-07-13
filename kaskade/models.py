@@ -1,7 +1,9 @@
 from enum import Enum, auto
-from typing import Any, Callable
+from typing import Any
 
-from kaskade.deserializers import Format
+from confluent_kafka.serialization import MessageField
+
+from kaskade.deserializers import Format, Deserializer
 
 
 class Node:
@@ -293,7 +295,7 @@ class Header:
         self,
         key: str = "",
         value: bytes | None = None,
-        value_deserializer: Callable[[bytes], Any] | None = None,
+        value_deserializer: Deserializer | None = None,
     ):
         self.key = key
         self.value = value
@@ -318,7 +320,7 @@ class Header:
             return str(self.value)
 
         try:
-            return self.value_deserializer(self.value)
+            return self.value_deserializer.deserialize(self.value)
         except Exception:
             # it doesn't matter to show the binaries
             return str(self.value)
@@ -339,8 +341,8 @@ class Record:
         headers: list[Header] | None = None,
         key_format: Format = Format.BYTES,
         value_format: Format = Format.BYTES,
-        key_deserializer: Callable[[bytes], Any] | None = None,
-        value_deserializer: Callable[[bytes], Any] | None = None,
+        key_deserializer: Deserializer | None = None,
+        value_deserializer: Deserializer | None = None,
     ) -> None:
         self.topic = topic
         self.partition = partition
@@ -394,7 +396,7 @@ class Record:
         if self.key_deserializer is None:
             return str(self.key)
 
-        return self.key_deserializer(self.key)
+        return self.key_deserializer.deserialize(self.key, MessageField.KEY)
 
     def value_deserialized(self) -> Any:
         if self.value is None:
@@ -403,7 +405,7 @@ class Record:
         if self.value_deserializer is None:
             return str(self.value)
 
-        return self.value_deserializer(self.value)
+        return self.value_deserializer.deserialize(self.value, MessageField.VALUE)
 
     def key_str(self) -> str:
         return str(self.key_deserialized())

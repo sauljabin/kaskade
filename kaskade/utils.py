@@ -1,5 +1,7 @@
 import asyncio
 import functools
+import struct
+from pathlib import Path
 from typing import Callable, Any
 
 from confluent_kafka import KafkaException
@@ -23,3 +25,12 @@ async def make_it_async(func: Callable[..., Any], /, *args: Any, **keywords: Any
     return await asyncio.get_running_loop().run_in_executor(
         None, functools.partial(func, *args, **keywords)
     )
+
+
+def unpack_bytes(struct_format: str, data: bytes) -> Any:
+    return struct.unpack(struct_format, data)[0]
+
+
+def file_to_bytes(str_path: str) -> bytes:
+    path = Path(str_path).expanduser()
+    return path.read_bytes()

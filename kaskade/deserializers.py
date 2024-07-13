@@ -1,15 +1,20 @@
 import json
-import struct
 from abc import abstractmethod, ABC
 from enum import Enum, auto
-from io import BytesIO
-from typing import Any, Callable
+from typing import Any, Type
 
-import avro.schema
-from avro.io import BinaryDecoder, DatumReader
 from confluent_kafka.schema_registry import SchemaRegistryClient
+from confluent_kafka.schema_registry.avro import AvroDeserializer as ConfluentAvroDeserializer
+from confluent_kafka.schema_registry.protobuf import (
+    ProtobufDeserializer as ConfluentProtobufDeserializer,
+)
+from confluent_kafka.serialization import MessageField
+from google.protobuf.descriptor_pb2 import FileDescriptorSet
+from google.protobuf.json_format import MessageToDict
+from google.protobuf.message import Message, DecodeError
+from google.protobuf.message_factory import GetMessages
 
-from kaskade.configs import SCHEMA_REGISTRY_MAGIC_BYTE
+from kaskade.utils import unpack_bytes, file_to_bytes
 
 
 class Format(Enum):
@@ -41,103 +46,160 @@ class Format(Enum):
 
 class Deserializer(ABC):
     @abstractmethod
-    def deserialize(self, data: bytes) -> Any:
+    def deserialize(self, data: bytes, context: MessageField = MessageField.NONE) -> Any:
         pass
 
 
 class DefaultDeserializer(Deserializer):
-    def deserialize(self, data: bytes) -> Any:
+    def deserialize(self, data: bytes, context: MessageField = MessageField.NONE) -> Any:
         return str(data)
 
 
 class StringDeserializer(Deserializer):
 
-    def deserialize(self, data: bytes) -> Any:
+    def deserialize(self, data: bytes, context: MessageField = MessageField.NONE) -> Any:
         return data.decode("utf-8")
 
 
+class BooleanDeserializer(Deserializer):
+
+    def deserialize(self, data: bytes, context: MessageField = MessageField.NONE) -> Any:
+        return unpack_bytes(">?", data)
+
+
+class FloatDeserializer(Deserializer):
+
+    def deserialize(self, data: bytes, context: MessageField = MessageField.NONE) -> Any:
+        return unpack_bytes(">f", data)
+
+
+class DoubleDeserializer(Deserializer):
+
+    def deserialize(self, data: bytes, context: MessageField = MessageField.NONE) -> Any:
+        return unpack_bytes(">d", data)
+
+
+class LongDeserializer(Deserializer):
+
+    def deserialize(self, data: bytes, context: MessageField = MessageField.NONE) -> Any:
+        return unpack_bytes(">q", data)
+
+
+class IntegerDeserializer(Deserializer):
+
+    def deserialize(self, data: bytes, context: MessageField = MessageField.NONE) -> Any:
+        return unpack_bytes(">i", data)
+
+
+class JsonDeserializer(Deserializer):
+
+    def deserialize(self, data: bytes, context: MessageField = MessageField.NONE) -> Any:
+        try:
+            return json.loads(data)
+        except UnicodeDecodeError:
+            # in case that the json has a confluent schema registry magic byte
+            return json.loads(data[5:])
+
+
+class AvroDeserializer(Deserializer):
+    def __init__(self, schema_registry_config: dict[str, str]):
+        registry_client = SchemaRegistryClient(schema_registry_config)
+        self.confluent_deserializer = ConfluentAvroDeserializer(registry_client)
+
+    def deserialize(self, data: bytes, context: MessageField = MessageField.NONE) -> Any:
+        return self.confluent_deserializer(data, None)
+
+
 class ProtobufDeserializer(Deserializer):
-    def __init__(self, descriptor: str, class_name: str):
-        self.descriptor = descriptor
-        self.class_name = class_name
+    def __init__(self, protobuf_config: dict[str, str]):
+        self.descriptor_path = protobuf_config.get("descriptor")
+        self.key_class = protobuf_config.get("key")
+        self.value_class = protobuf_config.get("value")
+        self.descriptor_classes: dict[str, Type[Message]] | None = None
 
-    def deserialize(self, data: bytes) -> Any:
-        pass
+    def deserialize(self, data: bytes, context: MessageField = MessageField.NONE) -> Any:
+        if context == MessageField.NONE:
+            raise Exception("Context is needed: KEY or VALUE")
+
+        if self.descriptor_path is None:
+            raise Exception("Descriptor not found")
+
+        if self.descriptor_classes is None:
+            descriptor = FileDescriptorSet.FromString(file_to_bytes(self.descriptor_path))
+            self.descriptor_classes = GetMessages(descriptor.file)
+
+        deserialization_class: Type[Message] | None = None
+
+        if context == MessageField.KEY:
+            if self.key_class is None:
+                raise Exception("Protobuf class name not provided for context KEY")
+            deserialization_class = self.descriptor_classes.get(self.key_class)
+
+        if context == MessageField.VALUE:
+            if self.value_class is None:
+                raise Exception("Protobuf class name not provided for context VALUE")
+            deserialization_class = self.descriptor_classes.get(self.value_class)
+
+        if deserialization_class is None:
+            raise Exception("Deserialization class not found")
+
+        try:
+            new_message = deserialization_class()
+            new_message.ParseFromString(data)
+            return MessageToDict(new_message, always_print_fields_with_no_presence=True)
+        except DecodeError:
+            # https://docs.confluent.io/platform/current/schema-registry/fundamentals/serdes-develop/index.html#wire-format
+            protobuf_deserializer = ConfluentProtobufDeserializer(
+                deserialization_class, {"use.deprecated.format": False}
+            )
+            new_message = protobuf_deserializer(data, None)
+            return MessageToDict(new_message, always_print_fields_with_no_presence=True)
 
 
-class DeserializerFactory:
+class DeserializerPool:
     def __init__(
         self,
         schema_registry_config: dict[str, str] | None = None,
         protobuf_config: dict[str, str] | None = None,
     ):
         if schema_registry_config:
-            self.schema_registry_client = SchemaRegistryClient(schema_registry_config)
+            self.avro_deserializer = AvroDeserializer(schema_registry_config)
 
-        # if protobuf_config:
-        #     self.protobuf_deserializer = ProtobufDeserializer(protobuf_config)
+        if protobuf_config:
+            self.protobuf_deserializer = ProtobufDeserializer(protobuf_config)
 
-    def make_deserializer(self, deserialization_format: Format) -> Callable[[bytes], Any]:
-        def avro_deserializer(raw_bytes: bytes) -> Any:
-            if self.schema_registry_client is None:
-                raise Exception("Schema Registry is not configured")
+        self.string_deserializer = StringDeserializer()
+        self.json_deserializer = JsonDeserializer()
+        self.integer_deserializer = IntegerDeserializer()
+        self.float_deserializer = FloatDeserializer()
+        self.double_deserializer = DoubleDeserializer()
+        self.boolean_deserializer = BooleanDeserializer()
+        self.long_deserializer = LongDeserializer()
+        self.default_deserializer = DefaultDeserializer()
 
-            magic, schema_id = struct.unpack(">bI", raw_bytes[:5])
-
-            if magic != SCHEMA_REGISTRY_MAGIC_BYTE:
-                raise Exception(
-                    "Unexpected magic byte. This message was not produced with a Confluent Schema Registry serializer"
-                )
-
-            schema = avro.schema.parse(self.schema_registry_client.get_schema(schema_id).schema_str)
-            binary_value = BinaryDecoder(BytesIO(raw_bytes[5:]))
-            reader = DatumReader(schema)
-            return reader.read(binary_value)
-
-        def default_deserializer(raw_bytes: bytes) -> Any:
-            return str(raw_bytes)
-
-        def string_deserializer(raw_bytes: bytes) -> Any:
-            return raw_bytes.decode("utf-8")
-
-        def integer_deserializer(raw_bytes: bytes) -> Any:
-            return struct.unpack(">i", raw_bytes)[0]
-
-        def json_deserializer(raw_bytes: bytes) -> Any:
-            try:
-                return json.loads(raw_bytes)
-            except UnicodeDecodeError:
-                # in case that the json has a confluent schema registry magic byte
-                return json.loads(raw_bytes[5:])
-
-        def long_deserializer(raw_bytes: bytes) -> Any:
-            return struct.unpack(">q", raw_bytes)[0]
-
-        def double_deserializer(raw_bytes: bytes) -> Any:
-            return struct.unpack(">d", raw_bytes)[0]
-
-        def float_deserializer(raw_bytes: bytes) -> Any:
-            return struct.unpack(">f", raw_bytes)[0]
-
-        def bool_deserializer(raw_bytes: bytes) -> Any:
-            return struct.unpack(">?", raw_bytes)[0]
-
+    def get(self, deserialization_format: Format) -> Deserializer:
         match deserialization_format:
             case Format.STRING:
-                return string_deserializer
+                return self.string_deserializer
             case Format.JSON:
-                return json_deserializer
+                return self.json_deserializer
             case Format.INTEGER:
-                return integer_deserializer
+                return self.integer_deserializer
             case Format.LONG:
-                return long_deserializer
+                return self.long_deserializer
             case Format.DOUBLE:
-                return double_deserializer
+                return self.double_deserializer
             case Format.FLOAT:
-                return float_deserializer
+                return self.float_deserializer
             case Format.BOOLEAN:
-                return bool_deserializer
+                return self.boolean_deserializer
             case Format.AVRO:
-                return avro_deserializer
+                if self.avro_deserializer is None:
+                    raise Exception("Schema Registry is not configured")
+                return self.avro_deserializer
+            case Format.PROTOBUF:
+                if self.protobuf_deserializer is None:
+                    raise Exception("Protobuf is not configured")
+                return self.protobuf_deserializer
             case _:
-                return default_deserializer
+                return self.default_deserializer

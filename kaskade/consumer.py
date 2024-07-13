@@ -13,7 +13,7 @@ from textual.widgets import DataTable, Pretty, ListView, ListItem, Label, Input
 
 from kaskade.colors import PRIMARY, SECONDARY
 from kaskade.models import Record
-from kaskade.deserializers import Format, DeserializerFactory
+from kaskade.deserializers import Format, DeserializerPool
 from kaskade.services import ConsumerService
 from kaskade.utils import notify_error
 from kaskade.banner import KaskadeBanner
@@ -173,7 +173,7 @@ class ListRecords(Container):
         super().__init__()
         self.topic = topic
         self.kafka_config = kafka_config
-        self.deserializer_factory = DeserializerFactory(schema_registry_config, protobuf_config)
+        self.deserializer_factory = DeserializerPool(schema_registry_config, protobuf_config)
         self.key_format = key_format
         self.value_format = value_format
         self.consumer = self._new_consumer()

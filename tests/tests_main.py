@@ -1,3 +1,4 @@
+import tempfile
 import unittest
 from unittest.mock import patch
 
@@ -91,6 +92,7 @@ class TestConsumerCli(unittest.TestCase):
     def setUp(self):
         self.runner = CliRunner()
         self.command = "consumer"
+        self.temp_descriptor = tempfile.NamedTemporaryFile()
 
     def test_bootstrap_server_required(self):
         result = self.runner.invoke(cli, [self.command])
@@ -121,6 +123,48 @@ class TestConsumerCli(unittest.TestCase):
 
         self.assertGreater(result.exit_code, 0)
         self.assertIn("Invalid value for '-p': Should be property=value", result.output)
+
+    def test_invalid_protobuf_file_exists(self):
+        result = self.runner.invoke(
+            cli,
+            [
+                self.command,
+                "-b",
+                EXPECTED_SERVER,
+                "-t",
+                EXPECTED_TOPIC,
+                "-p",
+                "descriptor=not-afile",
+                "-p",
+                "value=MyValue",
+                "-v",
+                "protobuf",
+            ],
+        )
+
+        self.assertGreater(result.exit_code, 0)
+        self.assertIn("Invalid value: File should exist.", result.output)
+
+    def test_invalid_protobuf_file_should_be_a_file(self):
+        result = self.runner.invoke(
+            cli,
+            [
+                self.command,
+                "-b",
+                EXPECTED_SERVER,
+                "-t",
+                EXPECTED_TOPIC,
+                "-p",
+                "descriptor=~",
+                "-p",
+                "value=MyValue",
+                "-v",
+                "protobuf",
+            ],
+        )
+
+        self.assertGreater(result.exit_code, 0)
+        self.assertIn("Invalid value: Path is a directory.", result.output)
 
     def test_validate_schema_registry_no_url(self):
         result = self.runner.invoke(
@@ -368,7 +412,7 @@ class TestConsumerCli(unittest.TestCase):
                 "-t",
                 EXPECTED_TOPIC,
                 "-p",
-                "descriptor=~/my-file",
+                f"descriptor={self.temp_descriptor.name}",
                 "-p",
                 "key=MyMessage",
             ],
@@ -387,7 +431,7 @@ class TestConsumerCli(unittest.TestCase):
                 "-t",
                 EXPECTED_TOPIC,
                 "-p",
-                "descriptor=~/my-file",
+                f"descriptor={self.temp_descriptor.name}",
                 "-k",
                 "protobuf",
             ],
@@ -406,7 +450,7 @@ class TestConsumerCli(unittest.TestCase):
                 "-t",
                 EXPECTED_TOPIC,
                 "-p",
-                "descriptor=~/my-file",
+                f"descriptor={self.temp_descriptor.name}",
                 "-v",
                 "protobuf",
             ],
@@ -453,7 +497,7 @@ class TestConsumerCli(unittest.TestCase):
                 "-t",
                 EXPECTED_TOPIC,
                 "-p",
-                "descriptor=~/my-file",
+                f"descriptor={self.temp_descriptor.name}",
             ],
         )
 
@@ -463,7 +507,8 @@ class TestConsumerCli(unittest.TestCase):
     @patch("kaskade.main.KaskadeConsumer")
     def test_pass_protobuf_configs(self, mock_class_kaskade_consumer):
         expected_descriptor_name = "descriptor"
-        expected_descriptor_value = "my-descriptor"
+        expected_descriptor_value = self.temp_descriptor.name
+
         expected_value_name = "value"
         expected_value = "my-value"
 

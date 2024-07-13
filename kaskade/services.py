@@ -1,4 +1,3 @@
-import asyncio
 import uuid
 from datetime import datetime
 from typing import Any
@@ -17,9 +16,6 @@ from confluent_kafka.admin import (
     ConfigSource,
 )
 from confluent_kafka.cimpl import NewTopic, NewPartitions
-from confluent_kafka.schema_registry.protobuf import ProtobufDeserializer
-from google.protobuf import descriptor_pb2, message_factory, json_format
-from google.protobuf.message import DecodeError
 
 from kaskade import logger
 from kaskade.configs import MILLISECONDS_24H
@@ -34,7 +30,7 @@ from kaskade.models import (
     Record,
     Header,
 )
-from kaskade.deserializers import Format, DeserializerFactory
+from kaskade.deserializers import Format, DeserializerPool
 from kaskade.utils import make_it_async
 
 
@@ -43,7 +39,7 @@ class ConsumerService:
         self,
         topic: str,
         kafka_config: dict[str, str],
-        deserializer_factory: DeserializerFactory,
+        deserializer_factory: DeserializerPool,
         key_format: Format,
         value_format: Format,
         *,
@@ -132,9 +128,7 @@ class ConsumerService:
                         Header(
                             key=key,
                             value=value,
-                            value_deserializer=self.deserializer_factory.make_deserializer(
-                                Format.STRING
-                            ),
+                            value_deserializer=self.deserializer_factory.get(Format.STRING),
                         )
                         for key, value in record_metadata.headers()
                     ]
@@ -143,8 +137,8 @@ class ConsumerService:
                 ),
                 key_format=self.key_format,
                 value_format=self.value_format,
-                key_deserializer=self.deserializer_factory.make_deserializer(self.key_format),
-                value_deserializer=self.deserializer_factory.make_deserializer(self.value_format),
+                key_deserializer=self.deserializer_factory.get(self.key_format),
+                value_deserializer=self.deserializer_factory.get(self.value_format),
             )
 
             if partition_filter is not None:
@@ -409,48 +403,3 @@ class TopicService:
             list(self.admin_client.list_topics(timeout=self.timeout).topics.values()),
             key=sort_by_topic_name,
         )
-
-
-if __name__ == "__main__":
-
-    # protoc --include_imports --proto_path=. --python_out=. --descriptor_set_out=./Invoice.desc ./Invoice.proto
-    # https://docs.confluent.io/platform/current/schema-registry/fundamentals/serdes-develop/index.html#wire-format
-
-    file_desc = "/home/saul/Workspace/kafka-sandbox/kafka-protobuf/src/main/proto/Invoice.desc"
-    with open(file_desc, "rb") as f:
-        file_content = f.read()
-        descriptor = descriptor_pb2.FileDescriptorSet.FromString(file_content)
-        classes = message_factory.GetMessages(descriptor.file)
-        deserialization_class = classes["Invoice"]
-
-    def deserialize(raw_message: bytes | None) -> dict[str, Any] | None:
-        if raw_message is None:
-            return None
-
-        try:
-            new_message = deserialization_class()
-            new_message.ParseFromString(raw_message)
-            return json_format.MessageToDict(new_message, always_print_fields_with_no_presence=True)
-        except DecodeError:
-            protobuf_deserializer = ProtobufDeserializer(
-                deserialization_class, {"use.deprecated.format": False}
-            )
-            new_message = protobuf_deserializer(raw_message, None)
-            return json_format.MessageToDict(new_message, always_print_fields_with_no_presence=True)
-
-    async def main() -> None:
-        deserializer = DeserializerFactory()
-        consumer_service = ConsumerService(
-            "client.schema.invoices",
-            {"bootstrap.servers": "localhost:19092", "auto.offset.reset": "earliest"},
-            deserializer,
-            Format.STRING,
-            Format.BYTES,
-            page_size=15,
-        )
-        messages = await consumer_service.consume()
-        for message in messages:
-            print(message.value)
-            print(deserialize(message.value))
-
-    asyncio.run(main())
