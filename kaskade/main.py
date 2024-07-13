@@ -13,7 +13,7 @@ KAFKA_CONFIG_HELP = (
     "Kafka property. Set a librdkafka configuration property. Multiple '-x' are allowed."
 )
 BOOTSTRAP_SERVERS_HELP = "Bootstrap server(s). Comma-separated list of host and port pairs. Example: '-b localhost:9091,localhost:9092'."
-EPILOG = "More information at https://github.com/sauljabin/kaskade."
+EPILOG_HELP = "More information at https://github.com/sauljabin/kaskade."
 
 
 def tuple_properties_to_dict(ctx: Any, param: Any, value: Any) -> Any:
@@ -30,14 +30,14 @@ def string_to_format(ctx: Any, param: Any, value: Any) -> Any:
     return Format.from_str(value)
 
 
-@cloup.group(epilog=EPILOG)
+@cloup.group(epilog=EPILOG_HELP)
 @cloup.version_option(APP_VERSION)
 def cli() -> None:
     """kaskade is a terminal user interface for kafka."""
     pass
 
 
-@cli.command(epilog=EPILOG)
+@cli.command(epilog=EPILOG_HELP)
 @cloup.option_group(
     "Kafka options",
     cloup.option(
@@ -73,7 +73,7 @@ def admin(
     kaskade_app.run()
 
 
-@cli.command(epilog=EPILOG)
+@cli.command(epilog=EPILOG_HELP)
 @cloup.option_group(
     "Kafka options",
     cloup.option(

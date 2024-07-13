@@ -9,7 +9,7 @@ import avro.schema
 from avro.io import BinaryDecoder, DatumReader
 from confluent_kafka.schema_registry import SchemaRegistryClient
 
-from kaskade.configs import MAGIC_BYTES
+from kaskade.configs import SCHEMA_REGISTRY_MAGIC_BYTE
 
 
 class Format(Enum):
@@ -84,7 +84,7 @@ class DeserializerFactory:
 
             magic, schema_id = struct.unpack(">bI", raw_bytes[:5])
 
-            if magic != MAGIC_BYTES:
+            if magic != SCHEMA_REGISTRY_MAGIC_BYTE:
                 raise Exception(
                     "Unexpected magic byte. This message was not produced with a Confluent Schema Registry serializer"
                 )
