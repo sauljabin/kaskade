@@ -147,9 +147,18 @@ def consumer(
     """
     kafka_config["bootstrap.servers"] = bootstrap_servers
 
-    if len(schema_registry_config) > 0 and schema_registry_config.get("url") is None:
-        raise MissingParameter(param_hint="'-s url=<my url>'", param_type="option")
+    validate_schema_registry_url(schema_registry_config)
+    validate_formats(schema_registry_config, key_format, value_format)
 
+    kaskade_app = KaskadeConsumer(
+        topic, kafka_config, schema_registry_config, key_format, value_format
+    )
+    kaskade_app.run()
+
+
+def validate_formats(
+    schema_registry_config: dict[str, str], key_format: Format, value_format: Format
+) -> None:
     if len(schema_registry_config) == 0 and (
         key_format == Format.AVRO or value_format == Format.AVRO
     ):
@@ -162,10 +171,10 @@ def consumer(
     ):
         raise MissingParameter(param_hint="'-k avro' and/or '-v avro'", param_type="option")
 
-    kaskade_app = KaskadeConsumer(
-        topic, kafka_config, schema_registry_config, key_format, value_format
-    )
-    kaskade_app.run()
+
+def validate_schema_registry_url(schema_registry_config: dict[str, str]) -> None:
+    if len(schema_registry_config) > 0 and schema_registry_config.get("url") is None:
+        raise MissingParameter(param_hint="'-s url=<my url>'", param_type="option")
 
 
 if __name__ == "__main__":
