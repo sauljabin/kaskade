@@ -17,16 +17,13 @@ APP_BANNER_SHORT = r""" _        _       _
 |_|\_\___/_|\_\__,_|"""
 
 
-def get_kaskade_home() -> Path:
-    path_home = Path.home()
-    kaskade_path = path_home.joinpath("." + APP_NAME)
-    if not kaskade_path.exists():
-        kaskade_path.mkdir()
-    return kaskade_path
+path_home = Path.home()
+kaskade_path = path_home.joinpath("." + APP_NAME)
+if not kaskade_path.exists():
+    kaskade_path.mkdir()
 
-
-APP_HOME = str(get_kaskade_home())
-APP_LOG = str(get_kaskade_home().joinpath(APP_NAME + ".log"))
+APP_HOME = str(kaskade_path)
+APP_LOG = str(kaskade_path.joinpath(APP_NAME + ".log"))
 
 logger_handler = logging.FileHandler(APP_LOG)
 logger_handler.setFormatter(logging.Formatter("%(asctime)-15s %(levelname)-8s %(message)s"))

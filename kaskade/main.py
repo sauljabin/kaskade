@@ -6,9 +6,8 @@ from click import BadParameter, MissingParameter
 from kaskade import APP_VERSION
 from kaskade.admin import KaskadeAdmin
 from kaskade.consumer import KaskadeConsumer
-from kaskade.deserializers import PROTOBUF_DESERIALIZER_CONFIGS
-from kaskade.models import Format
-from kaskade.services import SCHEMA_REGISTRY_CONFIGS
+from kaskade.deserializers import Format
+from kaskade.configs import SCHEMA_REGISTRY_CONFIGS, PROTOBUF_DESERIALIZER_CONFIGS
 
 KAFKA_CONFIG_HELP = (
     "Kafka property. Set a librdkafka configuration property. Multiple '-x' are allowed."
