@@ -42,6 +42,13 @@ MILLISECONDS_1W = 604800000
 MIN_INSYNC_REPLICAS_CONFIG = "min.insync.replicas"
 RETENTION_MS_CONFIG = "retention.ms"
 CLEANUP_POLICY_CONFIG = "cleanup.policy"
+SCHEMA_REGISTRY_CONFIGS = [
+    "url",
+    "ssl.ca.location",
+    "ssl.key.location",
+    "ssl.certificate.location",
+    "basic.auth.user.info",
+]
 
 
 async def _make_it_async(func: Callable[..., Any], /, *args: Any, **keywords: Any) -> Any:
