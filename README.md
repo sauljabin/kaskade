@@ -103,7 +103,7 @@ kaskade consumer -b my-kafka:9092 -t my-topic -x auto.offset.reset=earliest
 #### Schema registry simple connection and avro deserialization:
 
 ```bash
-kaskade consumer -b my-kafka:9092 -s url=http://my-kafka:8081 -t my-topic -k avro -v avro
+kaskade consumer -b my-kafka:9092 -s url=http://my-schema-registry:8081 -t my-topic -k avro -v avro
 ```
 
 > For more information about Schema Registry configurations go
