@@ -128,7 +128,8 @@ kaskade admin -b localhost:19092
 Test consumer natives:
 
 ```bash
-kaskade consumer -b localhost:19092 -x auto.offset.reset=earliest -t client.string
+kaskade consumer -b localhost:19092 -x auto.offset.reset=earliest \
+        -t client.string
 ```
 
 ```bash

@@ -98,6 +98,7 @@ class JsonDeserializer(Deserializer):
             return json.loads(data)
         except UnicodeDecodeError:
             # in case that the json has a confluent schema registry magic byte
+            # https://docs.confluent.io/platform/current/schema-registry/fundamentals/serdes-develop/index.html#wire-format
             return json.loads(data[5:])
 
 
@@ -148,6 +149,7 @@ class ProtobufDeserializer(Deserializer):
             new_message.ParseFromString(data)
             return MessageToDict(new_message, always_print_fields_with_no_presence=True)
         except DecodeError:
+            # in case that the protobuf has a confluent schema registry magic byte
             # https://docs.confluent.io/platform/current/schema-registry/fundamentals/serdes-develop/index.html#wire-format
             protobuf_deserializer = ConfluentProtobufDeserializer(
                 deserialization_class, {"use.deprecated.format": False}
