@@ -4,16 +4,15 @@ from unittest.mock import patch
 from click.testing import CliRunner
 
 from kaskade.main import cli
-from kaskade.models import Format
+from kaskade.deserializers import Format
 from tests import faker
 
 EXPECTED_TOPIC = "my.topic"
-
 BOOTSTRAP_SERVERS = "bootstrap.servers"
 EXPECTED_SERVER = "localhost:9092"
 
 
-class AdminCli(unittest.TestCase):
+class TestAdminCli(unittest.TestCase):
     def setUp(self):
         self.runner = CliRunner()
         self.command = "admin"
@@ -88,7 +87,7 @@ class AdminCli(unittest.TestCase):
         self.assertEqual(0, result.exit_code)
 
 
-class ConsumerCli(unittest.TestCase):
+class TestConsumerCli(unittest.TestCase):
     def setUp(self):
         self.runner = CliRunner()
         self.command = "consumer"

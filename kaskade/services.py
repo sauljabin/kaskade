@@ -1,8 +1,7 @@
 import asyncio
-import functools
 import uuid
 from datetime import datetime
-from typing import Any, Callable
+from typing import Any
 
 from confluent_kafka import Consumer, TopicPartition, OFFSET_INVALID, KafkaException
 from confluent_kafka.admin import (
@@ -23,6 +22,7 @@ from google.protobuf import descriptor_pb2, message_factory, json_format
 from google.protobuf.message import DecodeError
 
 from kaskade import logger
+from kaskade.configs import MILLISECONDS_24H
 from kaskade.models import (
     Topic,
     Cluster,
@@ -32,29 +32,10 @@ from kaskade.models import (
     GroupPartition,
     GroupMember,
     Record,
-    Format,
     Header,
-    DeserializerFactory,
 )
-
-MILLISECONDS_24H = 86400000
-MILLISECONDS_1W = 604800000
-MIN_INSYNC_REPLICAS_CONFIG = "min.insync.replicas"
-RETENTION_MS_CONFIG = "retention.ms"
-CLEANUP_POLICY_CONFIG = "cleanup.policy"
-SCHEMA_REGISTRY_CONFIGS = [
-    "url",
-    "ssl.ca.location",
-    "ssl.key.location",
-    "ssl.certificate.location",
-    "basic.auth.user.info",
-]
-
-
-async def _make_it_async(func: Callable[..., Any], /, *args: Any, **keywords: Any) -> Any:
-    return await asyncio.get_running_loop().run_in_executor(
-        None, functools.partial(func, *args, **keywords)
-    )
+from kaskade.deserializers import Format, DeserializerFactory
+from kaskade.utils import make_it_async
 
 
 def _match_header(header_filter: str, headers: list[Header]) -> bool:
@@ -128,7 +109,7 @@ class ConsumerService:
             if stabilization_retries >= self.stabilization_retries:
                 break
 
-            record_metadata = await _make_it_async(self.consumer.poll, self.timeout)
+            record_metadata = await make_it_async(self.consumer.poll, self.timeout)
 
             if not self.stable:
                 stabilization_retries += 1
@@ -310,7 +291,7 @@ class TopicService:
                     TopicPartition(topic.name, partition.id) for partition in topic.partitions
                 ]
 
-                committed_partitions_metadata = await _make_it_async(
+                committed_partitions_metadata = await make_it_async(
                     group_consumer.committed,
                     topic_partitions_for_this_group_metadata,
                     timeout=self.timeout,
@@ -324,7 +305,7 @@ class TopicService:
 
                     try:
                         low_group_partition_watermark, high_group_partition_watermark = (
-                            await _make_it_async(
+                            await make_it_async(
                                 group_consumer.get_watermark_offsets,
                                 group_partition_metadata,
                                 timeout=self.timeout,
@@ -399,7 +380,7 @@ class TopicService:
         consumer = Consumer(self.config | {"group.id": f"kaskade-{uuid.uuid4()}"})
 
         try:
-            low, high = await _make_it_async(
+            low, high = await make_it_async(
                 consumer.get_watermark_offsets,
                 TopicPartition(topic_metadata.topic, partition_metadata.id),
                 timeout=self.timeout,

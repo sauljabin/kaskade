@@ -12,9 +12,11 @@ from textual.widget import Widget
 from textual.widgets import DataTable, Pretty, ListView, ListItem, Label, Input
 
 from kaskade.colors import PRIMARY, SECONDARY
-from kaskade.models import Record, Format, DeserializerFactory
+from kaskade.models import Record
+from kaskade.deserializers import Format, DeserializerFactory
 from kaskade.services import ConsumerService
-from kaskade.admin import notify_error, KaskadeBanner
+from kaskade.utils import notify_error
+from kaskade.banner import KaskadeBanner
 
 CHUNKS_SHORTCUT = "#"
 NEXT_SHORTCUT = ">"

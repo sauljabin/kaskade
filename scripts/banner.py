@@ -1,7 +1,7 @@
 from textual.app import App, ComposeResult
 
 from kaskade.colors import PRIMARY
-from kaskade.admin import KaskadeBanner
+from kaskade.banner import KaskadeBanner
 
 
 class Banner(App):
