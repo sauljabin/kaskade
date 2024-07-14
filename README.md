@@ -166,7 +166,7 @@ Install `protoc` command:
 brew install protobuf
 ```
 
-Generate the **Descriptor Set** file from your `.proto` file:
+Generate a _Descriptor Set_ file from your `.proto` file:
 
 ```bash
 protoc --include_imports \
@@ -174,8 +174,6 @@ protoc --include_imports \
        --proto_path=${PROTO_PATH} \
        ${PROTO_PATH}/my-proto.proto
 ```
-
-> More about protobuf and `FileDescriptorSet` at: [Protocol Buffers Documentation](https://protobuf.dev/programming-guides/techniques/#self-description).
 
 Consume using `my-descriptor.desc` file:
 
@@ -185,6 +183,8 @@ kaskade consumer -b my-kafka:9092 -x auto.offset.reset=earliest \
         -t my-protobuf-topic \
         -p descriptor=my-descriptor.desc -p value=mypackage.MyMessage
 ```
+
+> More about protobuf and `FileDescriptorSet` at: [Protocol Buffers Documentation](https://protobuf.dev/programming-guides/techniques/#self-description).
 
 ## Development
 
