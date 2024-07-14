@@ -56,43 +56,36 @@ class DefaultDeserializer(Deserializer):
 
 
 class StringDeserializer(Deserializer):
-
     def deserialize(self, data: bytes, context: MessageField = MessageField.NONE) -> Any:
         return data.decode("utf-8")
 
 
 class BooleanDeserializer(Deserializer):
-
     def deserialize(self, data: bytes, context: MessageField = MessageField.NONE) -> Any:
         return unpack_bytes(">?", data)
 
 
 class FloatDeserializer(Deserializer):
-
     def deserialize(self, data: bytes, context: MessageField = MessageField.NONE) -> Any:
         return unpack_bytes(">f", data)
 
 
 class DoubleDeserializer(Deserializer):
-
     def deserialize(self, data: bytes, context: MessageField = MessageField.NONE) -> Any:
         return unpack_bytes(">d", data)
 
 
 class LongDeserializer(Deserializer):
-
     def deserialize(self, data: bytes, context: MessageField = MessageField.NONE) -> Any:
         return unpack_bytes(">q", data)
 
 
 class IntegerDeserializer(Deserializer):
-
     def deserialize(self, data: bytes, context: MessageField = MessageField.NONE) -> Any:
         return unpack_bytes(">i", data)
 
 
 class JsonDeserializer(Deserializer):
-
     def deserialize(self, data: bytes, context: MessageField = MessageField.NONE) -> Any:
         try:
             return json.loads(data)
