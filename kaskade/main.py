@@ -139,7 +139,7 @@ def admin(
         "-p",
         "protobuf_config",
         help="Protobuf property. Configure the protobuf deserializer. Multiple '-p' are allowed. Needed if '-k protobuf' "
-        "or '-v protobuf' were passed. Valid properties: [descriptor, key, value].",
+        "or '-v protobuf' were passed. Valid properties: [descriptor: file path, key: protobuf message, value: protobuf message].",
         metavar="property=value",
         multiple=True,
         callback=tuple_properties_to_dict,
