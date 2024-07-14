@@ -187,7 +187,7 @@ Test consumer protobuf:
 > Install `protoc` with `brew install protobuf`
 
 ```bash
-protoc --include_imports --descriptor_set_out=./my-descriptor.desc \
+protoc --include_imports --descriptor_set_out=my-descriptor.desc \
        --proto_path="${KAFKA_SANDBOX_PATH}/kafka-protobuf/src/main/proto/" \
        "${KAFKA_SANDBOX_PATH}/kafka-protobuf/src/main/proto/Invoice.proto"
 ```
