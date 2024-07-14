@@ -126,12 +126,12 @@ class ProtobufDeserializer(Deserializer):
 
         if context == MessageField.KEY:
             if self.key_class is None:
-                raise Exception("Protobuf class name not provided for context KEY")
+                raise Exception("Protobuf message name not provided for context KEY")
             deserialization_class = self.descriptor_classes.get(self.key_class)
 
         if context == MessageField.VALUE:
             if self.value_class is None:
-                raise Exception("Protobuf class name not provided for context VALUE")
+                raise Exception("Protobuf message name not provided for context VALUE")
             deserialization_class = self.descriptor_classes.get(self.value_class)
 
         if deserialization_class is None:
