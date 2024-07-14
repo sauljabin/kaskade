@@ -44,7 +44,7 @@ class ConsumerService:
         value_format: Format,
         *,
         page_size: int = 25,
-        poll_retries: int = 2,
+        poll_retries: int = 5,
         timeout: float = 0.5,
         stabilization_retries: int = 30,
     ) -> None:
