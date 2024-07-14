@@ -3,7 +3,7 @@
 <a href="https://github.com/sauljabin/kaskade"><img alt="GitHub" src="https://img.shields.io/badge/github-blueviolet?logo=github&logoColor=white"></a>
 <a href="https://hub.docker.com/r/sauljabin/kaskade"><img alt="DockerHub" src="https://img.shields.io/badge/docker-blue?logo=docker&logoColor=white"></a>
 <a href="https://github.com/sponsors/sauljabin"><img alt="donate" src="https://img.shields.io/badge/donate-EA4AAA?logo=github-sponsors&logoColor=white"></a>
-<a href="https://libraries.io/pypi/kaskade"><img alt="Libraries.io dependency status for latest release" src="https://img.shields.io/librariesio/release/pypi/kaskade?label="></a>
+<a href="https://libraries.io/pypi/kaskade"><img alt="Libraries.io dependency status for latest release" src="https://img.shields.io/librariesio/release/pypi/kaskade?logo=python&logoColor=white&label="></a>
 <a href="https://github.com/sauljabin/kaskade/blob/main/LICENSE"><img alt="MIT License" src="https://img.shields.io/github/license/sauljabin/kaskade"></a>
 <a href="https://pypi.org/project/kaskade"><img alt="Version" src="https://img.shields.io/pypi/v/kaskade?label=latest"></a>
 <a href="https://pypi.org/project/kaskade"><img alt="Python Versions" src="https://img.shields.io/pypi/pyversions/kaskade?label=python"></a>
