@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- New consumer shortcut for reseting filters
+- New consumer shortcut for resetting filters
 
 ### Changed
 
