@@ -7,7 +7,13 @@
                 {
                     "type": "Added",
                     "entries": [
-                        "New typo analizer"
+                        "New typo analyzer"
+                    ]
+                },
+                {
+                    "type": "Fixed",
+                    "entries": [
+                        "Radio set css"
                     ]
                 }
             ]

@@ -50,5 +50,9 @@ line-length = 100
 [tool.ruff]
 line-length = 100
 
+[tool.typos]
+type.lock.extend-glob = ["*.lock"]
+type.lock.check-file = true
+
 [tool.poetry.scripts]
 kaskade = "kaskade.main:cli"

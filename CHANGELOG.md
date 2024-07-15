@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - New typo analyzer
 
+### Fixed
+
+- Radio set css
+
 ## [2.3.0] - 2024-07-15
 
 ### Added

@@ -141,6 +141,7 @@ CreateTopicScreen > Container > Input:focus {
 CreateTopicScreen > Container > RadioSet {
     border: solid $kaskade-green 50%;
     width: 100%;
+    background: $surface;
 }
 
 CreateTopicScreen > Container > RadioSet:focus {
@@ -188,6 +189,7 @@ EditTopicScreen > Container > Input:focus {
 EditTopicScreen > Container > RadioSet {
     border: solid $kaskade-green 50%;
     width: 100%;
+    background: $surface;
 }
 
 EditTopicScreen > Container > RadioSet:focus {
