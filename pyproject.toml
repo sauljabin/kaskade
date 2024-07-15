@@ -38,6 +38,7 @@ types-attrs = "*"
 types-protobuf = "*"
 changeloggh = "*"
 textual-dev = "*"
+typos = "*"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

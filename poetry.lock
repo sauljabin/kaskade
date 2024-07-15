@@ -1572,6 +1572,25 @@ files = [
 ]
 
 [[package]]
+name = "typos"
+version = "1.23.2"
+description = "Source Code Spelling Correction"
+optional = false
+python-versions = ">=3.7"
+files = [
+    {file = "typos-1.23.2-py3-none-macosx_10_12_x86_64.whl", hash = "sha256:b1549225f26cbcb6640e87999f20496287751428c71a7650e6afe3143e39112f"},
+    {file = "typos-1.23.2-py3-none-macosx_11_0_arm64.whl", hash = "sha256:290c6628b60f570999dfcdcf0ce5c90f195cceba160a1b16316eebd5c68129f2"},
+    {file = "typos-1.23.2-py3-none-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:0461d8e33c9ba51518203ef59df19b0945293626ce620652650927f3e3b1a9af"},
+    {file = "typos-1.23.2-py3-none-manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:2873d83a562725c841e6ee3ee03865ebcee7a1b5add57ca7a88578cb752c7f4a"},
+    {file = "typos-1.23.2-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:16ea2a308f731729711b660e0c68753047e6b9937d8d97bd6e1d1c274303ad36"},
+    {file = "typos-1.23.2-py3-none-musllinux_1_2_aarch64.whl", hash = "sha256:2dcd035661c1a45688fd0ffb14fd242bf8907996e12a8cbf8166bec0a6b360e5"},
+    {file = "typos-1.23.2-py3-none-musllinux_1_2_x86_64.whl", hash = "sha256:38da8651809e86de5cd338a68552688ab10fb45056d86c1f90a36f7911d29bd4"},
+    {file = "typos-1.23.2-py3-none-win32.whl", hash = "sha256:de20d68507126f2577c7dca88ec8d52364e8c519218d72791edcfe256622948a"},
+    {file = "typos-1.23.2-py3-none-win_amd64.whl", hash = "sha256:85f0877de4c4024fc846a08ece5a8f56dd85ab69d42d23608c29783e1d6899ed"},
+    {file = "typos-1.23.2.tar.gz", hash = "sha256:2a7b0c3523140f1c32ed91e46171a925d3748735648381cec4f6b992217d4167"},
+]
+
+[[package]]
 name = "uc-micro-py"
 version = "1.0.3"
 description = "Micro subset of unicode data files for linkify-it-py projects."
@@ -1728,4 +1747,4 @@ multidict = ">=4.0"
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.10 <3.13"
-content-hash = "60de603257da3d1212752366af8abffce131a607e1b8fa907a6cf92336f203f9"
+content-hash = "a0acff4d48d313a0dd8052938ffde4e930e6c5a4ce2f0448b21ed4c1eba1698f"
