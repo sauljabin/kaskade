@@ -5,9 +5,23 @@
             "version": "Unreleased",
             "changes": [
                 {
+                    "type": "Added",
+                    "entries": [
+                        "New consumer shortcut for reseting filters"
+                    ]
+                },
+                {
                     "type": "Changed",
                     "entries": [
-                        "Protobuf help message"
+                        "Protobuf help message",
+                        "New banner",
+                        "Update libraries"
+                    ]
+                },
+                {
+                    "type": "Removed",
+                    "entries": [
+                        "Alias kskd to avoid confusions"
                     ]
                 }
             ]

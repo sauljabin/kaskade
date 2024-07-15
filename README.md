@@ -53,8 +53,6 @@ by [Textualize](https://www.textualize.io/). It includes features like:
 
 ## Installation
 
-These will install `kaskade` and `kskd` aliases.
-
 #### Install it with `brew`:
 
 ```bash

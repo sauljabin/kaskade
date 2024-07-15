@@ -9,13 +9,20 @@ Header {
 }
 
 KaskadeBanner {
-    dock: right;
-    width: 20;
-    margin: 0 1 0 0;
+    width: 36;
+    margin: 0 0 0 1;
 }
 
-Shortcuts {
-    margin: 0 0 0 1;
+ConsumerShortcuts {
+    width: 27;
+    dock: right;
+    margin: 1 1 0 0;
+}
+
+AdminShortcuts {
+    width: 31;
+    dock: right;
+    margin: 1 1 0 0;
 }
 
 DataTable {

@@ -26,18 +26,23 @@ BACK_SHORTCUT = "escape"
 FILTER_SHORTCUT = "/"
 
 
-class Shortcuts(Widget):
+class ConsumerShortcuts(Widget):
+
+    SHORTCUTS = [
+        ["all:", BACK_SHORTCUT, "show:", SUBMIT_SHORTCUT],
+        ["more:", NEXT_SHORTCUT, "filter:", FILTER_SHORTCUT],
+        ["quit:", QUIT_SHORTCUT, "chunk:", CHUNKS_SHORTCUT],
+    ]
 
     def render(self) -> RenderResult:
-        table = Table(box=None, show_header=False, padding=(0, 1, 0, 0))
+        table = Table(box=None, show_header=False, padding=(0, 0, 0, 1))
+        table.add_column(style=PRIMARY)
+        table.add_column(style=SECONDARY)
         table.add_column(style=PRIMARY)
         table.add_column(style=SECONDARY)
 
-        table.add_row("show:", SUBMIT_SHORTCUT)
-        table.add_row("more:", NEXT_SHORTCUT)
-        table.add_row("filter:", FILTER_SHORTCUT)
-        table.add_row("chunk:", CHUNKS_SHORTCUT)
-        table.add_row("quit:", QUIT_SHORTCUT)
+        for shortcuts in self.SHORTCUTS:
+            table.add_row(*shortcuts)
 
         return table
 
@@ -45,8 +50,8 @@ class Shortcuts(Widget):
 class Header(Widget):
 
     def compose(self) -> ComposeResult:
-        yield KaskadeBanner(short=True, include_version=True, include_slogan=False)
-        yield Shortcuts()
+        yield ConsumerShortcuts()
+        yield KaskadeBanner(include_version=True, include_slogan=False)
 
 
 class FilterRecordScreen(ModalScreen[tuple[str, str, str, str]]):
@@ -159,6 +164,7 @@ class ListRecords(Container):
         Binding(CHUNKS_SHORTCUT, "change_chunk"),
         Binding(FILTER_SHORTCUT, "filter"),
         Binding(SUBMIT_SHORTCUT, "show_message", priority=True),
+        Binding(BACK_SHORTCUT, "all"),
     ]
 
     def __init__(
@@ -233,6 +239,15 @@ class ListRecords(Container):
 
     def on_mount(self) -> None:
         self.run_worker(self.action_consume())
+
+    def action_all(self) -> None:
+        self.key_filter, self.value_filter, self.partition_filter, self.header_filter = (
+            "",
+            "",
+            "",
+            "",
+        )
+        self._filter()
 
     def action_filter(self) -> None:
         def dismiss(result: tuple[str, str, str, str] | None) -> None:

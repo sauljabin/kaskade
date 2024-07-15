@@ -40,17 +40,17 @@ REFRESH_TOPICS_SHORTCUT = "ctrl+r"
 QUIT_SHORTCUT = "ctrl+c"
 
 
-class Shortcuts(Widget):
+class AdminShortcuts(Widget):
 
     SHORTCUTS = [
-        ["all:", BACK_SHORTCUT, "describe:", SUBMIT_SHORTCUT],
+        ["all:", BACK_SHORTCUT, "show:", SUBMIT_SHORTCUT],
         ["refresh:", REFRESH_TOPICS_SHORTCUT, "create:", NEW_TOPIC_SHORTCUT],
         ["filter:", FILTER_TOPICS_SHORTCUT, "edit:", EDIT_TOPIC_SHORTCUT],
         ["quit:", QUIT_SHORTCUT, "delete:", DELETE_TOPIC_SHORTCUT],
     ]
 
     def render(self) -> RenderResult:
-        table = Table(box=None, show_header=False, padding=(0, 1, 0, 0))
+        table = Table(box=None, show_header=False, padding=(0, 0, 0, 1))
         table.add_column(style=PRIMARY)
         table.add_column(style=SECONDARY)
         table.add_column(style=PRIMARY)
@@ -65,8 +65,8 @@ class Shortcuts(Widget):
 class Header(Widget):
 
     def compose(self) -> ComposeResult:
-        yield KaskadeBanner(short=True, include_version=True, include_slogan=False)
-        yield Shortcuts()
+        yield AdminShortcuts()
+        yield KaskadeBanner(include_version=True, include_slogan=False)
 
 
 class FilterTopicsScreen(ModalScreen[str]):

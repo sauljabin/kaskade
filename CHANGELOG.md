@@ -7,9 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- New consumer shortcut for reseting filters
+
 ### Changed
 
 - Protobuf help message
+- New banner
+- Update libraries
+
+### Removed
+
+- Alias kskd to avoid confusions
 
 ## [2.2.0] - 2024-07-13
 
