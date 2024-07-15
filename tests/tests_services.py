@@ -119,10 +119,10 @@ class TestTopicService(unittest.IsolatedAsyncioTestCase):
         expected_node_port = 9092
         expected_offset = 30
 
-        commited_partition_metadata = TopicPartition(
+        committed_partition_metadata = TopicPartition(
             expected_topic_name, partition_metadata.id, expected_offset
         )
-        consume_group_assignment = MemberAssignment([commited_partition_metadata])
+        consume_group_assignment = MemberAssignment([committed_partition_metadata])
         consumer_group_member_metadata = MemberDescription(
             member_id=expected_member_id,
             client_id=expected_client_id,
@@ -147,7 +147,7 @@ class TestTopicService(unittest.IsolatedAsyncioTestCase):
         mock_admin.describe_consumer_groups.return_value.items.return_value = [
             (expected_group_name, mock_describe_consumer_result)
         ]
-        mock_consumer.committed.return_value = [commited_partition_metadata]
+        mock_consumer.committed.return_value = [committed_partition_metadata]
 
         # asserts
         topic_service = TopicService({"bootstrap.servers": faker.hostname()})
