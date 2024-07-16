@@ -425,13 +425,16 @@ class ListTopics(Container):
             return
 
         topic_configs = self.topic_service.get_configs(self.current_topic.name)
+        min_insync_replicas = topic_configs.get(MIN_INSYNC_REPLICAS_CONFIG)
+        cleanup_policy = topic_configs.get(CLEANUP_POLICY_CONFIG)
+        retention = topic_configs.get(RETENTION_MS_CONFIG)
 
         edit_topic_screen = EditTopicScreen(
             self.current_topic.name,
             str(self.current_topic.partitions_count()),
-            topic_configs[MIN_INSYNC_REPLICAS_CONFIG],
-            topic_configs[CLEANUP_POLICY_CONFIG],
-            topic_configs[RETENTION_MS_CONFIG],
+            min_insync_replicas if min_insync_replicas else "",
+            cleanup_policy if cleanup_policy else "",
+            retention if retention else "",
         )
 
         async def on_dismiss(result: bool) -> None:
