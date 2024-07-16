@@ -2,7 +2,21 @@
     "repository": "https://github.com/sauljabin/kaskade",
     "versions": [
         {
-            "version": "Unreleased"
+            "version": "Unreleased",
+            "changes": [
+                {
+                    "type": "Changed",
+                    "entries": [
+                        "New screenshots doc"
+                    ]
+                },
+                {
+                    "type": "Fixed",
+                    "entries": [
+                        "Error when getting min insyc replicas https://github.com/sauljabin/kaskade/issues/35"
+                    ]
+                }
+            ]
         },
         {
             "version": "2.3.1",

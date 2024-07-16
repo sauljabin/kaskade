@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- New screenshots doc
+
+### Fixed
+
+- Error when getting min insyc replicas https://github.com/sauljabin/kaskade/issues/35
+
 ## [2.3.1] - 2024-07-15
 
 ### Added
