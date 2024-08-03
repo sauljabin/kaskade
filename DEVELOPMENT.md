@@ -117,7 +117,7 @@ Clone the kafka sandbox:
 git clone https://github.com/sauljabin/kafka-sandbox.git
 ```
 
-> Run all the examples at [Kafka Sandbox](https://sauljabin.github.io/kafka-sandbox/introduction.html).
+> Run all the examples on [Kafka Sandbox](https://sauljabin.github.io/kafka-sandbox/introduction.html).
 
 Test admin:
 
