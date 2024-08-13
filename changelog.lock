@@ -2,7 +2,15 @@
     "repository": "https://github.com/sauljabin/kaskade",
     "versions": [
         {
-            "version": "Unreleased"
+            "version": "Unreleased",
+            "changes": [
+                {
+                    "type": "Security",
+                    "entries": [
+                        "Upgrade libraries"
+                    ]
+                }
+            ]
         },
         {
             "version": "2.3.2",

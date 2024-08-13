@@ -3,6 +3,7 @@ from itertools import cycle
 
 from confluent_kafka.cimpl import NewTopic
 from rich.table import Table
+from textual import work
 from textual.app import ComposeResult, RenderResult, App
 from textual.binding import Binding
 from textual.containers import Container
@@ -389,37 +390,49 @@ class ListTopics(Container):
         yield table
 
     def on_mount(self) -> None:
-        self.run_worker(self.action_refresh())
+        self.action_refresh()
 
     def on_data_table_row_highlighted(self, data: DataTable.RowHighlighted) -> None:
         if data.row_key.value is None:
             return
         self.current_topic = self.topics.get(data.row_key.value)
 
+    @work
     async def action_refresh(self) -> None:
-        table = self.query_one(DataTable)
-        table.loading = True
+        self.start_table_loading()
 
         try:
             self.topics = await self.topic_service.all()
         except Exception as ex:
             notify_error(self.app, "kafka error", ex)
-        self.run_worker(self.fill_table())
 
+        self.fill_table()
+
+    @work
     async def action_new(self) -> None:
-        async def on_dismiss(result: NewTopic) -> None:
-            if result is None:
-                return
+        result: NewTopic = await self.app.push_screen_wait(CreateTopicScreen())
 
-            try:
-                self.topic_service.create([result])
-                await asyncio.sleep(0.5)
-                self.run_worker(self.action_refresh())
-            except Exception as ex:
-                notify_error(self.app, "kafka error", ex)
+        if result is None:
+            return
 
-        await self.app.push_screen(CreateTopicScreen(), on_dismiss)
+        self.start_table_loading()
 
+        try:
+            self.topic_service.create([result])
+            await asyncio.sleep(0.5)
+            self.action_refresh()
+        except Exception as ex:
+            notify_error(self.app, "kafka error", ex)
+
+    def start_table_loading(self) -> None:
+        table = self.query_one(DataTable)
+        table.loading = True
+
+    def finish_table_loading(self) -> None:
+        table = self.query_one(DataTable)
+        table.loading = False
+
+    @work
     async def action_edit(self) -> None:
         if self.current_topic is None:
             return
@@ -437,54 +450,51 @@ class ListTopics(Container):
             retention if retention else "",
         )
 
-        async def on_dismiss(result: bool) -> None:
-            if not result:
-                return
+        result: bool = await self.app.push_screen_wait(edit_topic_screen)
 
-            if self.current_topic is None:
-                return
+        if not result:
+            return
 
-            try:
-                if int(edit_topic_screen.partitions) - self.current_topic.partitions_count() > 0:
-                    self.topic_service.add_partitions(
-                        self.current_topic.name, int(edit_topic_screen.partitions)
-                    )
+        self.start_table_loading()
 
-                self.topic_service.edit(
-                    self.current_topic.name,
-                    {
-                        MIN_INSYNC_REPLICAS_CONFIG: edit_topic_screen.min_insync_replicas,
-                        CLEANUP_POLICY_CONFIG: edit_topic_screen.cleanup_policy,
-                        RETENTION_MS_CONFIG: edit_topic_screen.retention,
-                    },
+        try:
+            if int(edit_topic_screen.partitions) - self.current_topic.partitions_count() > 0:
+                self.topic_service.add_partitions(
+                    self.current_topic.name, int(edit_topic_screen.partitions)
                 )
 
-                await asyncio.sleep(0.5)
-                self.run_worker(self.action_refresh())
-            except Exception as ex:
-                notify_error(self.app, "kafka error", ex)
+            self.topic_service.edit(
+                self.current_topic.name,
+                {
+                    MIN_INSYNC_REPLICAS_CONFIG: edit_topic_screen.min_insync_replicas,
+                    CLEANUP_POLICY_CONFIG: edit_topic_screen.cleanup_policy,
+                    RETENTION_MS_CONFIG: edit_topic_screen.retention,
+                },
+            )
 
-        await self.app.push_screen(edit_topic_screen, on_dismiss)
+            await asyncio.sleep(0.5)
+            self.action_refresh()
+        except Exception as ex:
+            notify_error(self.app, "kafka error", ex)
 
+    @work
     async def action_delete(self) -> None:
         if self.current_topic is None:
             return
 
-        async def on_dismiss(result: bool) -> None:
-            if not result:
-                return
+        result: bool = await self.app.push_screen_wait(DeleteTopicScreen(self.current_topic))
 
-            if self.current_topic is None:
-                return
+        if not result:
+            return
 
-            try:
-                self.topic_service.delete(self.current_topic.name)
-                await asyncio.sleep(0.5)
-                self.run_worker(self.action_refresh())
-            except Exception as ex:
-                notify_error(self.app, "kafka error", ex)
+        self.start_table_loading()
 
-        await self.app.push_screen(DeleteTopicScreen(self.current_topic), on_dismiss)
+        try:
+            self.topic_service.delete(self.current_topic.name)
+            await asyncio.sleep(0.5)
+            self.action_refresh()
+        except Exception as ex:
+            notify_error(self.app, "kafka error", ex)
 
     def action_describe(self) -> None:
         if self.current_topic is None:
@@ -493,16 +503,16 @@ class ListTopics(Container):
 
     def action_all(self) -> None:
         self.current_filter = None
-        self.run_worker(self.fill_table())
+        self.fill_table()
 
     def action_filter(self) -> None:
-        def on_dismiss(result: str) -> None:
+        def on_dismiss(result: str | None) -> None:
             self.current_filter = result
-            self.run_worker(self.fill_table())
+            self.fill_table()
 
         self.app.push_screen(FilterTopicsScreen(), on_dismiss)
 
-    async def fill_table(self) -> None:
+    def fill_table(self) -> None:
         table = self.query_one(DataTable)
         table.clear()
 
@@ -528,8 +538,9 @@ class ListTopics(Container):
         table.border_title = (
             f"[{SECONDARY}]topics {border_title_filter_info}\\[[{PRIMARY}]{total_count}[/]][/]"
         )
-        table.loading = False
         table.focus()
+
+        self.finish_table_loading()
 
 
 class KaskadeAdmin(App):

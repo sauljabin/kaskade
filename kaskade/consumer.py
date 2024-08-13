@@ -3,6 +3,7 @@ from typing import Any
 from rich.style import Style
 from rich.table import Table
 from rich.theme import Theme
+from textual import work
 from textual.app import App, ComposeResult, RenderResult
 from textual.binding import Binding
 from textual.containers import Container, ScrollableContainer
@@ -238,7 +239,7 @@ class ListRecords(Container):
         self.consumer.close()
 
     def on_mount(self) -> None:
-        self.run_worker(self.action_consume())
+        self.action_consume()
 
     def action_all(self) -> None:
         self.key_filter, self.value_filter, self.partition_filter, self.header_filter = (
@@ -264,7 +265,7 @@ class ListRecords(Container):
         self.consumer = self._new_consumer()
         self.records = {}
         table.border_title = self._get_title()
-        self.run_worker(self.action_consume())
+        self.action_consume()
 
     def action_change_chunk(self) -> None:
         def dismiss(result: int | None) -> None:
@@ -294,6 +295,7 @@ class ListRecords(Container):
             return
         self.current_record = self.records.get(data.row_key.value)
 
+    @work
     async def action_consume(self) -> None:
         table = self.query_one(DataTable)
         table.loading = True
