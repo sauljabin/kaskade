@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Fix legacy key/value format with whitespace separator should not be used at dockerfile
+
 ## [2.3.3] - 2024-08-13
 
 ### Security

@@ -2,7 +2,15 @@
     "repository": "https://github.com/sauljabin/kaskade",
     "versions": [
         {
-            "version": "Unreleased"
+            "version": "Unreleased",
+            "changes": [
+                {
+                    "type": "Fixed",
+                    "entries": [
+                        "Fix legacy key/value format with whitespace separator should not be used at dockerfile"
+                    ]
+                }
+            ]
         },
         {
             "version": "2.3.3",
