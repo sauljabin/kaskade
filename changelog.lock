@@ -2,7 +2,15 @@
     "repository": "https://github.com/sauljabin/kaskade",
     "versions": [
         {
-            "version": "Unreleased"
+            "version": "Unreleased",
+            "changes": [
+                {
+                    "type": "Fixed",
+                    "entries": [
+                        "Using set_timer from textual framework"
+                    ]
+                }
+            ]
         },
         {
             "version": "2.3.4",
