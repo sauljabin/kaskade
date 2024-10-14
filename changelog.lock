@@ -5,6 +5,12 @@
             "version": "Unreleased",
             "changes": [
                 {
+                    "type": "Added",
+                    "entries": [
+                        "Python 3.13 support"
+                    ]
+                },
+                {
                     "type": "Security",
                     "entries": [
                         "Update dependencies"
