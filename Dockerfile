@@ -1,4 +1,4 @@
-FROM python:3.12
+FROM python:3.10
 ENV COLORTERM="truecolor"
 ENV TERM="xterm-256color"
 WORKDIR /kaskade
