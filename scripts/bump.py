@@ -11,7 +11,7 @@ from scripts import CommandProcessor
     nargs=1,
     type=click.Choice(["major", "minor", "patch"], case_sensitive=False),
 )
-def main(rule):
+def main(rule: str) -> None:
     """
     \b
     Examples:
@@ -38,7 +38,7 @@ def main(rule):
     confirm_changes(new_app_version)
 
 
-def changelog_release(version):
+def changelog_release(version: str) -> None:
     init_commands = {
         f"upgrading changelog to a [purple bold]{version}[/] version": (
             f"poetry run changeloggh release {version}"
@@ -51,7 +51,7 @@ def changelog_release(version):
     command_processor.run()
 
 
-def bump_version(rule):
+def bump_version(rule: str) -> None:
     init_commands = {
         "checking pending changes": "git diff --exit-code",
         "checking pending changes in stage": "git diff --staged --exit-code",
@@ -62,7 +62,7 @@ def bump_version(rule):
     command_processor.run()
 
 
-def confirm_changes(app_version):
+def confirm_changes(app_version: str) -> None:
     confirm_commands = {
         "adding new version": "git add --all",
         "committing new version": f"git commit -m 'upgrading version to {app_version}'",
@@ -74,7 +74,7 @@ def confirm_changes(app_version):
     command_processor.run()
 
 
-def revert_changes():
+def revert_changes() -> None:
     revert_commands = {
         "deleting changes": "git checkout .",
     }
@@ -82,10 +82,10 @@ def revert_changes():
     command_processor.run()
 
 
-def get_app_version():
+def get_app_version() -> str:
     toml_data = toml.load("pyproject.toml")
     app_version = toml_data["tool"]["poetry"]["version"]
-    return app_version
+    return str(app_version)
 
 
 if __name__ == "__main__":

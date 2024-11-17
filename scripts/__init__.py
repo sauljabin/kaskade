@@ -6,14 +6,14 @@ from rich.console import Console
 
 
 class CommandProcessor:
-    def __init__(self, commands, rollback=None):
+    def __init__(self, commands: dict[str, str], rollback: dict[str, str] | None = None) -> None:
         if rollback is None:
             rollback = {}
         self.commands = commands
         self.rollback = rollback
         self.console = Console()
 
-    def run(self):
+    def run(self) -> None:
         for name, command in self.commands.items():
             result = self.execute_command(name, command)
             if result.returncode:
@@ -30,7 +30,7 @@ class CommandProcessor:
 
                 sys.exit(result.returncode)
 
-    def execute_command(self, name, command):
+    def execute_command(self, name: str, command: str) -> subprocess.CompletedProcess:
         self.console.print()
         self.console.print(f"[bold blue]{name.lower()}:")
         self.console.print(f"[bold yellow]{command}[/]")

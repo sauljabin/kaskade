@@ -8,7 +8,11 @@ from kaskade import APP_VERSION
 from kaskade.admin import KaskadeAdmin
 from kaskade.consumer import KaskadeConsumer
 from kaskade.deserializers import Format
-from kaskade.configs import SCHEMA_REGISTRY_CONFIGS, PROTOBUF_DESERIALIZER_CONFIGS
+from kaskade.configs import (
+    BOOTSTRAP_SERVERS,
+    SCHEMA_REGISTRY_CONFIGS,
+    PROTOBUF_DESERIALIZER_CONFIGS,
+)
 
 KAFKA_CONFIG_HELP = (
     "Kafka property. Set a librdkafka configuration property. Multiple '-x' are allowed."
@@ -69,7 +73,7 @@ def admin(
       kaskade admin -b localhost:9092
       kaskade admin -b localhost:9092 -x security.protocol=SSL
     """
-    kafka_config["bootstrap.servers"] = bootstrap_servers
+    kafka_config[BOOTSTRAP_SERVERS] = bootstrap_servers
     kaskade_app = KaskadeAdmin(kafka_config)
     kaskade_app.run()
 
@@ -165,7 +169,7 @@ def consumer(
       kaskade consumer -b localhost:9092 -t my-topic -v avro -s url=http://localhost:8081
       kaskade consumer -b localhost:9092 -t my-topic -v protobuf -p descriptor=my-descriptor.desc -p value=MyMessage
     """
-    kafka_config["bootstrap.servers"] = bootstrap_servers
+    kafka_config[BOOTSTRAP_SERVERS] = bootstrap_servers
 
     validate_schema_registry(schema_registry_config, key_format, value_format)
     validate_protobuf(protobuf_config, key_format, value_format)

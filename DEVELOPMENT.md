@@ -68,14 +68,6 @@ Generate banner:
 python -m scripts.banner
 ```
 
-### Kafka Cluster
-
-Run local cluster:
-
-```bash
-docker compose up -d
-```
-
 ### Docker
 
 Build docker:
@@ -110,6 +102,12 @@ python -m scripts.bump patch
 > For changelog management check https://github.com/sauljabin/changeloggh.
 
 ### Manual Tests
+
+Run local cluster:
+
+```bash
+docker compose up -d
+```
 
 Clone the kafka sandbox:
 
