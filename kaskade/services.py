@@ -18,7 +18,13 @@ from confluent_kafka.admin import (
 from confluent_kafka.cimpl import NewTopic, NewPartitions
 
 from kaskade import logger
-from kaskade.configs import MILLISECONDS_24H
+from kaskade.configs import (
+    MILLISECONDS_24H,
+    LOGGER,
+    MAX_POLL_INTERVAL_MS,
+    ENABLE_AUTO_COMMIT,
+    GROUP_ID,
+)
 from kaskade.models import (
     Topic,
     Cluster,
@@ -59,10 +65,10 @@ class ConsumerService:
         self.consumer = Consumer(
             kafka_config
             | {
-                "group.id": f"kaskade-{uuid.uuid4()}",
-                "enable.auto.commit": False,
-                "max.poll.interval.ms": MILLISECONDS_24H,
-                "logger": logger,
+                GROUP_ID: f"kaskade-{uuid.uuid4()}",
+                ENABLE_AUTO_COMMIT: False,
+                MAX_POLL_INTERVAL_MS: MILLISECONDS_24H,
+                LOGGER: logger,
             }
         )
         self.consumer.subscribe([topic], on_assign=self.on_assign)
@@ -168,7 +174,7 @@ class ConsumerService:
 class ClusterService:
     def __init__(self, config: dict[str, str], *, timeout: float = 2.0) -> None:
         self.timeout = timeout
-        self.admin_client = AdminClient(config | {"logger": logger})
+        self.admin_client = AdminClient(config | {LOGGER: logger})
 
     def get(self) -> Cluster:
         cluster_metadata: DescribeClusterResult = self.admin_client.describe_cluster(
@@ -202,7 +208,7 @@ class ClusterService:
 class TopicService:
     def __init__(self, config: dict[str, str], *, timeout: float = 2.0) -> None:
         self.timeout = timeout
-        self.config = config.copy() | {"logger": logger}
+        self.config = config.copy() | {LOGGER: logger}
         self.admin_client = AdminClient(self.config)
 
     def create(self, new_topics: list[NewTopic]) -> None:
@@ -256,7 +262,7 @@ class TopicService:
         self, groups_metadata: list[ConsumerGroupDescription], topics: dict[str, Topic]
     ) -> None:
         for group_metadata in groups_metadata:
-            group_consumer = Consumer(self.config | {"group.id": group_metadata.group_id})
+            group_consumer = Consumer(self.config | {GROUP_ID: group_metadata.group_id})
             for topic in topics.values():
 
                 coordinator = Node(
@@ -363,7 +369,7 @@ class TopicService:
     ) -> tuple[int, int]:
         low, high = 0, 0
 
-        consumer = Consumer(self.config | {"group.id": f"kaskade-{uuid.uuid4()}"})
+        consumer = Consumer(self.config | {GROUP_ID: f"kaskade-{uuid.uuid4()}"})
 
         try:
             low, high = await make_it_async(
