@@ -175,7 +175,7 @@ class Partition:
     def __str__(self) -> str:
         return str(self.id)
 
-    def messages_count(self) -> int:
+    def records_count(self) -> int:
         return self.high - self.low
 
     def __eq__(self, other: Any) -> bool:
@@ -229,7 +229,7 @@ class Topic:
 
     def records_count(self) -> int:
         return (
-            sum([partition.messages_count() for partition in self.partitions])
+            sum([partition.records_count() for partition in self.partitions])
             if self.partitions is not None
             else 0
         )
