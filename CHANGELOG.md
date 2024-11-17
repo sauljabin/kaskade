@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Script to populate topics
+
 ## [2.3.7] - 2024-10-14
 
 ### Added
