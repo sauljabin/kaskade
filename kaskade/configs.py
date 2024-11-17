@@ -13,3 +13,5 @@ SCHEMA_REGISTRY_CONFIGS = [
 PROTOBUF_DESERIALIZER_CONFIGS = ["descriptor", "key", "value"]
 SCHEMA_REGISTRY_MAGIC_BYTE = 0
 BOOTSTRAP_SERVERS = "bootstrap.servers"
+AUTO_OFFSET_RESET = "auto.offset.reset"
+EARLIEST = "earliest"

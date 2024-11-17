@@ -1,7 +1,7 @@
 import time
 
 from confluent_kafka.cimpl import NewTopic
-from typing import Callable
+from typing import Callable, Any
 import uuid
 
 import click
@@ -15,10 +15,10 @@ from kaskade.utils import pack_bytes
 
 TOPICS_TMP = ["string", "integer", "long", "float", "double", "boolean"]
 FAKER = Faker()
-TOPICS = {
-    "string": lambda: FAKER.name().encode("utf-8"),
-    "integer": lambda: pack_bytes(">i", FAKER.pyint(500, 1000)),
-}
+TOPICS = [
+    ("string", lambda: FAKER.name(), lambda value: value.encode("utf-8")),
+    ("integer", lambda: FAKER.pyint(500, 1000), lambda value: pack_bytes(">i", value)),
+]
 
 
 class Populator:
@@ -44,9 +44,16 @@ class Populator:
                 ):
                     raise ke
 
-    def populate(self, topic: str, generator: Callable[[], bytes], total_messages: int) -> None:
+    def populate(
+        self,
+        topic: str,
+        generator: Callable[[], Any],
+        serializer: Callable[[Any], Any],
+        total_messages: int,
+    ) -> None:
         for n in range(total_messages):
-            self.producer.produce(topic, value=generator(), key=f"{n}")
+            value = generator()
+            self.producer.produce(topic, value=serializer(value), key=f"{value}")
         self.producer.flush(5)
 
 
@@ -56,11 +63,11 @@ def main(messages: int) -> None:
     populator = Populator({BOOTSTRAP_SERVERS: "localhost:19092"})
     console = Console()
     with console.status("", spinner="dots") as status:
-        for topic, generator in TOPICS.items():
+        for topic, generator, serializer in TOPICS:
             start = time.time()
             status.update(f" Creating topic: {topic}")
             populator.create_topic(topic)
-            populator.populate(topic, generator, messages)
+            populator.populate(topic, generator, serializer, messages)
             console.print(f":+1: {topic} [green]{time.time() - start:.1f} secs[/]")
 
 

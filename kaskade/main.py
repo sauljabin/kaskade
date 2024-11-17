@@ -12,6 +12,8 @@ from kaskade.configs import (
     BOOTSTRAP_SERVERS,
     SCHEMA_REGISTRY_CONFIGS,
     PROTOBUF_DESERIALIZER_CONFIGS,
+    AUTO_OFFSET_RESET,
+    EARLIEST,
 )
 
 KAFKA_CONFIG_HELP = (
@@ -96,6 +98,12 @@ def admin(
         multiple=True,
         callback=tuple_properties_to_dict,
     ),
+    cloup.option(
+        "--from-beginning",
+        "from_beginning",
+        help="Read from beginning. Equivalent to: '-x auto.offset.reset=earliest'.",
+        is_flag=True,
+    ),
 )
 @cloup.option_group(
     "Topic options",
@@ -157,6 +165,7 @@ def consumer(
     topic: str,
     key_format: Format,
     value_format: Format,
+    from_beginning: bool,
 ) -> None:
     """
     Consumer mode.
@@ -164,12 +173,16 @@ def consumer(
     \b
     Examples:
       kaskade consumer -b localhost:9092 -t my-topic
-      kaskade consumer -b localhost:9092 -t my-topic -x auto.offset.reset=earliest
+      kaskade consumer -b localhost:9092 -t my-topic --from-beginning
+      kaskade consumer -b localhost:9092 -t my-topic -x security.protocol=SSL
       kaskade consumer -b localhost:9092 -t my-topic -v json
       kaskade consumer -b localhost:9092 -t my-topic -v avro -s url=http://localhost:8081
       kaskade consumer -b localhost:9092 -t my-topic -v protobuf -p descriptor=my-descriptor.desc -p value=MyMessage
     """
     kafka_config[BOOTSTRAP_SERVERS] = bootstrap_servers
+
+    if from_beginning:
+        kafka_config[AUTO_OFFSET_RESET] = EARLIEST
 
     validate_schema_registry(schema_registry_config, key_format, value_format)
     validate_protobuf(protobuf_config, key_format, value_format)
