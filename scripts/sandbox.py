@@ -1,3 +1,5 @@
+import time
+
 from confluent_kafka.cimpl import NewTopic
 from typing import Callable
 import uuid
@@ -6,7 +8,7 @@ import click
 from kaskade.configs import BOOTSTRAP_SERVERS
 from rich.console import Console
 from confluent_kafka.admin import AdminClient
-from confluent_kafka import Producer
+from confluent_kafka import Producer, KafkaError, KafkaException
 from faker import Faker
 
 
@@ -28,28 +30,31 @@ class Populator:
     def create_topic(self, topic: str) -> None:
         futures = self.admin_client.create_topics([NewTopic(topic)])
         for future in futures.values():
-            future.result()
+            try:
+                future.result()
+            except KafkaException as ke:
+                if len(ke.args) > 0 and hasattr(ke.args[0], "code"):
+                    if ke.args[0].code() is not KafkaError.TOPIC_ALREADY_EXISTS:
+                        raise ke
 
     def populate(self, topic: str, generator: Callable[[], bytes], total_messages: int) -> None:
         for n in range(total_messages):
             self.producer.produce(topic, value=generator(), key=f"{n}")
-
-    def close(self) -> None:
-        self.producer.flush(1)
+        self.producer.flush(5)
 
 
 @click.command()
 @click.option("--messages", default=1000, help="Number of messages to initialize.")
 def main(messages: int) -> None:
     populator = Populator({BOOTSTRAP_SERVERS: "localhost:19092"})
-
-    with Console().status("", spinner="dots") as status:
+    console = Console()
+    with console.status("", spinner="dots") as status:
         for topic, generator in TOPICS.items():
+            start = time.time()
             status.update(f" Creating topic: {topic}")
             populator.create_topic(topic)
             populator.populate(topic, generator, messages)
-
-    populator.close()
+            console.print(f":+1: {topic} [green]{time.time() - start:.1f} secs[/]")
 
 
 if __name__ == "__main__":
