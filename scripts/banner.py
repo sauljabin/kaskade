@@ -18,7 +18,7 @@ class Banner(App):
         yield KaskadeBanner(include_slogan=True)
 
 
-def main():
+def main() -> None:
     app = Banner()
     app.run()
 

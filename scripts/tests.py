@@ -1,7 +1,7 @@
 from scripts import CommandProcessor
 
 
-def main():
+def main() -> None:
     commands = {
         "executing tests": "poetry run python -m unittest -v",
     }

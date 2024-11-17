@@ -3,7 +3,7 @@ from itertools import cycle
 from confluent_kafka.cimpl import NewTopic
 from rich.table import Table
 from textual import work
-from textual.app import ComposeResult, RenderResult, App
+from textual.app import ComposeResult, App
 from textual.binding import Binding
 from textual.containers import Container
 
@@ -50,7 +50,7 @@ class AdminShortcuts(Widget):
         ["quit:", QUIT_SHORTCUT, "delete:", DELETE_TOPIC_SHORTCUT],
     ]
 
-    def render(self) -> RenderResult:
+    def render(self) -> Table:
         table = Table(box=None, show_header=False, padding=(0, 0, 0, 1))
         table.add_column(style=PRIMARY)
         table.add_column(style=SECONDARY)

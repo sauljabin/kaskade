@@ -4,7 +4,7 @@ from rich.style import Style
 from rich.table import Table
 from rich.theme import Theme
 from textual import work
-from textual.app import App, ComposeResult, RenderResult
+from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Container, ScrollableContainer
 from textual.screen import ModalScreen
@@ -35,7 +35,7 @@ class ConsumerShortcuts(Widget):
         ["quit:", QUIT_SHORTCUT, "chunk:", CHUNKS_SHORTCUT],
     ]
 
-    def render(self) -> RenderResult:
+    def render(self) -> Table:
         table = Table(box=None, show_header=False, padding=(0, 0, 0, 1))
         table.add_column(style=PRIMARY)
         table.add_column(style=SECONDARY)

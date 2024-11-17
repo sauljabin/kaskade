@@ -1,7 +1,7 @@
 from scripts import CommandProcessor
 
 
-def main():
+def main() -> None:
     commands = {
         "black": "poetry run black . --preview",
         "ruff": "poetry run ruff check . --fix",

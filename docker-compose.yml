@@ -12,6 +12,9 @@ services:
       KAFKA_PROCESS_ROLES: broker,controller
       KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka1:9093,2@kafka2:9093,3@kafka3:9093
       KAFKA_LOG_DIRS: /var/lib/kafka/data
+      KAFKA_REPLICATION_FACTOR: "3"
+      KAFKA_MIN_INSYNC_REPLICAS: "2"
+      KAFKA_NUM_PARTITIONS: "10"
     ports:
       - "19092:19092"
     restart: on-failure
@@ -37,6 +40,9 @@ services:
       KAFKA_PROCESS_ROLES: broker,controller
       KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka1:9093,2@kafka2:9093,3@kafka3:9093
       KAFKA_LOG_DIRS: /var/lib/kafka/data
+      KAFKA_REPLICATION_FACTOR: "3"
+      KAFKA_MIN_INSYNC_REPLICAS: "2"
+      KAFKA_NUM_PARTITIONS: "10"
     ports:
       - "29092:29092"
     restart: on-failure
@@ -62,6 +68,9 @@ services:
       KAFKA_PROCESS_ROLES: broker,controller
       KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka1:9093,2@kafka2:9093,3@kafka3:9093
       KAFKA_LOG_DIRS: /var/lib/kafka/data
+      KAFKA_REPLICATION_FACTOR: "3"
+      KAFKA_MIN_INSYNC_REPLICAS: "2"
+      KAFKA_NUM_PARTITIONS: "10"
     ports:
       - "39092:39092"
     restart: on-failure
