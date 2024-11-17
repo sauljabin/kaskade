@@ -37,9 +37,12 @@ class Populator:
             try:
                 future.result()
             except KafkaException as ke:
-                if len(ke.args) > 0 and hasattr(ke.args[0], "code"):
-                    if ke.args[0].code() is not KafkaError.TOPIC_ALREADY_EXISTS:
-                        raise ke
+                if (
+                    len(ke.args) > 0
+                    and hasattr(ke.args[0], "code")
+                    and ke.args[0].code() is not KafkaError.TOPIC_ALREADY_EXISTS
+                ):
+                    raise ke
 
     def populate(self, topic: str, generator: Callable[[], bytes], total_messages: int) -> None:
         for n in range(total_messages):

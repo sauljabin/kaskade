@@ -135,7 +135,7 @@ class DescribeTopicScreen(ModalScreen):
         table.add_column("leader")
         table.add_column("isrs")
         table.add_column("replicas")
-        table.add_column("messages")
+        table.add_column("records")
 
         for partition in self.topic.partitions:
             row = [
@@ -143,7 +143,7 @@ class DescribeTopicScreen(ModalScreen):
                 str(partition.leader),
                 str(partition.isrs),
                 str(partition.replicas),
-                str(partition.messages_count()),
+                str(partition.records_count()),
             ]
             table.add_row(*row)
 
