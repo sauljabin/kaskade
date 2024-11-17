@@ -127,6 +127,12 @@ Test consumer without deserialization:
 kaskade consumer -b localhost:19092 --from-beginning -t string
 ```
 
+Test consumer with nulls:
+
+```bash
+kaskade consumer -b localhost:19092 --from-beginning -k string -v string -t null
+```
+
 Test consumer with deserializers:
 
 ```bash
