@@ -9,7 +9,7 @@
                     "entries": [
                         "Script to populate topics",
                         "Add --from-beginning parameter to consumer mode",
-                        "Integrationg tests",
+                        "Integration tests",
                         "Redpanda sandbox"
                     ]
                 },
