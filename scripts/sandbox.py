@@ -40,7 +40,16 @@ TOPICS = [
         lambda: FAKER.pyfloat(min_value=500, max_value=10000),
         lambda value: pack_bytes(">d", value),
     ),
-    ("boolean", lambda: FAKER.pybool(), lambda value: pack_bytes(">?", value)),
+    (
+        "boolean",
+        lambda: FAKER.pybool(),
+        lambda value: pack_bytes(">?", value),
+    ),
+    (
+        "json",
+        lambda: FAKER.json(),
+        lambda value: value.encode("utf-8"),
+    ),
 ]
 
 
@@ -88,7 +97,7 @@ def main(messages: int) -> None:
     with console.status("", spinner="dots") as status:
         for topic, generator, serializer in TOPICS:
             start = time.time()
-            status.update(f" [yellow]creating topic:[/] {topic}")
+            status.update(f" [yellow]populating topic:[/] {topic}")
             populator.create_topic(topic)
             populator.populate(topic, generator, serializer, messages)
             console.print(f":white_check_mark: {topic} [green]{time.time() - start:.1f} secs[/]")
