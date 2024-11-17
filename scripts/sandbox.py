@@ -90,9 +90,12 @@ class Populator:
 
 
 @click.command()
-@click.option("--messages", default=1000, help="Number of messages to initialize.")
-def main(messages: int) -> None:
-    populator = Populator({BOOTSTRAP_SERVERS: "localhost:19092"})
+@click.option("--messages", default=1000, help="Number of messages to send.")
+@click.option(
+    "--bootstrap-servers", default="localhost:19092", help="Bootstrap servers.", show_default=True
+)
+def main(messages: int, bootstrap_servers: str) -> None:
+    populator = Populator({BOOTSTRAP_SERVERS: bootstrap_servers})
     console = Console()
     with console.status("", spinner="dots") as status:
         for topic, generator, serializer in TOPICS:
