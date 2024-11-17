@@ -31,6 +31,10 @@ def unpack_bytes(struct_format: str, data: bytes) -> Any:
     return struct.unpack(struct_format, data)[0]
 
 
+def pack_bytes(struct_format: str, data: Any) -> bytes:
+    return struct.pack(struct_format, data)
+
+
 def file_to_bytes(str_path: str) -> bytes:
     path = Path(str_path).expanduser()
     return path.read_bytes()

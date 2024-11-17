@@ -11,10 +11,14 @@ from confluent_kafka.admin import AdminClient
 from confluent_kafka import Producer, KafkaError, KafkaException
 from faker import Faker
 
+from kaskade.utils import pack_bytes
 
 TOPICS_TMP = ["string", "integer", "long", "float", "double", "boolean"]
 FAKER = Faker()
-TOPICS = {"string": lambda: FAKER.name().encode("utf-8")}
+TOPICS = {
+    "string": lambda: FAKER.name().encode("utf-8"),
+    "integer": lambda: pack_bytes(">i", FAKER.pyint(500, 1000)),
+}
 
 
 class Populator:
