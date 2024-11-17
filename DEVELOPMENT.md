@@ -109,13 +109,11 @@ Run local cluster:
 docker compose up -d
 ```
 
-Clone the kafka sandbox:
+Populate kafka:
 
 ```bash
-git clone https://github.com/sauljabin/kafka-sandbox.git
+python -m scripts.sandbox
 ```
-
-> Run all the examples on [Kafka Sandbox](https://sauljabin.github.io/kafka-sandbox/introduction.html).
 
 Test admin:
 
@@ -123,60 +121,62 @@ Test admin:
 kaskade admin -b localhost:19092
 ```
 
-Test consumer natives:
+Test consumer without deserialization:
 
 ```bash
-kaskade consumer -b localhost:19092 -x auto.offset.reset=earliest \
-        -t client.string
+kaskade consumer -b localhost:19092 --from-beginning \
+        -t string
+```
+
+Test consumer with deserializers:
+
+```bash
+kaskade consumer -b localhost:19092 --from-beginning \
+        -k string -v string -t string
 ```
 
 ```bash
-kaskade consumer -b localhost:19092 -x auto.offset.reset=earliest \
-        -k string -v string -t client.string
+kaskade consumer -b localhost:19092 --from-beginning \
+        -k string -v integer -t integer
 ```
 
 ```bash
-kaskade consumer -b localhost:19092 -x auto.offset.reset=earliest \
-        -k string -v integer -t client.integer
+kaskade consumer -b localhost:19092 --from-beginning \
+        -k string -v long -t long
 ```
 
 ```bash
-kaskade consumer -b localhost:19092 -x auto.offset.reset=earliest \
-        -k string -v long -t client.long
+kaskade consumer -b localhost:19092 --from-beginning \
+        -k string -v float -t float
 ```
 
 ```bash
-kaskade consumer -b localhost:19092 -x auto.offset.reset=earliest \
-        -k string -v float -t client.float
+kaskade consumer -b localhost:19092 --from-beginning \
+        -k string -v double -t double
 ```
 
 ```bash
-kaskade consumer -b localhost:19092 -x auto.offset.reset=earliest \
-        -k string -v double -t client.double
-```
-
-```bash
-kaskade consumer -b localhost:19092 -x auto.offset.reset=earliest \
-        -k string -v boolean -t client.boolean
+kaskade consumer -b localhost:19092 --from-beginning \
+        -k string -v boolean -t boolean
 ```
 
 Test consumer json:
 
 ```bash
-kaskade consumer -b localhost:19092 -x auto.offset.reset=earliest \
-        -k string -v json -t client.users
+kaskade consumer -b localhost:19092 --from-beginning \
+        -k string -v json -t users
 ```
 
 ```bash
-kaskade consumer -b localhost:19092 -x auto.offset.reset=earliest \
-        -k string -v json -t client.schema.users
+kaskade consumer -b localhost:19092 --from-beginning \
+        -k string -v json -t schema.users
 ```
 
 Test consumer avro:
 
 ```bash
-kaskade consumer -b localhost:19092 -x auto.offset.reset=earliest \
-        -k string -v avro -t client.suppliers \
+kaskade consumer -b localhost:19092 --from-beginning \
+        -k string -v avro -t suppliers \
         -s url=http://localhost:8081
 ```
 
@@ -191,13 +191,13 @@ protoc --include_imports --descriptor_set_out=my-descriptor.desc \
 ```
 
 ```bash
-kaskade consumer -b localhost:19092 -x auto.offset.reset=earliest \
-        -k string -v protobuf -t client.invoices \
+kaskade consumer -b localhost:19092 --from-beginning \
+        -k string -v protobuf -t invoices \
         -p descriptor=my-descriptor.desc -p value=Invoice
 ```
 
 ```bash
-kaskade consumer -b localhost:19092 -x auto.offset.reset=earliest \
-        -k string -v protobuf -t client.schema.invoices \
+kaskade consumer -b localhost:19092 --from-beginning \
+        -k string -v protobuf -t schema.invoices \
         -p descriptor=my-descriptor.desc -p value=Invoice
 ```

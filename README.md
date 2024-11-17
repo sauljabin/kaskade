@@ -100,7 +100,7 @@ kaskade consumer -b my-kafka:9092 -t my-topic -k json -v json
 #### Consuming from the beginning:
 
 ```bash
-kaskade consumer -b my-kafka:9092 -t my-topic -x auto.offset.reset=earliest
+kaskade consumer -b my-kafka:9092 -t my-topic --from-beginning
 ```
 
 #### Schema registry simple connection and avro deserialization:
@@ -181,7 +181,7 @@ protoc --include_imports \
 Consume using `my-descriptor.desc` file:
 
 ```bash
-kaskade consumer -b my-kafka:9092 -x auto.offset.reset=earliest \
+kaskade consumer -b my-kafka:9092 --from-beginning \
         -k string -v protobuf \
         -t my-protobuf-topic \
         -p descriptor=my-descriptor.desc -p value=mypackage.MyMessage
