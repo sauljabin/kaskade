@@ -314,8 +314,8 @@ class ListRecords(Container):
                 key_and_value = Table(box=None, show_header=False, padding=0)
                 key_and_value.add_column(style="bold", width=7)
                 key_and_value.add_column(overflow="ellipsis", width=43, no_wrap=True)
-                key_and_value.add_row("key:", record.key_str())
-                key_and_value.add_row("value:", record.value_str())
+                key_and_value.add_row("key:", record.key_str().strip())
+                key_and_value.add_row("value:", record.value_str().strip())
                 row = [
                     key_and_value,
                     record.date,

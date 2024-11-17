@@ -12,6 +12,7 @@ from confluent_kafka import Producer, KafkaError, KafkaException
 from faker import Faker
 
 from kaskade.utils import pack_bytes
+from tests.protobuf.user_pb2 import User
 
 FAKER = Faker()
 TOPICS = [
@@ -54,6 +55,11 @@ TOPICS = [
         "json",
         lambda: FAKER.json(),
         lambda value: value.encode("utf-8"),
+    ),
+    (
+        "protobuf",
+        lambda: User(name=FAKER.name()),
+        lambda value: value.SerializeToString(),
     ),
 ]
 
