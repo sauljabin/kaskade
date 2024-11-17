@@ -13,11 +13,34 @@ from faker import Faker
 
 from kaskade.utils import pack_bytes
 
-TOPICS_TMP = ["string", "integer", "long", "float", "double", "boolean"]
 FAKER = Faker()
 TOPICS = [
-    ("string", lambda: FAKER.name(), lambda value: value.encode("utf-8")),
-    ("integer", lambda: FAKER.pyint(500, 1000), lambda value: pack_bytes(">i", value)),
+    (
+        "string",
+        lambda: FAKER.name(),
+        lambda value: value.encode("utf-8"),
+    ),
+    (
+        "integer",
+        lambda: FAKER.pyint(min_value=500, max_value=10000),
+        lambda value: pack_bytes(">i", value),
+    ),
+    (
+        "long",
+        lambda: FAKER.pyint(min_value=500, max_value=10000),
+        lambda value: pack_bytes(">q", value),
+    ),
+    (
+        "float",
+        lambda: FAKER.pyfloat(min_value=500, max_value=10000),
+        lambda value: pack_bytes(">f", value),
+    ),
+    (
+        "double",
+        lambda: FAKER.pyfloat(min_value=500, max_value=10000),
+        lambda value: pack_bytes(">d", value),
+    ),
+    ("boolean", lambda: FAKER.pybool(), lambda value: pack_bytes(">?", value)),
 ]
 
 
@@ -65,10 +88,10 @@ def main(messages: int) -> None:
     with console.status("", spinner="dots") as status:
         for topic, generator, serializer in TOPICS:
             start = time.time()
-            status.update(f" Creating topic: {topic}")
+            status.update(f" [yellow]creating topic:[/] {topic}")
             populator.create_topic(topic)
             populator.populate(topic, generator, serializer, messages)
-            console.print(f":+1: {topic} [green]{time.time() - start:.1f} secs[/]")
+            console.print(f":white_check_mark: {topic} [green]{time.time() - start:.1f} secs[/]")
 
 
 if __name__ == "__main__":
