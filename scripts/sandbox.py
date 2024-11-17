@@ -46,6 +46,11 @@ TOPICS = [
         lambda value: pack_bytes(">?", value),
     ),
     (
+        "null",
+        lambda: "not null" if FAKER.pybool() else None,
+        lambda value: value.encode("utf-8") if value else None,
+    ),
+    (
         "json",
         lambda: FAKER.json(),
         lambda value: value.encode("utf-8"),
