@@ -291,7 +291,7 @@ class ListRecords(Container):
             notify_error(self.app, "deserialization error", ex)
 
     def on_data_table_row_highlighted(self, data: DataTable.RowHighlighted) -> None:
-        if data.row_key.value is None:
+        if data.row_key is None or data.row_key.value is None:
             return
         self.current_record = self.records.get(data.row_key.value)
 

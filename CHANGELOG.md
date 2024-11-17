@@ -10,6 +10,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Script to populate topics
+- Add --from-beginning parameter to consumer mode
+
+### Changed
+
+- Using records instead of messages
 
 ## [2.3.7] - 2024-10-14
 
