@@ -124,40 +124,33 @@ kaskade admin -b localhost:19092
 Test consumer without deserialization:
 
 ```bash
-kaskade consumer -b localhost:19092 --from-beginning \
-        -t string
+kaskade consumer -b localhost:19092 --from-beginning -t string
 ```
 
 Test consumer with deserializers:
 
 ```bash
-kaskade consumer -b localhost:19092 --from-beginning \
-        -k string -v string -t string
+kaskade consumer -b localhost:19092 --from-beginning -k string -v string -t string
 ```
 
 ```bash
-kaskade consumer -b localhost:19092 --from-beginning \
-        -k string -v integer -t integer
+kaskade consumer -b localhost:19092 --from-beginning -k string -v integer -t integer
 ```
 
 ```bash
-kaskade consumer -b localhost:19092 --from-beginning \
-        -k string -v long -t long
+kaskade consumer -b localhost:19092 --from-beginning -k string -v long -t long
 ```
 
 ```bash
-kaskade consumer -b localhost:19092 --from-beginning \
-        -k string -v float -t float
+kaskade consumer -b localhost:19092 --from-beginning -k string -v float -t float
 ```
 
 ```bash
-kaskade consumer -b localhost:19092 --from-beginning \
-        -k string -v double -t double
+kaskade consumer -b localhost:19092 --from-beginning -k string -v double -t double
 ```
 
 ```bash
-kaskade consumer -b localhost:19092 --from-beginning \
-        -k string -v boolean -t boolean
+kaskade consumer -b localhost:19092 --from-beginning -k string -v boolean -t boolean
 ```
 
 Test consumer json:
