@@ -50,6 +50,12 @@ Unit tests:
 python -m scripts.tests
 ```
 
+E2E tests:
+
+```bash
+python -m scripts.tests --e2e
+```
+
 Applying code styles:
 
 ```bash
@@ -183,11 +189,11 @@ kaskade consumer -b localhost:19092 --from-beginning -s url=http://localhost:808
 kaskade consumer -b localhost:19092 --from-beginning -s url=http://localhost:8081 -t schemas.avro
 ```
 
-Test consumer protobuf:
+Test consumer with protobuf:
 
 > Install `protoc` with `brew install protobuf`
 
-If there is a change in the protobuf files generate the classes with:
+Update descriptor with:
 
 ```bash
 python -m scripts.protobuf
@@ -195,12 +201,7 @@ python -m scripts.protobuf
 
 ```bash
 kaskade consumer -b localhost:19092 --from-beginning \
-        -k string -v protobuf -t invoices \
-        -p descriptor=my-descriptor.desc -p value=Invoice
-```
-
-```bash
-kaskade consumer -b localhost:19092 --from-beginning \
-        -k string -v protobuf -t schema.invoices \
-        -p descriptor=my-descriptor.desc -p value=Invoice
+        -k string -v protobuf -t protobuf \
+        -p descriptor=tests/protobuf/user.desc \
+        -p value=User
 ```
