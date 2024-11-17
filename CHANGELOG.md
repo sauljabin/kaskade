@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Script to populate topics
 - Add --from-beginning parameter to consumer mode
-- Integrationg tests
+- Integration tests
 - Redpanda sandbox
 
 ### Changed
