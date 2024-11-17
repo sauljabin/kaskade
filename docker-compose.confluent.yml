@@ -89,7 +89,7 @@ services:
       SCHEMA_REGISTRY_DEBUG: "true"
       SCHEMA_REGISTRY_HOST_NAME: localhost
       SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: kafka1:9092,kafka2:9092,kafka3:9092
-      SCHEMA_REGISTRY_KAFKASTORE_TOPIC: schemas
+      SCHEMA_REGISTRY_KAFKASTORE_TOPIC: _schemas
     ports:
       - "8081:8081"
     restart: on-failure

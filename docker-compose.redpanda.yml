@@ -3,7 +3,7 @@ networks:
     name: sandbox
 
 services:
-  redpanda1:
+  kafka1:
     command:
       - redpanda
       - start
@@ -13,14 +13,14 @@ services:
       # from inside the same Docker network.
       # Use the external addresses to connect to the Redpanda brokers'
       # from outside the Docker network.
-      - --advertise-kafka-addr internal://redpanda1:9092,external://localhost:19092
+      - --advertise-kafka-addr internal://kafka1:9092,external://localhost:19092
       - --pandaproxy-addr internal://0.0.0.0:8082,external://0.0.0.0:18082
       # Address the broker advertises to clients that connect to the HTTP Proxy.
-      - --advertise-pandaproxy-addr internal://redpanda1:8082,external://localhost:18082
+      - --advertise-pandaproxy-addr internal://kafka1:8082,external://localhost:18082
       - --schema-registry-addr internal://0.0.0.0:8081,external://0.0.0.0:18081
       # Redpanda brokers use the RPC API to communicate with each other internally.
-      - --rpc-addr redpanda1:33145
-      - --advertise-rpc-addr redpanda1:33145
+      - --rpc-addr kafka1:33145
+      - --advertise-rpc-addr kafka1:33145
       # Mode dev-container uses well-known configuration properties for development in containers.
       - --mode dev-container
       # Tells Seastar (the framework Redpanda uses under the hood) to use 1 core on the system.
@@ -32,21 +32,21 @@ services:
       - 18082:18082
       - 19092:19092
       - 19644:9644
-  redpanda2:
+  kafka2:
     command:
       - redpanda
       - start
       - --kafka-addr internal://0.0.0.0:9092,external://0.0.0.0:29092
-      - --advertise-kafka-addr internal://redpanda2:9092,external://localhost:29092
+      - --advertise-kafka-addr internal://kafka2:9092,external://localhost:29092
       - --pandaproxy-addr internal://0.0.0.0:8082,external://0.0.0.0:28082
-      - --advertise-pandaproxy-addr internal://redpanda2:8082,external://localhost:28082
+      - --advertise-pandaproxy-addr internal://kafka2:8082,external://localhost:28082
       - --schema-registry-addr internal://0.0.0.0:8081,external://0.0.0.0:28081
-      - --rpc-addr redpanda2:33145
-      - --advertise-rpc-addr redpanda2:33145
+      - --rpc-addr kafka2:33145
+      - --advertise-rpc-addr kafka2:33145
       - --mode dev-container
       - --smp 1
       - --default-log-level=info
-      - --seeds redpanda1:33145
+      - --seeds kafka1:33145
     image: docker.redpanda.com/redpandadata/redpanda:${RP_VERSION}
     ports:
       - 28081:28081
@@ -54,22 +54,22 @@ services:
       - 29092:29092
       - 29644:9644
     depends_on:
-      - redpanda1
-  redpanda3:
+      - kafka1
+  kafka3:
     command:
       - redpanda
       - start
       - --kafka-addr internal://0.0.0.0:9092,external://0.0.0.0:39092
-      - --advertise-kafka-addr internal://redpanda3:9092,external://localhost:39092
+      - --advertise-kafka-addr internal://kafka3:9092,external://localhost:39092
       - --pandaproxy-addr internal://0.0.0.0:8082,external://0.0.0.0:38082
-      - --advertise-pandaproxy-addr internal://redpanda3:8082,external://localhost:38082
+      - --advertise-pandaproxy-addr internal://kafka3:8082,external://localhost:38082
       - --schema-registry-addr internal://0.0.0.0:8081,external://0.0.0.0:38081
-      - --rpc-addr redpanda3:33145
-      - --advertise-rpc-addr redpanda3:33145
+      - --rpc-addr kafka3:33145
+      - --advertise-rpc-addr kafka3:33145
       - --mode dev-container
       - --smp 1
       - --default-log-level=info
-      - --seeds redpanda1:33145
+      - --seeds kafka1:33145
     image: docker.redpanda.com/redpandadata/redpanda:${RP_VERSION}
     ports:
       - 38081:38081
@@ -77,7 +77,7 @@ services:
       - 39092:39092
       - 39644:9644
     depends_on:
-      - redpanda1
+      - kafka1
   console:
     image: docker.redpanda.com/redpandadata/console:v2.7.2
     entrypoint: /bin/sh
@@ -86,15 +86,15 @@ services:
       CONFIG_FILEPATH: /tmp/config.yml
       CONSOLE_CONFIG_FILE: |
         kafka:
-          brokers: ["redpanda1:9092"]
+          brokers: ["kafka1:9092"]
           schemaRegistry:
             enabled: true
-            urls: ["http://redpanda1:8081"]
+            urls: ["http://kafka1:8081"]
         redpanda:
           adminApi:
             enabled: true
-            urls: ["http://redpanda1:9644"]
+            urls: ["http://kafka1:9644"]
     ports:
       - 8080:8080
     depends_on:
-      - redpanda1
+      - kafka1
