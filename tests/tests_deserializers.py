@@ -22,7 +22,7 @@ from kaskade.deserializers import (
     ProtobufDeserializer,
 )
 from tests import faker
-from tests.test_pb2 import User
+from tests.protobuf.user_pb2 import User
 
 
 class TestDeserializer(unittest.TestCase):
@@ -129,8 +129,7 @@ class TestDeserializer(unittest.TestCase):
         self.assertEqual(expected_value, result)
 
     def test_protobuf_deserialization(self):
-        # protoc --include_imports --proto_path=. --python_out=. --pyi_out=. --descriptor_set_out=./test.desc test.proto
-        descriptor_file_name = "test.desc"
+        descriptor_file_name = "protobuf/user.desc"
         descriptor_path = (
             f"{os.getcwd()}/{descriptor_file_name}"
             if os.getcwd().endswith("tests")
@@ -145,8 +144,7 @@ class TestDeserializer(unittest.TestCase):
         self.assertEqual({"name": user.name}, result)
 
     def test_protobuf_deserialization_with_magic_byte(self):
-        # protoc --include_imports --proto_path=. --python_out=. --pyi_out=. --descriptor_set_out=./test.desc test.proto
-        descriptor_file_name = "test.desc"
+        descriptor_file_name = "protobuf/user.desc"
         descriptor_path = (
             f"{os.getcwd()}/{descriptor_file_name}"
             if os.getcwd().endswith("tests")
@@ -161,3 +159,7 @@ class TestDeserializer(unittest.TestCase):
             b"\x00\x00\x00\x00\x00\x00" + user.SerializeToString(), MessageField.VALUE
         )
         self.assertEqual({"name": user.name}, result)
+
+
+if __name__ == "__main__":
+    unittest.main()
