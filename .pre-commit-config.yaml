@@ -8,12 +8,6 @@ repos:
       - id: check-added-large-files
   - repo: local
     hooks:
-      - id: tests
-        name: running tests
-        language: system
-        always_run: true
-        pass_filenames: false
-        entry: poetry run python -m scripts.tests
       - id: styles
         name: applying styles
         language: system
@@ -26,3 +20,15 @@ repos:
         always_run: true
         pass_filenames: false
         entry: poetry run python -m scripts.analyze
+      - id: tests
+        name: running tests
+        language: system
+        always_run: true
+        pass_filenames: false
+        entry: poetry run python -m scripts.tests
+      - id: tests-e2e
+        name: running e2e tests
+        language: system
+        always_run: true
+        pass_filenames: false
+        entry: poetry run python -m scripts.tests --e2e

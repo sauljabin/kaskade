@@ -24,9 +24,8 @@ MY_TOPIC = "my-topic"
 
 
 CURRENT_PATH = os.getcwd()
-
 PROPERTIES_PATH = (
-    f"{CURRENT_PATH}/../.env" if CURRENT_PATH.endswith("tests") else f"{CURRENT_PATH}/.env"
+    f"{CURRENT_PATH}/../.env" if CURRENT_PATH.endswith("tests-e2e") else f"{CURRENT_PATH}/.env"
 )
 SANDBOX_PROPERTIES = load_properties(PROPERTIES_PATH)
 CP_VERSION = SANDBOX_PROPERTIES["CP_VERSION"]
