@@ -18,8 +18,6 @@ services:
     ports:
       - "19092:19092"
     restart: on-failure
-    volumes:
-      - kafka1_data:/var/lib/kafka/data
     healthcheck:
       test: kafka-topics --bootstrap-server localhost:9092 --list > /dev/null 2>&1
       interval: 10s
@@ -46,8 +44,6 @@ services:
     ports:
       - "29092:29092"
     restart: on-failure
-    volumes:
-      - kafka2_data:/var/lib/kafka/data
     healthcheck:
       test: kafka-topics --bootstrap-server localhost:9092 --list > /dev/null 2>&1
       interval: 10s
@@ -74,8 +70,6 @@ services:
     ports:
       - "39092:39092"
     restart: on-failure
-    volumes:
-      - kafka3_data:/var/lib/kafka/data
     healthcheck:
       test: kafka-topics --bootstrap-server localhost:9092 --list > /dev/null 2>&1
       interval: 10s
@@ -102,11 +96,6 @@ services:
       retries: 5
       start_period: 30s
 
-volumes:
-  kafka1_data:
-  kafka2_data:
-  kafka3_data:
-
 networks:
   default:
-    name: cluster
+    name: sandbox

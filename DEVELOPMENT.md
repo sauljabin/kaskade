@@ -81,7 +81,7 @@ python -m scripts.docker
 Run with docker (create a `config.yml` file):
 
 ```bash
-docker run --rm -it --network cluster sauljabin/kaskade:latest admin -b kafka1:9092
+docker run --rm -it --network sandbox sauljabin/kaskade:latest admin -b kafka1:9092
 ```
 
 ### Release
