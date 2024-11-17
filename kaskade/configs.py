@@ -15,3 +15,7 @@ SCHEMA_REGISTRY_MAGIC_BYTE = 0
 BOOTSTRAP_SERVERS = "bootstrap.servers"
 AUTO_OFFSET_RESET = "auto.offset.reset"
 EARLIEST = "earliest"
+LOGGER = "logger"
+MAX_POLL_INTERVAL_MS = "max.poll.interval.ms"
+ENABLE_AUTO_COMMIT = "enable.auto.commit"
+GROUP_ID = "group.id"

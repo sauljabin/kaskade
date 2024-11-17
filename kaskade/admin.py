@@ -384,6 +384,7 @@ class ListTopics(Container):
         table.add_column("replicas", width=10)
         table.add_column("in sync", width=10)
         table.add_column("groups", width=10)
+        table.add_column("members", width=10)
         table.add_column("records", width=10)
         table.add_column("lag", width=10)
 
@@ -532,6 +533,7 @@ class ListTopics(Container):
                 str(topic.replicas_count()),
                 str(topic.isrs_count()),
                 str(topic.groups_count()),
+                str(topic.group_members_count()),
                 f"{APPROXIMATION}{topic.records_count()}",
                 f"{APPROXIMATION}{topic.lag()}",
             ]
