@@ -146,7 +146,3 @@ cython_debug/
 
 ## pycharm
 .idea/
-
-## protobuf
-*.desc
-*.proto
