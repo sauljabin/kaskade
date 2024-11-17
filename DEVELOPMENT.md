@@ -153,24 +153,18 @@ kaskade consumer -b localhost:19092 --from-beginning -k string -v double -t doub
 kaskade consumer -b localhost:19092 --from-beginning -k string -v boolean -t boolean
 ```
 
-Test consumer json:
+```bash
+kaskade consumer -b localhost:19092 --from-beginning -k string -v json -t json
+```
+
+Test consumer with Schema Registry:
 
 ```bash
-kaskade consumer -b localhost:19092 --from-beginning \
-        -k string -v json -t users
+kaskade consumer -b localhost:19092 --from-beginning -s url=http://localhost:8081 -t schemas.json
 ```
 
 ```bash
-kaskade consumer -b localhost:19092 --from-beginning \
-        -k string -v json -t schema.users
-```
-
-Test consumer avro:
-
-```bash
-kaskade consumer -b localhost:19092 --from-beginning \
-        -k string -v avro -t suppliers \
-        -s url=http://localhost:8081
+kaskade consumer -b localhost:19092 --from-beginning -s url=http://localhost:8081 -t schemas.avro
 ```
 
 Test consumer protobuf:
