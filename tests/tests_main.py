@@ -543,3 +543,7 @@ class TestConsumerCli(unittest.TestCase):
             Format.PROTOBUF,
         )
         self.assertEqual(0, result.exit_code)
+
+
+if __name__ == "__main__":
+    unittest.main()

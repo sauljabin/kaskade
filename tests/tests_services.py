@@ -182,3 +182,7 @@ class TestTopicService(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(50, topic.records_count())
         self.assertEqual(3, topic.replicas_count())
         self.assertEqual(20, topic.lag())
+
+
+if __name__ == "__main__":
+    unittest.main()
