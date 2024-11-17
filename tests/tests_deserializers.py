@@ -27,6 +27,12 @@ from tests.protobuf.user_pb2 import User
 
 
 CURRENT_PATH = os.getcwd()
+DESCRIPTOR_NAME = "protobuf/user.desc"
+DESCRIPTOR_PATH = (
+    f"{CURRENT_PATH}/{DESCRIPTOR_NAME}"
+    if CURRENT_PATH.endswith("tests")
+    else f"{CURRENT_PATH}/tests/{DESCRIPTOR_NAME}"
+)
 
 
 class TestDeserializer(unittest.TestCase):
@@ -133,13 +139,7 @@ class TestDeserializer(unittest.TestCase):
         self.assertEqual(expected_value, result)
 
     def test_protobuf_deserialization(self):
-        descriptor_file_name = "protobuf/user.desc"
-        descriptor_path = (
-            f"{CURRENT_PATH}/{descriptor_file_name}"
-            if CURRENT_PATH.endswith("tests")
-            else f"{CURRENT_PATH}/tests/{descriptor_file_name}"
-        )
-        deserializer = ProtobufDeserializer({"descriptor": descriptor_path, "value": "User"})
+        deserializer = ProtobufDeserializer({"descriptor": DESCRIPTOR_PATH, "value": "User"})
 
         user = User()
         user.name = "my name"
@@ -148,13 +148,7 @@ class TestDeserializer(unittest.TestCase):
         self.assertEqual({"name": user.name}, result)
 
     def test_protobuf_deserialization_with_magic_byte(self):
-        descriptor_file_name = "protobuf/user.desc"
-        descriptor_path = (
-            f"{CURRENT_PATH}/{descriptor_file_name}"
-            if CURRENT_PATH.endswith("tests")
-            else f"{CURRENT_PATH}/tests/{descriptor_file_name}"
-        )
-        deserializer = ProtobufDeserializer({"descriptor": descriptor_path, "value": "User"})
+        deserializer = ProtobufDeserializer({"descriptor": DESCRIPTOR_PATH, "value": "User"})
 
         user = User()
         user.name = "my name"
