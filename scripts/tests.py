@@ -1,9 +1,13 @@
+import click
+
 from scripts import CommandProcessor
 
 
-def main() -> None:
+@click.command()
+@click.option("--e2e", "e2e", is_flag=True, help="Run e2e tests.")
+def main(e2e: bool) -> None:
     commands = {
-        "executing tests": "poetry run python -m unittest -v",
+        "executing tests": f"poetry run python -m unittest discover -v {"tests-e2e" if e2e else "tests"}",
     }
     command_processor = CommandProcessor(commands)
     command_processor.run()
