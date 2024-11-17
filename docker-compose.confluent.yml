@@ -1,3 +1,7 @@
+networks:
+  default:
+    name: sandbox
+
 services:
   kafka1:
     image: confluentinc/cp-kafka:${CP_VERSION}
@@ -96,6 +100,17 @@ services:
       retries: 5
       start_period: 30s
 
-networks:
-  default:
-    name: sandbox
+  akhq:
+    image: tchiotludo/akhq:latest
+    ports:
+      - "8080:8080"
+    restart: on-failure
+    environment:
+      AKHQ_CONFIGURATION: |
+        akhq:
+          connections:
+            kafka:
+              properties:
+                bootstrap.servers: kafka1:9092,kafka2:9092,kafka3:9092
+              schema-registry:
+                url: http://schema-registry:8081

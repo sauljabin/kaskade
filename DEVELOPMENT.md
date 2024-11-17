@@ -103,11 +103,21 @@ python -m scripts.bump patch
 
 ### Manual Tests
 
-Run local cluster:
+Run local sandbox:
 
 ```bash
-docker compose up -d
+docker compose -f docker-compose.confluent.yml up -d
+docker compose -f docker-compose.redpanda.yml up -d
 ```
+
+Stop sandbox:
+
+```bash
+docker compose -f docker-compose.confluent.yml down -v
+docker compose -f docker-compose.redpanda.yml down -v
+```
+
+> Use the docker-compose file you need.
 
 Populate kafka:
 
@@ -177,10 +187,10 @@ Test consumer protobuf:
 
 > Install `protoc` with `brew install protobuf`
 
+If there is a change in the protobuf files generate the classes with:
+
 ```bash
-protoc --include_imports --descriptor_set_out=my-descriptor.desc \
-       --proto_path="${KAFKA_SANDBOX_PATH}/kafka-protobuf/src/main/proto/" \
-       "${KAFKA_SANDBOX_PATH}/kafka-protobuf/src/main/proto/Invoice.proto"
+python -m scripts.protobuf
 ```
 
 ```bash

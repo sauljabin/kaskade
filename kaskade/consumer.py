@@ -309,7 +309,8 @@ class ListRecords(Container):
             )
 
             for record in records:
-                self.records[str(record)] = record
+                record_id = str(record)
+                self.records[record_id] = record
                 key_and_value = Table(box=None, show_header=False, padding=0)
                 key_and_value.add_column(style="bold", width=7)
                 key_and_value.add_column(overflow="ellipsis", width=43, no_wrap=True)
@@ -322,7 +323,7 @@ class ListRecords(Container):
                     str(record.offset),
                     str(record.headers_count()),
                 ]
-                table.add_row(*row, height=2, key=str(record))
+                table.add_row(*row, height=2, key=record_id)
             table.border_title = self._get_title()
         except Exception as ex:
             notify_error(self.app, "error consuming records", ex)

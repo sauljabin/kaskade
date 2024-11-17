@@ -40,6 +40,8 @@ types-toml = "*"
 changeloggh = "*"
 textual-dev = "*"
 typos = "*"
+parameterized = "*"
+testcontainers = "*"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

@@ -38,3 +38,16 @@ def pack_bytes(struct_format: str, data: Any) -> bytes:
 def file_to_bytes(str_path: str) -> bytes:
     path = Path(str_path).expanduser()
     return path.read_bytes()
+
+
+def load_properties(filepath: str, sep: str = "=", comment_char: str = "#") -> dict[str, str]:
+    props = {}
+    with open(filepath, "rt") as f:
+        for line in f:
+            line = line.strip()
+            if line and not line.startswith(comment_char) and sep in line:
+                key_value = line.split(sep, maxsplit=1)
+                key = key_value[0].strip()
+                value = key_value[1].strip().strip('"')
+                props[key] = value
+    return props

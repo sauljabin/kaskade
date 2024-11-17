@@ -1,5 +1,6 @@
 import json
 import os
+
 import struct
 import unittest
 from io import BytesIO
@@ -23,6 +24,9 @@ from kaskade.deserializers import (
 )
 from tests import faker
 from tests.protobuf.user_pb2 import User
+
+
+CURRENT_PATH = os.getcwd()
 
 
 class TestDeserializer(unittest.TestCase):
@@ -131,9 +135,9 @@ class TestDeserializer(unittest.TestCase):
     def test_protobuf_deserialization(self):
         descriptor_file_name = "protobuf/user.desc"
         descriptor_path = (
-            f"{os.getcwd()}/{descriptor_file_name}"
-            if os.getcwd().endswith("tests")
-            else f"{os.getcwd()}/tests/{descriptor_file_name}"
+            f"{CURRENT_PATH}/{descriptor_file_name}"
+            if CURRENT_PATH.endswith("tests")
+            else f"{CURRENT_PATH}/tests/{descriptor_file_name}"
         )
         deserializer = ProtobufDeserializer({"descriptor": descriptor_path, "value": "User"})
 
@@ -146,9 +150,9 @@ class TestDeserializer(unittest.TestCase):
     def test_protobuf_deserialization_with_magic_byte(self):
         descriptor_file_name = "protobuf/user.desc"
         descriptor_path = (
-            f"{os.getcwd()}/{descriptor_file_name}"
-            if os.getcwd().endswith("tests")
-            else f"{os.getcwd()}/tests/{descriptor_file_name}"
+            f"{CURRENT_PATH}/{descriptor_file_name}"
+            if CURRENT_PATH.endswith("tests")
+            else f"{CURRENT_PATH}/tests/{descriptor_file_name}"
         )
         deserializer = ProtobufDeserializer({"descriptor": descriptor_path, "value": "User"})
 

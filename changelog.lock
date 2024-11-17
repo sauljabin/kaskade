@@ -8,7 +8,9 @@
                     "type": "Added",
                     "entries": [
                         "Script to populate topics",
-                        "Add --from-beginning parameter to consumer mode"
+                        "Add --from-beginning parameter to consumer mode",
+                        "Integrationg tests",
+                        "Redpanda sandbox"
                     ]
                 },
                 {

@@ -4,12 +4,12 @@ from unittest.mock import patch
 
 from click.testing import CliRunner
 
+from kaskade.configs import BOOTSTRAP_SERVERS
 from kaskade.main import cli
 from kaskade.deserializers import Format
 from tests import faker
 
 EXPECTED_TOPIC = "my.topic"
-BOOTSTRAP_SERVERS = "bootstrap.servers"
 EXPECTED_SERVER = "localhost:9092"
 
 
