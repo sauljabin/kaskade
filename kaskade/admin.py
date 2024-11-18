@@ -44,9 +44,9 @@ QUIT_SHORTCUT = "ctrl+c"
 class AdminShortcuts(Widget):
 
     SHORTCUTS = [
-        ["describe:", f"<{SUBMIT_SHORTCUT}>", "|", "show all:", f"<{BACK_SHORTCUT}>"],
+        ["describe:", f"<{SUBMIT_SHORTCUT}>", "|", "edit:", f"<{EDIT_TOPIC_SHORTCUT}>"],
         ["refresh:", f"<{REFRESH_TOPICS_SHORTCUT}>", "|", "create:", f"<{NEW_TOPIC_SHORTCUT}>"],
-        ["filter:", f"<{FILTER_TOPICS_SHORTCUT}>", "|", "edit:", f"<{EDIT_TOPIC_SHORTCUT}>"],
+        ["filter:", f"<{FILTER_TOPICS_SHORTCUT}>", "|", "show all:", f"<{BACK_SHORTCUT}>"],
         ["delete:", f"<{DELETE_TOPIC_SHORTCUT}>", "|", "quit:", f"<{QUIT_SHORTCUT}>"],
     ]
 
