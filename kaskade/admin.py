@@ -52,10 +52,10 @@ class AdminShortcuts(Widget):
 
     def render(self) -> Table:
         table = Table(box=None, show_header=False, padding=(0, 0, 0, 1))
-        table.add_column(style=PRIMARY, justify="right")
+        table.add_column(style=PRIMARY)
         table.add_column(style=SECONDARY)
         table.add_column(style=SECONDARY)
-        table.add_column(style=PRIMARY, justify="right")
+        table.add_column(style=PRIMARY)
         table.add_column(style=SECONDARY)
 
         for shortcuts in self.SHORTCUTS:
