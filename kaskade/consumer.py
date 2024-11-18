@@ -30,7 +30,7 @@ FILTER_SHORTCUT = "ctrl+f"
 class ConsumerShortcuts(Widget):
     SHORTCUTS = [
         ["more:", f"<{NEXT_SHORTCUT}>", "|", "chunk:", f"<{CHUNKS_SHORTCUT}>"],
-        ["filter:", f"<{FILTER_SHORTCUT}>", "|", "all:", f"<{BACK_SHORTCUT}>"],
+        ["filter:", f"<{FILTER_SHORTCUT}>", "|", "show all:", f"<{BACK_SHORTCUT}>"],
         ["show:", f"<{SUBMIT_SHORTCUT}>", "|", "quit:", f"<{QUIT_SHORTCUT}>"],
     ]
 
@@ -80,7 +80,7 @@ class FilterRecordScreen(ModalScreen[tuple[str, str, str, str]]):
 
         container = Container()
         container.border_title = "filter records"
-        container.border_subtitle = f"[{PRIMARY}]filter:[/] {SUBMIT_SHORTCUT} [{SECONDARY}]|[/] [{PRIMARY}]back:[/] {BACK_SHORTCUT}"
+        container.border_subtitle = f"[{PRIMARY}]filter:[/] <{SUBMIT_SHORTCUT}> [{SECONDARY}]|[/] [{PRIMARY}]back:[/] <{BACK_SHORTCUT}>"
 
         with container:
             yield input_key
@@ -126,7 +126,7 @@ class ChunkSizeScreen(ModalScreen[int]):
     def compose(self) -> ComposeResult:
         view = ListView(*self.items, initial_index=self._get_index(self.current_size))
         view.border_title = "chunk size"
-        view.border_subtitle = f"[{PRIMARY}]change:[/] {SUBMIT_SHORTCUT} [{SECONDARY}]|[/] [{PRIMARY}]back:[/] {BACK_SHORTCUT}"
+        view.border_subtitle = f"[{PRIMARY}]change:[/] <{SUBMIT_SHORTCUT}> [{SECONDARY}]|[/] [{PRIMARY}]back:[/] <{BACK_SHORTCUT}>"
         yield view
 
     def action_close(self) -> None:
@@ -150,7 +150,7 @@ class TopicScreen(ModalScreen):
     def compose(self) -> ComposeResult:
         container = ScrollableContainer()
         container.border_title = f"record \\[[{PRIMARY}]{self.topic}[/]]\\[[{PRIMARY}]{self.partition}[/]]\\[[{PRIMARY}]{self.record_offset}[/]]"
-        container.border_subtitle = f"[{PRIMARY}]back:[/] {BACK_SHORTCUT}"
+        container.border_subtitle = f"[{PRIMARY}]back:[/] <{BACK_SHORTCUT}>"
         with container:
             yield Pretty(self.data)
 
