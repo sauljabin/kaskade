@@ -29,17 +29,18 @@ FILTER_SHORTCUT = "ctrl+f"
 
 class ConsumerShortcuts(Widget):
     SHORTCUTS = [
-        [f"<{NEXT_SHORTCUT}>", "more", f"<{CHUNKS_SHORTCUT}>", "chunk"],
-        [f"<{FILTER_SHORTCUT}>", "filter", f"<{BACK_SHORTCUT}>", "all"],
-        [f"<{SUBMIT_SHORTCUT}>", "show", f"<{QUIT_SHORTCUT}>", "quit"],
+        ["more:", f"<{NEXT_SHORTCUT}>", "|", "chunk:", f"<{CHUNKS_SHORTCUT}>"],
+        ["filter:", f"<{FILTER_SHORTCUT}>", "|", "all:", f"<{BACK_SHORTCUT}>"],
+        ["show:", f"<{SUBMIT_SHORTCUT}>", "|", "quit:", f"<{QUIT_SHORTCUT}>"],
     ]
 
     def render(self) -> Table:
         table = Table(box=None, show_header=False, padding=(0, 0, 0, 1))
-        table.add_column(style=SECONDARY, justify="right")
-        table.add_column(style=PRIMARY, width=8)
-        table.add_column(style=SECONDARY, justify="right")
-        table.add_column(style=PRIMARY)
+        table.add_column(style=PRIMARY, justify="right")
+        table.add_column(style=SECONDARY)
+        table.add_column(style=SECONDARY)
+        table.add_column(style=PRIMARY, justify="right")
+        table.add_column(style=SECONDARY)
 
         for shortcuts in self.SHORTCUTS:
             table.add_row(*shortcuts)

@@ -31,7 +31,7 @@ FILTER_TOPICS_SHORTCUT = "ctrl+f"
 BACK_SHORTCUT = "escape"
 ALL_TOPICS_SHORTCUT = BACK_SHORTCUT
 SUBMIT_SHORTCUT = "enter"
-NEXT_SHORTCUT = ">"
+NEXT_SHORTCUT = "tab"
 SAVE_SHORTCUT = "ctrl+s"
 DESCRIBE_TOPIC_SHORTCUT = SUBMIT_SHORTCUT
 NEW_TOPIC_SHORTCUT = "ctrl+n"
@@ -44,18 +44,19 @@ QUIT_SHORTCUT = "ctrl+c"
 class AdminShortcuts(Widget):
 
     SHORTCUTS = [
-        [f"<{SUBMIT_SHORTCUT}>", "describe", f"<{BACK_SHORTCUT}>", "show all"],
-        [f"<{REFRESH_TOPICS_SHORTCUT}>", "refresh", f"<{NEW_TOPIC_SHORTCUT}>", "create"],
-        [f"<{FILTER_TOPICS_SHORTCUT}>", "filter", f"<{EDIT_TOPIC_SHORTCUT}>", "edit"],
-        [f"<{DELETE_TOPIC_SHORTCUT}>", "delete", f"<{QUIT_SHORTCUT}>", "quit"],
+        ["describe:", f"<{SUBMIT_SHORTCUT}>", "|", "show all:", f"<{BACK_SHORTCUT}>"],
+        ["refresh:", f"<{REFRESH_TOPICS_SHORTCUT}>", "|", "create:", f"<{NEW_TOPIC_SHORTCUT}>"],
+        ["filter:", f"<{FILTER_TOPICS_SHORTCUT}>", "|", "edit:", f"<{EDIT_TOPIC_SHORTCUT}>"],
+        ["delete:", f"<{DELETE_TOPIC_SHORTCUT}>", "|", "quit:", f"<{QUIT_SHORTCUT}>"],
     ]
 
     def render(self) -> Table:
         table = Table(box=None, show_header=False, padding=(0, 0, 0, 1))
-        table.add_column(style=SECONDARY, justify="right")
-        table.add_column(style=PRIMARY, width=10)
-        table.add_column(style=SECONDARY, justify="right")
-        table.add_column(style=PRIMARY)
+        table.add_column(style=PRIMARY, justify="right")
+        table.add_column(style=SECONDARY)
+        table.add_column(style=SECONDARY)
+        table.add_column(style=PRIMARY, justify="right")
+        table.add_column(style=SECONDARY)
 
         for shortcuts in self.SHORTCUTS:
             table.add_row(*shortcuts)
@@ -76,7 +77,7 @@ class FilterTopicsScreen(ModalScreen[str]):
     def compose(self) -> ComposeResult:
         input_filter = Input(placeholder="word to match")
         input_filter.border_title = "filter topics"
-        input_filter.border_subtitle = f"[{PRIMARY}]filter:[/] {SUBMIT_SHORTCUT} [{SECONDARY}]|[/] [{PRIMARY}]back:[/] {BACK_SHORTCUT}"
+        input_filter.border_subtitle = f"[{PRIMARY}]filter:[/] <{SUBMIT_SHORTCUT}> [{SECONDARY}]|[/] [{PRIMARY}]back:[/] <{BACK_SHORTCUT}>"
         yield input_filter
 
     def on_input_submitted(self, event: Input.Submitted) -> None:
@@ -96,7 +97,7 @@ class DeleteTopicScreen(ModalScreen[bool]):
     def compose(self) -> ComposeResult:
         label = Input(placeholder="type the topic's name")
         label.border_title = f"delete topic [[{PRIMARY}]{self.topic}[/]]"
-        label.border_subtitle = f"[{PRIMARY}]delete:[/] {SUBMIT_SHORTCUT} [{SECONDARY}]|[/] [{PRIMARY}]cancel:[/] {BACK_SHORTCUT}"
+        label.border_subtitle = f"[{PRIMARY}]delete:[/] <{SUBMIT_SHORTCUT}> [{SECONDARY}]|[/] [{PRIMARY}]cancel:[/] <{BACK_SHORTCUT}>"
         yield label
 
     def on_input_submitted(self, event: Input.Submitted) -> None:
@@ -121,7 +122,7 @@ class DescribeTopicScreen(ModalScreen):
         table: DataTable = DataTable()
         table.cursor_type = "row"
         table.zebra_stripes = True
-        table.border_subtitle = f"[{PRIMARY}]next:[/] {NEXT_SHORTCUT} [{SECONDARY}]|[/] [{PRIMARY}]back:[/] {BACK_SHORTCUT}"
+        table.border_subtitle = f"[{PRIMARY}]next:[/] <{NEXT_SHORTCUT}> [{SECONDARY}]|[/] [{PRIMARY}]back:[/] <{BACK_SHORTCUT}>"
         yield table
 
     def on_mount(self) -> None:
@@ -239,7 +240,7 @@ class EditTopicScreen(ModalScreen[bool]):
 
         container = Container()
         container.border_title = f"edit topic [[{PRIMARY}]{self.topic_name}[/]]"
-        container.border_subtitle = f"[{PRIMARY}]save:[/] {SAVE_SHORTCUT} [{SECONDARY}]|[/] [{PRIMARY}]back:[/] {BACK_SHORTCUT}"
+        container.border_subtitle = f"[{PRIMARY}]save:[/] <{SAVE_SHORTCUT}> [{SECONDARY}]|[/] [{PRIMARY}]back:[/] <{BACK_SHORTCUT}>"
 
         with container:
             yield input_partitions
@@ -302,7 +303,7 @@ class CreateTopicScreen(ModalScreen[NewTopic]):
 
         container = Container()
         container.border_title = "create topic"
-        container.border_subtitle = f"[{PRIMARY}]create:[/] {SAVE_SHORTCUT} [{SECONDARY}]|[/] [{PRIMARY}]back:[/] {BACK_SHORTCUT}"
+        container.border_subtitle = f"[{PRIMARY}]create:[/] <{SAVE_SHORTCUT}> [{SECONDARY}]|[/] [{PRIMARY}]back:[/] <{BACK_SHORTCUT}>"
 
         with container:
             yield input_name
