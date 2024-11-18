@@ -6,6 +6,7 @@ Header {
    height: 6;
    layout: horizontal;
    dock: top;
+   background: $surface;
 }
 
 KaskadeBanner {
@@ -14,13 +15,13 @@ KaskadeBanner {
 }
 
 ConsumerShortcuts {
-    width: 27;
+    width: 33;
     dock: right;
     margin: 1 1 0 0;
 }
 
 AdminShortcuts {
-    width: 31;
+    width: 38;
     dock: right;
     margin: 1 1 0 0;
 }
@@ -41,11 +42,12 @@ DataTable {
 
 DataTable:focus {
     border: $kaskade-green;
+    background-tint: $surface;
 }
 
 DataTable > .datatable--header {
     text-style: bold;
-    background: $surface;
+    background-tint: $surface;
     color: $kaskade-orchid;
 }
 
@@ -60,17 +62,12 @@ DataTable > .datatable--hover {
 }
 
 DataTable > .datatable--cursor {
-    background: $kaskade-green 80%;
+    background: $kaskade-green 70%;
     color: $text;
 }
 
 DataTable > .datatable--fixed {
     background: $surface;
-    color: $text;
-}
-
-DataTable > .datatable--fixed-cursor {
-    background: $kaskade-green 80%;
     color: $text;
 }
 
@@ -83,15 +80,7 @@ DeleteTopicScreen {
 }
 
 DeleteTopicScreen > Input {
-    border: solid $kaskade-green;
-    background: $surface;
     width: 60%;
-    padding: 0 0 0 1;
-}
-
-DeleteTopicScreen > Input:focus {
-    border: solid $kaskade-green;
-    background: $surface;
 }
 
 FilterTopicsScreen {
@@ -99,15 +88,7 @@ FilterTopicsScreen {
 }
 
 FilterTopicsScreen > Input {
-    padding: 0 0 0 1;
-    border: solid $kaskade-green 50%;
-    background: $surface;
     width: 60%;
-}
-
-FilterTopicsScreen > Input:focus {
-    border: $kaskade-green;
-    background: $surface;
 }
 
 .-textual-loading-indicator {
@@ -125,28 +106,6 @@ CreateTopicScreen > Container {
     height: 21;
     background: $surface;
     padding: 0 1 0 1;
-}
-
-CreateTopicScreen > Container > Input {
-    padding: 0 0 0 1;
-    border: solid $kaskade-green 50%;
-    background: $surface;
-}
-
-CreateTopicScreen > Container > Input:focus {
-    border: $kaskade-green;
-    background: $surface;
-}
-
-CreateTopicScreen > Container > RadioSet {
-    border: solid $kaskade-green 50%;
-    width: 100%;
-    background: $surface;
-}
-
-CreateTopicScreen > Container > RadioSet:focus {
-    border: $kaskade-green;
-    background: $surface;
 }
 
 TopicScreen > ScrollableContainer {
@@ -175,25 +134,47 @@ EditTopicScreen > Container {
     padding: 0 1 0 1;
 }
 
-EditTopicScreen > Container > Input {
+Input {
     padding: 0 0 0 1;
     border: solid $kaskade-green 50%;
-    background: $surface;
+    background-tint: $surface;
 }
 
-EditTopicScreen > Container > Input:focus {
+Input:focus {
     border: $kaskade-green;
     background: $surface;
 }
 
-EditTopicScreen > Container > RadioSet {
+RadioSet {
     border: solid $kaskade-green 50%;
     width: 100%;
-    background: $surface;
+    background-tint: $surface;
 }
 
-EditTopicScreen > Container > RadioSet:focus {
+RadioSet:focus {
     border: $kaskade-green;
+    background-tint: $surface;
+}
+
+RadioSet > RadioButton > .toggle--button {
+    background-tint: $surface-lighten-1;
+    color: $surface;
+}
+
+RadioSet > RadioButton.-selected {
+    background-tint: $surface;
+}
+
+RadioSet > RadioButton.-selected .toggle--button {
+    background-tint: $surface-lighten-2;
+}
+
+RadioSet > RadioButton.-on .toggle--button {
+    background-tint: $surface-lighten-3;
+    color: $kaskade-green;
+}
+
+RadioSet > RadioButton:blur:hover > .toggle--label {
     background: $surface;
 }
 
@@ -207,10 +188,11 @@ ChunkSizeScreen > ListView {
     height: 6;
     background: $surface;
     padding: 0 1 0 1;
+    background-tint: $surface;
 }
 
-ChunkSizeScreen > ListView > ListItem.--highlight {
-    background: $kaskade-green 90%;
+ChunkSizeScreen > ListView:focus > ListItem.-highlight > Widget {
+    background: $kaskade-green 70%;
 }
 
 ChunkSizeScreen > ListView > ListItem  {
@@ -227,15 +209,4 @@ FilterRecordScreen > Container {
     height: 14;
     background: $surface;
     padding: 0 1 0 1;
-}
-
-FilterRecordScreen > Container > Input {
-    padding: 0 0 0 1;
-    border: solid $kaskade-green 50%;
-    background: $surface;
-}
-
-FilterRecordScreen > Container > Input:focus {
-    border: $kaskade-green;
-    background: $surface;
 }

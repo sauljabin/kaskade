@@ -18,6 +18,12 @@
                     "entries": [
                         "Using records instead of messages"
                     ]
+                },
+                {
+                    "type": "Fixed",
+                    "entries": [
+                        "CSS Styles"
+                    ]
                 }
             ]
         },

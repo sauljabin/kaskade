@@ -27,7 +27,7 @@ from kaskade.unicodes import APPROXIMATION
 from kaskade.utils import notify_error
 
 REFRESH_TABLE_DELAY = 1
-FILTER_TOPICS_SHORTCUT = "/"
+FILTER_TOPICS_SHORTCUT = "ctrl+f"
 BACK_SHORTCUT = "escape"
 ALL_TOPICS_SHORTCUT = BACK_SHORTCUT
 SUBMIT_SHORTCUT = "enter"
@@ -44,18 +44,18 @@ QUIT_SHORTCUT = "ctrl+c"
 class AdminShortcuts(Widget):
 
     SHORTCUTS = [
-        ["all:", BACK_SHORTCUT, "show:", SUBMIT_SHORTCUT],
-        ["refresh:", REFRESH_TOPICS_SHORTCUT, "create:", NEW_TOPIC_SHORTCUT],
-        ["filter:", FILTER_TOPICS_SHORTCUT, "edit:", EDIT_TOPIC_SHORTCUT],
-        ["quit:", QUIT_SHORTCUT, "delete:", DELETE_TOPIC_SHORTCUT],
+        [f"<{SUBMIT_SHORTCUT}>", "describe", f"<{BACK_SHORTCUT}>", "show all"],
+        [f"<{REFRESH_TOPICS_SHORTCUT}>", "refresh", f"<{NEW_TOPIC_SHORTCUT}>", "create"],
+        [f"<{FILTER_TOPICS_SHORTCUT}>", "filter", f"<{EDIT_TOPIC_SHORTCUT}>", "edit"],
+        [f"<{DELETE_TOPIC_SHORTCUT}>", "delete", f"<{QUIT_SHORTCUT}>", "quit"],
     ]
 
     def render(self) -> Table:
         table = Table(box=None, show_header=False, padding=(0, 0, 0, 1))
+        table.add_column(style=SECONDARY, justify="right")
+        table.add_column(style=PRIMARY, width=10)
+        table.add_column(style=SECONDARY, justify="right")
         table.add_column(style=PRIMARY)
-        table.add_column(style=SECONDARY)
-        table.add_column(style=PRIMARY)
-        table.add_column(style=SECONDARY)
 
         for shortcuts in self.SHORTCUTS:
             table.add_row(*shortcuts)
