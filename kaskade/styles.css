@@ -15,13 +15,13 @@ KaskadeBanner {
 }
 
 ConsumerShortcuts {
-    width: 33;
+    width: 35;
     dock: right;
     margin: 1 1 0 0;
 }
 
 AdminShortcuts {
-    width: 38;
+    width: 40;
     dock: right;
     margin: 1 1 0 0;
 }
