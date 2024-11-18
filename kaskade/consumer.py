@@ -227,7 +227,7 @@ class ListRecords(Container):
         table.border_title = self._get_title()
 
         table.add_column("message", width=50)
-        table.add_column("datetime", width=10)
+        table.add_column("datetime", width=23)
         table.add_column("partition", width=9)
         table.add_column("offset", width=9)
         table.add_column("headers", width=9)

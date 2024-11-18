@@ -117,7 +117,7 @@ class ConsumerService:
 
             timestamp_available, timestamp = record_metadata.timestamp()
             date = (
-                datetime.fromtimestamp(timestamp / 1000).strftime("%Y-%m-%d %H:%M:%S")
+                datetime.fromtimestamp(timestamp / 1000).strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
                 if timestamp_available > 0
                 else ""
             )
