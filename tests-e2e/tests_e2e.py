@@ -9,7 +9,7 @@ from confluent_kafka import Producer
 from confluent_kafka.admin import AdminClient
 from confluent_kafka.cimpl import NewTopic
 from parameterized import parameterized
-from testcontainers.kafka import KafkaContainer
+from testcontainers.kafka import KafkaContainer, RedpandaContainer
 from textual.widgets import DataTable
 from textual.widgets._data_table import RowKey
 
@@ -32,8 +32,7 @@ CP_VERSION = SANDBOX_PROPERTIES["CP_VERSION"]
 RP_VERSION = SANDBOX_PROPERTIES["RP_VERSION"]
 KAFKA_IMPLEMENTATIONS = [
     KafkaContainer(f"confluentinc/cp-kafka:{CP_VERSION}").with_kraft(),
-    # waiting for https://github.com/confluentinc/confluent-kafka-python/issues/1842
-    # RedpandaContainer(f"docker.redpanda.com/redpandadata/redpanda:{RP_VERSION}"),
+    RedpandaContainer(f"docker.redpanda.com/redpandadata/redpanda:{RP_VERSION}"),
 ]
 
 
@@ -60,6 +59,7 @@ class TestE2E(unittest.IsolatedAsyncioTestCase):
 
             admin_app = KaskadeAdmin(config)
             async with admin_app.run_test():
+                await asyncio.sleep(10)
                 table = admin_app.query_one(DataTable)
                 self.assertEqual(1, len(table.rows))
 
