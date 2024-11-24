@@ -87,7 +87,7 @@ class GroupPartition:
         return str(self.id)
 
     def lag_count(self) -> int:
-        if self.high < 0:
+        if self.high <= 0:
             return 0
         elif self.offset < 0:
             return self.high - self.low
