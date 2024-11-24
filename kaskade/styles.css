@@ -46,13 +46,13 @@ DataTable:focus {
 }
 
 DataTable > .datatable--header {
-    text-style: bold;
+    text-style: none;
     background-tint: $surface;
     color: $kaskade-orchid;
 }
 
 DataTable > .datatable--header-hover {
-    text-style: bold;
+    text-style: none;
     background: $surface;
     color: $kaskade-orchid;
 }

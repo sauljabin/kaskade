@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add --from-beginning parameter to consumer mode
 - Integration tests
 - Redpanda sandbox
+- Tested with Redpanda
 
 ### Changed
 
