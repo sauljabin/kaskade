@@ -118,9 +118,9 @@ kaskade consumer -b my-kafka:9092 -t my-topic --from-beginning
 #### Schema registry simple connection and avro deserialization:
 
 ```bash
-kaskade consumer -b my-kafka:9092 \
-        -s url=http://my-schema-registry:8081 \
-        -t my-topic -k avro -v avro
+kaskade consumer -b my-kafka:9092 -t my-topic \
+        -k avro -v avro \
+        --schema-registry url=http://my-schema-registry:8081
 ```
 
 > For more information about Schema Registry configurations go
@@ -146,16 +146,15 @@ kaskade admin -b ${BOOTSTRAP_SERVERS} \
 ```
 
 ```bash
-kaskade consumer -b ${BOOTSTRAP_SERVERS} \
+kaskade consumer -b ${BOOTSTRAP_SERVERS} -t my-topic \
+        -k string -v avro \
         -x security.protocol=SASL_SSL \
         -x sasl.mechanism=PLAIN \
         -x sasl.username=${CLUSTER_API_KEY} \
         -x sasl.password=${CLUSTER_API_SECRET} \
-        -s url=${SCHEMA_REGISTRY_URL} \
-        -s basic.auth.user.info=${SR_API_KEY}:${SR_API_SECRET} \
-        -t my-topic \
-        -k string \
-        -v avro
+        --schema-registry url=${SCHEMA_REGISTRY_URL} \
+        --schema-registry basic.auth.user.info=${SR_API_KEY}:${SR_API_SECRET}
+
 ```
 
 > More about confluent cloud configuration

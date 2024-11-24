@@ -182,26 +182,19 @@ kaskade consumer -b localhost:19092 --from-beginning -k string -v json -t json
 Test consumer with Schema Registry:
 
 ```bash
-kaskade consumer -b localhost:19092 --from-beginning -s url=http://localhost:8081 -t schemas.json
-```
-
-```bash
-kaskade consumer -b localhost:19092 --from-beginning -s url=http://localhost:8081 -t schemas.avro
+kaskade consumer -b localhost:19092 --from-beginning -t avro \
+        -k string -v avro \
+        --schema-registry url=http://localhost:8081
 ```
 
 Test consumer with protobuf:
 
-> Install `protoc` with `brew install protobuf`
-
-Update descriptor with:
-
-```bash
-python -m scripts.protobuf
-```
+> Install `protoc` with `brew install protobuf`.\
+> Update descriptor with `python -m scripts.protobuf`.
 
 ```bash
-kaskade consumer -b localhost:19092 --from-beginning \
-        -k string -v protobuf -t protobuf \
+kaskade consumer -b localhost:19092 --from-beginning -t protobuf \
+        -k string -v protobuf \
         --protobuf descriptor=tests/protobuf/user.desc \
         --protobuf value=User
 ```

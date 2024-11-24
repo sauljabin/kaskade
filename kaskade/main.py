@@ -136,9 +136,9 @@ def admin(
 @cloup.option_group(
     "Schema Registry options",
     cloup.option(
-        "-s",
+        "--schema-registry",
         "schema_registry_config",
-        help="Schema Registry property. Set a SchemaRegistryClient property. Multiple '-s' are allowed. Needed if '-k avro' "
+        help="Schema Registry property. Set a SchemaRegistryClient property. Multiple '--schema-registry' are allowed. Needed if '-k avro' "
         "or '-v avro' were passed.",
         metavar="property=value",
         multiple=True,
@@ -176,7 +176,7 @@ def consumer(
       kaskade consumer -b localhost:9092 -t my-topic --from-beginning
       kaskade consumer -b localhost:9092 -t my-topic -x security.protocol=SSL
       kaskade consumer -b localhost:9092 -t my-topic -v json
-      kaskade consumer -b localhost:9092 -t my-topic -v avro -s url=http://localhost:8081
+      kaskade consumer -b localhost:9092 -t my-topic -v avro --schema-registry url=http://localhost:8081
       kaskade consumer -b localhost:9092 -t my-topic -v protobuf --protobuf descriptor=my-descriptor.desc --protobuf value=MyMessage
     """
     kafka_config[BOOTSTRAP_SERVERS] = bootstrap_servers
@@ -206,14 +206,14 @@ def validate_schema_registry(
 
     if config_size == 0:
         if key_format == Format.AVRO or value_format == Format.AVRO:
-            raise MissingParameter(param_hint="'-s'", param_type="option")
+            raise MissingParameter(param_hint="'--schema-registry'", param_type="option")
 
     if config_size > 0:
         if key_format != Format.AVRO and value_format != Format.AVRO:
             raise MissingParameter(param_hint="'-k avro' and/or '-v avro'", param_type="option")
 
         if url is None:
-            raise MissingParameter(param_hint="'-s url=my-url'", param_type="option")
+            raise MissingParameter(param_hint="'--schema-registry url=my-url'", param_type="option")
 
         if not url.startswith("http://") and not url.startswith("https://"):
             raise BadParameter("Invalid url.")

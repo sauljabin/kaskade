@@ -113,10 +113,12 @@ class TestConsumerCli(unittest.TestCase):
         self.assertIn("Invalid value for '-x': Should be property=value", result.output)
 
     def test_invalid_schema_registry_config(self):
-        result = self.runner.invoke(cli, [self.command, "-s", "property.name"])
+        result = self.runner.invoke(cli, [self.command, "--schema-registry", "property.name"])
 
         self.assertGreater(result.exit_code, 0)
-        self.assertIn("Invalid value for '-s': Should be property=value", result.output)
+        self.assertIn(
+            "Invalid value for '--schema-registry': Should be property=value", result.output
+        )
 
     def test_invalid_protobuf_config(self):
         result = self.runner.invoke(cli, [self.command, "--protobuf", "property.name"])
@@ -175,7 +177,7 @@ class TestConsumerCli(unittest.TestCase):
                 EXPECTED_SERVER,
                 "-t",
                 EXPECTED_TOPIC,
-                "-s",
+                "--schema-registry",
                 "basic.auth.user.info=property",
                 "-k",
                 "avro",
@@ -183,12 +185,20 @@ class TestConsumerCli(unittest.TestCase):
         )
 
         self.assertGreater(result.exit_code, 0)
-        self.assertIn("Missing option '-s url=my-url'", result.output)
+        self.assertIn("Missing option '--schema-registry url=my-url'", result.output)
 
     def test_validate_schema_registry_invalid_config(self):
         result = self.runner.invoke(
             cli,
-            [self.command, "-b", EXPECTED_SERVER, "-t", EXPECTED_TOPIC, "-s", "not.valid=property"],
+            [
+                self.command,
+                "-b",
+                EXPECTED_SERVER,
+                "-t",
+                EXPECTED_TOPIC,
+                "--schema-registry",
+                "not.valid=property",
+            ],
         )
 
         self.assertGreater(result.exit_code, 0)
@@ -197,7 +207,15 @@ class TestConsumerCli(unittest.TestCase):
     def test_validate_schema_registry_format(self):
         result = self.runner.invoke(
             cli,
-            [self.command, "-b", EXPECTED_SERVER, "-t", EXPECTED_TOPIC, "-s", "url=http://my-url"],
+            [
+                self.command,
+                "-b",
+                EXPECTED_SERVER,
+                "-t",
+                EXPECTED_TOPIC,
+                "--schema-registry",
+                "url=http://my-url",
+            ],
         )
 
         self.assertGreater(result.exit_code, 0)
@@ -212,7 +230,7 @@ class TestConsumerCli(unittest.TestCase):
                 EXPECTED_SERVER,
                 "-t",
                 EXPECTED_TOPIC,
-                "-s",
+                "--schema-registry",
                 "url=no.url",
                 "-k",
                 "avro",
@@ -228,7 +246,7 @@ class TestConsumerCli(unittest.TestCase):
         )
 
         self.assertGreater(result.exit_code, 0)
-        self.assertIn("Missing option '-s'", result.output)
+        self.assertIn("Missing option '--schema-registry'", result.output)
 
     def test_validate_schema_registry_is_needed_with_avro_value(self):
         result = self.runner.invoke(
@@ -236,7 +254,7 @@ class TestConsumerCli(unittest.TestCase):
         )
 
         self.assertGreater(result.exit_code, 0)
-        self.assertIn("Missing option '-s'", result.output)
+        self.assertIn("Missing option '--schema-registry'", result.output)
 
     @patch("kaskade.main.KaskadeConsumer")
     def test_update_kafka_config(self, mock_class_kaskade_consumer):
@@ -360,9 +378,9 @@ class TestConsumerCli(unittest.TestCase):
                 EXPECTED_SERVER,
                 "-t",
                 EXPECTED_TOPIC,
-                "-s",
+                "--schema-registry",
                 f"{expected_property_name}={expected_property_value}",
-                "-s",
+                "--schema-registry",
                 f"{expected_property_name2}={expected_property_value2}",
                 "-k",
                 "avro",
