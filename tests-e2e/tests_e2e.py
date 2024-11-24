@@ -19,7 +19,8 @@ from kaskade.consumer import KaskadeConsumer
 from kaskade.deserializers import Format
 from kaskade.utils import load_properties
 
-
+MY_VALUE = "my-value"
+MY_KEY = "my-key"
 MY_TOPIC = "my-topic"
 
 
@@ -45,7 +46,7 @@ def create_topic(config):
 
 def populate_topic(config):
     producer = Producer(config)
-    producer.produce(MY_TOPIC, key="my-key", value="my-value")
+    producer.produce(MY_TOPIC, key=MY_KEY, value=MY_VALUE)
     producer.flush()
 
 
@@ -92,8 +93,8 @@ class TestE2E(unittest.IsolatedAsyncioTestCase):
                 first_column = list(first_row.values())[0]
                 string_out = StringIO()
                 rich.print(first_column, file=string_out)
-                self.assertIn("my-key", string_out.getvalue())
-                self.assertIn("my-value", string_out.getvalue())
+                self.assertIn(MY_KEY, string_out.getvalue())
+                self.assertIn(MY_VALUE, string_out.getvalue())
 
 
 if __name__ == "__main__":
