@@ -17,18 +17,30 @@
 ## Kaskade
 
 Kaskade is a text user interface (TUI) for Apache Kafka, built with [Textual](https://github.com/Textualize/textual)
-by [Textualize](https://www.textualize.io/). It includes features like:
+by [Textualize](https://www.textualize.io/).
 
-- Admin:
-    - List topics, partitions, groups and group members.
-    - Topic information like lag, replicas and records count.
-    - Create, edit and delete topics.
-    - Filter topics by name.
-- Consumer:
-    - Json, string, integer, long, float, boolean and double deserialization.
-    - Filter by key, value, header and/or partition.
-    - Schema Registry support with avro.
-    - Protobuf deserialization support.
+It includes features like:
+
+### Admin
+
+- List topics, partitions, groups and group members.
+- Topic information like lag, replicas and records count.
+- Create, edit and delete topics.
+- Filter topics by name.
+
+### Consumer
+
+- Json, string, integer, long, float, boolean and double deserialization.
+- Filter by key, value, header and/or partition.
+- Schema Registry support for avro and json.
+- Protobuf deserialization support without Schema Registry.
+
+## Limitations
+
+Kaskade does not include:
+
+- Schema Registry for protobuf.
+- Avro deserialization without Schema Registry.
 
 ## Screenshots
 
@@ -184,7 +196,8 @@ Consume using `my-descriptor.desc` file:
 kaskade consumer -b my-kafka:9092 --from-beginning \
         -k string -v protobuf \
         -t my-protobuf-topic \
-        -p descriptor=my-descriptor.desc -p value=mypackage.MyMessage
+        --protobuf descriptor=my-descriptor.desc \
+        --protobuf value=mypackage.MyMessage
 ```
 
 > More about protobuf and `FileDescriptorSet` at: [Protocol Buffers Documentation](https://protobuf.dev/programming-guides/techniques/#self-description).

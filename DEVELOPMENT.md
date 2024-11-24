@@ -202,6 +202,6 @@ python -m scripts.protobuf
 ```bash
 kaskade consumer -b localhost:19092 --from-beginning \
         -k string -v protobuf -t protobuf \
-        -p descriptor=tests/protobuf/user.desc \
-        -p value=User
+        --protobuf descriptor=tests/protobuf/user.desc \
+        --protobuf value=User
 ```
