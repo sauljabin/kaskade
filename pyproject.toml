@@ -24,7 +24,7 @@ packages = [
 [tool.poetry.dependencies]
 python = ">=3.10 <3.14"
 cloup = "^3.0"
-textual =  "^0.86"
+textual =  "^0.87"
 confluent-kafka = {extras = ["avro", "json", "protobuf"], version = "^2.6"}
 
 [tool.poetry.dev-dependencies]
