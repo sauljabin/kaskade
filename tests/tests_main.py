@@ -119,10 +119,10 @@ class TestConsumerCli(unittest.TestCase):
         self.assertIn("Invalid value for '-s': Should be property=value", result.output)
 
     def test_invalid_protobuf_config(self):
-        result = self.runner.invoke(cli, [self.command, "-p", "property.name"])
+        result = self.runner.invoke(cli, [self.command, "--protobuf", "property.name"])
 
         self.assertGreater(result.exit_code, 0)
-        self.assertIn("Invalid value for '-p': Should be property=value", result.output)
+        self.assertIn("Invalid value for '--protobuf': Should be property=value", result.output)
 
     def test_invalid_protobuf_file_exists(self):
         result = self.runner.invoke(
@@ -133,9 +133,9 @@ class TestConsumerCli(unittest.TestCase):
                 EXPECTED_SERVER,
                 "-t",
                 EXPECTED_TOPIC,
-                "-p",
+                "--protobuf",
                 "descriptor=not-afile",
-                "-p",
+                "--protobuf",
                 "value=MyValue",
                 "-v",
                 "protobuf",
@@ -154,9 +154,9 @@ class TestConsumerCli(unittest.TestCase):
                 EXPECTED_SERVER,
                 "-t",
                 EXPECTED_TOPIC,
-                "-p",
+                "--protobuf",
                 "descriptor=~",
-                "-p",
+                "--protobuf",
                 "value=MyValue",
                 "-v",
                 "protobuf",
@@ -392,7 +392,7 @@ class TestConsumerCli(unittest.TestCase):
         )
 
         self.assertGreater(result.exit_code, 0)
-        self.assertIn("Missing option '-p'", result.output)
+        self.assertIn("Missing option '--protobuf'", result.output)
 
     def test_validate_protobuf_format_value(self):
         result = self.runner.invoke(
@@ -400,7 +400,7 @@ class TestConsumerCli(unittest.TestCase):
         )
 
         self.assertGreater(result.exit_code, 0)
-        self.assertIn("Missing option '-p'", result.output)
+        self.assertIn("Missing option '--protobuf'", result.output)
 
     def test_validate_protobuf_missing_format(self):
         result = self.runner.invoke(
@@ -411,9 +411,9 @@ class TestConsumerCli(unittest.TestCase):
                 EXPECTED_SERVER,
                 "-t",
                 EXPECTED_TOPIC,
-                "-p",
+                "--protobuf",
                 f"descriptor={self.temp_descriptor.name}",
-                "-p",
+                "--protobuf",
                 "key=MyMessage",
             ],
         )
@@ -430,7 +430,7 @@ class TestConsumerCli(unittest.TestCase):
                 EXPECTED_SERVER,
                 "-t",
                 EXPECTED_TOPIC,
-                "-p",
+                "--protobuf",
                 f"descriptor={self.temp_descriptor.name}",
                 "-k",
                 "protobuf",
@@ -438,7 +438,7 @@ class TestConsumerCli(unittest.TestCase):
         )
 
         self.assertGreater(result.exit_code, 0)
-        self.assertIn("Missing option '-p key=MyMessage'.", result.output)
+        self.assertIn("Missing option '--protobuf key=MyMessage'.", result.output)
 
     def test_validate_protobuf_missing_value(self):
         result = self.runner.invoke(
@@ -449,7 +449,7 @@ class TestConsumerCli(unittest.TestCase):
                 EXPECTED_SERVER,
                 "-t",
                 EXPECTED_TOPIC,
-                "-p",
+                "--protobuf",
                 f"descriptor={self.temp_descriptor.name}",
                 "-v",
                 "protobuf",
@@ -457,7 +457,7 @@ class TestConsumerCli(unittest.TestCase):
         )
 
         self.assertGreater(result.exit_code, 0)
-        self.assertIn("Missing option '-p value=MyMessage'.", result.output)
+        self.assertIn("Missing option '--protobuf value=MyMessage'.", result.output)
 
     def test_validate_protobuf_invalid_option(self):
         result = self.runner.invoke(
@@ -468,9 +468,9 @@ class TestConsumerCli(unittest.TestCase):
                 EXPECTED_SERVER,
                 "-t",
                 EXPECTED_TOPIC,
-                "-p",
+                "--protobuf",
                 "descriptor=~/my-file",
-                "-p",
+                "--protobuf",
                 "not=valid",
             ],
         )
@@ -481,11 +481,19 @@ class TestConsumerCli(unittest.TestCase):
     def test_validate_protobuf_descriptor_config(self):
         result = self.runner.invoke(
             cli,
-            [self.command, "-b", EXPECTED_SERVER, "-t", EXPECTED_TOPIC, "-p", "value=MyMessage"],
+            [
+                self.command,
+                "-b",
+                EXPECTED_SERVER,
+                "-t",
+                EXPECTED_TOPIC,
+                "--protobuf",
+                "value=MyMessage",
+            ],
         )
 
         self.assertGreater(result.exit_code, 0)
-        self.assertIn("Missing option '-p descriptor=my-descriptor'", result.output)
+        self.assertIn("Missing option '--protobuf descriptor=my-descriptor'", result.output)
 
     def test_validate_protobuf_missing_key_or_value(self):
         result = self.runner.invoke(
@@ -496,7 +504,7 @@ class TestConsumerCli(unittest.TestCase):
                 EXPECTED_SERVER,
                 "-t",
                 EXPECTED_TOPIC,
-                "-p",
+                "--protobuf",
                 f"descriptor={self.temp_descriptor.name}",
             ],
         )
@@ -520,9 +528,9 @@ class TestConsumerCli(unittest.TestCase):
                 EXPECTED_SERVER,
                 "-t",
                 EXPECTED_TOPIC,
-                "-p",
+                "--protobuf",
                 f"{expected_descriptor_name}={expected_descriptor_value}",
-                "-p",
+                "--protobuf",
                 f"{expected_value_name}={expected_value}",
                 "-v",
                 "protobuf",

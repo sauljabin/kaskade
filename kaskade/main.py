@@ -148,9 +148,9 @@ def admin(
 @cloup.option_group(
     "Protobuf options",
     cloup.option(
-        "-p",
+        "--protobuf",
         "protobuf_config",
-        help="Protobuf property. Configure the protobuf deserializer. Multiple '-p' are allowed. Needed if '-k protobuf' "
+        help="Protobuf property. Configure the protobuf deserializer. Multiple '--protobuf' are allowed. Needed if '-k protobuf' "
         "or '-v protobuf' were passed. Valid properties: [descriptor: file path, key: protobuf message, value: protobuf message].",
         metavar="property=value",
         multiple=True,
@@ -177,7 +177,7 @@ def consumer(
       kaskade consumer -b localhost:9092 -t my-topic -x security.protocol=SSL
       kaskade consumer -b localhost:9092 -t my-topic -v json
       kaskade consumer -b localhost:9092 -t my-topic -v avro -s url=http://localhost:8081
-      kaskade consumer -b localhost:9092 -t my-topic -v protobuf -p descriptor=my-descriptor.desc -p value=MyMessage
+      kaskade consumer -b localhost:9092 -t my-topic -v protobuf --protobuf descriptor=my-descriptor.desc --protobuf value=MyMessage
     """
     kafka_config[BOOTSTRAP_SERVERS] = bootstrap_servers
 
@@ -230,11 +230,13 @@ def validate_protobuf(
 
     if config_size == 0:
         if key_format == Format.PROTOBUF or value_format == Format.PROTOBUF:
-            raise MissingParameter(param_hint="'-p'", param_type="option")
+            raise MissingParameter(param_hint="'--protobuf'", param_type="option")
 
     if config_size > 0:
         if descriptor_path_str is None:
-            raise MissingParameter(param_hint="'-p descriptor=my-descriptor'", param_type="option")
+            raise MissingParameter(
+                param_hint="'--protobuf descriptor=my-descriptor'", param_type="option"
+            )
 
         descriptor_path = Path(descriptor_path_str).expanduser()
 
@@ -245,10 +247,10 @@ def validate_protobuf(
             raise BadParameter("Path is a directory.")
 
         if protobuf_config.get("value") is None and value_format == Format.PROTOBUF:
-            raise MissingParameter(param_hint="'-p value=MyMessage'", param_type="option")
+            raise MissingParameter(param_hint="'--protobuf value=MyMessage'", param_type="option")
 
         if protobuf_config.get("key") is None and key_format == Format.PROTOBUF:
-            raise MissingParameter(param_hint="'-p key=MyMessage'", param_type="option")
+            raise MissingParameter(param_hint="'--protobuf key=MyMessage'", param_type="option")
 
         if key_format != Format.PROTOBUF and value_format != Format.PROTOBUF:
             raise MissingParameter(
