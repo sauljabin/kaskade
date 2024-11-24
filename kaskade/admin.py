@@ -76,8 +76,10 @@ class FilterTopicsScreen(ModalScreen[str]):
 
     def compose(self) -> ComposeResult:
         input_filter = Input(placeholder="word to match")
-        input_filter.border_title = "filter topics"
-        input_filter.border_subtitle = f"[{PRIMARY}]filter:[/] <{SUBMIT_SHORTCUT}> [{SECONDARY}]|[/] [{PRIMARY}]back:[/] <{BACK_SHORTCUT}>"
+        input_filter.border_title = f"[{PRIMARY}]filter topics[/]"
+        input_filter.border_subtitle = (
+            f"[{PRIMARY}]filter:[/] <{SUBMIT_SHORTCUT}> | [{PRIMARY}]back:[/] <{BACK_SHORTCUT}>"
+        )
         yield input_filter
 
     def on_input_submitted(self, event: Input.Submitted) -> None:
@@ -96,8 +98,10 @@ class DeleteTopicScreen(ModalScreen[bool]):
 
     def compose(self) -> ComposeResult:
         label = Input(placeholder="type the topic's name")
-        label.border_title = f"delete topic [[{PRIMARY}]{self.topic}[/]]"
-        label.border_subtitle = f"[{PRIMARY}]delete:[/] <{SUBMIT_SHORTCUT}> [{SECONDARY}]|[/] [{PRIMARY}]cancel:[/] <{BACK_SHORTCUT}>"
+        label.border_title = f"[{PRIMARY}]delete topic[/] [[{PRIMARY}]{self.topic}[/]]"
+        label.border_subtitle = (
+            f"[{PRIMARY}]delete:[/] <{SUBMIT_SHORTCUT}> | [{PRIMARY}]cancel:[/] <{BACK_SHORTCUT}>"
+        )
         yield label
 
     def on_input_submitted(self, event: Input.Submitted) -> None:
@@ -122,7 +126,9 @@ class DescribeTopicScreen(ModalScreen):
         table: DataTable = DataTable()
         table.cursor_type = "row"
         table.zebra_stripes = True
-        table.border_subtitle = f"[{PRIMARY}]next:[/] <{NEXT_SHORTCUT}> [{SECONDARY}]|[/] [{PRIMARY}]back:[/] <{BACK_SHORTCUT}>"
+        table.border_subtitle = (
+            f"[{PRIMARY}]next tab:[/] <{NEXT_SHORTCUT}> | [{PRIMARY}]back:[/] <{BACK_SHORTCUT}>"
+        )
         yield table
 
     def on_mount(self) -> None:
@@ -131,7 +137,7 @@ class DescribeTopicScreen(ModalScreen):
     def render_partitions(self) -> None:
         table = self.query_one(DataTable)
         table.clear(columns=True)
-        table.border_title = f"partitions [[{PRIMARY}]{self.topic}[/]]\\[[{PRIMARY}]{self.topic.partitions_count()}[/]]"
+        table.border_title = f"[{PRIMARY}]partitions[/] | groups | group members [[{PRIMARY}]{self.topic}[/]][[{PRIMARY}]{self.topic.partitions_count()}[/]]"
         table.add_column("id")
         table.add_column("leader")
         table.add_column("isrs")
@@ -151,9 +157,7 @@ class DescribeTopicScreen(ModalScreen):
     def render_groups(self) -> None:
         table = self.query_one(DataTable)
         table.clear(columns=True)
-        table.border_title = (
-            f"groups [[{PRIMARY}]{self.topic}[/]]\\[[{PRIMARY}]{self.topic.groups_count()}[/]]"
-        )
+        table.border_title = f"partitions | [{PRIMARY}]groups[/] | group members [[{PRIMARY}]{self.topic}[/]][[{PRIMARY}]{self.topic.groups_count()}[/]]"
         table.add_column("id")
         table.add_column("coordinator")
         table.add_column("state")
@@ -177,7 +181,7 @@ class DescribeTopicScreen(ModalScreen):
     def render_group_members(self) -> None:
         table = self.query_one(DataTable)
         table.clear(columns=True)
-        table.border_title = f"group members [[{PRIMARY}]{self.topic}[/]]\\[[{PRIMARY}]{self.topic.group_members_count()}[/]]"
+        table.border_title = f"partitions | groups | [{PRIMARY}]group members[/] [[{PRIMARY}]{self.topic}[/]][[{PRIMARY}]{self.topic.group_members_count()}[/]]"
         table.add_column("group")
         table.add_column("client id")
         table.add_column("member id")
@@ -239,8 +243,10 @@ class EditTopicScreen(ModalScreen[bool]):
         radio_set.border_title = "cleanup policy"
 
         container = Container()
-        container.border_title = f"edit topic [[{PRIMARY}]{self.topic_name}[/]]"
-        container.border_subtitle = f"[{PRIMARY}]save:[/] <{SAVE_SHORTCUT}> [{SECONDARY}]|[/] [{PRIMARY}]back:[/] <{BACK_SHORTCUT}>"
+        container.border_title = f"[{PRIMARY}]edit topic[/] [[{PRIMARY}]{self.topic_name}[/]]"
+        container.border_subtitle = (
+            f"[{PRIMARY}]save:[/] <{SAVE_SHORTCUT}> | [{PRIMARY}]back:[/] <{BACK_SHORTCUT}>"
+        )
 
         with container:
             yield input_partitions
@@ -302,8 +308,10 @@ class CreateTopicScreen(ModalScreen[NewTopic]):
         radio_set.border_title = "cleanup policy"
 
         container = Container()
-        container.border_title = "create topic"
-        container.border_subtitle = f"[{PRIMARY}]create:[/] <{SAVE_SHORTCUT}> [{SECONDARY}]|[/] [{PRIMARY}]back:[/] <{BACK_SHORTCUT}>"
+        container.border_title = f"[{PRIMARY}]create topic[/]"
+        container.border_subtitle = (
+            f"[{PRIMARY}]create:[/] <{SAVE_SHORTCUT}> | [{PRIMARY}]back:[/] <{BACK_SHORTCUT}>"
+        )
 
         with container:
             yield input_name
@@ -376,8 +384,8 @@ class ListTopics(Container):
     def compose(self) -> ComposeResult:
         table: DataTable = DataTable()
         table.cursor_type = "row"
-        table.border_title = f"[{SECONDARY}]topics \\[[{PRIMARY}]0[/]][/]"
-        table.border_subtitle = f"\\[[{PRIMARY}]admin mode[/]]"
+        table.border_title = f"[{PRIMARY}]topics[/] [[{PRIMARY}]0[/]]"
+        table.border_subtitle = f"[[{PRIMARY}]admin mode[/]]"
         table.zebra_stripes = True
 
         table.add_column("name")
@@ -541,10 +549,10 @@ class ListTopics(Container):
             table.add_row(*row, key=topic.name)
 
         border_title_filter_info = (
-            f"\\[[{PRIMARY}]*{self.current_filter}*[/]]" if self.current_filter else ""
+            f"[[{PRIMARY}]*{self.current_filter}*[/]]" if self.current_filter else ""
         )
         table.border_title = (
-            f"[{SECONDARY}]topics {border_title_filter_info}\\[[{PRIMARY}]{total_count}[/]][/]"
+            f"[{PRIMARY}]topics[/] {border_title_filter_info}[[{PRIMARY}]{total_count}[/]]"
         )
         table.focus()
 

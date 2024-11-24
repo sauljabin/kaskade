@@ -10,7 +10,8 @@
                         "Script to populate topics",
                         "Add --from-beginning parameter to consumer mode",
                         "Integration tests",
-                        "Redpanda sandbox"
+                        "Redpanda sandbox",
+                        "Tested with Redpanda"
                     ]
                 },
                 {
