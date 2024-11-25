@@ -1786,13 +1786,13 @@ weaviate = ["weaviate-client (>=4.5.4,<5.0.0)"]
 
 [[package]]
 name = "textual"
-version = "0.87.0"
+version = "0.87.1"
 description = "Modern Text User Interface framework"
 optional = false
 python-versions = "<4.0.0,>=3.8.1"
 files = [
-    {file = "textual-0.87.0-py3-none-any.whl", hash = "sha256:e0f3e51e9568b7639011e4eb07082e8d0179576ea35df1a2181daabc7ba4c108"},
-    {file = "textual-0.87.0.tar.gz", hash = "sha256:15638863197dcc08f906523ef60341be754269b29fd656625a716aef7503d45e"},
+    {file = "textual-0.87.1-py3-none-any.whl", hash = "sha256:026d1368cd10610a72a9d3de7a56692a17e7e8dffa0468147eb8e186ba0ff0c0"},
+    {file = "textual-0.87.1.tar.gz", hash = "sha256:daf4e248ba3d890831ff2617099535eb835863a2e3609c8ce00af0f6d55ed123"},
 ]
 
 [package.dependencies]

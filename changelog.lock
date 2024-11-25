@@ -11,19 +11,24 @@
                         "Add --from-beginning parameter to consumer mode",
                         "Integration tests",
                         "Redpanda sandbox",
-                        "Tested with Redpanda"
+                        "Tested with Redpanda",
+                        "Tabs for describe topic view",
+                        "Test with apicurio"
                     ]
                 },
                 {
                     "type": "Changed",
                     "entries": [
-                        "Using records instead of messages"
+                        "Using records instead of messages",
+                        "Schema registry parameter from -s to --schema-registry",
+                        "Protobuf parameter from -p to --protobuf"
                     ]
                 },
                 {
                     "type": "Fixed",
                     "entries": [
-                        "CSS Styles"
+                        "CSS Styles",
+                        "Partition group lag"
                     ]
                 }
             ]

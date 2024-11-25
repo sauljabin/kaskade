@@ -29,11 +29,11 @@ PROPERTIES_PATH = (
     f"{CURRENT_PATH}/../.env" if CURRENT_PATH.endswith("tests-e2e") else f"{CURRENT_PATH}/.env"
 )
 SANDBOX_PROPERTIES = load_properties(PROPERTIES_PATH)
-CP_VERSION = SANDBOX_PROPERTIES["CP_VERSION"]
-RP_VERSION = SANDBOX_PROPERTIES["RP_VERSION"]
+CONFLUENT_VERSION = SANDBOX_PROPERTIES["CONFLUENT_VERSION"]
+REDPANDA_VERSION = SANDBOX_PROPERTIES["REDPANDA_VERSION"]
 KAFKA_IMPLEMENTATIONS = [
-    KafkaContainer(f"confluentinc/cp-kafka:{CP_VERSION}").with_kraft(),
-    RedpandaContainer(f"docker.redpanda.com/redpandadata/redpanda:{RP_VERSION}"),
+    KafkaContainer(f"confluentinc/cp-kafka:{CONFLUENT_VERSION}").with_kraft(),
+    RedpandaContainer(f"docker.redpanda.com/redpandadata/redpanda:{REDPANDA_VERSION}"),
 ]
 
 

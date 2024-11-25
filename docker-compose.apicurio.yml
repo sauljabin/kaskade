@@ -4,7 +4,7 @@ networks:
 
 services:
   kafka1:
-    image: confluentinc/cp-kafka:${CONFLUENT_VERSION}
+    image: apache/kafka:${KAFKA_VERSION}
     environment:
       KAFKA_NODE_ID: 1
       KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka1:9092,EXTERNAL://localhost:19092
@@ -22,14 +22,14 @@ services:
       - "19092:19092"
     restart: on-failure
     healthcheck:
-      test: kafka-topics --bootstrap-server localhost:9092 --list > /dev/null 2>&1
+      test: /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list > /dev/null 2>&1
       interval: 10s
       timeout: 10s
       retries: 5
       start_period: 10s
 
   kafka2:
-    image: confluentinc/cp-kafka:${CONFLUENT_VERSION}
+    image: apache/kafka:${KAFKA_VERSION}
     environment:
       KAFKA_NODE_ID: 2
       KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka2:9092,EXTERNAL://localhost:29092
@@ -47,14 +47,14 @@ services:
       - "29092:29092"
     restart: on-failure
     healthcheck:
-      test: kafka-topics --bootstrap-server localhost:9092 --list > /dev/null 2>&1
+      test: /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list > /dev/null 2>&1
       interval: 10s
       timeout: 10s
       retries: 5
       start_period: 10s
 
   kafka3:
-    image: confluentinc/cp-kafka:${CONFLUENT_VERSION}
+    image: apache/kafka:${KAFKA_VERSION}
     environment:
       KAFKA_NODE_ID: 3
       KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka3:9092,EXTERNAL://localhost:39092
@@ -72,22 +72,16 @@ services:
       - "39092:39092"
     restart: on-failure
     healthcheck:
-      test: kafka-topics --bootstrap-server localhost:9092 --list > /dev/null 2>&1
+      test: /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list > /dev/null 2>&1
       interval: 10s
       timeout: 10s
       retries: 5
       start_period: 10s
 
-  schema-registry:
-    image: confluentinc/cp-schema-registry:${CONFLUENT_VERSION}
+  apicurio-registry:
+    image: apicurio/apicurio-registry:${APICURIO_VERSION}
     environment:
-      SCHEMA_REGISTRY_ACCESS_CONTROL_ALLOW_METHODS: GET,POST,PUT,OPTIONS
-      SCHEMA_REGISTRY_ACCESS_CONTROL_ALLOW_ORIGIN: "*"
-      SCHEMA_REGISTRY_DEBUG: "true"
-      SCHEMA_REGISTRY_HOST_NAME: localhost
-      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: kafka1:9092,kafka2:9092,kafka3:9092
-      SCHEMA_REGISTRY_KAFKASTORE_TOPIC: _schemas
-      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:18081
+      QUARKUS_HTTP_PORT: "18081"
     ports:
       - "18081:18081"
     restart: on-failure
@@ -111,4 +105,4 @@ services:
               properties:
                 bootstrap.servers: kafka1:9092,kafka2:9092,kafka3:9092
               schema-registry:
-                url: http://schema-registry:18081
+                url: http://apicurio-registry:18081/apis/ccompat/v7

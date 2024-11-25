@@ -14,14 +14,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Integration tests
 - Redpanda sandbox
 - Tested with Redpanda
+- Tabs for describe topic view
+- Test with apicurio
 
 ### Changed
 
 - Using records instead of messages
+- Schema registry parameter from -s to --schema-registry
+- Protobuf parameter from -p to --protobuf
 
 ### Fixed
 
 - CSS Styles
+- Partition group lag
 
 ## [2.3.7] - 2024-10-14
 

@@ -2,7 +2,6 @@ import click
 from confluent_kafka import Consumer
 
 from kaskade.configs import BOOTSTRAP_SERVERS, GROUP_ID, AUTO_OFFSET_RESET, EARLIEST
-from scripts.sandbox import TOPICS
 
 
 @click.command()
@@ -10,6 +9,18 @@ from scripts.sandbox import TOPICS
     "--bootstrap-servers", default="localhost:19092", help="Bootstrap servers.", show_default=True
 )
 def main(bootstrap_servers: str) -> None:
+    topics = [
+        "string",
+        "integer",
+        "long",
+        "float",
+        "double",
+        "boolean",
+        "null",
+        "json",
+        "protobuf",
+        "avro",
+    ]
     consumer = Consumer(
         {
             BOOTSTRAP_SERVERS: bootstrap_servers,
@@ -17,9 +28,7 @@ def main(bootstrap_servers: str) -> None:
             AUTO_OFFSET_RESET: EARLIEST,
         }
     )
-    consumer.subscribe(
-        [topic for topic, _, _ in TOPICS], on_assign=lambda a, b: print("Assignment completed")
-    )
+    consumer.subscribe(topics, on_assign=lambda a, b: print("Assignment completed"))
 
     while True:
         try:
