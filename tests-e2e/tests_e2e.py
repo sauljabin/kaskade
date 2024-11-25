@@ -1,8 +1,6 @@
 import asyncio
 import os
 
-from io import StringIO
-import rich
 
 import unittest
 from confluent_kafka import Producer
@@ -88,13 +86,11 @@ class TestE2E(unittest.IsolatedAsyncioTestCase):
                 table = consumer_app.query_one(DataTable)
                 self.assertEqual(1, len(table.rows))
 
-                record_id = "0/0"
-                first_row = table._data[RowKey(record_id)]
+                first_row = table._data[RowKey("0/0")]
                 first_column = list(first_row.values())[0]
-                string_out = StringIO()
-                rich.print(first_column, file=string_out)
-                self.assertIn(MY_KEY, string_out.getvalue())
-                self.assertIn(MY_VALUE, string_out.getvalue())
+                second_column = list(first_row.values())[1]
+                self.assertEqual(MY_KEY, first_column)
+                self.assertEqual(MY_VALUE, second_column)
 
 
 if __name__ == "__main__":
