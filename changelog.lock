@@ -21,7 +21,8 @@
                     "entries": [
                         "Using records instead of messages",
                         "Schema registry parameter from -s to --schema-registry",
-                        "Protobuf parameter from -p to --protobuf"
+                        "Protobuf parameter from -p to --protobuf",
+                        "Improvements in consumer and admin views"
                     ]
                 },
                 {

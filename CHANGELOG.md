@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Using records instead of messages
 - Schema registry parameter from -s to --schema-registry
 - Protobuf parameter from -p to --protobuf
+- Improvements in consumer and admin views
 
 ### Fixed
 
