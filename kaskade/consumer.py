@@ -16,6 +16,7 @@ from kaskade.colors import PRIMARY, SECONDARY
 from kaskade.models import Record
 from kaskade.deserializers import Format, DeserializerPool
 from kaskade.services import ConsumerService
+from kaskade.unicodes import PIPE
 from kaskade.utils import notify_error
 from kaskade.banner import KaskadeBanner
 
@@ -29,9 +30,9 @@ FILTER_SHORTCUT = "ctrl+f"
 
 class ConsumerShortcuts(Widget):
     SHORTCUTS = [
-        ["more:", f"<{NEXT_SHORTCUT}>", "|", "chunk:", f"<{CHUNKS_SHORTCUT}>"],
-        ["filter:", f"<{FILTER_SHORTCUT}>", "|", "show all:", f"<{BACK_SHORTCUT}>"],
-        ["show:", f"<{SUBMIT_SHORTCUT}>", "|", "quit:", f"<{QUIT_SHORTCUT}>"],
+        ["more:", f"<{NEXT_SHORTCUT}>", PIPE, "chunk:", f"<{CHUNKS_SHORTCUT}>"],
+        ["filter:", f"<{FILTER_SHORTCUT}>", PIPE, "show all:", f"<{BACK_SHORTCUT}>"],
+        ["show:", f"<{SUBMIT_SHORTCUT}>", PIPE, "quit:", f"<{QUIT_SHORTCUT}>"],
     ]
 
     def render(self) -> Table:
@@ -230,7 +231,8 @@ class ListRecords(Container):
         table.zebra_stripes = True
         table.border_title = self._get_title()
 
-        table.add_column("message", width=50)
+        table.add_column("key", width=30)
+        table.add_column("value", width=45)
         table.add_column("datetime", width=23)
         table.add_column("partition", width=9)
         table.add_column("offset", width=9)
@@ -314,19 +316,15 @@ class ListRecords(Container):
             for record in records:
                 record_id = str(record)
                 self.records[record_id] = record
-                key_and_value = Table(box=None, show_header=False, padding=0)
-                key_and_value.add_column(style="bold", width=7)
-                key_and_value.add_column(overflow="ellipsis", width=43, no_wrap=True)
-                key_and_value.add_row("key:", record.key_str().strip())
-                key_and_value.add_row("value:", record.value_str().strip())
                 row = [
-                    key_and_value,
+                    record.key_str().strip(),
+                    record.value_str().strip(),
                     record.date,
                     str(record.partition),
                     str(record.offset),
                     str(record.headers_count()),
                 ]
-                table.add_row(*row, height=2, key=record_id)
+                table.add_row(*row, key=record_id)
             table.border_title = self._get_title()
         except Exception as ex:
             notify_error(self.app, "error consuming records", ex)
