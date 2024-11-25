@@ -3,11 +3,11 @@ import os
 
 import struct
 import unittest
+from fastavro import schemaless_writer
+from fastavro.schema import load_schema
 from io import BytesIO
 from unittest.mock import patch
 
-import avro
-from avro.io import DatumWriter, BinaryEncoder
 from confluent_kafka.serialization import MessageField
 
 from kaskade.deserializers import (
@@ -22,6 +22,7 @@ from kaskade.deserializers import (
     AvroDeserializer,
     ProtobufDeserializer,
 )
+from kaskade.utils import file_to_str
 from tests import faker
 from tests.protobuf.user_pb2 import User
 
@@ -32,6 +33,13 @@ DESCRIPTOR_PATH = (
     f"{CURRENT_PATH}/{DESCRIPTOR_NAME}"
     if CURRENT_PATH.endswith("tests")
     else f"{CURRENT_PATH}/tests/{DESCRIPTOR_NAME}"
+)
+
+AVRO_SCHEMA_NAME = "avro/user.avsc"
+AVRO_PATH = (
+    f"{CURRENT_PATH}/{AVRO_SCHEMA_NAME}"
+    if CURRENT_PATH.endswith("tests")
+    else f"{CURRENT_PATH}/tests/{AVRO_SCHEMA_NAME}"
 )
 
 
@@ -112,25 +120,15 @@ class TestDeserializer(unittest.TestCase):
 
     @patch("kaskade.deserializers.SchemaRegistryClient")
     def test_avro_deserialization_with_magic_byte(self, mock_sr_client_class):
-        schema_source = """
-        {
-            "namespace": "example.avro",
-             "type": "record",
-             "name": "User",
-             "fields": [
-                 {"name": "name", "type": "string"}
-             ]
-        }
-        """
         expected_value = {"name": "Pedro Pascal"}
+        schema = load_schema(AVRO_PATH)
 
-        mock_sr_client_class.return_value.get_schema.return_value.schema_str = schema_source
+        mock_sr_client_class.return_value.get_schema.return_value.schema_str = file_to_str(
+            AVRO_PATH
+        )
 
-        schema = avro.schema.parse(schema_source)
         buffer_writer = BytesIO()
-        buffer_encoder = BinaryEncoder(buffer_writer)
-        writer = DatumWriter(schema)
-        writer.write(expected_value, buffer_encoder)
+        schemaless_writer(buffer_writer, schema, expected_value)
 
         deserializer = AvroDeserializer({})
 
