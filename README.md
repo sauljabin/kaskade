@@ -106,8 +106,10 @@ kaskade admin -b my-kafka:9092,my-kafka:9093
 #### Consume and deserialize:
 
 ```bash
-kaskade consumer -b my-kafka:9092 -t my-topic -k json -v json
+kaskade consumer -b my-kafka:9092 -t my-json-topic -k json -v json
 ```
+
+> Supported deserialization formats `[bytes, boolean, string, long, integer, double, float, json, avro, protobuf]`
 
 #### Consuming from the beginning:
 
@@ -118,7 +120,7 @@ kaskade consumer -b my-kafka:9092 -t my-topic --from-beginning
 #### Schema registry simple connection and avro deserialization:
 
 ```bash
-kaskade consumer -b my-kafka:9092 -t my-topic \
+kaskade consumer -b my-kafka:9092 -t my-avro-topic \
         -k avro -v avro \
         --schema-registry url=http://my-schema-registry:8081
 ```
@@ -146,7 +148,7 @@ kaskade admin -b ${BOOTSTRAP_SERVERS} \
 ```
 
 ```bash
-kaskade consumer -b ${BOOTSTRAP_SERVERS} -t my-topic \
+kaskade consumer -b ${BOOTSTRAP_SERVERS} -t my-avro-topic \
         -k string -v avro \
         -x security.protocol=SASL_SSL \
         -x sasl.mechanism=PLAIN \

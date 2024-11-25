@@ -114,6 +114,7 @@ Run local sandbox:
 ```bash
 docker compose -f docker-compose.confluent.yml up -d
 docker compose -f docker-compose.redpanda.yml up -d
+docker compose -f docker-compose.apicurio.yml up -d
 ```
 
 Stop sandbox:
@@ -121,6 +122,7 @@ Stop sandbox:
 ```bash
 docker compose -f docker-compose.confluent.yml down -v
 docker compose -f docker-compose.redpanda.yml down -v
+docker compose -f docker-compose.apicurio.yml down -v
 ```
 
 > Use the docker-compose file you need.
@@ -179,12 +181,20 @@ kaskade consumer -b localhost:19092 --from-beginning -k string -v boolean -t boo
 kaskade consumer -b localhost:19092 --from-beginning -k string -v json -t json
 ```
 
-Test consumer with Schema Registry:
+Test consumer with Schema Registry (Confluent and Redpanda):
 
 ```bash
 kaskade consumer -b localhost:19092 --from-beginning -t avro \
         -k string -v avro \
-        --schema-registry url=http://localhost:8081
+        --schema-registry url=http://localhost:18081
+```
+
+Test consumer with Apicurio Registry:
+
+```bash
+kaskade consumer -b localhost:19092 --from-beginning -t avro \
+        -k string -v avro \
+        --schema-registry url=http://localhost:18081/apis/ccompat/v7
 ```
 
 Test consumer with protobuf:

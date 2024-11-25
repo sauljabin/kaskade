@@ -347,7 +347,7 @@ class CreateTopicScreen(ModalScreen[NewTopic]):
         )
 
         new_topic = NewTopic(
-            name,
+            topic=name,
             num_partitions=int(partitions),
             replication_factor=int(replication),
             config={
