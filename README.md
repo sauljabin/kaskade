@@ -128,10 +128,20 @@ kaskade consumer -b my-kafka:9092 -t my-avro-topic \
 > For more information about Schema Registry configurations go
 > to: [Confluent Schema Registry client](https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#schemaregistry-client).
 
+#### Apicurio registry
+
+```bash
+kaskade consumer -b my-kafka:9092 -t my-avro-topic \
+        -k avro -v avro \
+        --schema-registry url=http://my-apicurio-registry:8081/apis/ccompat/v7
+```
+
+> For more about apicurio go to: https://github.com/apicurio/apicurio-registry
+
 #### SSL encryption example:
 
 ```bash
-kaskade admin -b my-kafka:9092 -x security.protocol=SSL
+kaskade admin -b my-kafka:9092 -c security.protocol=SSL
 ```
 
 > For more information about SSL encryption and SSL authentication go
@@ -141,22 +151,21 @@ kaskade admin -b my-kafka:9092 -x security.protocol=SSL
 
 ```bash
 kaskade admin -b ${BOOTSTRAP_SERVERS} \
-        -x security.protocol=SASL_SSL \
-        -x sasl.mechanism=PLAIN \
-        -x sasl.username=${CLUSTER_API_KEY} \
-        -x sasl.password=${CLUSTER_API_SECRET}
+        -c security.protocol=SASL_SSL \
+        -c sasl.mechanism=PLAIN \
+        -c sasl.username=${CLUSTER_API_KEY} \
+        -c sasl.password=${CLUSTER_API_SECRET}
 ```
 
 ```bash
 kaskade consumer -b ${BOOTSTRAP_SERVERS} -t my-avro-topic \
         -k string -v avro \
-        -x security.protocol=SASL_SSL \
-        -x sasl.mechanism=PLAIN \
-        -x sasl.username=${CLUSTER_API_KEY} \
-        -x sasl.password=${CLUSTER_API_SECRET} \
+        -c security.protocol=SASL_SSL \
+        -c sasl.mechanism=PLAIN \
+        -c sasl.username=${CLUSTER_API_KEY} \
+        -c sasl.password=${CLUSTER_API_SECRET} \
         --schema-registry url=${SCHEMA_REGISTRY_URL} \
         --schema-registry basic.auth.user.info=${SR_API_KEY}:${SR_API_SECRET}
-
 ```
 
 > More about confluent cloud configuration

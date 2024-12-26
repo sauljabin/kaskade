@@ -396,7 +396,7 @@ class Record:
         if self.key_deserializer is None:
             return str(self.key)
 
-        return self.key_deserializer.deserialize(self.key, MessageField.KEY)
+        return self.key_deserializer.deserialize(self.key, self.topic, MessageField.KEY)
 
     def value_deserialized(self) -> Any:
         if self.value is None:
@@ -405,7 +405,7 @@ class Record:
         if self.value_deserializer is None:
             return str(self.value)
 
-        return self.value_deserializer.deserialize(self.value, MessageField.VALUE)
+        return self.value_deserializer.deserialize(self.value, self.topic, MessageField.VALUE)
 
     def key_str(self) -> str:
         return str(self.key_deserialized())

@@ -38,7 +38,7 @@ NEW_TOPIC_SHORTCUT = "ctrl+n"
 DELETE_TOPIC_SHORTCUT = "ctrl+d"
 EDIT_TOPIC_SHORTCUT = "ctrl+e"
 REFRESH_TOPICS_SHORTCUT = "ctrl+r"
-QUIT_SHORTCUT = "ctrl+c"
+QUIT_SHORTCUT = "ctrl+q"
 
 
 class AdminShortcuts(Widget):
