@@ -208,6 +208,23 @@ class TestConsumerCli(unittest.TestCase):
         self.assertGreater(result.exit_code, 0)
         self.assertIn("Invalid value: Valid properties", result.output)
 
+    def test_validate_avro_invalid_config(self):
+        result = self.runner.invoke(
+            cli,
+            [
+                self.command,
+                "-b",
+                EXPECTED_SERVER,
+                "-t",
+                EXPECTED_TOPIC,
+                "--avro",
+                "not.valid=property",
+            ],
+        )
+
+        self.assertGreater(result.exit_code, 0)
+        self.assertIn("Invalid value: Valid properties", result.output)
+
     def test_validate_schema_registry_format(self):
         result = self.runner.invoke(
             cli,
@@ -244,21 +261,21 @@ class TestConsumerCli(unittest.TestCase):
         self.assertGreater(result.exit_code, 0)
         self.assertIn("Invalid value: Invalid url.", result.output)
 
-    def test_validate_schema_registry_is_needed_with_avro_key(self):
+    def test_validate_missing_options_with_avro_key(self):
         result = self.runner.invoke(
             cli, [self.command, "-b", EXPECTED_SERVER, "-t", EXPECTED_TOPIC, "-k", "avro"]
         )
 
         self.assertGreater(result.exit_code, 0)
-        self.assertIn("Missing option '--schema-registry'", result.output)
+        self.assertIn("Missing option '--schema-registry' or '--avro'", result.output)
 
-    def test_validate_schema_registry_is_needed_with_avro_value(self):
+    def test_validate_missing_options_with_avro_value(self):
         result = self.runner.invoke(
             cli, [self.command, "-b", EXPECTED_SERVER, "-t", EXPECTED_TOPIC, "-v", "avro"]
         )
 
         self.assertGreater(result.exit_code, 0)
-        self.assertIn("Missing option '--schema-registry'", result.output)
+        self.assertIn("Missing option '--schema-registry' or '--avro'", result.output)
 
     @patch("kaskade.main.KaskadeConsumer")
     def test_update_kafka_config(self, mock_class_kaskade_consumer):
@@ -443,6 +460,61 @@ class TestConsumerCli(unittest.TestCase):
         self.assertGreater(result.exit_code, 0)
         self.assertIn("Missing option '-k protobuf' and/or '-v protobuf'", result.output)
 
+    def test_validate_avro_missing_format(self):
+        result = self.runner.invoke(
+            cli,
+            [
+                self.command,
+                "-b",
+                EXPECTED_SERVER,
+                "-t",
+                EXPECTED_TOPIC,
+                "--avro",
+                "key=my-avro.avsc",
+            ],
+        )
+
+        self.assertGreater(result.exit_code, 0)
+        self.assertIn("Missing option '-k avro' and/or '-v avro'", result.output)
+
+    def test_validate_avro_missing_key(self):
+        result = self.runner.invoke(
+            cli,
+            [
+                self.command,
+                "-b",
+                EXPECTED_SERVER,
+                "-t",
+                EXPECTED_TOPIC,
+                "-k",
+                "avro",
+                "--avro",
+                "value=my-value",
+            ],
+        )
+
+        self.assertGreater(result.exit_code, 0)
+        self.assertIn("Missing option '--avro key=my-schema.avsc'.", result.output)
+
+    def test_validate_avro_missing_value(self):
+        result = self.runner.invoke(
+            cli,
+            [
+                self.command,
+                "-b",
+                EXPECTED_SERVER,
+                "-t",
+                EXPECTED_TOPIC,
+                "-v",
+                "avro",
+                "--avro",
+                "key=my-value",
+            ],
+        )
+
+        self.assertGreater(result.exit_code, 0)
+        self.assertIn("Missing option '--avro value=my-schema.avsc'.", result.output)
+
     def test_validate_protobuf_missing_key(self):
         result = self.runner.invoke(
             cli,
@@ -499,6 +571,23 @@ class TestConsumerCli(unittest.TestCase):
 
         self.assertGreater(result.exit_code, 0)
         self.assertIn("Valid properties: ['descriptor', 'key', 'value'].", result.output)
+
+    def test_validate_avro_invalid_option(self):
+        result = self.runner.invoke(
+            cli,
+            [
+                self.command,
+                "-b",
+                EXPECTED_SERVER,
+                "-t",
+                EXPECTED_TOPIC,
+                "--avro",
+                "not=valid",
+            ],
+        )
+
+        self.assertGreater(result.exit_code, 0)
+        self.assertIn("Valid properties: ['key', 'value'].", result.output)
 
     def test_validate_protobuf_descriptor_config(self):
         result = self.runner.invoke(

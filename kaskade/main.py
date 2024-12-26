@@ -14,6 +14,7 @@ from kaskade.configs import (
     PROTOBUF_DESERIALIZER_CONFIGS,
     AUTO_OFFSET_RESET,
     EARLIEST,
+    AVRO_DESERIALIZER_CONFIGS,
 )
 
 KAFKA_CONFIG_HELP = (
@@ -205,7 +206,9 @@ def consumer(
     if from_beginning:
         kafka_config[AUTO_OFFSET_RESET] = EARLIEST
 
+    validate_format(schema_registry_config, avro_config, protobuf_config, key_format, value_format)
     validate_schema_registry(schema_registry_config, key_format, value_format)
+    validate_avro(avro_config, key_format, value_format)
     validate_protobuf(protobuf_config, key_format, value_format)
 
     kaskade_app = KaskadeConsumer(
@@ -214,69 +217,113 @@ def consumer(
     kaskade_app.run()
 
 
+def validate_format(
+    schema_registry_config: dict[str, str],
+    avro_config: dict[str, str],
+    protobuf_config: dict[str, str],
+    key_format: Format,
+    value_format: Format,
+) -> None:
+    if (
+        len(schema_registry_config) == 0
+        and len(avro_config) == 0
+        and (key_format == Format.AVRO or value_format == Format.AVRO)
+    ):
+        raise MissingParameter(param_hint="'--schema-registry' or '--avro'", param_type="option")
+
+    if len(protobuf_config) == 0 and (
+        key_format == Format.PROTOBUF or value_format == Format.PROTOBUF
+    ):
+        raise MissingParameter(param_hint="'--protobuf'", param_type="option")
+
+
+def validate_avro(avro_config: dict[str, str], key_format: Format, value_format: Format) -> None:
+    if len(avro_config) == 0:
+        return
+
+    if [config for config in avro_config.keys() if config not in AVRO_DESERIALIZER_CONFIGS]:
+        raise BadParameter(message=f"Valid properties: {AVRO_DESERIALIZER_CONFIGS}.")
+
+    if key_format != Format.AVRO and value_format != Format.AVRO:
+        raise MissingParameter(param_hint="'-k avro' and/or '-v avro'", param_type="option")
+
+    value = avro_config.get("value")
+    key = avro_config.get("key")
+
+    if value is None and value_format == Format.AVRO:
+        raise MissingParameter(param_hint="'--avro value=my-schema.avsc'", param_type="option")
+
+    if key is None and key_format == Format.AVRO:
+        raise MissingParameter(param_hint="'--avro key=my-schema.avsc'", param_type="option")
+
+    if value is not None:
+        is_file(value)
+
+    if key is not None:
+        is_file(key)
+
+
 def validate_schema_registry(
     schema_registry_config: dict[str, str], key_format: Format, value_format: Format
 ) -> None:
+    if len(schema_registry_config) == 0:
+        return
+
     if [
         config for config in schema_registry_config.keys() if config not in SCHEMA_REGISTRY_CONFIGS
     ]:
         raise BadParameter(message=f"Valid properties: {SCHEMA_REGISTRY_CONFIGS}.")
 
-    config_size = len(schema_registry_config)
     url = schema_registry_config.get("url")
 
-    if config_size == 0:
-        if key_format == Format.AVRO or value_format == Format.AVRO:
-            raise MissingParameter(param_hint="'--schema-registry'", param_type="option")
+    if key_format != Format.AVRO and value_format != Format.AVRO:
+        raise MissingParameter(param_hint="'-k avro' and/or '-v avro'", param_type="option")
 
-    if config_size > 0:
-        if key_format != Format.AVRO and value_format != Format.AVRO:
-            raise MissingParameter(param_hint="'-k avro' and/or '-v avro'", param_type="option")
+    if url is None:
+        raise MissingParameter(param_hint="'--schema-registry url=my-url'", param_type="option")
 
-        if url is None:
-            raise MissingParameter(param_hint="'--schema-registry url=my-url'", param_type="option")
-
-        if not url.startswith("http://") and not url.startswith("https://"):
-            raise BadParameter("Invalid url.")
+    if not url.startswith("http://") and not url.startswith("https://"):
+        raise BadParameter("Invalid url.")
 
 
 def validate_protobuf(
     protobuf_config: dict[str, str], key_format: Format, value_format: Format
 ) -> None:
+    if len(protobuf_config) == 0:
+        return
+
     if [config for config in protobuf_config.keys() if config not in PROTOBUF_DESERIALIZER_CONFIGS]:
         raise BadParameter(message=f"Valid properties: {PROTOBUF_DESERIALIZER_CONFIGS}.")
 
-    config_size = len(protobuf_config)
     descriptor_path_str = protobuf_config.get("descriptor")
 
-    if config_size == 0:
-        if key_format == Format.PROTOBUF or value_format == Format.PROTOBUF:
-            raise MissingParameter(param_hint="'--protobuf'", param_type="option")
+    if descriptor_path_str is None:
+        raise MissingParameter(
+            param_hint="'--protobuf descriptor=my-descriptor'", param_type="option"
+        )
 
-    if config_size > 0:
-        if descriptor_path_str is None:
-            raise MissingParameter(
-                param_hint="'--protobuf descriptor=my-descriptor'", param_type="option"
-            )
+    is_file(descriptor_path_str)
 
-        descriptor_path = Path(descriptor_path_str).expanduser()
+    if protobuf_config.get("value") is None and value_format == Format.PROTOBUF:
+        raise MissingParameter(param_hint="'--protobuf value=MyMessage'", param_type="option")
 
-        if not descriptor_path.exists():
-            raise BadParameter("File should exist.")
+    if protobuf_config.get("key") is None and key_format == Format.PROTOBUF:
+        raise MissingParameter(param_hint="'--protobuf key=MyMessage'", param_type="option")
 
-        if descriptor_path.is_dir():
-            raise BadParameter("Path is a directory.")
+    if key_format != Format.PROTOBUF and value_format != Format.PROTOBUF:
+        raise MissingParameter(param_hint="'-k protobuf' and/or '-v protobuf'", param_type="option")
 
-        if protobuf_config.get("value") is None and value_format == Format.PROTOBUF:
-            raise MissingParameter(param_hint="'--protobuf value=MyMessage'", param_type="option")
 
-        if protobuf_config.get("key") is None and key_format == Format.PROTOBUF:
-            raise MissingParameter(param_hint="'--protobuf key=MyMessage'", param_type="option")
+def is_file(file_path_str: str) -> None:
+    if file_path_str is None:
+        raise BadParameter("File path should be provided.")
 
-        if key_format != Format.PROTOBUF and value_format != Format.PROTOBUF:
-            raise MissingParameter(
-                param_hint="'-k protobuf' and/or '-v protobuf'", param_type="option"
-            )
+    path = Path(file_path_str).expanduser()
+    if not path.exists():
+        raise BadParameter("File should exist.")
+
+    if path.is_dir():
+        raise BadParameter("Path is a directory.")
 
 
 if __name__ == "__main__":
