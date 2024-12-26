@@ -9,7 +9,14 @@ SCHEMA_REGISTRY_CONFIGS = [
     "ssl.key.location",
     "ssl.certificate.location",
     "basic.auth.user.info",
+    "proxy",
+    "timeout",
+    "cache.capacity",
+    "cache.latest.ttl.sec",
+    "max.retries",
+    "retries.wait.ms",
 ]
+"""https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#schemaregistry-client"""
 PROTOBUF_DESERIALIZER_CONFIGS = ["descriptor", "key", "value"]
 AVRO_DESERIALIZER_CONFIGS = ["key", "value"]
 SCHEMA_REGISTRY_MAGIC_BYTE = 0
