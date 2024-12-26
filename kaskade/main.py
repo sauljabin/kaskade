@@ -7,7 +7,7 @@ from click import BadParameter, MissingParameter
 from kaskade import APP_VERSION
 from kaskade.admin import KaskadeAdmin
 from kaskade.consumer import KaskadeConsumer
-from kaskade.deserializers import Format
+from kaskade.deserializers import Deserialization
 from kaskade.configs import (
     BOOTSTRAP_SERVERS,
     SCHEMA_REGISTRY_CONFIGS,
@@ -31,11 +31,13 @@ def tuple_properties_to_dict(ctx: Any, param: Any, value: Any) -> Any:
     return {k: v for (k, v) in [pair.split("=", 1) for pair in value]}
 
 
-def string_to_format(ctx: Any, param: Any, value: Any) -> Any:
-    if value not in Format.str_list():
-        raise BadParameter(message=f"Should be one of {Format.str_list()}", ctx=ctx, param=param)
+def string_to_deserializer_type(ctx: Any, param: Any, value: Any) -> Any:
+    if value not in Deserialization.str_list():
+        raise BadParameter(
+            message=f"Should be one of {Deserialization.str_list()}", ctx=ctx, param=param
+        )
 
-    return Format.from_str(value)
+    return Deserialization.from_str(value)
 
 
 @cloup.group(epilog=EPILOG_HELP)
@@ -76,7 +78,7 @@ def admin(
     \b
     Examples:
       kaskade admin -b localhost:9092
-      kaskade admin -b localhost:9092 -c security.protocol=SSL
+      kaskade admin -b localhost:9092 --config security.protocol=SSL
     """
     kafka_config[BOOTSTRAP_SERVERS] = bootstrap_servers
     kaskade_app = KaskadeAdmin(kafka_config)
@@ -123,31 +125,31 @@ def admin(
     cloup.option(
         "-k",
         "--key",
-        "key_format",
-        type=cloup.Choice(Format.str_list(), False),
-        help="Key format.",
-        default=str(Format.BYTES),
+        "key_deserialization",
+        type=cloup.Choice(Deserialization.str_list(), False),
+        help="Key deserializer.",
+        default=str(Deserialization.BYTES),
         show_default=True,
-        callback=string_to_format,
+        callback=string_to_deserializer_type,
     ),
     cloup.option(
         "-v",
         "--value",
-        "value_format",
-        type=cloup.Choice(Format.str_list(), False),
-        help="Value format.",
-        default=str(Format.BYTES),
+        "value_deserialization",
+        type=cloup.Choice(Deserialization.str_list(), False),
+        help="Value deserializer.",
+        default=str(Deserialization.BYTES),
         show_default=True,
-        callback=string_to_format,
+        callback=string_to_deserializer_type,
     ),
 )
 @cloup.option_group(
-    "Schema Registry options",
+    "Avro options",
     cloup.option(
-        "--schema-registry",
-        "schema_registry_config",
-        help="Schema Registry property. Set a SchemaRegistryClient property. Multiple '--schema-registry' are allowed. Needed if '-k avro' "
-        "or '-v avro' were passed.",
+        "--avro",
+        "avro_config",
+        help="Avro property. Configure the avro deserializer. Multiple '--avro' are allowed. Needed if '-k avro' "
+        "or '-v avro' were passed. Valid properties: [key: avsc file path, value: avsc file path].",
         metavar="property=value",
         multiple=True,
         callback=tuple_properties_to_dict,
@@ -166,12 +168,12 @@ def admin(
     ),
 )
 @cloup.option_group(
-    "Avro options",
+    "Schema Registry options",
     cloup.option(
-        "--avro",
-        "avro_config",
-        help="Avro property. Configure the avro deserializer. Multiple '--avro' are allowed. Needed if '-k avro' "
-        "or '-v avro' were passed. Valid properties: [key: avsc file path, value: avsc file path].",
+        "--registry",
+        "registry_config",
+        help="Schema Registry property. Set a SchemaRegistryClient property. Multiple '--registry' are allowed. Needed if '-k registry' "
+        "or '-v registry' were passed.",
         metavar="property=value",
         multiple=True,
         callback=tuple_properties_to_dict,
@@ -180,12 +182,12 @@ def admin(
 def consumer(
     bootstrap_servers: str,
     kafka_config: dict[str, str],
-    schema_registry_config: dict[str, str],
+    registry_config: dict[str, str],
     protobuf_config: dict[str, str],
     avro_config: dict[str, str],
     topic: str,
-    key_format: Format,
-    value_format: Format,
+    key_deserialization: Deserialization,
+    value_deserialization: Deserialization,
     from_beginning: bool,
 ) -> None:
     """
@@ -195,9 +197,9 @@ def consumer(
     Examples:
       kaskade consumer -b localhost:9092 -t my-topic
       kaskade consumer -b localhost:9092 -t my-topic --from-beginning
-      kaskade consumer -b localhost:9092 -t my-topic -c security.protocol=SSL
+      kaskade consumer -b localhost:9092 -t my-topic --config security.protocol=SSL
       kaskade consumer -b localhost:9092 -t my-topic -v json
-      kaskade consumer -b localhost:9092 -t my-topic -v avro --schema-registry url=http://localhost:8081
+      kaskade consumer -b localhost:9092 -t my-topic -v registry --registry url=http://localhost:8081
       kaskade consumer -b localhost:9092 -t my-topic -v avro --avro value=my-schema.avsc
       kaskade consumer -b localhost:9092 -t my-topic -v protobuf --protobuf descriptor=my-descriptor.desc --protobuf value=MyMessage
     """
@@ -206,54 +208,74 @@ def consumer(
     if from_beginning:
         kafka_config[AUTO_OFFSET_RESET] = EARLIEST
 
-    validate_format(schema_registry_config, avro_config, protobuf_config, key_format, value_format)
-    validate_schema_registry(schema_registry_config, key_format, value_format)
-    validate_avro(avro_config, key_format, value_format)
-    validate_protobuf(protobuf_config, key_format, value_format)
+    validate_deserializer(
+        registry_config, avro_config, protobuf_config, key_deserialization, value_deserialization
+    )
+    validate_schema_registry(registry_config, key_deserialization, value_deserialization)
+    validate_avro(avro_config, key_deserialization, value_deserialization)
+    validate_protobuf(protobuf_config, key_deserialization, value_deserialization)
 
     kaskade_app = KaskadeConsumer(
-        topic, kafka_config, schema_registry_config, protobuf_config, key_format, value_format
+        topic,
+        kafka_config,
+        registry_config,
+        protobuf_config,
+        avro_config,
+        key_deserialization,
+        value_deserialization,
     )
     kaskade_app.run()
 
 
-def validate_format(
-    schema_registry_config: dict[str, str],
+def validate_deserializer(
+    registry_config: dict[str, str],
     avro_config: dict[str, str],
     protobuf_config: dict[str, str],
-    key_format: Format,
-    value_format: Format,
+    key_deserialization: Deserialization,
+    value_deserialization: Deserialization,
 ) -> None:
-    if (
-        len(schema_registry_config) == 0
-        and len(avro_config) == 0
-        and (key_format == Format.AVRO or value_format == Format.AVRO)
+    if len(avro_config) == 0 and (
+        key_deserialization == Deserialization.AVRO or value_deserialization == Deserialization.AVRO
     ):
-        raise MissingParameter(param_hint="'--schema-registry' or '--avro'", param_type="option")
+        raise MissingParameter(param_hint="'--avro'", param_type="option")
+
+    if len(registry_config) == 0 and (
+        key_deserialization == Deserialization.REGISTRY
+        or value_deserialization == Deserialization.REGISTRY
+    ):
+        raise MissingParameter(param_hint="'--registry'", param_type="option")
 
     if len(protobuf_config) == 0 and (
-        key_format == Format.PROTOBUF or value_format == Format.PROTOBUF
+        key_deserialization == Deserialization.PROTOBUF
+        or value_deserialization == Deserialization.PROTOBUF
     ):
         raise MissingParameter(param_hint="'--protobuf'", param_type="option")
 
 
-def validate_avro(avro_config: dict[str, str], key_format: Format, value_format: Format) -> None:
+def validate_avro(
+    avro_config: dict[str, str],
+    key_deserialization: Deserialization,
+    value_deserialization: Deserialization,
+) -> None:
     if len(avro_config) == 0:
         return
 
     if [config for config in avro_config.keys() if config not in AVRO_DESERIALIZER_CONFIGS]:
         raise BadParameter(message=f"Valid properties: {AVRO_DESERIALIZER_CONFIGS}.")
 
-    if key_format != Format.AVRO and value_format != Format.AVRO:
+    if (
+        key_deserialization != Deserialization.AVRO
+        and value_deserialization != Deserialization.AVRO
+    ):
         raise MissingParameter(param_hint="'-k avro' and/or '-v avro'", param_type="option")
 
     value = avro_config.get("value")
     key = avro_config.get("key")
 
-    if value is None and value_format == Format.AVRO:
+    if value is None and value_deserialization == Deserialization.AVRO:
         raise MissingParameter(param_hint="'--avro value=my-schema.avsc'", param_type="option")
 
-    if key is None and key_format == Format.AVRO:
+    if key is None and key_deserialization == Deserialization.AVRO:
         raise MissingParameter(param_hint="'--avro key=my-schema.avsc'", param_type="option")
 
     if value is not None:
@@ -264,30 +286,35 @@ def validate_avro(avro_config: dict[str, str], key_format: Format, value_format:
 
 
 def validate_schema_registry(
-    schema_registry_config: dict[str, str], key_format: Format, value_format: Format
+    registry_config: dict[str, str],
+    key_deserialization: Deserialization,
+    value_deserialization: Deserialization,
 ) -> None:
-    if len(schema_registry_config) == 0:
+    if len(registry_config) == 0:
         return
 
-    if [
-        config for config in schema_registry_config.keys() if config not in SCHEMA_REGISTRY_CONFIGS
-    ]:
+    if [config for config in registry_config.keys() if config not in SCHEMA_REGISTRY_CONFIGS]:
         raise BadParameter(message=f"Valid properties: {SCHEMA_REGISTRY_CONFIGS}.")
 
-    url = schema_registry_config.get("url")
+    url = registry_config.get("url")
 
-    if key_format != Format.AVRO and value_format != Format.AVRO:
-        raise MissingParameter(param_hint="'-k avro' and/or '-v avro'", param_type="option")
+    if (
+        key_deserialization != Deserialization.REGISTRY
+        and value_deserialization != Deserialization.REGISTRY
+    ):
+        raise MissingParameter(param_hint="'-k registry' and/or '-v registry'", param_type="option")
 
     if url is None:
-        raise MissingParameter(param_hint="'--schema-registry url=my-url'", param_type="option")
+        raise MissingParameter(param_hint="'--registry url=my-url'", param_type="option")
 
     if not url.startswith("http://") and not url.startswith("https://"):
         raise BadParameter("Invalid url.")
 
 
 def validate_protobuf(
-    protobuf_config: dict[str, str], key_format: Format, value_format: Format
+    protobuf_config: dict[str, str],
+    key_deserialization: Deserialization,
+    value_deserialization: Deserialization,
 ) -> None:
     if len(protobuf_config) == 0:
         return
@@ -304,13 +331,16 @@ def validate_protobuf(
 
     is_file(descriptor_path_str)
 
-    if protobuf_config.get("value") is None and value_format == Format.PROTOBUF:
+    if protobuf_config.get("value") is None and value_deserialization == Deserialization.PROTOBUF:
         raise MissingParameter(param_hint="'--protobuf value=MyMessage'", param_type="option")
 
-    if protobuf_config.get("key") is None and key_format == Format.PROTOBUF:
+    if protobuf_config.get("key") is None and key_deserialization == Deserialization.PROTOBUF:
         raise MissingParameter(param_hint="'--protobuf key=MyMessage'", param_type="option")
 
-    if key_format != Format.PROTOBUF and value_format != Format.PROTOBUF:
+    if (
+        key_deserialization != Deserialization.PROTOBUF
+        and value_deserialization != Deserialization.PROTOBUF
+    ):
         raise MissingParameter(param_hint="'-k protobuf' and/or '-v protobuf'", param_type="option")
 
 

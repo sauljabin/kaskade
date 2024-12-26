@@ -3,7 +3,7 @@ from typing import Any
 
 from confluent_kafka.serialization import MessageField
 
-from kaskade.deserializers import Format, Deserializer
+from kaskade.deserializers import Deserialization, Deserializer
 
 
 class Node:
@@ -339,8 +339,8 @@ class Record:
         key: bytes | None = None,
         value: bytes | None = None,
         headers: list[Header] | None = None,
-        key_format: Format = Format.BYTES,
-        value_format: Format = Format.BYTES,
+        key_deserialization: Deserialization = Deserialization.BYTES,
+        value_deserialization: Deserialization = Deserialization.BYTES,
         key_deserializer: Deserializer | None = None,
         value_deserializer: Deserializer | None = None,
     ) -> None:
@@ -353,8 +353,8 @@ class Record:
         if headers is None:
             headers = []
         self.headers = headers
-        self.key_format = key_format
-        self.value_format = value_format
+        self.key_deserialization = key_deserialization
+        self.value_deserialization = value_deserialization
         self.key_deserializer = key_deserializer
         self.value_deserializer = value_deserializer
 
@@ -383,8 +383,8 @@ class Record:
                 if self.headers is not None
                 else []
             ),
-            "key format": self.key_format.name,
-            "value format": self.value_format.name,
+            "key deserializer": self.key_deserialization.name,
+            "value deserializer": self.value_deserialization.name,
             "key": self.key_deserialized(),
             "value": self.value_deserialized(),
         }

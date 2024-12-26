@@ -3,6 +3,8 @@ import os
 
 import struct
 import unittest
+from typing import Any
+
 from fastavro import schemaless_writer
 from fastavro.schema import load_schema
 from io import BytesIO
@@ -19,8 +21,9 @@ from kaskade.deserializers import (
     BooleanDeserializer,
     DefaultDeserializer,
     JsonDeserializer,
-    AvroDeserializer,
+    RegistryDeserializer,
     ProtobufDeserializer,
+    AvroDeserializer,
 )
 from kaskade.utils import file_to_str
 from tests import faker
@@ -41,6 +44,14 @@ AVRO_PATH = (
     if CURRENT_PATH.endswith("tests")
     else f"{CURRENT_PATH}/tests/{AVRO_SCHEMA_NAME}"
 )
+
+
+def py_to_avro(expected_value: dict[str, Any]):
+    schema = load_schema(AVRO_PATH)
+    buffer_writer = BytesIO()
+    schemaless_writer(buffer_writer, schema, expected_value)
+    encoded = buffer_writer.getvalue()
+    return encoded
 
 
 class TestDeserializer(unittest.TestCase):
@@ -119,22 +130,18 @@ class TestDeserializer(unittest.TestCase):
         self.assertEqual(expected_value, result)
 
     @patch("kaskade.deserializers.SchemaRegistryClient")
-    def test_avro_deserialization_with_magic_byte(self, mock_sr_client_class):
+    def test_registry_deserialization_with_magic_byte(self, mock_sr_client_class):
         expected_value = {"name": "Pedro Pascal"}
-        schema = load_schema(AVRO_PATH)
 
         mock_sr_client_class.return_value.get_schema.return_value.schema_str = file_to_str(
             AVRO_PATH
         )
 
-        buffer_writer = BytesIO()
-        schemaless_writer(buffer_writer, schema, expected_value)
+        encoded = py_to_avro(expected_value)
 
-        deserializer = AvroDeserializer({})
+        deserializer = RegistryDeserializer({})
 
-        result = deserializer.deserialize(
-            b"\x00\x00\x00\x00\x00" + buffer_writer.getvalue(), "", MessageField.VALUE
-        )
+        result = deserializer.deserialize(b"\x00\x00\x00\x00\x00" + encoded, "", MessageField.VALUE)
 
         self.assertEqual(expected_value, result)
 
@@ -157,6 +164,25 @@ class TestDeserializer(unittest.TestCase):
             b"\x00\x00\x00\x00\x00\x00" + user.SerializeToString(), "", MessageField.VALUE
         )
         self.assertEqual({"name": user.name}, result)
+
+    def test_avro_deserialization(self):
+        expected_value = {"name": "Pedro Pascal"}
+        deserializer = AvroDeserializer({"value": AVRO_PATH})
+        encoded = py_to_avro(expected_value)
+
+        result = deserializer.deserialize(encoded, "", MessageField.VALUE)
+        print(encoded)
+
+        self.assertEqual(expected_value, result)
+
+    def test_avro_deserialization_with_magic_byte(self):
+        expected_value = {"name": "Pedro Pascal"}
+        deserializer = AvroDeserializer({"value": AVRO_PATH})
+        encoded = py_to_avro(expected_value)
+
+        result = deserializer.deserialize(b"\x00\x00\x00\x00\x00" + encoded, "", MessageField.VALUE)
+
+        self.assertEqual(expected_value, result)
 
 
 if __name__ == "__main__":

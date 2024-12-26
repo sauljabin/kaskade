@@ -14,7 +14,7 @@ from textual.widgets._data_table import RowKey
 from kaskade.admin import KaskadeAdmin
 from kaskade.configs import BOOTSTRAP_SERVERS, EARLIEST, AUTO_OFFSET_RESET
 from kaskade.consumer import KaskadeConsumer
-from kaskade.deserializers import Format
+from kaskade.deserializers import Deserialization
 from kaskade.utils import load_properties
 
 MY_VALUE = "my-value"
@@ -78,8 +78,9 @@ class TestE2E(unittest.IsolatedAsyncioTestCase):
                 config | {AUTO_OFFSET_RESET: EARLIEST},
                 {},
                 {},
-                Format.STRING,
-                Format.STRING,
+                {},
+                Deserialization.STRING,
+                Deserialization.STRING,
             )
             async with consumer_app.run_test():
                 await asyncio.sleep(10)

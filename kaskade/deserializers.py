@@ -1,6 +1,8 @@
 import json
 from abc import abstractmethod, ABC
 from enum import Enum, auto
+from io import BytesIO
+from struct import unpack
 from typing import Any, Type
 
 from confluent_kafka.schema_registry import SchemaRegistryClient
@@ -9,15 +11,19 @@ from confluent_kafka.schema_registry.protobuf import (
     ProtobufDeserializer as ConfluentProtobufDeserializer,
 )
 from confluent_kafka.serialization import MessageField, SerializationContext
+from fastavro import schemaless_reader
+from fastavro.schema import load_schema
 from google.protobuf.descriptor_pb2 import FileDescriptorSet
 from google.protobuf.json_format import MessageToDict
 from google.protobuf.message import Message
 from google.protobuf.message_factory import GetMessages
 
+from kaskade import logger
+from kaskade.configs import SCHEMA_REGISTRY_MAGIC_BYTE
 from kaskade.utils import unpack_bytes, file_to_bytes
 
 
-class Format(Enum):
+class Deserialization(Enum):
     BYTES = auto()
     BOOLEAN = auto()
     STRING = auto()
@@ -28,6 +34,7 @@ class Format(Enum):
     JSON = auto()
     AVRO = auto()
     PROTOBUF = auto()
+    REGISTRY = auto()
 
     def __str__(self) -> str:
         return self.name.lower()
@@ -36,12 +43,12 @@ class Format(Enum):
         return str(self)
 
     @classmethod
-    def from_str(cls, value: str) -> "Format":
-        return Format[value.upper()]
+    def from_str(cls, value: str) -> "Deserialization":
+        return Deserialization[value.upper()]
 
     @classmethod
     def str_list(cls) -> list[str]:
-        return [str(key_format) for key_format in Format]
+        return [str(name) for name in Deserialization]
 
 
 class Deserializer(ABC):
@@ -113,9 +120,9 @@ class JsonDeserializer(Deserializer):
             return json.loads(data[5:])
 
 
-class AvroDeserializer(Deserializer):
-    def __init__(self, schema_registry_config: dict[str, str]):
-        registry_client = SchemaRegistryClient(schema_registry_config)
+class RegistryDeserializer(Deserializer):
+    def __init__(self, registry_config: dict[str, str]):
+        registry_client = SchemaRegistryClient(registry_config)
         self.confluent_deserializer = ConfluentAvroDeserializer(registry_client)
 
     def deserialize(
@@ -128,6 +135,39 @@ class AvroDeserializer(Deserializer):
             raise Exception("Context is needed: KEY or VALUE")
 
         return self.confluent_deserializer(data, SerializationContext(topic, context))
+
+
+class AvroDeserializer(Deserializer):
+    def __init__(self, avro_config: dict[str, str]):
+        self.key_path = avro_config.get("key")
+        self.value_path = avro_config.get("value")
+        self.descriptor_classes: dict[str, Type[Message]] | None = None
+
+    def deserialize(
+        self, data: bytes, topic: str | None = None, context: MessageField = MessageField.NONE
+    ) -> Any:
+        schema_path: str | None = None
+
+        if context == MessageField.NONE:
+            raise Exception("Context is needed: KEY or VALUE")
+
+        if context == MessageField.KEY:
+            if self.key_path is None:
+                raise Exception("Avro schema was not provided for context KEY")
+            schema_path = self.key_path
+
+        if context == MessageField.VALUE:
+            if self.value_path is None:
+                raise Exception("Avro schema was not provided for context VALUE")
+            schema_path = self.value_path
+
+        if schema_path is None:
+            raise Exception("Avro schema file not found")
+
+        magic, schema_id = unpack(">bI", data[:5])
+        if magic == SCHEMA_REGISTRY_MAGIC_BYTE:
+            return schemaless_reader(BytesIO(data[5:]), load_schema(schema_path), None)
+        return schemaless_reader(BytesIO(data), load_schema(schema_path), None)
 
 
 class ProtobufDeserializer(Deserializer):
@@ -172,7 +212,8 @@ class ProtobufDeserializer(Deserializer):
             new_message = deserialization_class()
             new_message.ParseFromString(data)
             return MessageToDict(new_message, always_print_fields_with_no_presence=True)
-        except Exception:
+        except Exception as e:
+            logger.warning("Error deserializing protobuf: %s", e)
             # in case that the protobuf has a confluent schema registry magic byte
             # https://docs.confluent.io/platform/current/schema-registry/fundamentals/serdes-develop/index.html#wire-format
             protobuf_deserializer = ConfluentProtobufDeserializer(
@@ -185,11 +226,15 @@ class ProtobufDeserializer(Deserializer):
 class DeserializerPool:
     def __init__(
         self,
-        schema_registry_config: dict[str, str] | None = None,
+        registry_config: dict[str, str] | None = None,
         protobuf_config: dict[str, str] | None = None,
+        avro_config: dict[str, str] | None = None,
     ):
-        if schema_registry_config:
-            self.avro_deserializer = AvroDeserializer(schema_registry_config)
+        if registry_config:
+            self.registry_deserializer = RegistryDeserializer(registry_config)
+
+        if avro_config:
+            self.avro_deserializer = AvroDeserializer(avro_config)
 
         if protobuf_config:
             self.protobuf_deserializer = ProtobufDeserializer(protobuf_config)
@@ -203,27 +248,31 @@ class DeserializerPool:
         self.long_deserializer = LongDeserializer()
         self.default_deserializer = DefaultDeserializer()
 
-    def get(self, deserialization_format: Format) -> Deserializer:
+    def get(self, deserialization_format: Deserialization) -> Deserializer:
         match deserialization_format:
-            case Format.STRING:
+            case Deserialization.STRING:
                 return self.string_deserializer
-            case Format.JSON:
+            case Deserialization.JSON:
                 return self.json_deserializer
-            case Format.INTEGER:
+            case Deserialization.INTEGER:
                 return self.integer_deserializer
-            case Format.LONG:
+            case Deserialization.LONG:
                 return self.long_deserializer
-            case Format.DOUBLE:
+            case Deserialization.DOUBLE:
                 return self.double_deserializer
-            case Format.FLOAT:
+            case Deserialization.FLOAT:
                 return self.float_deserializer
-            case Format.BOOLEAN:
+            case Deserialization.BOOLEAN:
                 return self.boolean_deserializer
-            case Format.AVRO:
-                if self.avro_deserializer is None:
+            case Deserialization.REGISTRY:
+                if self.registry_deserializer is None:
                     raise Exception("Schema Registry is not configured")
+                return self.registry_deserializer
+            case Deserialization.AVRO:
+                if self.avro_deserializer is None:
+                    raise Exception("Avro is not configured")
                 return self.avro_deserializer
-            case Format.PROTOBUF:
+            case Deserialization.PROTOBUF:
                 if self.protobuf_deserializer is None:
                     raise Exception("Protobuf is not configured")
                 return self.protobuf_deserializer

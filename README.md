@@ -34,13 +34,13 @@ It includes features like:
 - Filter by key, value, header and/or partition.
 - Schema Registry support for avro and json.
 - Protobuf deserialization support without Schema Registry.
+- Avro deserialization without Schema Registry.
 
 ## Limitations
 
 Kaskade does not include:
 
 - Schema Registry for protobuf.
-- Avro deserialization without Schema Registry.
 
 ## Screenshots
 
@@ -109,7 +109,7 @@ kaskade admin -b my-kafka:9092,my-kafka:9093
 kaskade consumer -b my-kafka:9092 -t my-json-topic -k json -v json
 ```
 
-> Supported deserialization formats `[bytes, boolean, string, long, integer, double, float, json, avro, protobuf]`
+> Supported deserializers `[bytes, boolean, string, long, integer, double, float, json, avro, protobuf, registry]`
 
 #### Consuming from the beginning:
 
@@ -117,12 +117,12 @@ kaskade consumer -b my-kafka:9092 -t my-json-topic -k json -v json
 kaskade consumer -b my-kafka:9092 -t my-topic --from-beginning
 ```
 
-#### Schema registry simple connection and avro deserialization:
+#### Schema registry simple connection deserializer:
 
 ```bash
 kaskade consumer -b my-kafka:9092 -t my-avro-topic \
-        -k avro -v avro \
-        --schema-registry url=http://my-schema-registry:8081
+        -k registry -v registry \
+        --registry url=http://my-schema-registry:8081
 ```
 
 > For more information about Schema Registry configurations go
@@ -132,8 +132,8 @@ kaskade consumer -b my-kafka:9092 -t my-avro-topic \
 
 ```bash
 kaskade consumer -b my-kafka:9092 -t my-avro-topic \
-        -k avro -v avro \
-        --schema-registry url=http://my-apicurio-registry:8081/apis/ccompat/v7
+        -k registry -v registry \
+        --registry url=http://my-apicurio-registry:8081/apis/ccompat/v7
 ```
 
 > For more about apicurio go to: https://github.com/apicurio/apicurio-registry
@@ -159,13 +159,13 @@ kaskade admin -b ${BOOTSTRAP_SERVERS} \
 
 ```bash
 kaskade consumer -b ${BOOTSTRAP_SERVERS} -t my-avro-topic \
-        -k string -v avro \
+        -k string -v registry \
         -c security.protocol=SASL_SSL \
         -c sasl.mechanism=PLAIN \
         -c sasl.username=${CLUSTER_API_KEY} \
         -c sasl.password=${CLUSTER_API_SECRET} \
-        --schema-registry url=${SCHEMA_REGISTRY_URL} \
-        --schema-registry basic.auth.user.info=${SR_API_KEY}:${SR_API_SECRET}
+        --registry url=${SCHEMA_REGISTRY_URL} \
+        --registry basic.auth.user.info=${SR_API_KEY}:${SR_API_SECRET}
 ```
 
 > More about confluent cloud configuration
@@ -181,6 +181,17 @@ docker run --rm -it --network my-networtk sauljabin/kaskade:latest \
 ```bash
 docker run --rm -it --network my-networtk sauljabin/kaskade:latest \
     consumer -b my-kafka:9092 -t my-topic
+```
+
+#### Avro consumer:
+
+Consume using `my-schema.avsc` file:
+
+```bash
+kaskade consumer -b my-kafka:9092 --from-beginning \
+        -k string -v avro \
+        -t my-avro-topic \
+        --avro value=my-schema.avsc
 ```
 
 #### Protobuf consumer:
