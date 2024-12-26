@@ -18,7 +18,8 @@
                     "type": "Changed",
                     "entries": [
                         "Command --schema-registry change to --registry",
-                        "Now the option -x becomes -c and --config"
+                        "Now the option -x becomes -c and --config",
+                        "Now quit is control+q instead of control+c"
                     ]
                 },
                 {
