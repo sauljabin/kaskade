@@ -128,7 +128,7 @@ kaskade consumer -b my-kafka:9092 -t my-avro-topic \
 > For more information about Schema Registry configurations go
 > to: [Confluent Schema Registry client](https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#schemaregistry-client).
 
-#### Apicurio registry
+#### Apicurio registry:
 
 ```bash
 kaskade consumer -b my-kafka:9092 -t my-avro-topic \
