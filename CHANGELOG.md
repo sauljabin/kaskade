@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.0.0] - 2024-12-26
+
 ### Added
 
 - Avro schema from file avsc
@@ -285,7 +287,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Schema registry support
 
-[Unreleased]: https://github.com/sauljabin/kaskade/compare/v3.0.0...HEAD
+[Unreleased]: https://github.com/sauljabin/kaskade/compare/v4.0.0...HEAD
+[4.0.0]: https://github.com/sauljabin/kaskade/compare/v3.0.0...v4.0.0
 [3.0.0]: https://github.com/sauljabin/kaskade/compare/v2.3.7...v3.0.0
 [2.3.7]: https://github.com/sauljabin/kaskade/compare/v2.3.6...v2.3.7
 [2.3.6]: https://github.com/sauljabin/kaskade/compare/v2.3.5...v2.3.6
