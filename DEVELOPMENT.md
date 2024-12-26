@@ -208,3 +208,11 @@ kaskade consumer -b localhost:19092 --from-beginning -t protobuf \
         --protobuf descriptor=tests/protobuf/user.desc \
         --protobuf value=User
 ```
+
+Test consumer with avro and without Schema Registry:
+
+```bash
+kaskade consumer -b localhost:19092 --from-beginning -t avro \
+        -k string -v avro \
+        --avro value=tests/avro/user.avsc
+```

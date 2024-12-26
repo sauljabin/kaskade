@@ -17,7 +17,7 @@ from kaskade.configs import (
 )
 
 KAFKA_CONFIG_HELP = (
-    "Kafka property. Set a librdkafka configuration property. Multiple '-x' are allowed."
+    "Kafka property. Set a librdkafka configuration property. Multiple '-c' are allowed."
 )
 BOOTSTRAP_SERVERS_HELP = "Bootstrap server(s). Comma-separated list of host and port pairs. Example: '-b localhost:9091,localhost:9092'."
 EPILOG_HELP = "More information at https://github.com/sauljabin/kaskade."
@@ -49,13 +49,15 @@ def cli() -> None:
     "Kafka options",
     cloup.option(
         "-b",
+        "--bootstrap-servers",
         "bootstrap_servers",
         help=BOOTSTRAP_SERVERS_HELP,
         metavar="host:port",
         required=True,
     ),
     cloup.option(
-        "-x",
+        "-c",
+        "--config",
         "kafka_config",
         help=KAFKA_CONFIG_HELP,
         metavar="property=value",
@@ -73,7 +75,7 @@ def admin(
     \b
     Examples:
       kaskade admin -b localhost:9092
-      kaskade admin -b localhost:9092 -x security.protocol=SSL
+      kaskade admin -b localhost:9092 -c security.protocol=SSL
     """
     kafka_config[BOOTSTRAP_SERVERS] = bootstrap_servers
     kaskade_app = KaskadeAdmin(kafka_config)
@@ -85,13 +87,15 @@ def admin(
     "Kafka options",
     cloup.option(
         "-b",
+        "--bootstrap-servers",
         "bootstrap_servers",
         help=BOOTSTRAP_SERVERS_HELP,
         metavar="host:port",
         required=True,
     ),
     cloup.option(
-        "-x",
+        "-c",
+        "--config",
         "kafka_config",
         help=KAFKA_CONFIG_HELP,
         metavar="property=value",
@@ -101,7 +105,7 @@ def admin(
     cloup.option(
         "--from-beginning",
         "from_beginning",
-        help="Read from beginning. Equivalent to: '-x auto.offset.reset=earliest'.",
+        help="Read from beginning. Equivalent to: '-c auto.offset.reset=earliest'.",
         is_flag=True,
     ),
 )
@@ -109,6 +113,7 @@ def admin(
     "Topic options",
     cloup.option(
         "-t",
+        "--topic",
         "topic",
         help="Topic name.",
         metavar="name",
@@ -116,6 +121,7 @@ def admin(
     ),
     cloup.option(
         "-k",
+        "--key",
         "key_format",
         type=cloup.Choice(Format.str_list(), False),
         help="Key format.",
@@ -125,6 +131,7 @@ def admin(
     ),
     cloup.option(
         "-v",
+        "--value",
         "value_format",
         type=cloup.Choice(Format.str_list(), False),
         help="Value format.",
@@ -157,11 +164,24 @@ def admin(
         callback=tuple_properties_to_dict,
     ),
 )
+@cloup.option_group(
+    "Avro options",
+    cloup.option(
+        "--avro",
+        "avro_config",
+        help="Avro property. Configure the avro deserializer. Multiple '--avro' are allowed. Needed if '-k avro' "
+        "or '-v avro' were passed. Valid properties: [key: avsc file path, value: avsc file path].",
+        metavar="property=value",
+        multiple=True,
+        callback=tuple_properties_to_dict,
+    ),
+)
 def consumer(
     bootstrap_servers: str,
     kafka_config: dict[str, str],
     schema_registry_config: dict[str, str],
     protobuf_config: dict[str, str],
+    avro_config: dict[str, str],
     topic: str,
     key_format: Format,
     value_format: Format,
@@ -174,9 +194,10 @@ def consumer(
     Examples:
       kaskade consumer -b localhost:9092 -t my-topic
       kaskade consumer -b localhost:9092 -t my-topic --from-beginning
-      kaskade consumer -b localhost:9092 -t my-topic -x security.protocol=SSL
+      kaskade consumer -b localhost:9092 -t my-topic -c security.protocol=SSL
       kaskade consumer -b localhost:9092 -t my-topic -v json
       kaskade consumer -b localhost:9092 -t my-topic -v avro --schema-registry url=http://localhost:8081
+      kaskade consumer -b localhost:9092 -t my-topic -v avro --avro value=my-schema.avsc
       kaskade consumer -b localhost:9092 -t my-topic -v protobuf --protobuf descriptor=my-descriptor.desc --protobuf value=MyMessage
     """
     kafka_config[BOOTSTRAP_SERVERS] = bootstrap_servers

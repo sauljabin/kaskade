@@ -22,7 +22,7 @@ from kaskade.banner import KaskadeBanner
 
 CHUNKS_SHORTCUT = "#"
 NEXT_SHORTCUT = "tab"
-QUIT_SHORTCUT = "ctrl+c"
+QUIT_SHORTCUT = "ctrl+q"
 SUBMIT_SHORTCUT = "enter"
 BACK_SHORTCUT = "escape"
 FILTER_SHORTCUT = "ctrl+f"

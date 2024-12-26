@@ -25,10 +25,12 @@ class TestAdminCli(unittest.TestCase):
         self.assertIn("Missing option '-b'", result.output)
 
     def test_invalid_extra_kafka_config(self):
-        result = self.runner.invoke(cli, [self.command, "-x", "property.name"])
+        result = self.runner.invoke(cli, [self.command, "-c", "property.name"])
 
         self.assertGreater(result.exit_code, 0)
-        self.assertIn("Invalid value for '-x': Should be property=value", result.output)
+        self.assertIn(
+            "Invalid value for '-c' / '--config': Should be property=value", result.output
+        )
 
     @patch("kaskade.main.KaskadeAdmin")
     def test_update_kafka_config(self, mock_class_kaskade_admin):
@@ -48,7 +50,7 @@ class TestAdminCli(unittest.TestCase):
                 self.command,
                 "-b",
                 EXPECTED_SERVER,
-                "-x",
+                "-c",
                 f"{expected_property_name}={expected_property_value}",
             ],
         )
@@ -71,9 +73,9 @@ class TestAdminCli(unittest.TestCase):
                 self.command,
                 "-b",
                 EXPECTED_SERVER,
-                "-x",
+                "-c",
                 f"{expected_property_name}={expected_property_value}",
-                "-x",
+                "-c",
                 f"{expected_property_name2}={expected_property_value2}",
             ],
         )
@@ -107,10 +109,12 @@ class TestConsumerCli(unittest.TestCase):
         self.assertIn("Missing option '-t'", result.output)
 
     def test_invalid_extra_kafka_config(self):
-        result = self.runner.invoke(cli, [self.command, "-x", "property.name"])
+        result = self.runner.invoke(cli, [self.command, "-c", "property.name"])
 
         self.assertGreater(result.exit_code, 0)
-        self.assertIn("Invalid value for '-x': Should be property=value", result.output)
+        self.assertIn(
+            "Invalid value for '-c' / '--config': Should be property=value", result.output
+        )
 
     def test_invalid_schema_registry_config(self):
         result = self.runner.invoke(cli, [self.command, "--schema-registry", "property.name"])
@@ -312,7 +316,7 @@ class TestConsumerCli(unittest.TestCase):
                 EXPECTED_SERVER,
                 "-t",
                 EXPECTED_TOPIC,
-                "-x",
+                "-c",
                 f"{expected_property_name}={expected_property_value}",
             ],
         )
@@ -342,9 +346,9 @@ class TestConsumerCli(unittest.TestCase):
                 EXPECTED_SERVER,
                 "-t",
                 EXPECTED_TOPIC,
-                "-x",
+                "-c",
                 f"{expected_property_name}={expected_property_value}",
-                "-x",
+                "-c",
                 f"{expected_property_name2}={expected_property_value2}",
             ],
         )

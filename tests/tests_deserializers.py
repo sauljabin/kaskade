@@ -132,7 +132,9 @@ class TestDeserializer(unittest.TestCase):
 
         deserializer = AvroDeserializer({})
 
-        result = deserializer.deserialize(b"\x00\x00\x00\x00\x00" + buffer_writer.getvalue())
+        result = deserializer.deserialize(
+            b"\x00\x00\x00\x00\x00" + buffer_writer.getvalue(), "", MessageField.VALUE
+        )
 
         self.assertEqual(expected_value, result)
 
@@ -142,7 +144,7 @@ class TestDeserializer(unittest.TestCase):
         user = User()
         user.name = "my name"
 
-        result = deserializer.deserialize(user.SerializeToString(), MessageField.VALUE)
+        result = deserializer.deserialize(user.SerializeToString(), "", MessageField.VALUE)
         self.assertEqual({"name": user.name}, result)
 
     def test_protobuf_deserialization_with_magic_byte(self):
@@ -152,7 +154,7 @@ class TestDeserializer(unittest.TestCase):
         user.name = "my name"
 
         result = deserializer.deserialize(
-            b"\x00\x00\x00\x00\x00\x00" + user.SerializeToString(), MessageField.VALUE
+            b"\x00\x00\x00\x00\x00\x00" + user.SerializeToString(), "", MessageField.VALUE
         )
         self.assertEqual({"name": user.name}, result)
 

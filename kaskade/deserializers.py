@@ -8,7 +8,7 @@ from confluent_kafka.schema_registry.avro import AvroDeserializer as ConfluentAv
 from confluent_kafka.schema_registry.protobuf import (
     ProtobufDeserializer as ConfluentProtobufDeserializer,
 )
-from confluent_kafka.serialization import MessageField
+from confluent_kafka.serialization import MessageField, SerializationContext
 from google.protobuf.descriptor_pb2 import FileDescriptorSet
 from google.protobuf.json_format import MessageToDict
 from google.protobuf.message import Message
@@ -46,47 +46,65 @@ class Format(Enum):
 
 class Deserializer(ABC):
     @abstractmethod
-    def deserialize(self, data: bytes, context: MessageField = MessageField.NONE) -> Any:
+    def deserialize(
+        self, data: bytes, topic: str | None = None, context: MessageField = MessageField.NONE
+    ) -> Any:
         pass
 
 
 class DefaultDeserializer(Deserializer):
-    def deserialize(self, data: bytes, context: MessageField = MessageField.NONE) -> Any:
+    def deserialize(
+        self, data: bytes, topic: str | None = None, context: MessageField = MessageField.NONE
+    ) -> Any:
         return str(data)
 
 
 class StringDeserializer(Deserializer):
-    def deserialize(self, data: bytes, context: MessageField = MessageField.NONE) -> Any:
+    def deserialize(
+        self, data: bytes, topic: str | None = None, context: MessageField = MessageField.NONE
+    ) -> Any:
         return data.decode("utf-8")
 
 
 class BooleanDeserializer(Deserializer):
-    def deserialize(self, data: bytes, context: MessageField = MessageField.NONE) -> Any:
+    def deserialize(
+        self, data: bytes, topic: str | None = None, context: MessageField = MessageField.NONE
+    ) -> Any:
         return unpack_bytes(">?", data)
 
 
 class FloatDeserializer(Deserializer):
-    def deserialize(self, data: bytes, context: MessageField = MessageField.NONE) -> Any:
+    def deserialize(
+        self, data: bytes, topic: str | None = None, context: MessageField = MessageField.NONE
+    ) -> Any:
         return unpack_bytes(">f", data)
 
 
 class DoubleDeserializer(Deserializer):
-    def deserialize(self, data: bytes, context: MessageField = MessageField.NONE) -> Any:
+    def deserialize(
+        self, data: bytes, topic: str | None = None, context: MessageField = MessageField.NONE
+    ) -> Any:
         return unpack_bytes(">d", data)
 
 
 class LongDeserializer(Deserializer):
-    def deserialize(self, data: bytes, context: MessageField = MessageField.NONE) -> Any:
+    def deserialize(
+        self, data: bytes, topic: str | None = None, context: MessageField = MessageField.NONE
+    ) -> Any:
         return unpack_bytes(">q", data)
 
 
 class IntegerDeserializer(Deserializer):
-    def deserialize(self, data: bytes, context: MessageField = MessageField.NONE) -> Any:
+    def deserialize(
+        self, data: bytes, topic: str | None = None, context: MessageField = MessageField.NONE
+    ) -> Any:
         return unpack_bytes(">i", data)
 
 
 class JsonDeserializer(Deserializer):
-    def deserialize(self, data: bytes, context: MessageField = MessageField.NONE) -> Any:
+    def deserialize(
+        self, data: bytes, topic: str | None = None, context: MessageField = MessageField.NONE
+    ) -> Any:
         try:
             return json.loads(data)
         except Exception:
@@ -100,8 +118,16 @@ class AvroDeserializer(Deserializer):
         registry_client = SchemaRegistryClient(schema_registry_config)
         self.confluent_deserializer = ConfluentAvroDeserializer(registry_client)
 
-    def deserialize(self, data: bytes, context: MessageField = MessageField.NONE) -> Any:
-        return self.confluent_deserializer(data, None)
+    def deserialize(
+        self, data: bytes, topic: str | None = None, context: MessageField = MessageField.NONE
+    ) -> Any:
+        if topic is None:
+            raise Exception("Topic name needed")
+
+        if context == MessageField.NONE:
+            raise Exception("Context is needed: KEY or VALUE")
+
+        return self.confluent_deserializer(data, SerializationContext(topic, context))
 
 
 class ProtobufDeserializer(Deserializer):
@@ -111,7 +137,12 @@ class ProtobufDeserializer(Deserializer):
         self.value_class = protobuf_config.get("value")
         self.descriptor_classes: dict[str, Type[Message]] | None = None
 
-    def deserialize(self, data: bytes, context: MessageField = MessageField.NONE) -> Any:
+    def deserialize(
+        self, data: bytes, topic: str | None = None, context: MessageField = MessageField.NONE
+    ) -> Any:
+        if topic is None:
+            raise Exception("Topic name needed")
+
         if context == MessageField.NONE:
             raise Exception("Context is needed: KEY or VALUE")
 
@@ -147,7 +178,7 @@ class ProtobufDeserializer(Deserializer):
             protobuf_deserializer = ConfluentProtobufDeserializer(
                 deserialization_class, {"use.deprecated.format": False}
             )
-            new_message = protobuf_deserializer(data, None)
+            new_message = protobuf_deserializer(data, SerializationContext(topic, context))
             return MessageToDict(new_message, always_print_fields_with_no_presence=True)
 
 
