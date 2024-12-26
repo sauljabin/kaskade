@@ -69,7 +69,7 @@ class Populator:
     "--bootstrap-servers", default="localhost:19092", help="Bootstrap servers.", show_default=True
 )
 @click.option(
-    "--schema-registry",
+    "--registry",
     default="http://localhost:18081",
     help="Schema registry. For Apicurio registry use 'http://localhost:18081/apis/ccompat/v7'",
     show_default=True,

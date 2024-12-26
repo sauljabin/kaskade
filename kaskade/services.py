@@ -36,7 +36,7 @@ from kaskade.models import (
     Record,
     Header,
 )
-from kaskade.deserializers import Format, DeserializerPool
+from kaskade.deserializers import Deserialization, DeserializerPool
 from kaskade.utils import make_it_async
 
 
@@ -46,8 +46,8 @@ class ConsumerService:
         topic: str,
         kafka_config: dict[str, str],
         deserializer_factory: DeserializerPool,
-        key_format: Format,
-        value_format: Format,
+        key_deserialization: Deserialization,
+        value_deserialization: Deserialization,
         *,
         page_size: int = 25,
         poll_retries: int = 5,
@@ -59,8 +59,8 @@ class ConsumerService:
         self.poll_retries = poll_retries
         self.stabilization_retries = stabilization_retries
         self.timeout = timeout
-        self.key_format = key_format
-        self.value_format = value_format
+        self.key_deserialization = key_deserialization
+        self.value_deserialization = value_deserialization
         self.stable = False
         self.consumer = Consumer(
             kafka_config
@@ -134,17 +134,19 @@ class ConsumerService:
                         Header(
                             key=key,
                             value=value,
-                            value_deserializer=self.deserializer_factory.get(Format.STRING),
+                            value_deserializer=self.deserializer_factory.get(
+                                Deserialization.STRING
+                            ),
                         )
                         for key, value in record_metadata.headers()
                     ]
                     if record_metadata.headers() is not None
                     else []
                 ),
-                key_format=self.key_format,
-                value_format=self.value_format,
-                key_deserializer=self.deserializer_factory.get(self.key_format),
-                value_deserializer=self.deserializer_factory.get(self.value_format),
+                key_deserialization=self.key_deserialization,
+                value_deserialization=self.value_deserialization,
+                key_deserializer=self.deserializer_factory.get(self.key_deserialization),
+                value_deserializer=self.deserializer_factory.get(self.value_deserialization),
             )
 
             if partition_filter is not None:

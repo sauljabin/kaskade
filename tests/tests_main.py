@@ -6,7 +6,7 @@ from click.testing import CliRunner
 
 from kaskade.configs import BOOTSTRAP_SERVERS
 from kaskade.main import cli
-from kaskade.deserializers import Format
+from kaskade.deserializers import Deserialization
 from tests import faker
 
 EXPECTED_TOPIC = "my.topic"
@@ -117,12 +117,10 @@ class TestConsumerCli(unittest.TestCase):
         )
 
     def test_invalid_schema_registry_config(self):
-        result = self.runner.invoke(cli, [self.command, "--schema-registry", "property.name"])
+        result = self.runner.invoke(cli, [self.command, "--registry", "property.name"])
 
         self.assertGreater(result.exit_code, 0)
-        self.assertIn(
-            "Invalid value for '--schema-registry': Should be property=value", result.output
-        )
+        self.assertIn("Invalid value for '--registry': Should be property=value", result.output)
 
     def test_invalid_protobuf_config(self):
         result = self.runner.invoke(cli, [self.command, "--protobuf", "property.name"])
@@ -181,15 +179,15 @@ class TestConsumerCli(unittest.TestCase):
                 EXPECTED_SERVER,
                 "-t",
                 EXPECTED_TOPIC,
-                "--schema-registry",
+                "--registry",
                 "basic.auth.user.info=property",
                 "-k",
-                "avro",
+                "registry",
             ],
         )
 
         self.assertGreater(result.exit_code, 0)
-        self.assertIn("Missing option '--schema-registry url=my-url'", result.output)
+        self.assertIn("Missing option '--registry url=my-url'", result.output)
 
     def test_validate_schema_registry_invalid_config(self):
         result = self.runner.invoke(
@@ -200,7 +198,7 @@ class TestConsumerCli(unittest.TestCase):
                 EXPECTED_SERVER,
                 "-t",
                 EXPECTED_TOPIC,
-                "--schema-registry",
+                "--registry",
                 "not.valid=property",
             ],
         )
@@ -234,13 +232,13 @@ class TestConsumerCli(unittest.TestCase):
                 EXPECTED_SERVER,
                 "-t",
                 EXPECTED_TOPIC,
-                "--schema-registry",
+                "--registry",
                 "url=http://my-url",
             ],
         )
 
         self.assertGreater(result.exit_code, 0)
-        self.assertIn("Missing option '-k avro' and/or '-v avro'", result.output)
+        self.assertIn("Missing option '-k registry' and/or '-v registry'", result.output)
 
     def test_validate_schema_registry_invalid_url(self):
         result = self.runner.invoke(
@@ -251,10 +249,10 @@ class TestConsumerCli(unittest.TestCase):
                 EXPECTED_SERVER,
                 "-t",
                 EXPECTED_TOPIC,
-                "--schema-registry",
+                "--registry",
                 "url=no.url",
                 "-k",
-                "avro",
+                "registry",
             ],
         )
 
@@ -267,7 +265,7 @@ class TestConsumerCli(unittest.TestCase):
         )
 
         self.assertGreater(result.exit_code, 0)
-        self.assertIn("Missing option '--schema-registry' or '--avro'", result.output)
+        self.assertIn("Missing option '--avro'", result.output)
 
     def test_validate_missing_options_with_avro_value(self):
         result = self.runner.invoke(
@@ -275,7 +273,7 @@ class TestConsumerCli(unittest.TestCase):
         )
 
         self.assertGreater(result.exit_code, 0)
-        self.assertIn("Missing option '--schema-registry' or '--avro'", result.output)
+        self.assertIn("Missing option '--avro'", result.output)
 
     @patch("kaskade.main.KaskadeConsumer")
     def test_update_kafka_config(self, mock_class_kaskade_consumer):
@@ -284,7 +282,13 @@ class TestConsumerCli(unittest.TestCase):
         )
 
         mock_class_kaskade_consumer.assert_called_with(
-            EXPECTED_TOPIC, {BOOTSTRAP_SERVERS: EXPECTED_SERVER}, {}, {}, Format.BYTES, Format.BYTES
+            EXPECTED_TOPIC,
+            {BOOTSTRAP_SERVERS: EXPECTED_SERVER},
+            {},
+            {},
+            {},
+            Deserialization.BYTES,
+            Deserialization.BYTES,
         )
         self.assertEqual(0, result.exit_code)
 
@@ -292,8 +296,8 @@ class TestConsumerCli(unittest.TestCase):
     def test_pass_right_format(self, mock_class_kaskade_consumer):
         options = ["long", "bytes", "string"]
 
-        expected_key_format = faker.random.choice(options)
-        expected_value_format = faker.random.choice(options)
+        expected_key_deserialization = faker.random.choice(options)
+        expected_value_deserialization = faker.random.choice(options)
 
         result = self.runner.invoke(
             cli,
@@ -304,9 +308,9 @@ class TestConsumerCli(unittest.TestCase):
                 "-t",
                 EXPECTED_TOPIC,
                 "-k",
-                expected_key_format,
+                expected_key_deserialization,
                 "-v",
-                expected_value_format,
+                expected_value_deserialization,
             ],
         )
 
@@ -315,8 +319,9 @@ class TestConsumerCli(unittest.TestCase):
             {BOOTSTRAP_SERVERS: EXPECTED_SERVER},
             {},
             {},
-            Format.from_str(expected_key_format),
-            Format.from_str(expected_value_format),
+            {},
+            Deserialization.from_str(expected_key_deserialization),
+            Deserialization.from_str(expected_value_deserialization),
         )
         self.assertEqual(0, result.exit_code)
 
@@ -343,8 +348,9 @@ class TestConsumerCli(unittest.TestCase):
             {BOOTSTRAP_SERVERS: EXPECTED_SERVER, expected_property_name: expected_property_value},
             {},
             {},
-            Format.BYTES,
-            Format.BYTES,
+            {},
+            Deserialization.BYTES,
+            Deserialization.BYTES,
         )
         self.assertEqual(0, result.exit_code)
 
@@ -379,8 +385,9 @@ class TestConsumerCli(unittest.TestCase):
             },
             {},
             {},
-            Format.BYTES,
-            Format.BYTES,
+            {},
+            Deserialization.BYTES,
+            Deserialization.BYTES,
         )
         self.assertEqual(0, result.exit_code)
 
@@ -399,14 +406,14 @@ class TestConsumerCli(unittest.TestCase):
                 EXPECTED_SERVER,
                 "-t",
                 EXPECTED_TOPIC,
-                "--schema-registry",
+                "--registry",
                 f"{expected_property_name}={expected_property_value}",
-                "--schema-registry",
+                "--registry",
                 f"{expected_property_name2}={expected_property_value2}",
                 "-k",
-                "avro",
+                "registry",
                 "-v",
-                "avro",
+                "registry",
             ],
         )
 
@@ -420,8 +427,9 @@ class TestConsumerCli(unittest.TestCase):
                 expected_property_name2: expected_property_value2,
             },
             {},
-            Format.AVRO,
-            Format.AVRO,
+            {},
+            Deserialization.REGISTRY,
+            Deserialization.REGISTRY,
         )
         self.assertEqual(0, result.exit_code)
 
@@ -658,8 +666,9 @@ class TestConsumerCli(unittest.TestCase):
                 expected_descriptor_name: expected_descriptor_value,
                 expected_value_name: expected_value,
             },
-            Format.BYTES,
-            Format.PROTOBUF,
+            {},
+            Deserialization.BYTES,
+            Deserialization.PROTOBUF,
         )
         self.assertEqual(0, result.exit_code)
 

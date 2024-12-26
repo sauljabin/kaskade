@@ -133,6 +133,13 @@ Populate kafka:
 python -m scripts.sandbox
 ```
 
+Read help messages:
+
+```bash
+kaskade admin --help
+kaskade consumer --help
+```
+
 Test admin:
 
 ```bash
@@ -185,16 +192,24 @@ Test consumer with Schema Registry (Confluent and Redpanda):
 
 ```bash
 kaskade consumer -b localhost:19092 --from-beginning -t avro \
-        -k string -v avro \
-        --schema-registry url=http://localhost:18081
+        -k string -v registry \
+        --registry url=http://localhost:18081
 ```
 
 Test consumer with Apicurio Registry:
 
 ```bash
 kaskade consumer -b localhost:19092 --from-beginning -t avro \
+        -k string -v registry \
+        --registry url=http://localhost:18081/apis/ccompat/v7
+```
+
+Test consumer avro without Schema Registry:
+
+```bash
+kaskade consumer -b localhost:19092 --from-beginning -t avro \
         -k string -v avro \
-        --schema-registry url=http://localhost:18081/apis/ccompat/v7
+        --avro value=tests/avro/user.avsc
 ```
 
 Test consumer with protobuf:
@@ -207,12 +222,4 @@ kaskade consumer -b localhost:19092 --from-beginning -t protobuf \
         -k string -v protobuf \
         --protobuf descriptor=tests/protobuf/user.desc \
         --protobuf value=User
-```
-
-Test consumer with avro and without Schema Registry:
-
-```bash
-kaskade consumer -b localhost:19092 --from-beginning -t avro \
-        -k string -v avro \
-        --avro value=tests/avro/user.avsc
 ```

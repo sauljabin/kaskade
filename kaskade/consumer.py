@@ -14,7 +14,7 @@ from textual.widgets import DataTable, Pretty, ListView, ListItem, Label, Input
 
 from kaskade.colors import PRIMARY, SECONDARY
 from kaskade.models import Record
-from kaskade.deserializers import Format, DeserializerPool
+from kaskade.deserializers import Deserialization, DeserializerPool
 from kaskade.services import ConsumerService
 from kaskade.unicodes import PIPE
 from kaskade.utils import notify_error
@@ -176,17 +176,16 @@ class ListRecords(Container):
         self,
         topic: str,
         kafka_config: dict[str, str],
-        schema_registry_config: dict[str, str],
-        protobuf_config: dict[str, str],
-        key_format: Format,
-        value_format: Format,
+        deserializer_factory: DeserializerPool,
+        key_deserialization: Deserialization,
+        value_deserialization: Deserialization,
     ):
         super().__init__()
         self.topic = topic
         self.kafka_config = kafka_config
-        self.deserializer_factory = DeserializerPool(schema_registry_config, protobuf_config)
-        self.key_format = key_format
-        self.value_format = value_format
+        self.deserializer_factory = deserializer_factory
+        self.key_deserialization = key_deserialization
+        self.value_deserialization = value_deserialization
         self.consumer = self._new_consumer()
         self.records: dict[str, Record] = {}
         self.current_record: Record | None = None
@@ -200,8 +199,8 @@ class ListRecords(Container):
             self.topic,
             self.kafka_config,
             self.deserializer_factory,
-            self.key_format,
-            self.value_format,
+            self.key_deserialization,
+            self.value_deserialization,
         )
 
     def _get_title(self) -> str:
@@ -340,19 +339,21 @@ class KaskadeConsumer(App):
         self,
         topic: str,
         kafka_config: dict[str, str],
-        schema_registry_config: dict[str, str],
+        registry_config: dict[str, str],
         protobuf_config: dict[str, str],
-        key_format: Format,
-        value_format: Format,
+        avro_config: dict[str, str],
+        key_deserialization: Deserialization,
+        value_deserialization: Deserialization,
     ):
         super().__init__()
         self.use_command_palette = False
         self.topic = topic
         self.kafka_config = kafka_config
-        self.schema_registry_config = schema_registry_config
+        self.registry_config = registry_config
         self.protobuf_config = protobuf_config
-        self.key_format = key_format
-        self.value_format = value_format
+        self.avro_config = avro_config
+        self.key_deserialization = key_deserialization
+        self.value_deserialization = value_deserialization
 
     def on_mount(self) -> None:
         self.console.push_theme(Theme({"repr.str": Style(color=PRIMARY)}))
@@ -362,8 +363,7 @@ class KaskadeConsumer(App):
         yield ListRecords(
             self.topic,
             self.kafka_config,
-            self.schema_registry_config,
-            self.protobuf_config,
-            self.key_format,
-            self.value_format,
+            DeserializerPool(self.registry_config, self.protobuf_config, self.avro_config),
+            self.key_deserialization,
+            self.value_deserialization,
         )
