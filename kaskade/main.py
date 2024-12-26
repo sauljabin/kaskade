@@ -16,9 +16,13 @@ from kaskade.configs import (
     EARLIEST,
     AVRO_DESERIALIZER_CONFIGS,
 )
+from kaskade.utils import load_properties
 
 KAFKA_CONFIG_HELP = (
     "Kafka property. Set a librdkafka configuration property. Multiple '-c' are allowed."
+)
+KAFKA_CONFIG_FILE_HELP = (
+    "Property file (property=value format) containing configs to be passed to Kafka Client."
 )
 BOOTSTRAP_SERVERS_HELP = "Bootstrap server(s). Comma-separated list of host and port pairs. Example: '-b localhost:9091,localhost:9092'."
 EPILOG_HELP = "More information at https://github.com/sauljabin/kaskade."
@@ -67,9 +71,17 @@ def cli() -> None:
         multiple=True,
         callback=tuple_properties_to_dict,
     ),
+    cloup.option(
+        "--config-file",
+        "kafka_config_file",
+        help=KAFKA_CONFIG_FILE_HELP,
+        type=cloup.Path(exists=True),
+        metavar="filename",
+    ),
 )
 def admin(
     bootstrap_servers: str,
+    kafka_config_file: str | None,
     kafka_config: dict[str, str],
 ) -> None:
     """
@@ -79,8 +91,14 @@ def admin(
     Examples:
       kaskade admin -b localhost:9092
       kaskade admin -b localhost:9092 --config security.protocol=SSL
+      kaskade admin -b localhost:9092 --config-file kafka.properties
     """
+
+    if kafka_config_file is not None:
+        kafka_config = load_properties(kafka_config_file) | kafka_config
+
     kafka_config[BOOTSTRAP_SERVERS] = bootstrap_servers
+
     kaskade_app = KaskadeAdmin(kafka_config)
     kaskade_app.run()
 
@@ -110,6 +128,13 @@ def admin(
         "from_beginning",
         help="Read from beginning. Equivalent to: '-c auto.offset.reset=earliest'.",
         is_flag=True,
+    ),
+    cloup.option(
+        "--config-file",
+        "kafka_config_file",
+        help=KAFKA_CONFIG_FILE_HELP,
+        type=cloup.Path(exists=True),
+        metavar="filename",
     ),
 )
 @cloup.option_group(
@@ -189,6 +214,7 @@ def consumer(
     key_deserialization: Deserialization,
     value_deserialization: Deserialization,
     from_beginning: bool,
+    kafka_config_file: str | None,
 ) -> None:
     """
     Consumer mode.
@@ -198,11 +224,16 @@ def consumer(
       kaskade consumer -b localhost:9092 -t my-topic
       kaskade consumer -b localhost:9092 -t my-topic --from-beginning
       kaskade consumer -b localhost:9092 -t my-topic --config security.protocol=SSL
+      kaskade consumer -b localhost:9092 -t my-topic --config-file kafka.properties
       kaskade consumer -b localhost:9092 -t my-topic -v json
       kaskade consumer -b localhost:9092 -t my-topic -v registry --registry url=http://localhost:8081
       kaskade consumer -b localhost:9092 -t my-topic -v avro --avro value=my-schema.avsc
       kaskade consumer -b localhost:9092 -t my-topic -v protobuf --protobuf descriptor=my-descriptor.desc --protobuf value=MyMessage
     """
+
+    if kafka_config_file is not None:
+        kafka_config = load_properties(kafka_config_file) | kafka_config
+
     kafka_config[BOOTSTRAP_SERVERS] = bootstrap_servers
 
     if from_beginning:

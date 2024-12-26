@@ -10,7 +10,8 @@
                         "Avro schema from file avsc",
                         "New alias for -t (--topic)",
                         "New alias for -b (--botstrap-servers)",
-                        "New alias for -k (--key) and -v (--value)"
+                        "New alias for -k (--key) and -v (--value)",
+                        "New option --config-file"
                     ]
                 },
                 {

@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - New alias for -t (--topic)
 - New alias for -b (--botstrap-servers)
 - New alias for -k (--key) and -v (--value)
+- New option --config-file
 
 ### Changed
 
