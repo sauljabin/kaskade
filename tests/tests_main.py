@@ -1,3 +1,4 @@
+import os
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -11,6 +12,13 @@ from tests import faker
 
 EXPECTED_TOPIC = "my.topic"
 EXPECTED_SERVER = "localhost:9092"
+CURRENT_PATH = os.getcwd()
+RELATIVE_KAFKA_CONFIG = "config/kafka.properties"
+KAFKA_CONFIG = (
+    f"{CURRENT_PATH}/{RELATIVE_KAFKA_CONFIG}"
+    if CURRENT_PATH.endswith("tests")
+    else f"{CURRENT_PATH}/tests/{RELATIVE_KAFKA_CONFIG}"
+)
 
 
 class TestAdminCli(unittest.TestCase):
@@ -37,6 +45,37 @@ class TestAdminCli(unittest.TestCase):
         result = self.runner.invoke(cli, [self.command, "-b", EXPECTED_SERVER])
 
         mock_class_kaskade_admin.assert_called_with({BOOTSTRAP_SERVERS: EXPECTED_SERVER})
+        self.assertEqual(0, result.exit_code)
+
+    @patch("kaskade.main.KaskadeAdmin")
+    def test_kafka_config_file(self, mock_class_kaskade_admin):
+        result = self.runner.invoke(
+            cli, [self.command, "-b", EXPECTED_SERVER, "--config-file", KAFKA_CONFIG]
+        )
+
+        mock_class_kaskade_admin.assert_called_with(
+            {BOOTSTRAP_SERVERS: EXPECTED_SERVER, "security.protocol": "SSL"}
+        )
+        self.assertEqual(0, result.exit_code)
+
+    @patch("kaskade.main.KaskadeAdmin")
+    def test_kafka_config_file_overlap(self, mock_class_kaskade_admin):
+        result = self.runner.invoke(
+            cli,
+            [
+                self.command,
+                "-b",
+                EXPECTED_SERVER,
+                "-c",
+                "security.protocol=SASL_SSL",
+                "--config-file",
+                KAFKA_CONFIG,
+            ],
+        )
+
+        mock_class_kaskade_admin.assert_called_with(
+            {BOOTSTRAP_SERVERS: EXPECTED_SERVER, "security.protocol": "SASL_SSL"}
+        )
         self.assertEqual(0, result.exit_code)
 
     @patch("kaskade.main.KaskadeAdmin")
@@ -274,6 +313,60 @@ class TestConsumerCli(unittest.TestCase):
 
         self.assertGreater(result.exit_code, 0)
         self.assertIn("Missing option '--avro'", result.output)
+
+    @patch("kaskade.main.KaskadeConsumer")
+    def test_kafka_config_file(self, mock_class_kaskade_consumer):
+        result = self.runner.invoke(
+            cli,
+            [
+                self.command,
+                "-b",
+                EXPECTED_SERVER,
+                "-t",
+                EXPECTED_TOPIC,
+                "--config-file",
+                KAFKA_CONFIG,
+            ],
+        )
+
+        mock_class_kaskade_consumer.assert_called_with(
+            EXPECTED_TOPIC,
+            {BOOTSTRAP_SERVERS: EXPECTED_SERVER, "security.protocol": "SSL"},
+            {},
+            {},
+            {},
+            Deserialization.BYTES,
+            Deserialization.BYTES,
+        )
+        self.assertEqual(0, result.exit_code)
+
+    @patch("kaskade.main.KaskadeConsumer")
+    def test_kafka_config_file_overlap(self, mock_class_kaskade_consumer):
+        result = self.runner.invoke(
+            cli,
+            [
+                self.command,
+                "-b",
+                EXPECTED_SERVER,
+                "-t",
+                EXPECTED_TOPIC,
+                "-c",
+                "security.protocol=SASL_SSL",
+                "--config-file",
+                KAFKA_CONFIG,
+            ],
+        )
+
+        mock_class_kaskade_consumer.assert_called_with(
+            EXPECTED_TOPIC,
+            {BOOTSTRAP_SERVERS: EXPECTED_SERVER, "security.protocol": "SASL_SSL"},
+            {},
+            {},
+            {},
+            Deserialization.BYTES,
+            Deserialization.BYTES,
+        )
+        self.assertEqual(0, result.exit_code)
 
     @patch("kaskade.main.KaskadeConsumer")
     def test_update_kafka_config(self, mock_class_kaskade_consumer):
