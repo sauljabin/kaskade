@@ -1,5 +1,4 @@
 import click
-import toml
 from rich.console import Console
 
 from scripts import CommandProcessor
@@ -83,9 +82,11 @@ def revert_changes() -> None:
 
 
 def get_app_version() -> str:
-    toml_data = toml.load("pyproject.toml")
-    app_version = toml_data["tool"]["poetry"]["version"]
-    return str(app_version)
+    revert_commands = {
+        "get version": "poetry version -s",
+    }
+    command_processor = CommandProcessor(revert_commands)
+    return command_processor.run().strip()
 
 
 if __name__ == "__main__":
