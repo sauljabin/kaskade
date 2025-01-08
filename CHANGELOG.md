@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Upgrade kafka client version
+- Upgrade poetry version
+
 ## [4.0.0] - 2024-12-26
 
 ### Added

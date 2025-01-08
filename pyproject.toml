@@ -1,33 +1,35 @@
-[tool.poetry]
+[project]
 name = "kaskade"
 version = "4.0.0"
 description = "kaskade is a text user interface for kafka"
-authors = ["Saúl Piña <sauljabin@gmail.com>"]
+authors = [{ name = "Saúl Piña", email = "saul@littlehorse.io" }]
 license = "MIT"
 readme = "README.md"
-homepage = "https://github.com/sauljabin/kaskade"
-repository = "https://github.com/sauljabin/kaskade"
-documentation = "https://github.com/sauljabin/kaskade"
 keywords = ["kafka", "kaskade"]
 classifiers = [
     "Environment :: Console",
     "Operating System :: MacOS",
-    "Operating System :: Unix"
+    "Operating System :: Unix",
 ]
-include = [
-    "LICENSE",
-]
-packages = [
-    { include = "kaskade" },
+requires-python = ">=3.10,<3.14"
+dependencies = [
+    "cloup>=3.0",
+    "textual>=1.0",
+    "confluent-kafka[avro,json,protobuf]>=2.8",
 ]
 
-[tool.poetry.dependencies]
-python = ">=3.10 <3.14"
-cloup = "^3.0"
-textual =  "^1.0"
-confluent-kafka = {extras = ["avro", "json", "protobuf"], version = "^2.7"}
+[project.scripts]
+kaskade = "kaskade.main:cli"
 
-[tool.poetry.dev-dependencies]
+[project.urls]
+homepage = "https://github.com/sauljabin/kaskade"
+repository = "https://github.com/sauljabin/kaskade"
+documentation = "https://github.com/sauljabin/kaskade"
+changelog = "https://github.com/sauljabin/kaskade/blob/main/CHANGELOG.md"
+issues = "https://github.com/sauljabin/kaskade/issues"
+funding = "https://github.com/sponsors/sauljabin"
+
+[tool.poetry.group.dev.dependencies]
 black = "*"
 faker = "*"
 toml = "*"
@@ -44,7 +46,7 @@ parameterized = "*"
 testcontainers = "*"
 
 [build-system]
-requires = ["poetry-core>=1.0.0"]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.black]
@@ -56,6 +58,3 @@ line-length = 100
 [tool.typos]
 type.lock.extend-glob = ["*.lock"]
 type.lock.check-file = true
-
-[tool.poetry.scripts]
-kaskade = "kaskade.main:cli"

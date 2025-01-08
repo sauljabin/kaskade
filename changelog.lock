@@ -2,7 +2,16 @@
     "repository": "https://github.com/sauljabin/kaskade",
     "versions": [
         {
-            "version": "Unreleased"
+            "version": "Unreleased",
+            "changes": [
+                {
+                    "type": "Fixed",
+                    "entries": [
+                        "Upgrade kafka client version",
+                        "Upgrade poetry version"
+                    ]
+                }
+            ]
         },
         {
             "version": "4.0.0",

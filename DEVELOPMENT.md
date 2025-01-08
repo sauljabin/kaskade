@@ -6,6 +6,7 @@ Installing poetry:
 
 ```bash
 pipx install poetry
+poetry self add poetry-plugin-shell
 ```
 
 Installing development dependencies:
