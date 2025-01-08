@@ -1,6 +1,6 @@
 [project]
 name = "kaskade"
-version = "4.0.0"
+version = "4.0.1"
 description = "kaskade is a text user interface for kafka"
 authors = [{ name = "Saúl Piña", email = "sauljabin@gmail.com" }]
 license = "MIT"
