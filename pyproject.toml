@@ -2,7 +2,7 @@
 name = "kaskade"
 version = "4.0.0"
 description = "kaskade is a text user interface for kafka"
-authors = [{ name = "Saúl Piña", email = "saul@littlehorse.io" }]
+authors = [{ name = "Saúl Piña", email = "sauljabin@gmail.com" }]
 license = "MIT"
 readme = "README.md"
 keywords = ["kafka", "kaskade"]
