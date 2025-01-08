@@ -74,9 +74,9 @@ class Populator:
     help="Schema registry. For Apicurio registry use 'http://localhost:18081/apis/ccompat/v7'",
     show_default=True,
 )
-def main(messages: int, bootstrap_servers: str, schema_registry: str) -> None:
+def main(messages: int, bootstrap_servers: str, registry: str) -> None:
     avro_serializer = AvroSerializer(
-        SchemaRegistryClient({"url": schema_registry}),
+        SchemaRegistryClient({"url": registry}),
         file_to_str("tests/avro/user.avsc"),
         lambda value, ctx: vars(value),
     )
