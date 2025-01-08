@@ -7,6 +7,7 @@ license = "MIT"
 readme = "README.md"
 keywords = ["kafka", "kaskade"]
 classifiers = [
+    "License :: OSI Approved :: MIT License",
     "Environment :: Console",
     "Operating System :: MacOS",
     "Operating System :: Unix",
