@@ -3,7 +3,7 @@ name = "kaskade"
 version = "4.0.2"
 description = "kaskade is a text user interface for kafka"
 authors = [{ name = "Saúl Piña", email = "sauljabin@gmail.com" }]
-license = "MIT"
+license = { text = "MIT" }
 readme = "README.md"
 keywords = ["kafka", "kaskade"]
 classifiers = [
