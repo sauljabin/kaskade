@@ -136,7 +136,7 @@ kaskade consumer -b my-kafka:9092 -t my-avro-topic \
         --registry url=http://my-apicurio-registry:8081/apis/ccompat/v7
 ```
 
-> For more about apicurio go to: https://github.com/apicurio/apicurio-registry
+> For more about apicurio go to: [Apicurio registry](https://github.com/apicurio/apicurio-registry).
 
 #### SSL encryption example:
 
@@ -145,7 +145,7 @@ kaskade admin -b my-kafka:9092 -c security.protocol=SSL
 ```
 
 > For more information about SSL encryption and SSL authentication go
-> to: [SSL support in librdkafka](https://github.com/edenhill/librdkafka/wiki/Using-SSL-with-librdkafka#configure-librdkafka-client).
+> to: [Configure librdkafka client](https://github.com/edenhill/librdkafka/wiki/Using-SSL-with-librdkafka#configure-librdkafka-client).
 
 #### Confluent cloud admin and consumer:
 
@@ -169,7 +169,7 @@ kaskade consumer -b ${BOOTSTRAP_SERVERS} -t my-avro-topic \
 ```
 
 > More about confluent cloud configuration
-> at: [Kafka Client Quick Start for Confluent Cloud](https://docs.confluent.io/cloud/current/client-apps/config-client.html).
+> at: [Kafka client quick start for Confluent Cloud](https://docs.confluent.io/cloud/current/client-apps/config-client.html).
 
 #### Running with docker:
 
@@ -221,7 +221,7 @@ kaskade consumer -b my-kafka:9092 --from-beginning \
         --protobuf value=mypackage.MyMessage
 ```
 
-> More about protobuf and `FileDescriptorSet` at: [Protocol Buffers Documentation](https://protobuf.dev/programming-guides/techniques/#self-description).
+> More about protobuf and `FileDescriptorSet` at: [Protocol Buffers documentation](https://protobuf.dev/programming-guides/techniques/#self-description).
 
 ## Development
 
