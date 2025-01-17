@@ -1,7 +1,6 @@
 import json
 from abc import abstractmethod, ABC
 from enum import Enum, auto
-from io import BytesIO
 from struct import unpack
 from typing import Any, Type
 
@@ -14,15 +13,13 @@ from confluent_kafka.schema_registry.protobuf import (
     ProtobufDeserializer as ConfluentProtobufDeserializer,
 )
 from confluent_kafka.serialization import MessageField, SerializationContext
-from fastavro import schemaless_reader
-from fastavro.schema import load_schema
 from google.protobuf.descriptor_pb2 import FileDescriptorSet
 from google.protobuf.json_format import MessageToDict
 from google.protobuf.message import Message
 from google.protobuf.message_factory import GetMessages
 
 from kaskade.configs import SCHEMA_REGISTRY_MAGIC_BYTE
-from kaskade.utils import unpack_bytes, file_to_bytes
+from kaskade.utils import unpack_bytes, file_to_bytes, avro_to_py
 
 
 class Deserialization(Enum):
@@ -195,9 +192,9 @@ class AvroDeserializer(Deserializer):
             if magic == SCHEMA_REGISTRY_MAGIC_BYTE:
                 # in case that the avro has a confluent schema registry magic byte
                 # https://docs.confluent.io/platform/current/schema-registry/fundamentals/serdes-develop/index.html#wire-format
-                return schemaless_reader(BytesIO(data[5:]), load_schema(schema_path), None)
+                return avro_to_py(schema_path, data[5:])
 
-        return schemaless_reader(BytesIO(data), load_schema(schema_path), None)
+        return avro_to_py(schema_path, data)
 
 
 class ProtobufDeserializer(Deserializer):

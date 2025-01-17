@@ -7,7 +7,7 @@ from types import MappingProxyType
 from typing import Callable, Any
 
 from confluent_kafka import KafkaException
-from fastavro import schemaless_writer
+from fastavro import schemaless_writer, schemaless_reader
 from fastavro.schema import load_schema
 from textual.app import App
 
@@ -66,6 +66,12 @@ def load_properties(file_path: str, sep: str = "=", comment_char: str = "#") -> 
 
 def py_to_avro(schema_path: str, data: dict[str, Any] | MappingProxyType[str, Any]) -> bytes:
     schema = load_schema(schema_path)
-    buffer_writer = BytesIO()
-    schemaless_writer(buffer_writer, schema, data)
-    return buffer_writer.getvalue()
+    buffer = BytesIO()
+    schemaless_writer(buffer, schema, data)
+    return buffer.getvalue()
+
+
+def avro_to_py(schema_path: str, data: bytes) -> Any:
+    schema = load_schema(schema_path)
+    buffer = BytesIO(data)
+    return schemaless_reader(buffer, schema, None)
