@@ -3,11 +3,7 @@ import os
 
 import struct
 import unittest
-from typing import Any
 
-from fastavro import schemaless_writer
-from fastavro.schema import load_schema
-from io import BytesIO
 from unittest.mock import patch
 
 from confluent_kafka.serialization import MessageField
@@ -25,7 +21,7 @@ from kaskade.deserializers import (
     ProtobufDeserializer,
     AvroDeserializer,
 )
-from kaskade.utils import file_to_str
+from kaskade.utils import file_to_str, py_to_avro
 from tests import faker
 from tests.protobuf.user_pb2 import User
 
@@ -44,14 +40,6 @@ AVRO_PATH = (
     if CURRENT_PATH.endswith("tests")
     else f"{CURRENT_PATH}/tests/{AVRO_SCHEMA_NAME}"
 )
-
-
-def py_to_avro(expected_value: dict[str, Any]):
-    schema = load_schema(AVRO_PATH)
-    buffer_writer = BytesIO()
-    schemaless_writer(buffer_writer, schema, expected_value)
-    encoded = buffer_writer.getvalue()
-    return encoded
 
 
 class TestDeserializer(unittest.TestCase):
@@ -138,7 +126,7 @@ class TestDeserializer(unittest.TestCase):
         )
         mock_sr_client_class.return_value.get_schema.return_value.schema_type = "AVRO"
 
-        encoded = py_to_avro(expected_value)
+        encoded = py_to_avro(AVRO_PATH, expected_value)
 
         deserializer = RegistryDeserializer({})
 
@@ -185,7 +173,7 @@ class TestDeserializer(unittest.TestCase):
     def test_avro_deserialization(self):
         expected_value = {"name": "Pedro Pascal"}
         deserializer = AvroDeserializer({"value": AVRO_PATH})
-        encoded = py_to_avro(expected_value)
+        encoded = py_to_avro(AVRO_PATH, expected_value)
 
         result = deserializer.deserialize(encoded, "", MessageField.VALUE)
         print(encoded)
@@ -195,7 +183,7 @@ class TestDeserializer(unittest.TestCase):
     def test_avro_deserialization_with_magic_byte(self):
         expected_value = {"name": "Pedro Pascal"}
         deserializer = AvroDeserializer({"value": AVRO_PATH})
-        encoded = py_to_avro(expected_value)
+        encoded = py_to_avro(AVRO_PATH, expected_value)
 
         result = deserializer.deserialize(b"\x00\x00\x00\x00\x00" + encoded, "", MessageField.VALUE)
 

@@ -1,8 +1,11 @@
 import time
+from time import sleep
 
 from confluent_kafka.cimpl import NewTopic
 from confluent_kafka.schema_registry import SchemaRegistryClient
 from confluent_kafka.schema_registry.avro import AvroSerializer
+from confluent_kafka.schema_registry.json_schema import JSONSerializer
+from confluent_kafka.schema_registry.protobuf import ProtobufSerializer
 from confluent_kafka.serialization import SerializationContext, MessageField
 from typing import Callable, Any
 import uuid
@@ -14,9 +17,13 @@ from confluent_kafka.admin import AdminClient
 from confluent_kafka import Producer, KafkaError, KafkaException
 from faker import Faker
 
-from kaskade.utils import pack_bytes, file_to_str
-from tests.protobuf.user_pb2 import User as ProtoUser
+from kaskade.utils import pack_bytes, file_to_str, py_to_avro
+from tests.protobuf.user_pb2 import User as ProtobufUser
 from tests.avro.user import User as AvroUser
+from tests.json.user import User as JsonUser
+
+JSON_USER_SCHEMA = "tests/json/user.schema.json"
+AVRO_USER_SCHEMA = "tests/avro/user.avsc"
 
 
 class Populator:
@@ -42,6 +49,7 @@ class Populator:
         for future in futures.values():
             try:
                 future.result()
+                sleep(0.1)
             except KafkaException as ke:
                 if (
                     len(ke.args) > 0
@@ -75,10 +83,19 @@ class Populator:
     show_default=True,
 )
 def main(messages: int, bootstrap_servers: str, registry: str) -> None:
+    registry_client = SchemaRegistryClient({"url": registry})
     avro_serializer = AvroSerializer(
-        SchemaRegistryClient({"url": registry}),
-        file_to_str("tests/avro/user.avsc"),
+        registry_client,
+        file_to_str(AVRO_USER_SCHEMA),
         lambda value, ctx: vars(value),
+    )
+    json_serializer = JSONSerializer(
+        file_to_str(JSON_USER_SCHEMA),
+        registry_client,
+        lambda value, ctx: vars(value),
+    )
+    protobuf_serializer = ProtobufSerializer(
+        ProtobufUser, registry_client, {"use.deprecated.format": False}
     )
     faker = Faker()
     topics = [
@@ -123,14 +140,35 @@ def main(messages: int, bootstrap_servers: str, registry: str) -> None:
             lambda value: value.encode("utf-8"),
         ),
         (
+            "json-schema",
+            lambda: JsonUser(name=faker.name()),
+            lambda value: json_serializer(
+                value, SerializationContext("json-schema", MessageField.VALUE)
+            ),
+        ),
+        (
             "protobuf",
-            lambda: ProtoUser(name=faker.name()),
+            lambda: ProtobufUser(name=faker.name()),
             lambda value: value.SerializeToString(),
+        ),
+        (
+            "protobuf-schema",
+            lambda: ProtobufUser(name=faker.name()),
+            lambda value: protobuf_serializer(
+                value, SerializationContext("protobuf-schema", MessageField.VALUE)
+            ),
         ),
         (
             "avro",
             lambda: AvroUser(name=faker.name()),
-            lambda value: avro_serializer(value, SerializationContext("avro", MessageField.VALUE)),
+            lambda value: py_to_avro(AVRO_USER_SCHEMA, vars(value)),
+        ),
+        (
+            "avro-schema",
+            lambda: AvroUser(name=faker.name()),
+            lambda value: avro_serializer(
+                value, SerializationContext("avro-schema", MessageField.VALUE)
+            ),
         ),
     ]
     populator = Populator({BOOTSTRAP_SERVERS: bootstrap_servers})
