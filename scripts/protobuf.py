@@ -2,7 +2,7 @@ from scripts import CommandProcessor
 
 
 def main() -> None:
-    path = "tests/protobuf"
+    path = "tests/protobuf_model"
     commands = {
         "build protobuf examples": f"protoc --include_imports --proto_path={path} --python_out={path} --pyi_out={path} --descriptor_set_out={path}/user.desc {path}/user.proto",
     }

@@ -18,12 +18,12 @@ from confluent_kafka import Producer, KafkaError, KafkaException
 from faker import Faker
 
 from kaskade.utils import pack_bytes, file_to_str, py_to_avro
-from tests.protobuf.user_pb2 import User as ProtobufUser
-from tests.avro.user import User as AvroUser
-from tests.json.user import User as JsonUser
+from tests.protobuf_model.user_pb2 import User as ProtobufUser
+from tests.avro_model.user import User as AvroUser
+from tests.json_model.user import User as JsonUser
 
-JSON_USER_SCHEMA = "tests/json/user.schema.json"
-AVRO_USER_SCHEMA = "tests/avro/user.avsc"
+JSON_USER_SCHEMA = "tests/json_model/user.schema.json"
+AVRO_USER_SCHEMA = "tests/avro_model/user.avsc"
 
 
 class Populator:

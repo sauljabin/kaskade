@@ -185,35 +185,45 @@ kaskade consumer -b localhost:19092 --from-beginning -k string -v double -t doub
 kaskade consumer -b localhost:19092 --from-beginning -k string -v boolean -t boolean
 ```
 
-```bash
-kaskade consumer -b localhost:19092 --from-beginning -k string -v json -t json
-```
-
-Test consumer with Schema Registry (Confluent and Redpanda):
+Test json consumer with Schema Registry (Confluent and Redpanda):
 
 ```bash
-kaskade consumer -b localhost:19092 --from-beginning -t avro \
+kaskade consumer -b localhost:19092 --from-beginning -t json-schema \
         -k string -v registry \
         --registry url=http://localhost:18081
 ```
 
-Test consumer with Apicurio Registry:
+Test json consumer without Schema Registry:
 
 ```bash
-kaskade consumer -b localhost:19092 --from-beginning -t avro \
+kaskade consumer -b localhost:19092 --from-beginning -k string -v json -t json
+```
+
+Test avro consumer with Schema Registry (Confluent and Redpanda):
+
+```bash
+kaskade consumer -b localhost:19092 --from-beginning -t avro-schema \
+        -k string -v registry \
+        --registry url=http://localhost:18081
+```
+
+Test avro consumer with Apicurio Registry:
+
+```bash
+kaskade consumer -b localhost:19092 --from-beginning -t avro-schema \
         -k string -v registry \
         --registry url=http://localhost:18081/apis/ccompat/v7
 ```
 
-Test consumer avro without Schema Registry:
+Test avro consumer without Schema Registry:
 
 ```bash
 kaskade consumer -b localhost:19092 --from-beginning -t avro \
         -k string -v avro \
-        --avro value=tests/avro/user.avsc
+        --avro value=tests/avro_model/user.avsc
 ```
 
-Test consumer with protobuf:
+Test protobuf consumer:
 
 > Install `protoc` with `brew install protobuf`.\
 > Update descriptor with `python -m scripts.protobuf`.
@@ -221,6 +231,6 @@ Test consumer with protobuf:
 ```bash
 kaskade consumer -b localhost:19092 --from-beginning -t protobuf \
         -k string -v protobuf \
-        --protobuf descriptor=tests/protobuf/user.desc \
+        --protobuf descriptor=tests/protobuf_model/user.desc \
         --protobuf value=User
 ```
