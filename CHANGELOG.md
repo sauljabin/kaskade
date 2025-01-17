@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.0.3] - 2025-01-17
+
 ### Fixed
 
 - Schema registry deserializer identify the schema type, JSON or AVRO
@@ -304,7 +306,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Schema registry support
 
-[Unreleased]: https://github.com/sauljabin/kaskade/compare/v4.0.2...HEAD
+[Unreleased]: https://github.com/sauljabin/kaskade/compare/v4.0.3...HEAD
+[4.0.3]: https://github.com/sauljabin/kaskade/compare/v4.0.2...v4.0.3
 [4.0.2]: https://github.com/sauljabin/kaskade/compare/v4.0.1...v4.0.2
 [4.0.1]: https://github.com/sauljabin/kaskade/compare/v4.0.0...v4.0.1
 [4.0.0]: https://github.com/sauljabin/kaskade/compare/v3.0.0...v4.0.0
