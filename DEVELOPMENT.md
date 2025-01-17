@@ -199,6 +199,10 @@ Test json consumer without Schema Registry:
 kaskade consumer -b localhost:19092 --from-beginning -k string -v json -t json
 ```
 
+```bash
+kaskade consumer -b localhost:19092 --from-beginning -k string -v json -t json-schema
+```
+
 Test avro consumer with Schema Registry (Confluent and Redpanda):
 
 ```bash
@@ -223,6 +227,12 @@ kaskade consumer -b localhost:19092 --from-beginning -t avro \
         --avro value=tests/avro_model/user.avsc
 ```
 
+```bash
+kaskade consumer -b localhost:19092 --from-beginning -t avro-schema \
+        -k string -v avro \
+        --avro value=tests/avro_model/user.avsc
+```
+
 Test protobuf consumer:
 
 > Install `protoc` with `brew install protobuf`.\
@@ -230,6 +240,13 @@ Test protobuf consumer:
 
 ```bash
 kaskade consumer -b localhost:19092 --from-beginning -t protobuf \
+        -k string -v protobuf \
+        --protobuf descriptor=tests/protobuf_model/user.desc \
+        --protobuf value=User
+```
+
+```bash
+kaskade consumer -b localhost:19092 --from-beginning -t protobuf-schema \
         -k string -v protobuf \
         --protobuf descriptor=tests/protobuf_model/user.desc \
         --protobuf value=User
