@@ -7,6 +7,9 @@ from typing import Any, Type
 
 from confluent_kafka.schema_registry import SchemaRegistryClient
 from confluent_kafka.schema_registry.avro import AvroDeserializer as ConfluentAvroDeserializer
+from confluent_kafka.schema_registry.json_schema import (
+    JSONDeserializer as ConfluentJsonDeserializer,
+)
 from confluent_kafka.schema_registry.protobuf import (
     ProtobufDeserializer as ConfluentProtobufDeserializer,
 )
@@ -18,7 +21,6 @@ from google.protobuf.json_format import MessageToDict
 from google.protobuf.message import Message
 from google.protobuf.message_factory import GetMessages
 
-from kaskade import logger
 from kaskade.configs import SCHEMA_REGISTRY_MAGIC_BYTE
 from kaskade.utils import unpack_bytes, file_to_bytes
 
@@ -112,18 +114,23 @@ class JsonDeserializer(Deserializer):
     def deserialize(
         self, data: bytes, topic: str | None = None, context: MessageField = MessageField.NONE
     ) -> Any:
-        try:
-            return json.loads(data)
-        except Exception:
-            # in case that the json has a confluent schema registry magic byte
-            # https://docs.confluent.io/platform/current/schema-registry/fundamentals/serdes-develop/index.html#wire-format
-            return json.loads(data[5:])
+        if len(data) > 5:
+            magic, schema_id = unpack(">bI", data[:5])
+            if magic == SCHEMA_REGISTRY_MAGIC_BYTE:
+                # in case that the json has a confluent schema registry magic byte
+                # https://docs.confluent.io/platform/current/schema-registry/fundamentals/serdes-develop/index.html#wire-format
+                return json.loads(data[5:])
+
+        return json.loads(data)
 
 
 class RegistryDeserializer(Deserializer):
     def __init__(self, registry_config: dict[str, str]):
-        registry_client = SchemaRegistryClient(registry_config)
-        self.confluent_deserializer = ConfluentAvroDeserializer(registry_client)
+        self.registry_client = SchemaRegistryClient(registry_config)
+        self.avro_deserializer = ConfluentAvroDeserializer(self.registry_client)
+        self.json_deserializer = ConfluentJsonDeserializer(
+            None, schema_registry_client=self.registry_client
+        )
 
     def deserialize(
         self, data: bytes, topic: str | None = None, context: MessageField = MessageField.NONE
@@ -134,7 +141,26 @@ class RegistryDeserializer(Deserializer):
         if context == MessageField.NONE:
             raise Exception("Context is needed: KEY or VALUE")
 
-        return self.confluent_deserializer(data, SerializationContext(topic, context))
+        if len(data) <= 5:
+            raise Exception(
+                f"Expecting data framing of length 6 bytes or more but total data size is {len(data)} bytes. This message was not produced with a Confluent Schema Registry serializer"
+            )
+
+        magic, schema_id = unpack(">bI", data[:5])
+        if magic != SCHEMA_REGISTRY_MAGIC_BYTE:
+            raise Exception(
+                f"Unexpected magic byte {magic}. This message was not produced with a Confluent Schema Registry serializer"
+            )
+
+        schema = self.registry_client.get_schema(schema_id)
+
+        match schema.schema_type:
+            case "JSON":
+                return self.json_deserializer(data, SerializationContext(topic, context))
+            case "AVRO":
+                return self.avro_deserializer(data, SerializationContext(topic, context))
+            case _:
+                raise Exception("Schema type not supported")
 
 
 class AvroDeserializer(Deserializer):
@@ -164,9 +190,13 @@ class AvroDeserializer(Deserializer):
         if schema_path is None:
             raise Exception("Avro schema file not found")
 
-        magic, schema_id = unpack(">bI", data[:5])
-        if magic == SCHEMA_REGISTRY_MAGIC_BYTE:
-            return schemaless_reader(BytesIO(data[5:]), load_schema(schema_path), None)
+        if len(data) > 5:
+            magic, schema_id = unpack(">bI", data[:5])
+            if magic == SCHEMA_REGISTRY_MAGIC_BYTE:
+                # in case that the avro has a confluent schema registry magic byte
+                # https://docs.confluent.io/platform/current/schema-registry/fundamentals/serdes-develop/index.html#wire-format
+                return schemaless_reader(BytesIO(data[5:]), load_schema(schema_path), None)
+
         return schemaless_reader(BytesIO(data), load_schema(schema_path), None)
 
 
@@ -208,19 +238,21 @@ class ProtobufDeserializer(Deserializer):
         if deserialization_class is None:
             raise Exception("Deserialization class not found")
 
-        try:
-            new_message = deserialization_class()
-            new_message.ParseFromString(data)
-            return MessageToDict(new_message, always_print_fields_with_no_presence=True)
-        except Exception as e:
-            logger.warning("Error deserializing protobuf: %s", e)
-            # in case that the protobuf has a confluent schema registry magic byte
-            # https://docs.confluent.io/platform/current/schema-registry/fundamentals/serdes-develop/index.html#wire-format
-            protobuf_deserializer = ConfluentProtobufDeserializer(
-                deserialization_class, {"use.deprecated.format": False}
-            )
-            new_message = protobuf_deserializer(data, SerializationContext(topic, context))
-            return MessageToDict(new_message, always_print_fields_with_no_presence=True)
+        if len(data) > 5:
+            magic, schema_id = unpack(">bI", data[:5])
+            if magic == SCHEMA_REGISTRY_MAGIC_BYTE:
+                # in case that the protobuf has a confluent schema registry magic byte
+                # https://docs.confluent.io/platform/current/schema-registry/fundamentals/serdes-develop/index.html#wire-format
+                deserializer_config = {"use.deprecated.format": False}
+                protobuf_deserializer = ConfluentProtobufDeserializer(
+                    deserialization_class, deserializer_config
+                )
+                new_message = protobuf_deserializer(data, SerializationContext(topic, context))
+                return MessageToDict(new_message, always_print_fields_with_no_presence=True)
+
+        new_message = deserialization_class()
+        new_message.ParseFromString(data)
+        return MessageToDict(new_message, always_print_fields_with_no_presence=True)
 
 
 class DeserializerPool:

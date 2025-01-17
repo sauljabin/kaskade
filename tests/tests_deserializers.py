@@ -130,18 +130,35 @@ class TestDeserializer(unittest.TestCase):
         self.assertEqual(expected_value, result)
 
     @patch("kaskade.deserializers.SchemaRegistryClient")
-    def test_registry_deserialization_with_magic_byte(self, mock_sr_client_class):
+    def test_registry_deserialization_avro(self, mock_sr_client_class):
         expected_value = {"name": "Pedro Pascal"}
 
         mock_sr_client_class.return_value.get_schema.return_value.schema_str = file_to_str(
             AVRO_PATH
         )
+        mock_sr_client_class.return_value.get_schema.return_value.schema_type = "AVRO"
 
         encoded = py_to_avro(expected_value)
 
         deserializer = RegistryDeserializer({})
 
         result = deserializer.deserialize(b"\x00\x00\x00\x00\x00" + encoded, "", MessageField.VALUE)
+
+        self.assertEqual(expected_value, result)
+
+    @patch("kaskade.deserializers.SchemaRegistryClient")
+    def test_registry_deserialization_json(self, mock_sr_client_class):
+        expected_value = {"name": "Pedro Pascal"}
+        expected_json = json.dumps(expected_value)
+
+        mock_sr_client_class.return_value.get_schema.return_value.schema_str = expected_json
+        mock_sr_client_class.return_value.get_schema.return_value.schema_type = "JSON"
+
+        deserializer = RegistryDeserializer({})
+
+        result = deserializer.deserialize(
+            b"\x00\x00\x00\x00\x00" + expected_json.encode(), "", MessageField.VALUE
+        )
 
         self.assertEqual(expected_value, result)
 

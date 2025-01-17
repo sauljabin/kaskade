@@ -1708,19 +1708,20 @@ files = [
 
 [[package]]
 name = "referencing"
-version = "0.35.1"
+version = "0.36.0"
 description = "JSON Referencing + Python"
 optional = false
-python-versions = ">=3.8"
+python-versions = ">=3.9"
 groups = ["main"]
 files = [
-    {file = "referencing-0.35.1-py3-none-any.whl", hash = "sha256:eda6d3234d62814d1c64e305c1331c9a3a6132da475ab6382eaa997b21ee75de"},
-    {file = "referencing-0.35.1.tar.gz", hash = "sha256:25b42124a6c8b632a425174f24087783efb348a6f1e0008e63cd4466fedf703c"},
+    {file = "referencing-0.36.0-py3-none-any.whl", hash = "sha256:01fc2916bab821aa3284d645bbbb41ba39609e7ff47072416a39ec2fb04d10d9"},
+    {file = "referencing-0.36.0.tar.gz", hash = "sha256:246db964bb6101905167895cd66499cfb2aabc5f83277d008c52afe918ef29ba"},
 ]
 
 [package.dependencies]
 attrs = ">=22.2.0"
 rpds-py = ">=0.7.0"
+typing-extensions = {version = "*", markers = "python_version < \"3.13\""}
 
 [[package]]
 name = "requests"
