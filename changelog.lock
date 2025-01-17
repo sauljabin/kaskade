@@ -2,7 +2,15 @@
     "repository": "https://github.com/sauljabin/kaskade",
     "versions": [
         {
-            "version": "Unreleased"
+            "version": "Unreleased",
+            "changes": [
+                {
+                    "type": "Fixed",
+                    "entries": [
+                        "Schema registry deserializer identify the schema type, JSON or AVRO"
+                    ]
+                }
+            ]
         },
         {
             "version": "4.0.2",
