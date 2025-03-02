@@ -110,7 +110,7 @@ python -m scripts.bump patch
 
 ### Manual Tests
 
-Run local sandbox:
+Run local sandbox (chose one of `confluent`, `redpanda` or `apicurio`):
 
 ```bash
 docker compose -f docker-compose.confluent.yml up -d
