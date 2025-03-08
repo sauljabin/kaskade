@@ -224,10 +224,10 @@ kaskade consumer -b my-kafka:9092 --from-beginning \
 > More about protobuf and `FileDescriptorSet` at: [Protocol Buffers documentation](https://protobuf.dev/programming-guides/techniques/#self-description).
 
 
-#### AWS IAM Authentication
+#### AWS IAM Authentication:
 
 ```bash
-kaskade admin -b my-kafka:9092 --from-beginning \
+kaskade admin -b my-kafka:9092 \
         -c security.protocol=SASL_SSL \
         -c sasl.mechanism=OAUTHBEARER \
         -c aws.region=eu-west-1
