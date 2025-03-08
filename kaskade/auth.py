@@ -2,8 +2,6 @@ from typing import Any, Callable
 
 from aws_msk_iam_sasl_signer import MSKAuthTokenProvider
 
-from kaskade.configs import DEFAULT_AWS_IAM_REGION
-
 def construct_oauth_callback(region: str) -> Callable:
     def oauth_cb(oauth_config):
         auth_token, expiry_ms = MSKAuthTokenProvider.generate_auth_token(region)
@@ -18,5 +16,7 @@ def get_additional_auth_config(config: dict[str, Any]) -> dict[str, Callable]:
     """
     To enable AWS IAM support, we need to register an oauth callback function in the confluent-kafka configuration
     """
-    aws_region = config.get("aws.region", DEFAULT_AWS_IAM_REGION)
-    return {"oauth_cb": construct_oauth_callback(aws_region)} if uses_oauthbearer_sasl_mechanism(config) else {}
+    if uses_oauthbearer_sasl_mechanism(config) and "aws.region" in config:
+        return { "oauth_cb": construct_oauth_callback(config["aws.region"]) }
+
+    return {}
