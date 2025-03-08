@@ -27,3 +27,5 @@ LOGGER = "logger"
 MAX_POLL_INTERVAL_MS = "max.poll.interval.ms"
 ENABLE_AUTO_COMMIT = "enable.auto.commit"
 GROUP_ID = "group.id"
+OAUTHBEARER_POLL_TIMEOUT_SECONDS = 1 # Poll timeout to ensure oauth token is generated TODO increase to allow for longer token refresh times (or make configurable)?
+DEFAULT_AWS_IAM_REGION = "eu-west-1"
