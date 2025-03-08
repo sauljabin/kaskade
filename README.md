@@ -227,6 +227,13 @@ kaskade consumer -b my-kafka:9092 --from-beginning \
 #### AWS IAM Authentication
 
 ```bash
+kaskade admin -b my-kafka:9092 --from-beginning \
+        -c security.protocol=SASL_SSL \
+        -c sasl.mechanism=OAUTHBEARER \
+        -c aws.region=eu-west-1
+```
+
+```bash
 kaskade consumer -b my-kafka:9092 --from-beginning \
         -t my-topic \
         -c security.protocol=SASL_SSL \
