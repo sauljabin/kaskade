@@ -80,7 +80,7 @@ class FilterRecordScreen(ModalScreen[tuple[str, str, str, str]]):
         input_header.border_title = "header"
 
         container = Container()
-        container.border_title = f"[{PRIMARY}]filter records:[/]"
+        container.border_title = f"[{PRIMARY}]filter records[/]"
         container.border_subtitle = (
             f"[{PRIMARY}]filter:[/] <{SUBMIT_SHORTCUT}> | [{PRIMARY}]back:[/] <{BACK_SHORTCUT}>"
         )
@@ -154,7 +154,7 @@ class TopicScreen(ModalScreen):
 
     def compose(self) -> ComposeResult:
         container = ScrollableContainer()
-        container.border_title = f"[{PRIMARY}]record[/] [[{PRIMARY}]{self.topic}[/]][[{PRIMARY}]{self.partition}[/]][[{PRIMARY}]{self.record_offset}[/]]"
+        container.border_title = f"[{PRIMARY}]record[/] \[[{PRIMARY}]{self.topic}[/]]\[[{PRIMARY}]{self.partition}[/]]\[[{PRIMARY}]{self.record_offset}[/]]"
         container.border_subtitle = f"[{PRIMARY}]back:[/] <{BACK_SHORTCUT}>"
         with container:
             yield Pretty(self.data)
@@ -205,7 +205,7 @@ class ListRecords(Container):
 
     def _get_title(self) -> str:
         def style(text: str) -> str:
-            return f"[[{PRIMARY}]{text}[/]]"
+            return f"\[[{PRIMARY}]{text}[/]]"
 
         title_filter = ""
 
@@ -221,12 +221,12 @@ class ListRecords(Container):
         if self.header_filter:
             title_filter += style(f"h:*{self.header_filter}*")
 
-        return f"[{PRIMARY}]records[/] [[{PRIMARY}]{self.topic}[/]]{title_filter}[[{PRIMARY}]{len(self.records)}[/]]"
+        return f"[{PRIMARY}]records[/] \[[{PRIMARY}]{self.topic}[/]]{title_filter}\[[{PRIMARY}]{len(self.records)}[/]]"
 
     def compose(self) -> ComposeResult:
         table: DataTable = DataTable()
         table.cursor_type = "row"
-        table.border_subtitle = f"[[{PRIMARY}]consumer mode[/]]"
+        table.border_subtitle = f"\[[{PRIMARY}]consumer mode[/]]"
         table.zebra_stripes = True
         table.border_title = self._get_title()
 

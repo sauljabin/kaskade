@@ -5,6 +5,18 @@
             "version": "Unreleased"
         },
         {
+            "version": "4.0.4",
+            "date": "2025-03-02",
+            "changes": [
+                {
+                    "type": "Fixed",
+                    "entries": [
+                        "Update dependencies"
+                    ]
+                }
+            ]
+        },
+        {
             "version": "4.0.3",
             "date": "2025-01-17",
             "changes": [
