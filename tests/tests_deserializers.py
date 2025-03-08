@@ -25,7 +25,6 @@ from kaskade.utils import file_to_str, py_to_avro
 from tests import faker
 from tests.protobuf_model.user_pb2 import User
 
-
 CURRENT_PATH = os.getcwd()
 DESCRIPTOR_NAME = "protobuf_model/user.desc"
 DESCRIPTOR_PATH = (
