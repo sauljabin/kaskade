@@ -53,7 +53,7 @@ class TestTopicService(unittest.IsolatedAsyncioTestCase):
         mock_admin.list_consumer_groups.return_value.result.return_value.valid = []
 
         # asserts
-        topic_service = TopicService({"bootstrap.servers": faker.hostname()})
+        topic_service = TopicService({"bootstrap.servers": faker.hostname()}, {})
 
         topics_list = await topic_service.all()
         self.assertEqual(1, len(topics_list))
@@ -150,7 +150,7 @@ class TestTopicService(unittest.IsolatedAsyncioTestCase):
         mock_consumer.committed.return_value = [committed_partition_metadata]
 
         # asserts
-        topic_service = TopicService({"bootstrap.servers": faker.hostname()})
+        topic_service = TopicService({"bootstrap.servers": faker.hostname()}, {})
 
         topics_list = await topic_service.all()
         self.assertEqual(1, len(topics_list))

@@ -56,7 +56,7 @@ class TestE2E(unittest.IsolatedAsyncioTestCase):
             config = {BOOTSTRAP_SERVERS: kafka.get_bootstrap_server()}
             create_topic(config)
 
-            admin_app = KaskadeAdmin(config)
+            admin_app = KaskadeAdmin(config, {})
             async with admin_app.run_test():
                 await asyncio.sleep(10)
                 table = admin_app.query_one(DataTable)
@@ -76,6 +76,7 @@ class TestE2E(unittest.IsolatedAsyncioTestCase):
             consumer_app = KaskadeConsumer(
                 MY_TOPIC,
                 config | {AUTO_OFFSET_RESET: EARLIEST},
+                {},
                 {},
                 {},
                 {},
