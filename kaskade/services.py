@@ -49,6 +49,7 @@ class ConsumerService:
         self,
         topic: str,
         kafka_config: dict[str, str],
+        cloud_config: dict[str, Any],
         deserializer_factory: DeserializerPool,
         key_deserialization: Deserialization,
         value_deserialization: Deserialization,
@@ -69,7 +70,7 @@ class ConsumerService:
 
         self.consumer = Consumer(
             kafka_config
-            | get_additional_auth_config(kafka_config)
+            | get_additional_auth_config(kafka_config, cloud_config)
             | {
                 GROUP_ID: f"kaskade-{uuid.uuid4()}",
                 ENABLE_AUTO_COMMIT: False,
@@ -180,12 +181,22 @@ class ConsumerService:
 
 
 class ClusterService:
-    def __init__(self, config: dict[str, str], *, timeout: float = 2.0) -> None:
+    def __init__(
+        self,
+        kafka_config: dict[str, str],
+        cloud_config: dict[str, str],
+        *,
+        timeout: float = 2.0
+    ) -> None:
         self.timeout = timeout
 
-        self.admin_client = AdminClient(config | get_additional_auth_config(config) | {LOGGER: logger})
+        self.admin_client = AdminClient(
+            kafka_config
+            | get_additional_auth_config(kafka_config, cloud_config)
+            | {LOGGER: logger}
+        )
 
-        if uses_oauthbearer_sasl_mechanism(config):
+        if uses_oauthbearer_sasl_mechanism(kafka_config):
             self.admin_client.poll(OAUTHBEARER_POLL_TIMEOUT_SECONDS)
 
     def get(self) -> Cluster:
@@ -218,13 +229,23 @@ class ClusterService:
 
 
 class TopicService:
-    def __init__(self, config: dict[str, str], *, timeout: float = 2.0) -> None:
+    def __init__(
+        self,
+        kafka_config: dict[str, str],
+        cloud_config: dict[str, Any],
+        *,
+        timeout: float = 2.0
+    ) -> None:
         self.timeout = timeout
-        self.config = config.copy() | get_additional_auth_config(config) | {LOGGER: logger}
+        self.config = (
+            kafka_config.copy()
+            | get_additional_auth_config(kafka_config, cloud_config)
+            | {LOGGER: logger}
+        )
         self.admin_client = AdminClient(self.config)
         self.consumer = Consumer(self.config | {GROUP_ID: f"kaskade-{uuid.uuid4()}"})
 
-        if uses_oauthbearer_sasl_mechanism(config):
+        if uses_oauthbearer_sasl_mechanism(kafka_config):
             self.admin_client.poll(OAUTHBEARER_POLL_TIMEOUT_SECONDS)
             self.consumer.poll(OAUTHBEARER_POLL_TIMEOUT_SECONDS)
 

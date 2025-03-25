@@ -79,10 +79,22 @@ def cli() -> None:
         metavar="filename",
     ),
 )
+@cloup.option_group(
+    "Cloud configuration options",
+    cloup.option(
+        "--cloud-config",
+        "cloud_config",
+        help="Cloud configuration properties. Typically used to set 'aws.region', which is required when using AWS MSK IAM authentication. Multiple '--cloud-config' are allowed",
+        metavar="property=value",
+        multiple=True,
+        callback=tuple_properties_to_dict,
+    ),
+)
 def admin(
     bootstrap_servers: str,
     kafka_config_file: str | None,
     kafka_config: dict[str, str],
+    cloud_config: dict[str, str],
 ) -> None:
     """
     Administrator mode.
@@ -92,6 +104,7 @@ def admin(
       kaskade admin -b localhost:9092
       kaskade admin -b localhost:9092 --config security.protocol=SSL
       kaskade admin -b localhost:9092 --config-file kafka.properties
+      kaskade admin -b localhost:9092 -c security.protocol=SASL_SSL -c sasl.mechanism=OAUTHBEARER --cloud-config aws.region=eu-west-1
     """
 
     if kafka_config_file is not None:
@@ -99,7 +112,7 @@ def admin(
 
     kafka_config[BOOTSTRAP_SERVERS] = bootstrap_servers
 
-    kaskade_app = KaskadeAdmin(kafka_config)
+    kaskade_app = KaskadeAdmin(kafka_config, cloud_config)
     kaskade_app.run()
 
 
@@ -204,12 +217,24 @@ def admin(
         callback=tuple_properties_to_dict,
     ),
 )
+@cloup.option_group(
+    "Cloud configuration options",
+    cloup.option(
+        "--cloud-config",
+        "cloud_config",
+        help="Cloud configuration properties. Typically used to set 'aws.region', which is required when using AWS MSK IAM authentication. Multiple '--cloud-config' are allowed",
+        metavar="property=value",
+        multiple=True,
+        callback=tuple_properties_to_dict,
+    ),
+)
 def consumer(
     bootstrap_servers: str,
     kafka_config: dict[str, str],
     registry_config: dict[str, str],
     protobuf_config: dict[str, str],
     avro_config: dict[str, str],
+    cloud_config: dict[str, str],
     topic: str,
     key_deserialization: Deserialization,
     value_deserialization: Deserialization,
@@ -225,6 +250,7 @@ def consumer(
       kaskade consumer -b localhost:9092 -t my-topic --from-beginning
       kaskade consumer -b localhost:9092 -t my-topic --config security.protocol=SSL
       kaskade consumer -b localhost:9092 -t my-topic --config-file kafka.properties
+      kaskade consumer -b localhost:9092 -t my-topic -c security.protocol=SASL_SSL -c sasl.mechanism=OAUTHBEARER --cloud-config aws.region=eu-west-1
       kaskade consumer -b localhost:9092 -t my-topic -v json
       kaskade consumer -b localhost:9092 -t my-topic -v registry --registry url=http://localhost:8081
       kaskade consumer -b localhost:9092 -t my-topic -v avro --avro value=my-schema.avsc
@@ -252,6 +278,7 @@ def consumer(
         registry_config,
         protobuf_config,
         avro_config,
+        cloud_config,
         key_deserialization,
         value_deserialization,
     )

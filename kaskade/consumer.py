@@ -176,6 +176,7 @@ class ListRecords(Container):
         self,
         topic: str,
         kafka_config: dict[str, str],
+        cloud_config: dict[str, str],
         deserializer_factory: DeserializerPool,
         key_deserialization: Deserialization,
         value_deserialization: Deserialization,
@@ -183,6 +184,7 @@ class ListRecords(Container):
         super().__init__()
         self.topic = topic
         self.kafka_config = kafka_config
+        self.cloud_config = cloud_config
         self.deserializer_factory = deserializer_factory
         self.key_deserialization = key_deserialization
         self.value_deserialization = value_deserialization
@@ -198,6 +200,7 @@ class ListRecords(Container):
         return ConsumerService(
             self.topic,
             self.kafka_config,
+            self.cloud_config,
             self.deserializer_factory,
             self.key_deserialization,
             self.value_deserialization,
@@ -342,6 +345,7 @@ class KaskadeConsumer(App):
         registry_config: dict[str, str],
         protobuf_config: dict[str, str],
         avro_config: dict[str, str],
+        cloud_config: dict[str, str],
         key_deserialization: Deserialization,
         value_deserialization: Deserialization,
     ):
@@ -352,6 +356,7 @@ class KaskadeConsumer(App):
         self.registry_config = registry_config
         self.protobuf_config = protobuf_config
         self.avro_config = avro_config
+        self.cloud_config = cloud_config
         self.key_deserialization = key_deserialization
         self.value_deserialization = value_deserialization
 
@@ -363,6 +368,7 @@ class KaskadeConsumer(App):
         yield ListRecords(
             self.topic,
             self.kafka_config,
+            self.cloud_config,
             DeserializerPool(self.registry_config, self.protobuf_config, self.avro_config),
             self.key_deserialization,
             self.value_deserialization,
