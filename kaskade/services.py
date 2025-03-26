@@ -18,12 +18,17 @@ from confluent_kafka.admin import (
 from confluent_kafka.cimpl import NewTopic, NewPartitions
 
 from kaskade import logger
+from kaskade.auth import (
+    get_additional_auth_config,
+    uses_oauthbearer_sasl_mechanism
+)
 from kaskade.configs import (
     MILLISECONDS_24H,
     LOGGER,
     MAX_POLL_INTERVAL_MS,
     ENABLE_AUTO_COMMIT,
     GROUP_ID,
+    OAUTHBEARER_POLL_TIMEOUT_SECONDS,
 )
 from kaskade.models import (
     Topic,
@@ -39,12 +44,12 @@ from kaskade.models import (
 from kaskade.deserializers import Deserialization, DeserializerPool
 from kaskade.utils import make_it_async
 
-
 class ConsumerService:
     def __init__(
         self,
         topic: str,
         kafka_config: dict[str, str],
+        cloud_config: dict[str, Any],
         deserializer_factory: DeserializerPool,
         key_deserialization: Deserialization,
         value_deserialization: Deserialization,
@@ -62,8 +67,10 @@ class ConsumerService:
         self.key_deserialization = key_deserialization
         self.value_deserialization = value_deserialization
         self.stable = False
+
         self.consumer = Consumer(
             kafka_config
+            | get_additional_auth_config(kafka_config, cloud_config)
             | {
                 GROUP_ID: f"kaskade-{uuid.uuid4()}",
                 ENABLE_AUTO_COMMIT: False,
@@ -174,9 +181,23 @@ class ConsumerService:
 
 
 class ClusterService:
-    def __init__(self, config: dict[str, str], *, timeout: float = 2.0) -> None:
+    def __init__(
+        self,
+        kafka_config: dict[str, str],
+        cloud_config: dict[str, str],
+        *,
+        timeout: float = 2.0
+    ) -> None:
         self.timeout = timeout
-        self.admin_client = AdminClient(config | {LOGGER: logger})
+
+        self.admin_client = AdminClient(
+            kafka_config
+            | get_additional_auth_config(kafka_config, cloud_config)
+            | {LOGGER: logger}
+        )
+
+        if uses_oauthbearer_sasl_mechanism(kafka_config):
+            self.admin_client.poll(OAUTHBEARER_POLL_TIMEOUT_SECONDS)
 
     def get(self) -> Cluster:
         cluster_metadata: DescribeClusterResult = self.admin_client.describe_cluster(
@@ -208,10 +229,25 @@ class ClusterService:
 
 
 class TopicService:
-    def __init__(self, config: dict[str, str], *, timeout: float = 2.0) -> None:
+    def __init__(
+        self,
+        kafka_config: dict[str, str],
+        cloud_config: dict[str, Any],
+        *,
+        timeout: float = 2.0
+    ) -> None:
         self.timeout = timeout
-        self.config = config.copy() | {LOGGER: logger}
+        self.config = (
+            kafka_config.copy()
+            | get_additional_auth_config(kafka_config, cloud_config)
+            | {LOGGER: logger}
+        )
         self.admin_client = AdminClient(self.config)
+        self.consumer = Consumer(self.config | {GROUP_ID: f"kaskade-{uuid.uuid4()}"})
+
+        if uses_oauthbearer_sasl_mechanism(kafka_config):
+            self.admin_client.poll(OAUTHBEARER_POLL_TIMEOUT_SECONDS)
+            self.consumer.poll(OAUTHBEARER_POLL_TIMEOUT_SECONDS)
 
     def create(self, new_topics: list[NewTopic]) -> None:
         futures = self.admin_client.create_topics(new_topics)
@@ -265,6 +301,9 @@ class TopicService:
     ) -> None:
         for group_metadata in groups_metadata:
             group_consumer = Consumer(self.config | {GROUP_ID: group_metadata.group_id})
+            if uses_oauthbearer_sasl_mechanism(self.config):
+                group_consumer.poll(1)
+
             for topic in topics.values():
 
                 coordinator = Node(
@@ -371,11 +410,9 @@ class TopicService:
     ) -> tuple[int, int]:
         low, high = 0, 0
 
-        consumer = Consumer(self.config | {GROUP_ID: f"kaskade-{uuid.uuid4()}"})
-
         try:
             low, high = await make_it_async(
-                consumer.get_watermark_offsets,
+                self.consumer.get_watermark_offsets,
                 TopicPartition(topic_metadata.topic, partition_metadata.id),
                 timeout=self.timeout,
                 cached=False,

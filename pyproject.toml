@@ -21,6 +21,7 @@ dependencies = [
     "cloup>=3.0",
     "textual>=2.1",
     "confluent-kafka[avro,json,protobuf]>=2.8",
+    "aws-msk-iam-sasl-signer-python==1.0.2",
 ]
 
 [project.scripts]
