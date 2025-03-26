@@ -44,7 +44,7 @@ class TestAdminCli(unittest.TestCase):
     def test_update_kafka_config(self, mock_class_kaskade_admin):
         result = self.runner.invoke(cli, [self.command, "-b", EXPECTED_SERVER])
 
-        mock_class_kaskade_admin.assert_called_with({BOOTSTRAP_SERVERS: EXPECTED_SERVER})
+        mock_class_kaskade_admin.assert_called_with({BOOTSTRAP_SERVERS: EXPECTED_SERVER}, {})
         self.assertEqual(0, result.exit_code)
 
     @patch("kaskade.main.KaskadeAdmin")
@@ -54,7 +54,8 @@ class TestAdminCli(unittest.TestCase):
         )
 
         mock_class_kaskade_admin.assert_called_with(
-            {BOOTSTRAP_SERVERS: EXPECTED_SERVER, "security.protocol": "SSL"}
+            {BOOTSTRAP_SERVERS: EXPECTED_SERVER, "security.protocol": "SSL"},
+            {}
         )
         self.assertEqual(0, result.exit_code)
 
@@ -74,7 +75,8 @@ class TestAdminCli(unittest.TestCase):
         )
 
         mock_class_kaskade_admin.assert_called_with(
-            {BOOTSTRAP_SERVERS: EXPECTED_SERVER, "security.protocol": "SASL_SSL"}
+            {BOOTSTRAP_SERVERS: EXPECTED_SERVER, "security.protocol": "SASL_SSL"},
+            {}
         )
         self.assertEqual(0, result.exit_code)
 
@@ -95,7 +97,8 @@ class TestAdminCli(unittest.TestCase):
         )
 
         mock_class_kaskade_admin.assert_called_with(
-            {BOOTSTRAP_SERVERS: EXPECTED_SERVER, expected_property_name: expected_property_value}
+            {BOOTSTRAP_SERVERS: EXPECTED_SERVER, expected_property_name: expected_property_value},
+            {}
         )
         self.assertEqual(0, result.exit_code)
 
@@ -124,6 +127,33 @@ class TestAdminCli(unittest.TestCase):
                 BOOTSTRAP_SERVERS: EXPECTED_SERVER,
                 expected_property_name: expected_property_value,
                 expected_property_name2: expected_property_value2,
+            },
+            {}
+        )
+        self.assertEqual(0, result.exit_code)
+
+    @patch("kaskade.main.KaskadeAdmin")
+    def test_update_cloud_config(self, mock_class_kaskade_admin):
+        expected_property_name = "aws.region"
+        expected_property_value = "eu-west-1"
+
+        result = self.runner.invoke(
+            cli,
+            [
+                self.command,
+                "-b",
+                EXPECTED_SERVER,
+                "--cloud-config",
+                f"{expected_property_name}={expected_property_value}"
+            ],
+        )
+
+        mock_class_kaskade_admin.assert_called_with(
+            {
+                BOOTSTRAP_SERVERS: EXPECTED_SERVER
+            },
+            {
+                expected_property_name: expected_property_value
             }
         )
         self.assertEqual(0, result.exit_code)
@@ -335,6 +365,7 @@ class TestConsumerCli(unittest.TestCase):
             {},
             {},
             {},
+            {},
             Deserialization.BYTES,
             Deserialization.BYTES,
         )
@@ -363,6 +394,7 @@ class TestConsumerCli(unittest.TestCase):
             {},
             {},
             {},
+            {},
             Deserialization.BYTES,
             Deserialization.BYTES,
         )
@@ -377,6 +409,7 @@ class TestConsumerCli(unittest.TestCase):
         mock_class_kaskade_consumer.assert_called_with(
             EXPECTED_TOPIC,
             {BOOTSTRAP_SERVERS: EXPECTED_SERVER},
+            {},
             {},
             {},
             {},
@@ -413,6 +446,7 @@ class TestConsumerCli(unittest.TestCase):
             {},
             {},
             {},
+            {},
             Deserialization.from_str(expected_key_deserialization),
             Deserialization.from_str(expected_value_deserialization),
         )
@@ -439,6 +473,7 @@ class TestConsumerCli(unittest.TestCase):
         mock_class_kaskade_consumer.assert_called_with(
             EXPECTED_TOPIC,
             {BOOTSTRAP_SERVERS: EXPECTED_SERVER, expected_property_name: expected_property_value},
+            {},
             {},
             {},
             {},
@@ -479,6 +514,41 @@ class TestConsumerCli(unittest.TestCase):
             {},
             {},
             {},
+            {},
+            Deserialization.BYTES,
+            Deserialization.BYTES,
+        )
+        self.assertEqual(0, result.exit_code)
+
+    @patch("kaskade.main.KaskadeConsumer")
+    def test_update_cloud_config(self, mock_class_kaskade_consumer):
+        expected_property_name = "aws.region"
+        expected_property_value = "eu-west-1"
+
+        result = self.runner.invoke(
+            cli,
+            [
+                self.command,
+                "-b",
+                EXPECTED_SERVER,
+                "-t",
+                EXPECTED_TOPIC,
+                "--cloud-config",
+                f"{expected_property_name}={expected_property_value}",
+            ],
+        )
+
+        mock_class_kaskade_consumer.assert_called_with(
+            EXPECTED_TOPIC,
+            {
+                BOOTSTRAP_SERVERS: EXPECTED_SERVER,
+            },
+            {},
+            {},
+            {},
+            {
+                 expected_property_name: expected_property_value,
+            },
             Deserialization.BYTES,
             Deserialization.BYTES,
         )
@@ -519,6 +589,7 @@ class TestConsumerCli(unittest.TestCase):
                 expected_property_name: expected_property_value,
                 expected_property_name2: expected_property_value2,
             },
+            {},
             {},
             {},
             Deserialization.REGISTRY,
@@ -759,6 +830,7 @@ class TestConsumerCli(unittest.TestCase):
                 expected_descriptor_name: expected_descriptor_value,
                 expected_value_name: expected_value,
             },
+            {},
             {},
             Deserialization.BYTES,
             Deserialization.PROTOBUF,
