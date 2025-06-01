@@ -19,8 +19,8 @@ classifiers = [
 requires-python = ">=3.10,<3.14"
 dependencies = [
     "cloup>=3.0",
-    "textual>=2.1",
-    "confluent-kafka[avro,json,protobuf]>=2.8",
+    "textual>=3.3",
+    "confluent-kafka[avro,json,protobuf]>=2.10",
 ]
 
 [project.scripts]
