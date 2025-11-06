@@ -31,7 +31,7 @@ CONFLUENT_VERSION = SANDBOX_PROPERTIES["CONFLUENT_VERSION"]
 REDPANDA_VERSION = SANDBOX_PROPERTIES["REDPANDA_VERSION"]
 KAFKA_IMPLEMENTATIONS = [
     KafkaContainer(f"confluentinc/cp-kafka:{CONFLUENT_VERSION}").with_kraft(),
-    RedpandaContainer(f"docker.redpanda.com/redpandadata/redpanda:{REDPANDA_VERSION}"),
+    RedpandaContainer(f"docker.redpanda.com/redpandadata/redpanda:v{REDPANDA_VERSION}"),
 ]
 
 

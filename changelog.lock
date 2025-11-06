@@ -1,559 +1,567 @@
 {
-    "repository": "https://github.com/sauljabin/kaskade",
-    "versions": [
+  "repository": "https://github.com/sauljabin/kaskade",
+  "versions": [
+    {
+      "version": "Unreleased",
+      "changes": [
         {
-            "version": "Unreleased"
-        },
-        {
-            "version": "4.0.5",
-            "date": "2025-06-01",
-            "changes": [
-                {
-                    "type": "Security",
-                    "entries": [
-                        "Update dependencies"
-                    ]
-                }
-            ]
-        },
-        {
-            "version": "4.0.4",
-            "date": "2025-03-02",
-            "changes": [
-                {
-                    "type": "Fixed",
-                    "entries": [
-                        "Update dependencies"
-                    ]
-                }
-            ]
-        },
-        {
-            "version": "4.0.3",
-            "date": "2025-01-17",
-            "changes": [
-                {
-                    "type": "Fixed",
-                    "entries": [
-                        "Schema registry deserializer identify the schema type, JSON or AVRO"
-                    ]
-                }
-            ]
-        },
-        {
-            "version": "4.0.2",
-            "date": "2025-01-08",
-            "changes": [
-                {
-                    "type": "Fixed",
-                    "entries": [
-                        "Update classifiers"
-                    ]
-                }
-            ]
-        },
-        {
-            "version": "4.0.1",
-            "date": "2025-01-08",
-            "changes": [
-                {
-                    "type": "Fixed",
-                    "entries": [
-                        "Upgrade kafka client version",
-                        "Upgrade poetry version"
-                    ]
-                }
-            ]
-        },
-        {
-            "version": "4.0.0",
-            "date": "2024-12-26",
-            "changes": [
-                {
-                    "type": "Added",
-                    "entries": [
-                        "Avro schema from file avsc",
-                        "New alias for -t (--topic)",
-                        "New alias for -b (--botstrap-servers)",
-                        "New alias for -k (--key) and -v (--value)",
-                        "New option --config-file"
-                    ]
-                },
-                {
-                    "type": "Changed",
-                    "entries": [
-                        "Command --schema-registry change to --registry",
-                        "Now the option -x becomes -c and --config",
-                        "Now quit is control+q instead of control+c"
-                    ]
-                },
-                {
-                    "type": "Fixed",
-                    "entries": [
-                        "Upgrade kafka client version",
-                        "Upgrade textual version"
-                    ]
-                }
-            ]
-        },
-        {
-            "version": "3.0.0",
-            "date": "2024-11-24",
-            "changes": [
-                {
-                    "type": "Added",
-                    "entries": [
-                        "Script to populate topics",
-                        "Add --from-beginning parameter to consumer mode",
-                        "Integration tests",
-                        "Redpanda sandbox",
-                        "Tested with Redpanda",
-                        "Tabs for describe topic view",
-                        "Test with apicurio"
-                    ]
-                },
-                {
-                    "type": "Changed",
-                    "entries": [
-                        "Using records instead of messages",
-                        "Schema registry parameter from -s to --schema-registry",
-                        "Protobuf parameter from -p to --protobuf",
-                        "Improvements in consumer and admin views"
-                    ]
-                },
-                {
-                    "type": "Fixed",
-                    "entries": [
-                        "CSS Styles",
-                        "Partition group lag"
-                    ]
-                }
-            ]
-        },
-        {
-            "version": "2.3.7",
-            "date": "2024-10-14",
-            "changes": [
-                {
-                    "type": "Added",
-                    "entries": [
-                        "Python 3.13 support"
-                    ]
-                },
-                {
-                    "type": "Security",
-                    "entries": [
-                        "Update dependencies"
-                    ]
-                }
-            ]
-        },
-        {
-            "version": "2.3.6",
-            "date": "2024-10-11",
-            "changes": [
-                {
-                    "type": "Security",
-                    "entries": [
-                        "Update dependencies"
-                    ]
-                }
-            ]
-        },
-        {
-            "version": "2.3.5",
-            "date": "2024-08-14",
-            "changes": [
-                {
-                    "type": "Fixed",
-                    "entries": [
-                        "Using set_timer from textual framework"
-                    ]
-                }
-            ]
-        },
-        {
-            "version": "2.3.4",
-            "date": "2024-08-13",
-            "changes": [
-                {
-                    "type": "Fixed",
-                    "entries": [
-                        "Fix legacy key/value format with whitespace separator should not be used at dockerfile"
-                    ]
-                }
-            ]
-        },
-        {
-            "version": "2.3.3",
-            "date": "2024-08-13",
-            "changes": [
-                {
-                    "type": "Security",
-                    "entries": [
-                        "Upgrade libraries"
-                    ]
-                }
-            ]
-        },
-        {
-            "version": "2.3.2",
-            "date": "2024-07-16",
-            "changes": [
-                {
-                    "type": "Changed",
-                    "entries": [
-                        "New screenshots doc"
-                    ]
-                },
-                {
-                    "type": "Fixed",
-                    "entries": [
-                        "Error when getting min insyc replicas https://github.com/sauljabin/kaskade/issues/35"
-                    ]
-                }
-            ]
-        },
-        {
-            "version": "2.3.1",
-            "date": "2024-07-15",
-            "changes": [
-                {
-                    "type": "Added",
-                    "entries": [
-                        "New typo analyzer"
-                    ]
-                },
-                {
-                    "type": "Fixed",
-                    "entries": [
-                        "Radio set css"
-                    ]
-                }
-            ]
-        },
-        {
-            "version": "2.3.0",
-            "date": "2024-07-15",
-            "changes": [
-                {
-                    "type": "Added",
-                    "entries": [
-                        "New consumer shortcut for resetting filters"
-                    ]
-                },
-                {
-                    "type": "Changed",
-                    "entries": [
-                        "Protobuf help message",
-                        "New banner",
-                        "Update libraries"
-                    ]
-                },
-                {
-                    "type": "Removed",
-                    "entries": [
-                        "Alias kskd to avoid confusions"
-                    ]
-                }
-            ]
-        },
-        {
-            "version": "2.2.0",
-            "date": "2024-07-13",
-            "changes": [
-                {
-                    "type": "Added",
-                    "entries": [
-                        "New unit tests",
-                        "New click facade 'cloup'",
-                        "New protobuf deserializer",
-                        "New protobuf options",
-                        "Configuration validations"
-                    ]
-                },
-                {
-                    "type": "Changed",
-                    "entries": [
-                        "Help messages"
-                    ]
-                }
-            ]
-        },
-        {
-            "version": "2.1.6",
-            "date": "2024-07-11",
-            "changes": [
-                {
-                    "type": "Changed",
-                    "entries": [
-                        "Upgrade kafka library"
-                    ]
-                }
-            ]
-        },
-        {
-            "version": "2.1.5",
-            "date": "2024-07-10",
-            "changes": [
-                {
-                    "type": "Added",
-                    "entries": [
-                        "add TERM and COLORTERM env variables to docker"
-                    ]
-                }
-            ]
-        },
-        {
-            "version": "2.1.4",
-            "date": "2024-07-09",
-            "changes": [
-                {
-                    "type": "Changed",
-                    "entries": [
-                        "Remove pyfiglet dependency",
-                        "Update consumer theme"
-                    ]
-                }
-            ]
-        },
-        {
-            "version": "2.1.3",
-            "date": "2024-07-09",
-            "changes": [
-                {
-                    "type": "Changed",
-                    "entries": [
-                        "Upgrade pypi deployment"
-                    ]
-                }
-            ]
-        },
-        {
-            "version": "2.1.2",
-            "date": "2024-07-09",
-            "changes": [
-                {
-                    "type": "Changed",
-                    "entries": [
-                        "Upgrade textual library"
-                    ]
-                }
-            ]
-        },
-        {
-            "version": "2.1.1",
-            "date": "2024-07-02",
-            "changes": [
-                {
-                    "type": "Changed",
-                    "entries": [
-                        "Lag is the result of a sum instead of a max",
-                        "Upgrade textual library"
-                    ]
-                }
-            ]
-        },
-        {
-            "version": "2.1.0",
-            "date": "2024-06-30",
-            "changes": [
-                {
-                    "type": "Added",
-                    "entries": [
-                        "New edit topic screen",
-                        "Enforce to type topic's name when deleting",
-                        "Modify the chunk size on the consumer",
-                        "Consumer filters",
-                        "Remove schema registry magic bytes on json deserializer",
-                        "Add support for native deserialization: boolean, floata dn long"
-                    ]
-                },
-                {
-                    "type": "Changed",
-                    "entries": [
-                        "Improve consumer performance"
-                    ]
-                },
-                {
-                    "type": "Fixed",
-                    "entries": [
-                        "Using the right retention config name",
-                        "Duplicated headers were hidden. Now it shows duplicated headers"
-                    ]
-                }
-            ]
-        },
-        {
-            "version": "2.0.1",
-            "date": "2024-06-27",
-            "changes": [
-                {
-                    "type": "Fixed",
-                    "entries": [
-                        "Documentation and help"
-                    ]
-                }
-            ]
-        },
-        {
-            "version": "2.0.0",
-            "date": "2024-06-27",
-            "changes": [
-                {
-                    "type": "Added",
-                    "entries": [
-                        "Update scripts",
-                        "Add chageloggh",
-                        "New arguments",
-                        "Topic filter",
-                        "Json deserialization",
-                        "Create and delete topic"
-                    ]
-                },
-                {
-                    "type": "Changed",
-                    "entries": [
-                        "New styles",
-                        "textual and confluent-kafka upgraded",
-                        "Command admin and consumer"
-                    ]
-                },
-                {
-                    "type": "Removed",
-                    "entries": [
-                        "Unit test, confluent-kafka and textual are changing a lot",
-                        "Schema registry"
-                    ]
-                }
-            ]
-        },
-        {
-            "version": "1.1.8",
-            "date": "2022-07-26",
-            "changes": [
-                {
-                    "type": "Fixed",
-                    "entries": [
-                        "Fix scrolling"
-                    ]
-                }
-            ]
-        },
-        {
-            "version": "1.1.7",
-            "date": "2022-07-25",
-            "changes": [
-                {
-                    "type": "Fixed",
-                    "entries": [
-                        "Error when looking for config files"
-                    ]
-                }
-            ]
-        },
-        {
-            "version": "1.1.6",
-            "date": "2022-07-25",
-            "changes": [
-                {
-                    "type": "Fixed",
-                    "entries": [
-                        "Unpack schema id error"
-                    ]
-                }
-            ]
-        },
-        {
-            "version": "1.1.5",
-            "date": "2022-07-25",
-            "changes": [
-                {
-                    "type": "Fixed",
-                    "entries": [
-                        "Schema registry error accessing internal object"
-                    ]
-                }
-            ]
-        },
-        {
-            "version": "1.1.4",
-            "date": "2022-07-25",
-            "changes": [
-                {
-                    "type": "Fixed",
-                    "entries": [
-                        "Close session error when None"
-                    ]
-                }
-            ]
-        },
-        {
-            "version": "1.1.3",
-            "date": "2022-07-25",
-            "changes": [
-                {
-                    "type": "Fixed",
-                    "entries": [
-                        "Unicode error",
-                        "Close socket error when calling schema registry"
-                    ]
-                }
-            ]
-        },
-        {
-            "version": "1.1.2",
-            "date": "2022-07-24",
-            "changes": [
-                {
-                    "type": "Fixed",
-                    "entries": [
-                        "Error when consuming key and value None"
-                    ]
-                }
-            ]
-        },
-        {
-            "version": "1.1.1",
-            "date": "2022-07-24",
-            "changes": [
-                {
-                    "type": "Fixed",
-                    "entries": [
-                        "Remove an unused setting"
-                    ]
-                }
-            ]
-        },
-        {
-            "version": "1.1.0",
-            "date": "2022-07-24",
-            "changes": [
-                {
-                    "type": "Added",
-                    "entries": [
-                        "Show/Hide internal topics"
-                    ]
-                },
-                {
-                    "type": "Fixed",
-                    "entries": [
-                        "Error when kafka has empty groups"
-                    ]
-                }
-            ]
-        },
-        {
-            "version": "1.0.0",
-            "date": "2022-07-24",
-            "changes": [
-                {
-                    "type": "Add",
-                    "entries": [
-                        "Schema registry support"
-                    ]
-                }
-            ]
+          "type": "Fixed",
+          "entries": [
+            "Update python"
+          ]
         }
-    ]
+      ]
+    },
+    {
+      "version": "4.0.5",
+      "date": "2025-06-01",
+      "changes": [
+        {
+          "type": "Security",
+          "entries": [
+            "Update dependencies"
+          ]
+        }
+      ]
+    },
+    {
+      "version": "4.0.4",
+      "date": "2025-03-02",
+      "changes": [
+        {
+          "type": "Fixed",
+          "entries": [
+            "Update dependencies"
+          ]
+        }
+      ]
+    },
+    {
+      "version": "4.0.3",
+      "date": "2025-01-17",
+      "changes": [
+        {
+          "type": "Fixed",
+          "entries": [
+            "Schema registry deserializer identify the schema type, JSON or AVRO"
+          ]
+        }
+      ]
+    },
+    {
+      "version": "4.0.2",
+      "date": "2025-01-08",
+      "changes": [
+        {
+          "type": "Fixed",
+          "entries": [
+            "Update classifiers"
+          ]
+        }
+      ]
+    },
+    {
+      "version": "4.0.1",
+      "date": "2025-01-08",
+      "changes": [
+        {
+          "type": "Fixed",
+          "entries": [
+            "Upgrade kafka client version",
+            "Upgrade poetry version"
+          ]
+        }
+      ]
+    },
+    {
+      "version": "4.0.0",
+      "date": "2024-12-26",
+      "changes": [
+        {
+          "type": "Added",
+          "entries": [
+            "Avro schema from file avsc",
+            "New alias for -t (--topic)",
+            "New alias for -b (--bootstrap-servers)",
+            "New alias for -k (--key) and -v (--value)",
+            "New option --config-file"
+          ]
+        },
+        {
+          "type": "Changed",
+          "entries": [
+            "Command --schema-registry change to --registry",
+            "Now the option -x becomes -c and --config",
+            "Now quit is control+q instead of control+c"
+          ]
+        },
+        {
+          "type": "Fixed",
+          "entries": [
+            "Upgrade kafka client version",
+            "Upgrade textual version"
+          ]
+        }
+      ]
+    },
+    {
+      "version": "3.0.0",
+      "date": "2024-11-24",
+      "changes": [
+        {
+          "type": "Added",
+          "entries": [
+            "Script to populate topics",
+            "Add --from-beginning parameter to consumer mode",
+            "Integration tests",
+            "Redpanda sandbox",
+            "Tested with Redpanda",
+            "Tabs for describe topic view",
+            "Test with apicurio"
+          ]
+        },
+        {
+          "type": "Changed",
+          "entries": [
+            "Using records instead of messages",
+            "Schema registry parameter from -s to --schema-registry",
+            "Protobuf parameter from -p to --protobuf",
+            "Improvements in consumer and admin views"
+          ]
+        },
+        {
+          "type": "Fixed",
+          "entries": [
+            "CSS Styles",
+            "Partition group lag"
+          ]
+        }
+      ]
+    },
+    {
+      "version": "2.3.7",
+      "date": "2024-10-14",
+      "changes": [
+        {
+          "type": "Added",
+          "entries": [
+            "Python 3.13 support"
+          ]
+        },
+        {
+          "type": "Security",
+          "entries": [
+            "Update dependencies"
+          ]
+        }
+      ]
+    },
+    {
+      "version": "2.3.6",
+      "date": "2024-10-11",
+      "changes": [
+        {
+          "type": "Security",
+          "entries": [
+            "Update dependencies"
+          ]
+        }
+      ]
+    },
+    {
+      "version": "2.3.5",
+      "date": "2024-08-14",
+      "changes": [
+        {
+          "type": "Fixed",
+          "entries": [
+            "Using set_timer from textual framework"
+          ]
+        }
+      ]
+    },
+    {
+      "version": "2.3.4",
+      "date": "2024-08-13",
+      "changes": [
+        {
+          "type": "Fixed",
+          "entries": [
+            "Fix legacy key/value format with whitespace separator should not be used at dockerfile"
+          ]
+        }
+      ]
+    },
+    {
+      "version": "2.3.3",
+      "date": "2024-08-13",
+      "changes": [
+        {
+          "type": "Security",
+          "entries": [
+            "Upgrade libraries"
+          ]
+        }
+      ]
+    },
+    {
+      "version": "2.3.2",
+      "date": "2024-07-16",
+      "changes": [
+        {
+          "type": "Changed",
+          "entries": [
+            "New screenshots doc"
+          ]
+        },
+        {
+          "type": "Fixed",
+          "entries": [
+            "Error when getting min insyc replicas https://github.com/sauljabin/kaskade/issues/35"
+          ]
+        }
+      ]
+    },
+    {
+      "version": "2.3.1",
+      "date": "2024-07-15",
+      "changes": [
+        {
+          "type": "Added",
+          "entries": [
+            "New typo analyzer"
+          ]
+        },
+        {
+          "type": "Fixed",
+          "entries": [
+            "Radio set css"
+          ]
+        }
+      ]
+    },
+    {
+      "version": "2.3.0",
+      "date": "2024-07-15",
+      "changes": [
+        {
+          "type": "Added",
+          "entries": [
+            "New consumer shortcut for resetting filters"
+          ]
+        },
+        {
+          "type": "Changed",
+          "entries": [
+            "Protobuf help message",
+            "New banner",
+            "Update libraries"
+          ]
+        },
+        {
+          "type": "Removed",
+          "entries": [
+            "Alias kskd to avoid confusions"
+          ]
+        }
+      ]
+    },
+    {
+      "version": "2.2.0",
+      "date": "2024-07-13",
+      "changes": [
+        {
+          "type": "Added",
+          "entries": [
+            "New unit tests",
+            "New click facade 'cloup'",
+            "New protobuf deserializer",
+            "New protobuf options",
+            "Configuration validations"
+          ]
+        },
+        {
+          "type": "Changed",
+          "entries": [
+            "Help messages"
+          ]
+        }
+      ]
+    },
+    {
+      "version": "2.1.6",
+      "date": "2024-07-11",
+      "changes": [
+        {
+          "type": "Changed",
+          "entries": [
+            "Upgrade kafka library"
+          ]
+        }
+      ]
+    },
+    {
+      "version": "2.1.5",
+      "date": "2024-07-10",
+      "changes": [
+        {
+          "type": "Added",
+          "entries": [
+            "add TERM and COLORTERM env variables to docker"
+          ]
+        }
+      ]
+    },
+    {
+      "version": "2.1.4",
+      "date": "2024-07-09",
+      "changes": [
+        {
+          "type": "Changed",
+          "entries": [
+            "Remove pyfiglet dependency",
+            "Update consumer theme"
+          ]
+        }
+      ]
+    },
+    {
+      "version": "2.1.3",
+      "date": "2024-07-09",
+      "changes": [
+        {
+          "type": "Changed",
+          "entries": [
+            "Upgrade pypi deployment"
+          ]
+        }
+      ]
+    },
+    {
+      "version": "2.1.2",
+      "date": "2024-07-09",
+      "changes": [
+        {
+          "type": "Changed",
+          "entries": [
+            "Upgrade textual library"
+          ]
+        }
+      ]
+    },
+    {
+      "version": "2.1.1",
+      "date": "2024-07-02",
+      "changes": [
+        {
+          "type": "Changed",
+          "entries": [
+            "Lag is the result of a sum instead of a max",
+            "Upgrade textual library"
+          ]
+        }
+      ]
+    },
+    {
+      "version": "2.1.0",
+      "date": "2024-06-30",
+      "changes": [
+        {
+          "type": "Added",
+          "entries": [
+            "New edit topic screen",
+            "Enforce to type topic's name when deleting",
+            "Modify the chunk size on the consumer",
+            "Consumer filters",
+            "Remove schema registry magic bytes on json deserializer",
+            "Add support for native deserialization: boolean, floata dn long"
+          ]
+        },
+        {
+          "type": "Changed",
+          "entries": [
+            "Improve consumer performance"
+          ]
+        },
+        {
+          "type": "Fixed",
+          "entries": [
+            "Using the right retention config name",
+            "Duplicated headers were hidden. Now it shows duplicated headers"
+          ]
+        }
+      ]
+    },
+    {
+      "version": "2.0.1",
+      "date": "2024-06-27",
+      "changes": [
+        {
+          "type": "Fixed",
+          "entries": [
+            "Documentation and help"
+          ]
+        }
+      ]
+    },
+    {
+      "version": "2.0.0",
+      "date": "2024-06-27",
+      "changes": [
+        {
+          "type": "Added",
+          "entries": [
+            "Update scripts",
+            "Add chageloggh",
+            "New arguments",
+            "Topic filter",
+            "Json deserialization",
+            "Create and delete topic"
+          ]
+        },
+        {
+          "type": "Changed",
+          "entries": [
+            "New styles",
+            "textual and confluent-kafka upgraded",
+            "Command admin and consumer"
+          ]
+        },
+        {
+          "type": "Removed",
+          "entries": [
+            "Unit test, confluent-kafka and textual are changing a lot",
+            "Schema registry"
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.1.8",
+      "date": "2022-07-26",
+      "changes": [
+        {
+          "type": "Fixed",
+          "entries": [
+            "Fix scrolling"
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.1.7",
+      "date": "2022-07-25",
+      "changes": [
+        {
+          "type": "Fixed",
+          "entries": [
+            "Error when looking for config files"
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.1.6",
+      "date": "2022-07-25",
+      "changes": [
+        {
+          "type": "Fixed",
+          "entries": [
+            "Unpack schema id error"
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.1.5",
+      "date": "2022-07-25",
+      "changes": [
+        {
+          "type": "Fixed",
+          "entries": [
+            "Schema registry error accessing internal object"
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.1.4",
+      "date": "2022-07-25",
+      "changes": [
+        {
+          "type": "Fixed",
+          "entries": [
+            "Close session error when None"
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.1.3",
+      "date": "2022-07-25",
+      "changes": [
+        {
+          "type": "Fixed",
+          "entries": [
+            "Unicode error",
+            "Close socket error when calling schema registry"
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.1.2",
+      "date": "2022-07-24",
+      "changes": [
+        {
+          "type": "Fixed",
+          "entries": [
+            "Error when consuming key and value None"
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.1.1",
+      "date": "2022-07-24",
+      "changes": [
+        {
+          "type": "Fixed",
+          "entries": [
+            "Remove an unused setting"
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.1.0",
+      "date": "2022-07-24",
+      "changes": [
+        {
+          "type": "Added",
+          "entries": [
+            "Show/Hide internal topics"
+          ]
+        },
+        {
+          "type": "Fixed",
+          "entries": [
+            "Error when kafka has empty groups"
+          ]
+        }
+      ]
+    },
+    {
+      "version": "1.0.0",
+      "date": "2022-07-24",
+      "changes": [
+        {
+          "type": "Add",
+          "entries": [
+            "Schema registry support"
+          ]
+        }
+      ]
+    }
+  ]
 }

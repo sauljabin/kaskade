@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Update python
+
 ## [4.0.5] - 2025-06-01
 
 ### Security
@@ -44,7 +48,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Avro schema from file avsc
 - New alias for -t (--topic)
-- New alias for -b (--botstrap-servers)
+- New alias for -b (--bootstrap-servers)
 - New alias for -k (--key) and -v (--value)
 - New option --config-file
 
