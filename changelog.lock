@@ -2,7 +2,11 @@
   "repository": "https://github.com/sauljabin/kaskade",
   "versions": [
     {
-      "version": "Unreleased",
+      "version": "Unreleased"
+    },
+    {
+      "version": "4.0.6",
+      "date": "2025-11-06",
       "changes": [
         {
           "type": "Fixed",

@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.0.6] - 2025-11-06
+
 ### Fixed
 
 - Update python
@@ -322,7 +324,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Schema registry support
 
-[Unreleased]: https://github.com/sauljabin/kaskade/compare/v4.0.5...HEAD
+[Unreleased]: https://github.com/sauljabin/kaskade/compare/v4.0.6...HEAD
+[4.0.6]: https://github.com/sauljabin/kaskade/compare/v4.0.5...v4.0.6
 [4.0.5]: https://github.com/sauljabin/kaskade/compare/v4.0.4...v4.0.5
 [4.0.4]: https://github.com/sauljabin/kaskade/compare/v4.0.3...v4.0.4
 [4.0.3]: https://github.com/sauljabin/kaskade/compare/v4.0.2...v4.0.3
