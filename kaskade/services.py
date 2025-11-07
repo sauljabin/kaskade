@@ -388,9 +388,9 @@ class TopicService:
     def _list_groups_metadata(self) -> list[ConsumerGroupDescription]:
         group_names: list[str] = [
             group.group_id
-            for group in self.admin_client.list_consumer_groups(request_timeout=self.timeout)
-            .result()
-            .valid
+            for group in (
+                self.admin_client.list_consumer_groups(request_timeout=self.timeout).result().valid
+            )
         ]
 
         if not group_names:
