@@ -20,8 +20,8 @@ classifiers = [
 requires-python = ">=3.10,<3.15"
 dependencies = [
     "cloup>=3.0",
-    "textual>=6.5",
-    "confluent-kafka[avro,json,protobuf]>=2.12",
+    "textual>=8.0",
+    "confluent-kafka[avro,json,protobuf]>=2.13",
 ]
 
 [project.scripts]
@@ -62,3 +62,4 @@ line-length = 100
 [tool.typos]
 type.lock.extend-glob = ["*.lock"]
 type.lock.check-file = true
+files.extend-exclude = ["poetry.lock"]

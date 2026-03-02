@@ -18,13 +18,7 @@ from confluent_kafka.admin import (
 from confluent_kafka.cimpl import NewTopic, NewPartitions
 
 from kaskade import logger
-from kaskade.configs import (
-    MILLISECONDS_24H,
-    LOGGER,
-    MAX_POLL_INTERVAL_MS,
-    ENABLE_AUTO_COMMIT,
-    GROUP_ID,
-)
+from kaskade.configs import MILLISECONDS_24H, MAX_POLL_INTERVAL_MS, ENABLE_AUTO_COMMIT, GROUP_ID
 from kaskade.models import (
     Topic,
     Cluster,
@@ -68,8 +62,8 @@ class ConsumerService:
                 GROUP_ID: f"kaskade-{uuid.uuid4()}",
                 ENABLE_AUTO_COMMIT: False,
                 MAX_POLL_INTERVAL_MS: MILLISECONDS_24H,
-                LOGGER: logger,
-            }
+            },
+            logger=logger,
         )
         self.consumer.subscribe([topic], on_assign=self.on_assign)
         self.deserializer_factory = deserializer_factory
@@ -174,9 +168,11 @@ class ConsumerService:
 
 
 class ClusterService:
-    def __init__(self, config: dict[str, str], *, timeout: float = 2.0) -> None:
+    def __init__(
+        self, config: dict[str, str | int | float | bool], *, timeout: float = 2.0
+    ) -> None:
         self.timeout = timeout
-        self.admin_client = AdminClient(config | {LOGGER: logger})
+        self.admin_client = AdminClient(config, logger=logger)
 
     def get(self) -> Cluster:
         cluster_metadata: DescribeClusterResult = self.admin_client.describe_cluster(
@@ -208,10 +204,12 @@ class ClusterService:
 
 
 class TopicService:
-    def __init__(self, config: dict[str, str], *, timeout: float = 2.0) -> None:
+    def __init__(
+        self, config: dict[str, str | int | float | bool], *, timeout: float = 2.0
+    ) -> None:
         self.timeout = timeout
-        self.config = config.copy() | {LOGGER: logger}
-        self.admin_client = AdminClient(self.config)
+        self.config = config.copy()
+        self.admin_client = AdminClient(self.config, logger=logger)
 
     def create(self, new_topics: list[NewTopic]) -> None:
         futures = self.admin_client.create_topics(new_topics)
@@ -344,8 +342,8 @@ class TopicService:
         topics = {}
 
         for topic_metadata in topics_metadata:
-            topic = Topic(name=topic_metadata.topic)
-            topics[topic_metadata.topic] = topic
+            topic = Topic(name=str(topic_metadata.topic))
+            topics[str(topic_metadata.topic)] = topic
 
             for topic_partition_metadata in topic_metadata.partitions.values():
                 low_topic_partition_watermark, high_topic_partition_watermark = (
@@ -354,7 +352,7 @@ class TopicService:
 
                 partition = Partition(
                     id=topic_partition_metadata.id,
-                    topic=topic_metadata.topic,
+                    topic=str(topic_metadata.topic),
                     leader=topic_partition_metadata.leader,
                     replicas=topic_partition_metadata.replicas,
                     isrs=topic_partition_metadata.isrs,
@@ -376,7 +374,7 @@ class TopicService:
         try:
             low, high = await make_it_async(
                 consumer.get_watermark_offsets,
-                TopicPartition(topic_metadata.topic, partition_metadata.id),
+                TopicPartition(str(topic_metadata.topic), partition_metadata.id),
                 timeout=self.timeout,
                 cached=False,
             )
@@ -405,7 +403,7 @@ class TopicService:
 
     def _list_topics_metadata(self) -> list[TopicMetadata]:
         def sort_by_topic_name(topic: TopicMetadata) -> Any:
-            return topic.topic.lower()
+            return str(topic.topic).lower()
 
         return sorted(
             list(self.admin_client.list_topics(timeout=self.timeout).topics.values()),
