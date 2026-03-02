@@ -27,7 +27,7 @@ AVRO_USER_SCHEMA = "tests/avro_model/user.avsc"
 
 
 class Populator:
-    def __init__(self, kafka_config: dict[str, str]) -> None:
+    def __init__(self, kafka_config: dict[str, str | int | float | bool]) -> None:
         self.producer = Producer(
             kafka_config
             | {
@@ -42,7 +42,7 @@ class Populator:
             num_partitions=10,
             replication_factor=3,
             config={
-                MIN_INSYNC_REPLICAS_CONFIG: 2,
+                MIN_INSYNC_REPLICAS_CONFIG: "2",
             },
         )
         futures = self.admin_client.create_topics([new_topic])

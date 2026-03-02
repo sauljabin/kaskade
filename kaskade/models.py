@@ -12,7 +12,7 @@ class Node:
         id: int = -1,
         host: str = "",
         port: int = -1,
-        rack: str = "",
+        rack: str | None = "",
     ) -> None:
         self.id = id
         self.host = host
@@ -38,7 +38,7 @@ class GroupMember:
         client_id: str = "",
         group: str = "",
         host: str = "",
-        instance_id: str = "",
+        instance_id: str | None = "",
         assignment: list[int] | None = None,
     ) -> None:
         self.id = id
@@ -249,7 +249,7 @@ class Topic:
 class Cluster:
     def __init__(
         self,
-        id: str = "",
+        id: str | None = "",
         controller: None | Node = None,
         nodes: None | list[Node] = None,
     ) -> None:
@@ -260,7 +260,7 @@ class Cluster:
         self.nodes = nodes
 
     def __str__(self) -> str:
-        return self.id
+        return str(self.id)
 
     def __repr__(self) -> str:
         return str(self)

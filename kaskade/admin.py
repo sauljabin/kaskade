@@ -1,4 +1,5 @@
 from itertools import cycle
+from typing import Any
 
 from confluent_kafka.cimpl import NewTopic
 from rich.table import Table
@@ -562,7 +563,7 @@ class ListTopics(Container):
 class KaskadeAdmin(App):
     CSS_PATH = "styles.css"
 
-    def __init__(self, kafka_config: dict[str, str]):
+    def __init__(self, kafka_config: dict[str, Any]):
         super().__init__()
         self.kafka_config = kafka_config
         self.use_command_palette = False
