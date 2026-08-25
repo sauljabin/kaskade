@@ -106,7 +106,7 @@ class FilterRecordScreen(ModalScreen[tuple[str, str, str, str]]):
 class ChunkSizeScreen(ModalScreen[int]):
     BINDING_GROUP_TITLE = "Chunk Size"
     AUTO_FOCUS = "#chunk-size"
-    CHUNK_SIZES = ("25", "50", "100", "500")
+    CHUNK_SIZES = ("25", "50", "100", "500", "1000", "1500")
     BINDINGS: ClassVar[list[BindingType]] = [
         Binding(
             BACK_SHORTCUT,

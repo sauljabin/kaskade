@@ -6,7 +6,7 @@ from rich.theme import Theme as RichTheme
 from textual.app import App, SystemCommand
 from textual.binding import Binding, BindingType
 from textual.screen import Screen
-from textual.theme import BUILTIN_THEMES, Theme, ThemeProvider
+from textual.theme import BUILTIN_THEMES, Theme
 from textual.widgets import HelpPanel
 
 DEFAULT_THEME = "eva01"
@@ -48,7 +48,6 @@ class KaskadeApp(App):
         (0, "-narrow"),
         (80, "-wide"),
     ]
-    COMMANDS = App.COMMANDS | {ThemeProvider}
     BINDINGS: ClassVar[list[BindingType]] = [
         Binding(
             "f1",

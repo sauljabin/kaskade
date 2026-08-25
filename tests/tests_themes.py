@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import AsyncMock, patch
 
-from textual.theme import BUILTIN_THEMES
+from textual.theme import BUILTIN_THEMES, ThemeProvider
 from textual.widgets import DataTable, Footer, HelpPanel, OptionList, TabbedContent, TabPane
 
 from kaskade.admin import (
@@ -19,7 +19,6 @@ from kaskade.themes import (
     DEFAULT_THEME,
     EVA01_THEME,
     KaskadeApp,
-    ThemeProvider,
     available_theme_names,
 )
 
@@ -53,11 +52,11 @@ class TestThemes(unittest.TestCase):
             self.assertEqual("blue", app.console.get_style("primary").color.name)
             self.assertEqual("cyan", app.console.get_style("secondary").color.name)
 
-    def test_enables_the_command_palette_theme_provider(self):
+    def test_uses_textuals_nested_theme_palette(self):
         app = KaskadeApp()
 
         self.assertTrue(app.use_command_palette)
-        self.assertIn(ThemeProvider, app.COMMANDS)
+        self.assertNotIn(ThemeProvider, app.COMMANDS)
 
     def test_custom_bindings_have_descriptions(self):
         binding_owners = (
@@ -139,7 +138,9 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                     labels,
                 )
                 self.assertIn("Topics", table.border_title)
-                self.assertTrue({"Describe", "Filter", "Refresh", "Create"} <= command_titles)
+                self.assertTrue(
+                    {"Theme", "Describe", "Filter", "Refresh", "Create"} <= command_titles
+                )
 
     async def test_topic_details_use_native_tabs_and_a_contextual_footer(self):
         with patch("kaskade.admin.TopicService") as topic_service:
@@ -170,6 +171,10 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 options = app.screen.query_one(OptionList)
                 self.assertEqual(2, options.highlighted)
                 self.assertEqual("100", options.get_option_at_index(2).id)
+                self.assertEqual(
+                    ["25", "50", "100", "500", "1000", "1500"],
+                    [option.id for option in options.options],
+                )
                 self.assertIsInstance(app.screen.query_one(Footer), Footer)
 
     async def test_renders_dark_light_and_ansi_themes(self):
