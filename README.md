@@ -96,138 +96,28 @@ kaskade admin -b my-kafka:9092
 kaskade consumer -b my-kafka:9092 -t my-topic
 ```
 
-## Configuration examples
+## Usage
 
-#### Multiple bootstrap servers:
+For configuration and usage examples, see [USAGE.md](USAGE.md).
 
-```bash
-kaskade admin -b my-kafka:9092,my-kafka:9093
-```
+## Development
 
-#### Consume and deserialize:
-
-```bash
-kaskade consumer -b my-kafka:9092 -t my-json-topic -k json -v json
-```
-
-> Supported deserializers `[bytes, boolean, string, long, integer, double, float, json, avro, protobuf, registry]`
-
-#### Consuming from the beginning:
-
-```bash
-kaskade consumer -b my-kafka:9092 -t my-topic --from-beginning
-```
-
-#### Schema registry simple connection deserializer:
-
-```bash
-kaskade consumer -b my-kafka:9092 -t my-avro-topic \
-        -k registry -v registry \
-        --registry url=http://my-schema-registry:8081
-```
-
-> For more information about Schema Registry configurations go
-> to: [Confluent Schema Registry client](https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#schemaregistry-client).
-
-#### Apicurio registry:
-
-```bash
-kaskade consumer -b my-kafka:9092 -t my-avro-topic \
-        -k registry -v registry \
-        --registry url=http://my-apicurio-registry:8081/apis/ccompat/v7
-```
-
-> For more about apicurio go to: [Apicurio registry](https://github.com/apicurio/apicurio-registry).
-
-#### SSL encryption example:
-
-```bash
-kaskade admin -b my-kafka:9092 -c security.protocol=SSL
-```
-
-> For more information about SSL encryption and SSL authentication go
-> to: [Configure librdkafka client](https://github.com/edenhill/librdkafka/wiki/Using-SSL-with-librdkafka#configure-librdkafka-client).
-
-#### Confluent cloud admin and consumer:
-
-```bash
-kaskade admin -b ${BOOTSTRAP_SERVERS} \
-        -c security.protocol=SASL_SSL \
-        -c sasl.mechanism=PLAIN \
-        -c sasl.username=${CLUSTER_API_KEY} \
-        -c sasl.password=${CLUSTER_API_SECRET}
-```
-
-```bash
-kaskade consumer -b ${BOOTSTRAP_SERVERS} -t my-avro-topic \
-        -k string -v registry \
-        -c security.protocol=SASL_SSL \
-        -c sasl.mechanism=PLAIN \
-        -c sasl.username=${CLUSTER_API_KEY} \
-        -c sasl.password=${CLUSTER_API_SECRET} \
-        --registry url=${SCHEMA_REGISTRY_URL} \
-        --registry basic.auth.user.info=${SR_API_KEY}:${SR_API_SECRET}
-```
-
-> More about confluent cloud configuration
-> at: [Kafka client quick start for Confluent Cloud](https://docs.confluent.io/cloud/current/client-apps/config-client.html).
-
-#### Running with docker:
-
-```bash
-docker run --rm -it --network my-networtk sauljabin/kaskade:latest \
-    admin -b my-kafka:9092
-```
-
-```bash
-docker run --rm -it --network my-networtk sauljabin/kaskade:latest \
-    consumer -b my-kafka:9092 -t my-topic
-```
-
-#### Avro consumer:
-
-Consume using `my-schema.avsc` file:
-
-```bash
-kaskade consumer -b my-kafka:9092 --from-beginning \
-        -k string -v avro \
-        -t my-avro-topic \
-        --avro value=my-schema.avsc
-```
-
-#### Protobuf consumer:
-
-Install `protoc` command:
-
-```bash
-brew install protobuf
-```
-
-Generate a _Descriptor Set_ file from your `.proto` file:
-
-```bash
-protoc --include_imports \
-       --descriptor_set_out=my-descriptor.desc \
-       --proto_path=${PROTO_PATH} \
-       ${PROTO_PATH}/my-proto.proto
-```
-
-Consume using `my-descriptor.desc` file:
-
-```bash
-kaskade consumer -b my-kafka:9092 --from-beginning \
-        -k string -v protobuf \
-        -t my-protobuf-topic \
-        --protobuf descriptor=my-descriptor.desc \
-        --protobuf value=mypackage.MyMessage
-```
-
-> More about protobuf and `FileDescriptorSet` at: [Protocol Buffers documentation](https://protobuf.dev/programming-guides/techniques/#self-description).
+For development instructions see [DEVELOPMENT.md](https://github.com/sauljabin/kaskade/blob/main/DEVELOPMENT.md).
 
 ## Questions
 
 For Q&A go to [GitHub Discussions](https://github.com/sauljabin/kaskade/discussions/categories/q-a).
 
-## Development
+## Acknowledgements & Sponsorship
 
-For development instructions see [DEVELOPMENT.md](https://github.com/sauljabin/kaskade/blob/main/DEVELOPMENT.md).
+<p>
+  <a href="https://github.com/littlehorse-enterprises/littlehorse">
+    <img alt="Sponsored by LittleHorse" src="images/littlehorse-badge.svg">
+  </a>
+  <a href="https://textual.textualize.io/">
+    <img alt="Built with Textual" src="images/textual-badge.svg">
+  </a>
+  <a href="https://openai.com/codex/">
+    <img alt="Assisted by Codex" src="images/codex-badge.svg">
+  </a>
+</p>

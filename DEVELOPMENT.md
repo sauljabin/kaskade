@@ -6,7 +6,8 @@ Installing poetry:
 
 ```bash
 pipx install poetry
-poetry self add poetry-plugin-shell
+# or
+brew install poetry
 ```
 
 Installing development dependencies:
@@ -18,10 +19,10 @@ poetry install
 Open a terminal within the project's virtual environment:
 
 ```bash
-poetry shell
+eval $(poetry env activate)
 ```
 
-> See more at https://python-poetry.org/docs/cli#shell.
+> See [Poetry's environment-activation documentation](https://python-poetry.org/docs/managing-environments/#activating-the-environment).
 
 Installing pre-commit hooks:
 
