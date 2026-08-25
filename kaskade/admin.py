@@ -5,7 +5,7 @@ from confluent_kafka import KafkaException
 from confluent_kafka.cimpl import NewTopic
 from rich.table import Table
 from textual import work
-from textual.app import App, ComposeResult
+from textual.app import ComposeResult
 from textual.binding import Binding, BindingType
 from textual.containers import Container
 from textual.screen import ModalScreen
@@ -24,6 +24,7 @@ from kaskade.models import CleanupPolicy, Topic
 from kaskade.services import (
     TopicService,
 )
+from kaskade.themes import KaskadeApp
 from kaskade.unicodes import APPROXIMATION, PIPE
 from kaskade.utils import notify_error
 
@@ -568,13 +569,12 @@ class ListTopics(Container):
         self.finish_loading_table()
 
 
-class KaskadeAdmin(App):
+class KaskadeAdmin(KaskadeApp):
     CSS_PATH = "styles.css"
 
     def __init__(self, kafka_config: dict[str, Any]):
         super().__init__()
         self.kafka_config = kafka_config
-        self.use_command_palette = False
 
     def compose(self) -> ComposeResult:
         yield Header()

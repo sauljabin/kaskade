@@ -8,6 +8,7 @@ from click.testing import CliRunner
 from kaskade.configs import BOOTSTRAP_SERVERS
 from kaskade.deserializers import Deserialization
 from kaskade.main import cli
+from kaskade.themes import DEFAULT_THEME
 from tests import faker
 
 EXPECTED_TOPIC = "my.topic"
@@ -77,6 +78,30 @@ class TestAdminCli(unittest.TestCase):
             {BOOTSTRAP_SERVERS: EXPECTED_SERVER, "security.protocol": "SASL_SSL"}
         )
         self.assertEqual(0, result.exit_code)
+
+    @patch("kaskade.main.KaskadeAdmin")
+    def test_default_theme(self, mock_class_kaskade_admin):
+        result = self.runner.invoke(cli, [self.command, "-b", EXPECTED_SERVER])
+
+        self.assertEqual(DEFAULT_THEME, mock_class_kaskade_admin.return_value.theme)
+        self.assertEqual(0, result.exit_code)
+
+    @patch("kaskade.main.KaskadeAdmin")
+    def test_pass_theme(self, mock_class_kaskade_admin):
+        result = self.runner.invoke(
+            cli, [self.command, "-b", EXPECTED_SERVER, "--theme", "dracula"]
+        )
+
+        self.assertEqual("dracula", mock_class_kaskade_admin.return_value.theme)
+        self.assertEqual(0, result.exit_code)
+
+    def test_invalid_theme(self):
+        result = self.runner.invoke(
+            cli, [self.command, "-b", EXPECTED_SERVER, "--theme", "invalid"]
+        )
+
+        self.assertGreater(result.exit_code, 0)
+        self.assertIn("Invalid value for '--theme'", result.output)
 
     @patch("kaskade.main.KaskadeAdmin")
     def test_update_kafka_config_with_extra_config(self, mock_class_kaskade_admin):
@@ -383,6 +408,24 @@ class TestConsumerCli(unittest.TestCase):
             Deserialization.BYTES,
             Deserialization.BYTES,
         )
+        self.assertEqual(0, result.exit_code)
+
+    @patch("kaskade.main.KaskadeConsumer")
+    def test_default_theme(self, mock_class_kaskade_consumer):
+        result = self.runner.invoke(
+            cli, [self.command, "-b", EXPECTED_SERVER, "-t", EXPECTED_TOPIC]
+        )
+
+        self.assertEqual(DEFAULT_THEME, mock_class_kaskade_consumer.return_value.theme)
+        self.assertEqual(0, result.exit_code)
+
+    @patch("kaskade.main.KaskadeConsumer")
+    def test_pass_theme(self, mock_class_kaskade_consumer):
+        result = self.runner.invoke(
+            cli, [self.command, "-b", EXPECTED_SERVER, "-t", EXPECTED_TOPIC, "--theme", "dracula"]
+        )
+
+        self.assertEqual("dracula", mock_class_kaskade_consumer.return_value.theme)
         self.assertEqual(0, result.exit_code)
 
     @patch("kaskade.main.KaskadeConsumer")

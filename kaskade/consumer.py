@@ -1,11 +1,9 @@
 from typing import Any, ClassVar
 
 from confluent_kafka import KafkaException
-from rich.style import Style
 from rich.table import Table
-from rich.theme import Theme
 from textual import work
-from textual.app import App, ComposeResult
+from textual.app import ComposeResult
 from textual.binding import Binding, BindingType
 from textual.containers import Container, ScrollableContainer
 from textual.screen import ModalScreen
@@ -21,6 +19,7 @@ from kaskade.deserializers import (
 )
 from kaskade.models import Record
 from kaskade.services import ConsumerService
+from kaskade.themes import KaskadeApp
 from kaskade.unicodes import PIPE
 from kaskade.utils import notify_error
 
@@ -340,7 +339,7 @@ class ListRecords(Container):
         table.focus()
 
 
-class KaskadeConsumer(App):
+class KaskadeConsumer(KaskadeApp):
     CSS_PATH = "styles.css"
 
     def __init__(
@@ -354,7 +353,6 @@ class KaskadeConsumer(App):
         value_deserialization: Deserialization,
     ):
         super().__init__()
-        self.use_command_palette = False
         self.topic = topic
         self.kafka_config = kafka_config
         self.registry_config = registry_config
@@ -362,9 +360,6 @@ class KaskadeConsumer(App):
         self.avro_config = avro_config
         self.key_deserialization = key_deserialization
         self.value_deserialization = value_deserialization
-
-    def on_mount(self) -> None:
-        self.console.push_theme(Theme({"repr.str": Style(color=PRIMARY)}))
 
     def compose(self) -> ComposeResult:
         yield Header()
