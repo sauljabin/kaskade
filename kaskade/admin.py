@@ -1,28 +1,28 @@
 from itertools import cycle
-from typing import Any
+from typing import Any, ClassVar
 
+from confluent_kafka import KafkaException
 from confluent_kafka.cimpl import NewTopic
 from rich.table import Table
 from textual import work
-from textual.app import ComposeResult, App
-from textual.binding import Binding
+from textual.app import App, ComposeResult
+from textual.binding import Binding, BindingType
 from textual.containers import Container
-
 from textual.screen import ModalScreen
 from textual.widget import Widget
-from textual.widgets import DataTable, Input, RadioSet, RadioButton
+from textual.widgets import DataTable, Input, RadioButton, RadioSet
 
 from kaskade.banner import KaskadeBanner
 from kaskade.colors import PRIMARY, SECONDARY
-from kaskade.models import Topic, CleanupPolicy
-from kaskade.services import (
-    TopicService,
-)
 from kaskade.configs import (
+    CLEANUP_POLICY_CONFIG,
     MILLISECONDS_1W,
     MIN_INSYNC_REPLICAS_CONFIG,
     RETENTION_MS_CONFIG,
-    CLEANUP_POLICY_CONFIG,
+)
+from kaskade.models import CleanupPolicy, Topic
+from kaskade.services import (
+    TopicService,
 )
 from kaskade.unicodes import APPROXIMATION, PIPE
 from kaskade.utils import notify_error
@@ -43,8 +43,7 @@ QUIT_SHORTCUT = "ctrl+q"
 
 
 class AdminShortcuts(Widget):
-
-    SHORTCUTS = [
+    SHORTCUTS: ClassVar[list[list[str]]] = [
         ["describe:", f"<{SUBMIT_SHORTCUT}>", PIPE, "edit:", f"<{EDIT_TOPIC_SHORTCUT}>"],
         ["refresh:", f"<{REFRESH_TOPICS_SHORTCUT}>", PIPE, "create:", f"<{NEW_TOPIC_SHORTCUT}>"],
         ["filter:", f"<{FILTER_TOPICS_SHORTCUT}>", PIPE, "show all:", f"<{BACK_SHORTCUT}>"],
@@ -73,7 +72,7 @@ class Header(Widget):
 
 
 class FilterTopicsScreen(ModalScreen[str]):
-    BINDINGS = [Binding(BACK_SHORTCUT, "close")]
+    BINDINGS: ClassVar[list[BindingType]] = [Binding(BACK_SHORTCUT, "close")]
 
     def compose(self) -> ComposeResult:
         input_filter = Input(placeholder="word to match")
@@ -91,7 +90,7 @@ class FilterTopicsScreen(ModalScreen[str]):
 
 
 class DeleteTopicScreen(ModalScreen[bool]):
-    BINDINGS = [Binding(BACK_SHORTCUT, "cancel")]
+    BINDINGS: ClassVar[list[BindingType]] = [Binding(BACK_SHORTCUT, "cancel")]
 
     def __init__(self, topic: Topic):
         super().__init__()
@@ -99,7 +98,7 @@ class DeleteTopicScreen(ModalScreen[bool]):
 
     def compose(self) -> ComposeResult:
         label = Input(placeholder="type the topic's name")
-        label.border_title = f"[{PRIMARY}]delete topic[/] \[[{PRIMARY}]{self.topic}[/]]"
+        label.border_title = rf"[{PRIMARY}]delete topic[/] \[[{PRIMARY}]{self.topic}[/]]"
         label.border_subtitle = (
             f"[{PRIMARY}]delete:[/] <{SUBMIT_SHORTCUT}> | [{PRIMARY}]cancel:[/] <{BACK_SHORTCUT}>"
         )
@@ -116,7 +115,10 @@ class DeleteTopicScreen(ModalScreen[bool]):
 
 
 class DescribeTopicScreen(ModalScreen):
-    BINDINGS = [Binding(BACK_SHORTCUT, "close"), Binding(NEXT_SHORTCUT, "next")]
+    BINDINGS: ClassVar[list[BindingType]] = [
+        Binding(BACK_SHORTCUT, "close"),
+        Binding(NEXT_SHORTCUT, "next"),
+    ]
 
     def __init__(self, topic: Topic):
         super().__init__()
@@ -138,7 +140,7 @@ class DescribeTopicScreen(ModalScreen):
     def render_partitions(self) -> None:
         table = self.query_one(DataTable)
         table.clear(columns=True)
-        table.border_title = f"[{PRIMARY}]partitions[/] | groups | group members \[[{PRIMARY}]{self.topic}[/]]\[[{PRIMARY}]{self.topic.partitions_count()}[/]]"
+        table.border_title = rf"[{PRIMARY}]partitions[/] | groups | group members \[[{PRIMARY}]{self.topic}[/]]\[[{PRIMARY}]{self.topic.partitions_count()}[/]]"
         table.add_column("id")
         table.add_column("leader")
         table.add_column("isrs")
@@ -158,7 +160,7 @@ class DescribeTopicScreen(ModalScreen):
     def render_groups(self) -> None:
         table = self.query_one(DataTable)
         table.clear(columns=True)
-        table.border_title = f"partitions | [{PRIMARY}]groups[/] | group members \[[{PRIMARY}]{self.topic}[/]]\[[{PRIMARY}]{self.topic.groups_count()}[/]]"
+        table.border_title = rf"partitions | [{PRIMARY}]groups[/] | group members \[[{PRIMARY}]{self.topic}[/]]\[[{PRIMARY}]{self.topic.groups_count()}[/]]"
         table.add_column("id")
         table.add_column("coordinator")
         table.add_column("state")
@@ -182,7 +184,7 @@ class DescribeTopicScreen(ModalScreen):
     def render_group_members(self) -> None:
         table = self.query_one(DataTable)
         table.clear(columns=True)
-        table.border_title = f"partitions | groups | [{PRIMARY}]group members[/] \[[{PRIMARY}]{self.topic}[/]]\[[{PRIMARY}]{self.topic.group_members_count()}[/]]"
+        table.border_title = rf"partitions | groups | [{PRIMARY}]group members[/] \[[{PRIMARY}]{self.topic}[/]]\[[{PRIMARY}]{self.topic.group_members_count()}[/]]"
         table.add_column("group")
         table.add_column("client id")
         table.add_column("member id")
@@ -211,7 +213,10 @@ class DescribeTopicScreen(ModalScreen):
 
 
 class EditTopicScreen(ModalScreen[bool]):
-    BINDINGS = [Binding(BACK_SHORTCUT, "back"), Binding(SAVE_SHORTCUT, "edit")]
+    BINDINGS: ClassVar[list[BindingType]] = [
+        Binding(BACK_SHORTCUT, "back"),
+        Binding(SAVE_SHORTCUT, "edit"),
+    ]
 
     def __init__(
         self,
@@ -244,7 +249,7 @@ class EditTopicScreen(ModalScreen[bool]):
         radio_set.border_title = "cleanup policy"
 
         container = Container()
-        container.border_title = f"[{PRIMARY}]edit topic[/] \[[{PRIMARY}]{self.topic_name}[/]]"
+        container.border_title = rf"[{PRIMARY}]edit topic[/] \[[{PRIMARY}]{self.topic_name}[/]]"
         container.border_subtitle = (
             f"[{PRIMARY}]save:[/] <{SAVE_SHORTCUT}> | [{PRIMARY}]back:[/] <{BACK_SHORTCUT}>"
         )
@@ -287,7 +292,10 @@ class EditTopicScreen(ModalScreen[bool]):
 
 
 class CreateTopicScreen(ModalScreen[NewTopic]):
-    BINDINGS = [Binding(BACK_SHORTCUT, "back"), Binding(SAVE_SHORTCUT, "create")]
+    BINDINGS: ClassVar[list[BindingType]] = [
+        Binding(BACK_SHORTCUT, "back"),
+        Binding(SAVE_SHORTCUT, "create"),
+    ]
 
     def compose(self) -> ComposeResult:
         input_name = Input(id="name", placeholder="alphanumerics, '.', '_' and '-'")
@@ -365,7 +373,7 @@ class CreateTopicScreen(ModalScreen[NewTopic]):
 
 
 class ListTopics(Container):
-    BINDINGS = [
+    BINDINGS: ClassVar[list[BindingType]] = [
         Binding(FILTER_TOPICS_SHORTCUT, "filter"),
         Binding(ALL_TOPICS_SHORTCUT, "all"),
         Binding(REFRESH_TOPICS_SHORTCUT, "refresh"),
@@ -385,8 +393,8 @@ class ListTopics(Container):
     def compose(self) -> ComposeResult:
         table: DataTable = DataTable()
         table.cursor_type = "row"
-        table.border_title = f"[{PRIMARY}]topics[/] \[[{PRIMARY}]0[/]]"
-        table.border_subtitle = f"\[[{PRIMARY}]admin mode[/]]"
+        table.border_title = rf"[{PRIMARY}]topics[/] \[[{PRIMARY}]0[/]]"
+        table.border_subtitle = rf"\[[{PRIMARY}]admin mode[/]]"
         table.zebra_stripes = True
 
         table.add_column("name")
@@ -411,7 +419,7 @@ class ListTopics(Container):
     async def refresh_table(self) -> None:
         try:
             self.topics = await self.topic_service.all()
-        except Exception as ex:
+        except KafkaException as ex:
             notify_error(self.app, "kafka error", ex)
 
         self.fill_table()
@@ -431,7 +439,7 @@ class ListTopics(Container):
             try:
                 self.topic_service.create([result])
                 self.set_timer(REFRESH_TABLE_DELAY, self.refresh_table)
-            except Exception as ex:
+            except KafkaException as ex:
                 notify_error(self.app, "kafka error", ex)
 
         self.app.push_screen(CreateTopicScreen(), on_dismiss)
@@ -486,7 +494,7 @@ class ListTopics(Container):
                 )
 
                 self.set_timer(REFRESH_TABLE_DELAY, self.refresh_table)
-            except Exception as ex:
+            except (KafkaException, ValueError) as ex:
                 notify_error(self.app, "kafka error", ex)
 
         self.app.push_screen(edit_topic_screen, on_dismiss)
@@ -507,7 +515,7 @@ class ListTopics(Container):
             try:
                 self.topic_service.delete(self.current_topic.name)
                 self.set_timer(REFRESH_TABLE_DELAY, self.refresh_table)
-            except Exception as ex:
+            except KafkaException as ex:
                 notify_error(self.app, "kafka error", ex)
 
         self.app.push_screen(DeleteTopicScreen(self.current_topic), on_dismiss)
@@ -550,10 +558,10 @@ class ListTopics(Container):
             table.add_row(*row, key=topic.name)
 
         border_title_filter_info = (
-            f"\[[{PRIMARY}]*{self.current_filter}*[/]]" if self.current_filter else ""
+            rf"\[[{PRIMARY}]*{self.current_filter}*[/]]" if self.current_filter else ""
         )
         table.border_title = (
-            f"[{PRIMARY}]topics[/] {border_title_filter_info}\[[{PRIMARY}]{total_count}[/]]"
+            rf"[{PRIMARY}]topics[/] {border_title_filter_info}\[[{PRIMARY}]{total_count}[/]]"
         )
         table.focus()
 

@@ -1,24 +1,28 @@
-from typing import Any
+from typing import Any, ClassVar
 
+from confluent_kafka import KafkaException
 from rich.style import Style
 from rich.table import Table
 from rich.theme import Theme
 from textual import work
 from textual.app import App, ComposeResult
-from textual.binding import Binding
+from textual.binding import Binding, BindingType
 from textual.containers import Container, ScrollableContainer
 from textual.screen import ModalScreen
-
 from textual.widget import Widget
-from textual.widgets import DataTable, Pretty, ListView, ListItem, Label, Input
+from textual.widgets import DataTable, Input, Label, ListItem, ListView, Pretty
 
+from kaskade.banner import KaskadeBanner
 from kaskade.colors import PRIMARY, SECONDARY
+from kaskade.deserializers import (
+    DESERIALIZATION_EXCEPTIONS,
+    Deserialization,
+    DeserializerPool,
+)
 from kaskade.models import Record
-from kaskade.deserializers import Deserialization, DeserializerPool
 from kaskade.services import ConsumerService
 from kaskade.unicodes import PIPE
 from kaskade.utils import notify_error
-from kaskade.banner import KaskadeBanner
 
 CHUNKS_SHORTCUT = "#"
 NEXT_SHORTCUT = "tab"
@@ -26,10 +30,14 @@ QUIT_SHORTCUT = "ctrl+q"
 SUBMIT_SHORTCUT = "enter"
 BACK_SHORTCUT = "escape"
 FILTER_SHORTCUT = "ctrl+f"
+CONSUMER_EXCEPTIONS: tuple[type[Exception], ...] = (
+    KafkaException,
+    *DESERIALIZATION_EXCEPTIONS,
+)
 
 
 class ConsumerShortcuts(Widget):
-    SHORTCUTS = [
+    SHORTCUTS: ClassVar[list[list[str]]] = [
         ["more:", f"<{NEXT_SHORTCUT}>", PIPE, "chunk:", f"<{CHUNKS_SHORTCUT}>"],
         ["filter:", f"<{FILTER_SHORTCUT}>", PIPE, "show all:", f"<{BACK_SHORTCUT}>"],
         ["show:", f"<{SUBMIT_SHORTCUT}>", PIPE, "quit:", f"<{QUIT_SHORTCUT}>"],
@@ -57,7 +65,7 @@ class Header(Widget):
 
 
 class FilterRecordScreen(ModalScreen[tuple[str, str, str, str]]):
-    BINDINGS = [Binding(BACK_SHORTCUT, "back")]
+    BINDINGS: ClassVar[list[BindingType]] = [Binding(BACK_SHORTCUT, "back")]
 
     def __init__(self) -> None:
         super().__init__()
@@ -113,7 +121,7 @@ class FilterRecordScreen(ModalScreen[tuple[str, str, str, str]]):
 
 
 class ChunkSizeScreen(ModalScreen[int]):
-    BINDINGS = [Binding(BACK_SHORTCUT, "close")]
+    BINDINGS: ClassVar[list[BindingType]] = [Binding(BACK_SHORTCUT, "close")]
 
     def __init__(self, current_size: int):
         super().__init__()
@@ -143,7 +151,7 @@ class ChunkSizeScreen(ModalScreen[int]):
 
 
 class TopicScreen(ModalScreen):
-    BINDINGS = [Binding(BACK_SHORTCUT, "close")]
+    BINDINGS: ClassVar[list[BindingType]] = [Binding(BACK_SHORTCUT, "close")]
 
     def __init__(self, topic: str, partition: int, offset: int, data: dict[str, Any]):
         super().__init__()
@@ -154,7 +162,7 @@ class TopicScreen(ModalScreen):
 
     def compose(self) -> ComposeResult:
         container = ScrollableContainer()
-        container.border_title = f"[{PRIMARY}]record[/] \[[{PRIMARY}]{self.topic}[/]]\[[{PRIMARY}]{self.partition}[/]]\[[{PRIMARY}]{self.record_offset}[/]]"
+        container.border_title = rf"[{PRIMARY}]record[/] \[[{PRIMARY}]{self.topic}[/]]\[[{PRIMARY}]{self.partition}[/]]\[[{PRIMARY}]{self.record_offset}[/]]"
         container.border_subtitle = f"[{PRIMARY}]back:[/] <{BACK_SHORTCUT}>"
         with container:
             yield Pretty(self.data)
@@ -164,7 +172,7 @@ class TopicScreen(ModalScreen):
 
 
 class ListRecords(Container):
-    BINDINGS = [
+    BINDINGS: ClassVar[list[BindingType]] = [
         Binding(NEXT_SHORTCUT, "consume"),
         Binding(CHUNKS_SHORTCUT, "change_chunk"),
         Binding(FILTER_SHORTCUT, "filter"),
@@ -205,7 +213,7 @@ class ListRecords(Container):
 
     def _get_title(self) -> str:
         def style(text: str) -> str:
-            return f"\[[{PRIMARY}]{text}[/]]"
+            return rf"\[[{PRIMARY}]{text}[/]]"
 
         title_filter = ""
 
@@ -221,12 +229,12 @@ class ListRecords(Container):
         if self.header_filter:
             title_filter += style(f"h:*{self.header_filter}*")
 
-        return f"[{PRIMARY}]records[/] \[[{PRIMARY}]{self.topic}[/]]{title_filter}\[[{PRIMARY}]{len(self.records)}[/]]"
+        return rf"[{PRIMARY}]records[/] \[[{PRIMARY}]{self.topic}[/]]{title_filter}\[[{PRIMARY}]{len(self.records)}[/]]"
 
     def compose(self) -> ComposeResult:
         table: DataTable = DataTable()
         table.cursor_type = "row"
-        table.border_subtitle = f"\[[{PRIMARY}]consumer mode[/]]"
+        table.border_subtitle = rf"\[[{PRIMARY}]consumer mode[/]]"
         table.zebra_stripes = True
         table.border_title = self._get_title()
 
@@ -291,7 +299,7 @@ class ListRecords(Container):
                     self.current_record.dict(),
                 )
             )
-        except Exception as ex:
+        except DESERIALIZATION_EXCEPTIONS as ex:
             notify_error(self.app, "deserialization error", ex)
 
     def on_data_table_row_highlighted(self, data: DataTable.RowHighlighted) -> None:
@@ -325,7 +333,7 @@ class ListRecords(Container):
                 ]
                 table.add_row(*row, key=record_id)
             table.border_title = self._get_title()
-        except Exception as ex:
+        except CONSUMER_EXCEPTIONS as ex:
             notify_error(self.app, "error consuming records", ex)
 
         table.loading = False

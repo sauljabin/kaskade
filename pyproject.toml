@@ -59,9 +59,6 @@ line-length = 100
 [tool.ruff]
 line-length = 100
 
-[tool.ruff.lint]
-select = ["E4", "E7", "E9", "F"]
-
 [tool.typos]
 type.lock.extend-glob = ["*.lock"]
 type.lock.check-file = true

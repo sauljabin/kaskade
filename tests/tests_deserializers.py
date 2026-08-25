@@ -1,26 +1,28 @@
 import json
 import os
-
 import struct
 import unittest
-
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from confluent_kafka.serialization import MessageField
 
 from kaskade.deserializers import (
-    StringDeserializer,
-    IntegerDeserializer,
-    DoubleDeserializer,
-    FloatDeserializer,
-    LongDeserializer,
+    AvroDeserializer,
     BooleanDeserializer,
     DefaultDeserializer,
+    Deserialization,
+    DeserializationError,
+    DeserializerPool,
+    DoubleDeserializer,
+    FloatDeserializer,
+    IntegerDeserializer,
     JsonDeserializer,
-    RegistryDeserializer,
+    LongDeserializer,
     ProtobufDeserializer,
-    AvroDeserializer,
+    RegistryDeserializer,
+    StringDeserializer,
 )
+from kaskade.models import Header
 from kaskade.utils import file_to_str, py_to_avro
 from tests import faker
 from tests.protobuf_model.user_pb2 import User
@@ -42,6 +44,27 @@ AVRO_PATH = (
 
 
 class TestDeserializer(unittest.TestCase):
+    def test_missing_deserializer_configuration_raises_deserialization_error(self):
+        pool = DeserializerPool()
+
+        with self.assertRaisesRegex(DeserializationError, "Schema Registry is not configured"):
+            pool.get(Deserialization.REGISTRY)
+
+    def test_header_falls_back_to_binary_value_for_deserialization_error(self):
+        value = b"invalid"
+        deserializer = MagicMock()
+        deserializer.deserialize.side_effect = DeserializationError("invalid data")
+        header = Header(value=value, value_deserializer=deserializer)
+
+        self.assertEqual(str(value), header.value_deserialized())
+
+    def test_header_propagates_unexpected_errors(self):
+        deserializer = MagicMock()
+        deserializer.deserialize.side_effect = RuntimeError("unexpected")
+        header = Header(value=b"invalid", value_deserializer=deserializer)
+
+        with self.assertRaisesRegex(RuntimeError, "unexpected"):
+            header.value_deserialized()
 
     def test_string_deserialization(self):
         expected_value = faker.word()

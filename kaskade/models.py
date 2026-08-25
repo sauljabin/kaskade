@@ -3,7 +3,7 @@ from typing import Any
 
 from confluent_kafka.serialization import MessageField
 
-from kaskade.deserializers import Deserialization, Deserializer
+from kaskade.deserializers import DESERIALIZATION_EXCEPTIONS, Deserialization, Deserializer
 
 
 class Node:
@@ -25,7 +25,7 @@ class Node:
     def __str__(self) -> str:
         return f"{self.host}:{self.port}/{self.id}"
 
-    def __eq__(self, other: Any) -> bool:
+    def __eq__(self, other: object) -> bool:
         if isinstance(other, Node):
             return self.id == other.id
         return False
@@ -57,7 +57,7 @@ class GroupMember:
     def __str__(self) -> str:
         return str(self.id)
 
-    def __eq__(self, other: Any) -> bool:
+    def __eq__(self, other: object) -> bool:
         if isinstance(other, GroupMember):
             return self.id == other.id
         return False
@@ -94,7 +94,7 @@ class GroupPartition:
         else:
             return self.high - self.offset
 
-    def __eq__(self, other: Any) -> bool:
+    def __eq__(self, other: object) -> bool:
         if isinstance(other, GroupPartition):
             return self.id == other.id
         return False
@@ -140,7 +140,7 @@ class Group:
     def partitions_count(self) -> int:
         return len(self.partitions) if self.partitions is not None else 0
 
-    def __eq__(self, other: Any) -> bool:
+    def __eq__(self, other: object) -> bool:
         if isinstance(other, Group):
             return self.id == other.id
         return False
@@ -178,7 +178,7 @@ class Partition:
     def records_count(self) -> int:
         return self.high - self.low
 
-    def __eq__(self, other: Any) -> bool:
+    def __eq__(self, other: object) -> bool:
         if isinstance(other, Partition):
             return self.id == other.id
         return False
@@ -240,7 +240,7 @@ class Topic:
     def __str__(self) -> str:
         return self.name
 
-    def __eq__(self, other: Any) -> bool:
+    def __eq__(self, other: object) -> bool:
         if isinstance(other, Topic):
             return self.name == other.name
         return False
@@ -265,7 +265,7 @@ class Cluster:
     def __repr__(self) -> str:
         return str(self)
 
-    def __eq__(self, other: Any) -> bool:
+    def __eq__(self, other: object) -> bool:
         if isinstance(other, Cluster):
             return self.id == other.id
         return False
@@ -307,7 +307,7 @@ class Header:
     def __str__(self) -> str:
         return f"{self.key}:{self.value_str()}"
 
-    def __eq__(self, other: Any) -> bool:
+    def __eq__(self, other: object) -> bool:
         if isinstance(other, Header):
             return self.key == other.key
         return False
@@ -321,7 +321,7 @@ class Header:
 
         try:
             return self.value_deserializer.deserialize(self.value)
-        except Exception:
+        except DESERIALIZATION_EXCEPTIONS:
             # it doesn't matter to show the binaries
             return str(self.value)
 
@@ -364,7 +364,7 @@ class Record:
     def __str__(self) -> str:
         return f"{self.partition}/{self.offset}"
 
-    def __eq__(self, other: Any) -> bool:
+    def __eq__(self, other: object) -> bool:
         if isinstance(other, Record):
             return self.partition == other.partition and self.offset == other.offset
         return False

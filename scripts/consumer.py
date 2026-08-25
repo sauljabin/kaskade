@@ -1,7 +1,7 @@
 import click
 from confluent_kafka import Consumer
 
-from kaskade.configs import BOOTSTRAP_SERVERS, GROUP_ID, AUTO_OFFSET_RESET, EARLIEST
+from kaskade.configs import AUTO_OFFSET_RESET, BOOTSTRAP_SERVERS, EARLIEST, GROUP_ID
 
 
 @click.command()

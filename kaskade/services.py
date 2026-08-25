@@ -1,36 +1,36 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
-from confluent_kafka import Consumer, TopicPartition, OFFSET_INVALID, KafkaException
+from confluent_kafka import OFFSET_INVALID, Consumer, KafkaException, TopicPartition
 from confluent_kafka.admin import (
     AdminClient,
-    TopicMetadata,
-    DescribeClusterResult,
-    ConsumerGroupDescription,
-    PartitionMetadata,
-    ConfigResource,
-    ResourceType,
-    ConfigEntry,
     AlterConfigOpType,
+    ConfigEntry,
+    ConfigResource,
     ConfigSource,
+    ConsumerGroupDescription,
+    DescribeClusterResult,
+    PartitionMetadata,
+    ResourceType,
+    TopicMetadata,
 )
-from confluent_kafka.cimpl import NewTopic, NewPartitions
+from confluent_kafka.cimpl import NewPartitions, NewTopic
 
 from kaskade import logger
-from kaskade.configs import MILLISECONDS_24H, MAX_POLL_INTERVAL_MS, ENABLE_AUTO_COMMIT, GROUP_ID
+from kaskade.configs import ENABLE_AUTO_COMMIT, GROUP_ID, MAX_POLL_INTERVAL_MS, MILLISECONDS_24H
+from kaskade.deserializers import Deserialization, DeserializerPool
 from kaskade.models import (
-    Topic,
     Cluster,
+    Group,
+    GroupMember,
+    GroupPartition,
+    Header,
     Node,
     Partition,
-    Group,
-    GroupPartition,
-    GroupMember,
     Record,
-    Header,
+    Topic,
 )
-from kaskade.deserializers import Deserialization, DeserializerPool
 from kaskade.utils import make_it_async
 
 
@@ -111,7 +111,9 @@ class ConsumerService:
 
             timestamp_available, timestamp = record_metadata.timestamp()
             date = (
-                datetime.fromtimestamp(timestamp / 1000).strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+                datetime.fromtimestamp(timestamp / 1000, tz=timezone.utc)
+                .astimezone()
+                .strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
                 if timestamp_available > 0
                 else ""
             )
@@ -143,17 +145,14 @@ class ConsumerService:
                 value_deserializer=self.deserializer_factory.get(self.value_deserialization),
             )
 
-            if partition_filter is not None:
-                if record.partition != partition_filter:
-                    continue
+            if partition_filter is not None and record.partition != partition_filter:
+                continue
 
-            if key_filter:
-                if key_filter not in record.key_str():
-                    continue
+            if key_filter and key_filter not in record.key_str():
+                continue
 
-            if value_filter:
-                if value_filter not in record.value_str():
-                    continue
+            if value_filter and value_filter not in record.value_str():
+                continue
 
             if header_filter:
                 if record.headers is None:
@@ -406,6 +405,6 @@ class TopicService:
             return str(topic.topic).lower()
 
         return sorted(
-            list(self.admin_client.list_topics(timeout=self.timeout).topics.values()),
+            self.admin_client.list_topics(timeout=self.timeout).topics.values(),
             key=sort_by_topic_name,
         )

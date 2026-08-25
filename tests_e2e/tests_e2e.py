@@ -1,8 +1,7 @@
 import asyncio
 import os
-
-
 import unittest
+
 from confluent_kafka import Producer
 from confluent_kafka.admin import AdminClient
 from confluent_kafka.cimpl import NewTopic
@@ -12,7 +11,7 @@ from textual.widgets import DataTable
 from textual.widgets._data_table import RowKey
 
 from kaskade.admin import KaskadeAdmin
-from kaskade.configs import BOOTSTRAP_SERVERS, EARLIEST, AUTO_OFFSET_RESET
+from kaskade.configs import AUTO_OFFSET_RESET, BOOTSTRAP_SERVERS, EARLIEST
 from kaskade.consumer import KaskadeConsumer
 from kaskade.deserializers import Deserialization
 from kaskade.utils import load_properties
@@ -24,7 +23,7 @@ MY_TOPIC = "my-topic"
 
 CURRENT_PATH = os.getcwd()
 PROPERTIES_PATH = (
-    f"{CURRENT_PATH}/../.env" if CURRENT_PATH.endswith("tests-e2e") else f"{CURRENT_PATH}/.env"
+    f"{CURRENT_PATH}/../.env" if CURRENT_PATH.endswith("tests_e2e") else f"{CURRENT_PATH}/.env"
 )
 SANDBOX_PROPERTIES = load_properties(PROPERTIES_PATH)
 CONFLUENT_VERSION = SANDBOX_PROPERTIES["CONFLUENT_VERSION"]
@@ -63,7 +62,7 @@ class TestE2E(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(1, len(table.rows))
 
                 first_row = table._data[RowKey(MY_TOPIC)]
-                first_column = list(first_row.values())[0]
+                first_column = next(iter(first_row.values()))
                 self.assertEqual(MY_TOPIC, first_column)
 
     @parameterized.expand(KAFKA_IMPLEMENTATIONS)
@@ -88,8 +87,9 @@ class TestE2E(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(1, len(table.rows))
 
                 first_row = table._data[RowKey("0/0")]
-                first_column = list(first_row.values())[0]
-                second_column = list(first_row.values())[1]
+                columns = iter(first_row.values())
+                first_column = next(columns)
+                second_column = next(columns)
                 self.assertEqual(MY_KEY, first_column)
                 self.assertEqual(MY_VALUE, second_column)
 

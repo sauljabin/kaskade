@@ -1,13 +1,14 @@
 import asyncio
 import functools
 import struct
+from collections.abc import Callable
 from io import BytesIO
 from pathlib import Path
 from types import MappingProxyType
-from typing import Callable, Any
+from typing import Any
 
 from confluent_kafka import KafkaException
-from fastavro import schemaless_writer, schemaless_reader
+from fastavro import schemaless_reader, schemaless_writer
 from fastavro.schema import load_schema
 from textual.app import App
 
@@ -17,9 +18,8 @@ from kaskade import logger
 def notify_error(application: App, title: str, ex: Exception) -> None:
     message = str(ex)
 
-    if isinstance(ex, KafkaException):
-        if len(ex.args) > 0 and hasattr(ex.args[0], "str"):
-            message = ex.args[0].str()
+    if isinstance(ex, KafkaException) and len(ex.args) > 0 and hasattr(ex.args[0], "str"):
+        message = ex.args[0].str()
 
     logger.exception(ex)
     application.notify(message, severity="error", title=title)

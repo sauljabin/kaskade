@@ -1,3 +1,5 @@
+import sys
+
 import click
 from rich.console import Console
 
@@ -32,7 +34,7 @@ def main(rule: str) -> None:
 
     if confirmation != "yes":
         revert_changes()
-        exit(1)
+        sys.exit(1)
 
     confirm_changes(new_app_version)
 

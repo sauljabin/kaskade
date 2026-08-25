@@ -1,26 +1,26 @@
 import time
+import uuid
+from collections.abc import Callable
 from time import sleep
+from typing import Any
 
+import click
+from confluent_kafka import KafkaError, KafkaException, Producer
+from confluent_kafka.admin import AdminClient
 from confluent_kafka.cimpl import NewTopic
 from confluent_kafka.schema_registry import SchemaRegistryClient
 from confluent_kafka.schema_registry.avro import AvroSerializer
 from confluent_kafka.schema_registry.json_schema import JSONSerializer
 from confluent_kafka.schema_registry.protobuf import ProtobufSerializer
-from confluent_kafka.serialization import SerializationContext, MessageField
-from typing import Callable, Any
-import uuid
-
-import click
-from kaskade.configs import BOOTSTRAP_SERVERS, MIN_INSYNC_REPLICAS_CONFIG
-from rich.console import Console
-from confluent_kafka.admin import AdminClient
-from confluent_kafka import Producer, KafkaError, KafkaException
+from confluent_kafka.serialization import MessageField, SerializationContext
 from faker import Faker
+from rich.console import Console
 
-from kaskade.utils import pack_bytes, file_to_str, py_to_avro
-from tests.protobuf_model.user_pb2 import User as ProtobufUser
+from kaskade.configs import BOOTSTRAP_SERVERS, MIN_INSYNC_REPLICAS_CONFIG
+from kaskade.utils import file_to_str, pack_bytes, py_to_avro
 from tests.avro_model.user import User as AvroUser
 from tests.json_model.user import User as JsonUser
+from tests.protobuf_model.user_pb2 import User as ProtobufUser
 
 JSON_USER_SCHEMA = "tests/json_model/user.schema.json"
 AVRO_USER_SCHEMA = "tests/avro_model/user.avsc"
@@ -56,7 +56,7 @@ class Populator:
                     and hasattr(ke.args[0], "code")
                     and ke.args[0].code() is not KafkaError.TOPIC_ALREADY_EXISTS
                 ):
-                    raise ke
+                    raise
 
     def populate(
         self,

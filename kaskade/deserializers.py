@@ -1,25 +1,41 @@
 import json
-from abc import abstractmethod, ABC
+from abc import ABC, abstractmethod
 from enum import Enum, auto
 from struct import unpack
-from typing import Any, Type
+from typing import Any
 
 from confluent_kafka.schema_registry import SchemaRegistryClient
 from confluent_kafka.schema_registry.avro import AvroDeserializer as ConfluentAvroDeserializer
+from confluent_kafka.schema_registry.error import SchemaRegistryError
 from confluent_kafka.schema_registry.json_schema import (
     JSONDeserializer as ConfluentJsonDeserializer,
 )
 from confluent_kafka.schema_registry.protobuf import (
     ProtobufDeserializer as ConfluentProtobufDeserializer,
 )
-from confluent_kafka.serialization import MessageField, SerializationContext
+from confluent_kafka.serialization import MessageField, SerializationContext, SerializationError
 from google.protobuf.descriptor_pb2 import FileDescriptorSet
 from google.protobuf.json_format import MessageToDict
-from google.protobuf.message import Message
+from google.protobuf.message import DecodeError, Message
 from google.protobuf.message_factory import GetMessages
 
 from kaskade.configs import SCHEMA_REGISTRY_MAGIC_BYTE
-from kaskade.utils import unpack_bytes, file_to_bytes, avro_to_py
+from kaskade.utils import avro_to_py, file_to_bytes, unpack_bytes
+
+
+class DeserializationError(Exception):
+    """Raised when deserializer configuration or input framing is invalid."""
+
+
+DESERIALIZATION_EXCEPTIONS: tuple[type[Exception], ...] = (
+    DeserializationError,
+    EOFError,
+    OSError,
+    ValueError,
+    SchemaRegistryError,
+    SerializationError,
+    DecodeError,
+)
 
 
 class Deserialization(Enum):
@@ -112,7 +128,7 @@ class JsonDeserializer(Deserializer):
         self, data: bytes, topic: str | None = None, context: MessageField = MessageField.NONE
     ) -> Any:
         if len(data) > 5:
-            magic, schema_id = unpack(">bI", data[:5])
+            magic, _schema_id = unpack(">bI", data[:5])
             if magic == SCHEMA_REGISTRY_MAGIC_BYTE:
                 # in case that the json has a confluent schema registry magic byte
                 # https://docs.confluent.io/platform/current/schema-registry/fundamentals/serdes-develop/index.html#wire-format
@@ -133,19 +149,19 @@ class RegistryDeserializer(Deserializer):
         self, data: bytes, topic: str | None = None, context: MessageField = MessageField.NONE
     ) -> Any:
         if topic is None:
-            raise Exception("Topic name needed")
+            raise DeserializationError("Topic name needed")
 
         if context == MessageField.NONE:
-            raise Exception("Context is needed: KEY or VALUE")
+            raise DeserializationError("Context is needed: KEY or VALUE")
 
         if len(data) <= 5:
-            raise Exception(
+            raise DeserializationError(
                 f"Expecting data framing of length 6 bytes or more but total data size is {len(data)} bytes. This message was not produced with a Confluent Schema Registry serializer"
             )
 
         magic, schema_id = unpack(">bI", data[:5])
         if magic != SCHEMA_REGISTRY_MAGIC_BYTE:
-            raise Exception(
+            raise DeserializationError(
                 f"Unexpected magic byte {magic}. This message was not produced with a Confluent Schema Registry serializer"
             )
 
@@ -157,14 +173,14 @@ class RegistryDeserializer(Deserializer):
             case "AVRO":
                 return self.avro_deserializer(data, SerializationContext(topic, context))
             case _:
-                raise Exception("Schema type not supported")
+                raise DeserializationError("Schema type not supported")
 
 
 class AvroDeserializer(Deserializer):
     def __init__(self, avro_config: dict[str, str]):
         self.key_path = avro_config.get("key")
         self.value_path = avro_config.get("value")
-        self.descriptor_classes: dict[str, Type[Message]] | None = None
+        self.descriptor_classes: dict[str, type[Message]] | None = None
 
     def deserialize(
         self, data: bytes, topic: str | None = None, context: MessageField = MessageField.NONE
@@ -172,23 +188,23 @@ class AvroDeserializer(Deserializer):
         schema_path: str | None = None
 
         if context == MessageField.NONE:
-            raise Exception("Context is needed: KEY or VALUE")
+            raise DeserializationError("Context is needed: KEY or VALUE")
 
         if context == MessageField.KEY:
             if self.key_path is None:
-                raise Exception("Avro schema was not provided for context KEY")
+                raise DeserializationError("Avro schema was not provided for context KEY")
             schema_path = self.key_path
 
         if context == MessageField.VALUE:
             if self.value_path is None:
-                raise Exception("Avro schema was not provided for context VALUE")
+                raise DeserializationError("Avro schema was not provided for context VALUE")
             schema_path = self.value_path
 
         if schema_path is None:
-            raise Exception("Avro schema file not found")
+            raise DeserializationError("Avro schema file not found")
 
         if len(data) > 5:
-            magic, schema_id = unpack(">bI", data[:5])
+            magic, _schema_id = unpack(">bI", data[:5])
             if magic == SCHEMA_REGISTRY_MAGIC_BYTE:
                 # in case that the avro has a confluent schema registry magic byte
                 # https://docs.confluent.io/platform/current/schema-registry/fundamentals/serdes-develop/index.html#wire-format
@@ -202,41 +218,41 @@ class ProtobufDeserializer(Deserializer):
         self.descriptor_path = protobuf_config.get("descriptor")
         self.key_class = protobuf_config.get("key")
         self.value_class = protobuf_config.get("value")
-        self.descriptor_classes: dict[str, Type[Message]] | None = None
+        self.descriptor_classes: dict[str, type[Message]] | None = None
 
     def deserialize(
         self, data: bytes, topic: str | None = None, context: MessageField = MessageField.NONE
     ) -> Any:
         if topic is None:
-            raise Exception("Topic name needed")
+            raise DeserializationError("Topic name needed")
 
         if context == MessageField.NONE:
-            raise Exception("Context is needed: KEY or VALUE")
+            raise DeserializationError("Context is needed: KEY or VALUE")
 
         if self.descriptor_path is None:
-            raise Exception("Descriptor not found")
+            raise DeserializationError("Descriptor not found")
 
         if self.descriptor_classes is None:
             descriptor = FileDescriptorSet.FromString(file_to_bytes(self.descriptor_path))
             self.descriptor_classes = GetMessages(descriptor.file)
 
-        deserialization_class: Type[Message] | None = None
+        deserialization_class: type[Message] | None = None
 
         if context == MessageField.KEY:
             if self.key_class is None:
-                raise Exception("Protobuf message name not provided for context KEY")
+                raise DeserializationError("Protobuf message name not provided for context KEY")
             deserialization_class = self.descriptor_classes.get(self.key_class)
 
         if context == MessageField.VALUE:
             if self.value_class is None:
-                raise Exception("Protobuf message name not provided for context VALUE")
+                raise DeserializationError("Protobuf message name not provided for context VALUE")
             deserialization_class = self.descriptor_classes.get(self.value_class)
 
         if deserialization_class is None:
-            raise Exception("Deserialization class not found")
+            raise DeserializationError("Deserialization class not found")
 
         if len(data) > 5:
-            magic, schema_id = unpack(">bI", data[:5])
+            magic, _schema_id = unpack(">bI", data[:5])
             if magic == SCHEMA_REGISTRY_MAGIC_BYTE:
                 # in case that the protobuf has a confluent schema registry magic byte
                 # https://docs.confluent.io/platform/current/schema-registry/fundamentals/serdes-develop/index.html#wire-format
@@ -259,6 +275,10 @@ class DeserializerPool:
         protobuf_config: dict[str, str] | None = None,
         avro_config: dict[str, str] | None = None,
     ):
+        self.registry_deserializer: RegistryDeserializer | None = None
+        self.protobuf_deserializer: ProtobufDeserializer | None = None
+        self.avro_deserializer: AvroDeserializer | None = None
+
         if registry_config:
             self.registry_deserializer = RegistryDeserializer(registry_config)
 
@@ -295,15 +315,15 @@ class DeserializerPool:
                 return self.boolean_deserializer
             case Deserialization.REGISTRY:
                 if self.registry_deserializer is None:
-                    raise Exception("Schema Registry is not configured")
+                    raise DeserializationError("Schema Registry is not configured")
                 return self.registry_deserializer
             case Deserialization.AVRO:
                 if self.avro_deserializer is None:
-                    raise Exception("Avro is not configured")
+                    raise DeserializationError("Avro is not configured")
                 return self.avro_deserializer
             case Deserialization.PROTOBUF:
                 if self.protobuf_deserializer is None:
-                    raise Exception("Protobuf is not configured")
+                    raise DeserializationError("Protobuf is not configured")
                 return self.protobuf_deserializer
             case _:
                 return self.default_deserializer

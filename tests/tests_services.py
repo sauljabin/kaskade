@@ -1,14 +1,14 @@
 import unittest
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 from confluent_kafka import Node
 from confluent_kafka.admin import (
-    TopicMetadata,
-    PartitionMetadata,
     ConsumerGroupDescription,
+    ConsumerGroupListing,
     MemberAssignment,
     MemberDescription,
-    ConsumerGroupListing,
+    PartitionMetadata,
+    TopicMetadata,
 )
 from confluent_kafka.cimpl import CONSUMER_GROUP_STATE_STABLE, TopicPartition
 

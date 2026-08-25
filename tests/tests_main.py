@@ -6,8 +6,8 @@ from unittest.mock import patch
 from click.testing import CliRunner
 
 from kaskade.configs import BOOTSTRAP_SERVERS
-from kaskade.main import cli
 from kaskade.deserializers import Deserialization
+from kaskade.main import cli
 from tests import faker
 
 EXPECTED_TOPIC = "my.topic"
@@ -133,7 +133,7 @@ class TestConsumerCli(unittest.TestCase):
     def setUp(self):
         self.runner = CliRunner()
         self.command = "consumer"
-        self.temp_descriptor = tempfile.NamedTemporaryFile()
+        self.temp_descriptor = self.enterContext(tempfile.NamedTemporaryFile())
 
     def test_bootstrap_server_required(self):
         result = self.runner.invoke(cli, [self.command])

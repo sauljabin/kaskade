@@ -6,16 +6,16 @@ from click import BadParameter, MissingParameter
 
 from kaskade import APP_VERSION
 from kaskade.admin import KaskadeAdmin
+from kaskade.configs import (
+    AUTO_OFFSET_RESET,
+    AVRO_DESERIALIZER_CONFIGS,
+    BOOTSTRAP_SERVERS,
+    EARLIEST,
+    PROTOBUF_DESERIALIZER_CONFIGS,
+    SCHEMA_REGISTRY_CONFIGS,
+)
 from kaskade.consumer import KaskadeConsumer
 from kaskade.deserializers import Deserialization
-from kaskade.configs import (
-    BOOTSTRAP_SERVERS,
-    SCHEMA_REGISTRY_CONFIGS,
-    PROTOBUF_DESERIALIZER_CONFIGS,
-    AUTO_OFFSET_RESET,
-    EARLIEST,
-    AVRO_DESERIALIZER_CONFIGS,
-)
 from kaskade.utils import load_properties
 
 KAFKA_CONFIG_HELP = (
@@ -48,7 +48,6 @@ def string_to_deserializer_type(ctx: Any, param: Any, value: Any) -> Any:
 @cloup.version_option(APP_VERSION)
 def cli() -> None:
     """kaskade is a terminal user interface for kafka."""
-    pass
 
 
 @cli.command(epilog=EPILOG_HELP)
@@ -291,7 +290,7 @@ def validate_avro(
     if len(avro_config) == 0:
         return
 
-    if [config for config in avro_config.keys() if config not in AVRO_DESERIALIZER_CONFIGS]:
+    if [config for config in avro_config if config not in AVRO_DESERIALIZER_CONFIGS]:
         raise BadParameter(message=f"Valid properties: {AVRO_DESERIALIZER_CONFIGS}.")
 
     if (
@@ -324,7 +323,7 @@ def validate_schema_registry(
     if len(registry_config) == 0:
         return
 
-    if [config for config in registry_config.keys() if config not in SCHEMA_REGISTRY_CONFIGS]:
+    if [config for config in registry_config if config not in SCHEMA_REGISTRY_CONFIGS]:
         raise BadParameter(message=f"Valid properties: {SCHEMA_REGISTRY_CONFIGS}.")
 
     url = registry_config.get("url")
@@ -350,7 +349,7 @@ def validate_protobuf(
     if len(protobuf_config) == 0:
         return
 
-    if [config for config in protobuf_config.keys() if config not in PROTOBUF_DESERIALIZER_CONFIGS]:
+    if [config for config in protobuf_config if config not in PROTOBUF_DESERIALIZER_CONFIGS]:
         raise BadParameter(message=f"Valid properties: {PROTOBUF_DESERIALIZER_CONFIGS}.")
 
     descriptor_path_str = protobuf_config.get("descriptor")
