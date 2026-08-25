@@ -1,19 +1,23 @@
-from itertools import cycle
 from typing import Any, ClassVar
 
 from confluent_kafka import KafkaException
 from confluent_kafka.cimpl import NewTopic
-from rich.table import Table
 from textual import work
 from textual.app import ComposeResult
 from textual.binding import Binding, BindingType
 from textual.containers import Container
 from textual.screen import ModalScreen
-from textual.widget import Widget
-from textual.widgets import DataTable, Input, RadioButton, RadioSet
+from textual.widgets import (
+    DataTable,
+    Footer,
+    Input,
+    RadioButton,
+    RadioSet,
+    TabbedContent,
+    TabPane,
+)
 
-from kaskade.banner import KaskadeBanner
-from kaskade.colors import PRIMARY, SECONDARY
+from kaskade.colors import PRIMARY
 from kaskade.configs import (
     CLEANUP_POLICY_CONFIG,
     MILLISECONDS_1W,
@@ -25,15 +29,14 @@ from kaskade.services import (
     TopicService,
 )
 from kaskade.themes import KaskadeApp
-from kaskade.unicodes import APPROXIMATION, PIPE
-from kaskade.utils import notify_error
+from kaskade.unicodes import APPROXIMATION
+from kaskade.utils import make_it_async, notify_error
 
 REFRESH_TABLE_DELAY = 1
 FILTER_TOPICS_SHORTCUT = "ctrl+f"
 BACK_SHORTCUT = "escape"
 ALL_TOPICS_SHORTCUT = BACK_SHORTCUT
 SUBMIT_SHORTCUT = "enter"
-NEXT_SHORTCUT = "tab"
 SAVE_SHORTCUT = "ctrl+s"
 DESCRIBE_TOPIC_SHORTCUT = SUBMIT_SHORTCUT
 NEW_TOPIC_SHORTCUT = "ctrl+n"
@@ -43,45 +46,26 @@ REFRESH_TOPICS_SHORTCUT = "ctrl+r"
 QUIT_SHORTCUT = "ctrl+q"
 
 
-class AdminShortcuts(Widget):
-    SHORTCUTS: ClassVar[list[list[str]]] = [
-        ["describe:", f"<{SUBMIT_SHORTCUT}>", PIPE, "edit:", f"<{EDIT_TOPIC_SHORTCUT}>"],
-        ["refresh:", f"<{REFRESH_TOPICS_SHORTCUT}>", PIPE, "create:", f"<{NEW_TOPIC_SHORTCUT}>"],
-        ["filter:", f"<{FILTER_TOPICS_SHORTCUT}>", PIPE, "show all:", f"<{BACK_SHORTCUT}>"],
-        ["delete:", f"<{DELETE_TOPIC_SHORTCUT}>", PIPE, "quit:", f"<{QUIT_SHORTCUT}>"],
+class FilterTopicsScreen(ModalScreen[str]):
+    BINDING_GROUP_TITLE = "Filter Topics"
+    AUTO_FOCUS = "#topic-filter"
+    BINDINGS: ClassVar[list[BindingType]] = [
+        Binding(
+            BACK_SHORTCUT,
+            "close",
+            "Back",
+            tooltip="Close the filter without applying it.",
+            id="kaskade.filter-topics.close",
+        )
     ]
 
-    def render(self) -> Table:
-        table = Table(box=None, show_header=False, padding=(0, 0, 0, 1))
-        table.add_column(style=PRIMARY)
-        table.add_column(style=SECONDARY)
-        table.add_column(style=SECONDARY)
-        table.add_column(style=PRIMARY)
-        table.add_column(style=SECONDARY)
-
-        for shortcuts in self.SHORTCUTS:
-            table.add_row(*shortcuts)
-
-        return table
-
-
-class Header(Widget):
-
     def compose(self) -> ComposeResult:
-        yield AdminShortcuts()
-        yield KaskadeBanner(include_version=True, include_slogan=False)
-
-
-class FilterTopicsScreen(ModalScreen[str]):
-    BINDINGS: ClassVar[list[BindingType]] = [Binding(BACK_SHORTCUT, "close")]
-
-    def compose(self) -> ComposeResult:
-        input_filter = Input(placeholder="word to match")
-        input_filter.border_title = f"[{PRIMARY}]filter topics[/]"
-        input_filter.border_subtitle = (
-            f"[{PRIMARY}]filter:[/] <{SUBMIT_SHORTCUT}> | [{PRIMARY}]back:[/] <{BACK_SHORTCUT}>"
+        input_filter = Input(
+            id="topic-filter", placeholder="Topic name contains…", classes="kaskade-input"
         )
+        input_filter.border_title = f"[{PRIMARY}]Filter Topics[/]"
         yield input_filter
+        yield Footer(compact=True)
 
     def on_input_submitted(self, event: Input.Submitted) -> None:
         self.dismiss(event.value)
@@ -91,87 +75,110 @@ class FilterTopicsScreen(ModalScreen[str]):
 
 
 class DeleteTopicScreen(ModalScreen[bool]):
-    BINDINGS: ClassVar[list[BindingType]] = [Binding(BACK_SHORTCUT, "cancel")]
+    BINDING_GROUP_TITLE = "Delete Topic"
+    AUTO_FOCUS = "#topic-confirmation"
+    BINDINGS: ClassVar[list[BindingType]] = [
+        Binding(
+            BACK_SHORTCUT,
+            "cancel",
+            "Cancel",
+            tooltip="Keep the topic and close this confirmation.",
+            id="kaskade.delete-topic.cancel",
+        )
+    ]
 
     def __init__(self, topic: Topic):
         super().__init__()
         self.topic = topic
 
     def compose(self) -> ComposeResult:
-        label = Input(placeholder="type the topic's name")
-        label.border_title = rf"[{PRIMARY}]delete topic[/] \[[{PRIMARY}]{self.topic}[/]]"
-        label.border_subtitle = (
-            f"[{PRIMARY}]delete:[/] <{SUBMIT_SHORTCUT}> | [{PRIMARY}]cancel:[/] <{BACK_SHORTCUT}>"
+        label = Input(
+            id="topic-confirmation",
+            placeholder="Type the topic name to confirm",
+            classes="kaskade-input",
         )
+        label.border_title = rf"[{PRIMARY}]Delete Topic[/] \[[{PRIMARY}]{self.topic}[/]]"
         yield label
+        yield Footer(compact=True)
 
     def on_input_submitted(self, event: Input.Submitted) -> None:
         if self.topic.name == event.value:
             self.dismiss(True)
         else:
-            self.notify("type the name of the topic", title="confirmation step", severity="warning")
+            self.notify(
+                "Type the topic name exactly to confirm deletion.",
+                title="Confirmation Required",
+                severity="warning",
+            )
 
     def action_cancel(self) -> None:
         self.dismiss(False)
 
 
 class DescribeTopicScreen(ModalScreen):
+    BINDING_GROUP_TITLE = "Topic Details"
+    AUTO_FOCUS = "Tabs"
     BINDINGS: ClassVar[list[BindingType]] = [
-        Binding(BACK_SHORTCUT, "close"),
-        Binding(NEXT_SHORTCUT, "next"),
+        Binding(
+            BACK_SHORTCUT,
+            "close",
+            "Back",
+            tooltip="Close the topic details.",
+            id="kaskade.describe-topic.close",
+        )
     ]
 
     def __init__(self, topic: Topic):
         super().__init__()
         self.topic = topic
-        self.tabs = cycle(["partitions", "groups", "group members"])
 
     def compose(self) -> ComposeResult:
-        table: DataTable = DataTable()
+        with TabbedContent(initial="partitions", id="topic-details"):
+            with TabPane("Partitions", id="partitions"):
+                yield self._partitions_table()
+            with TabPane("Groups", id="groups"):
+                yield self._groups_table()
+            with TabPane("Group Members", id="group-members"):
+                yield self._group_members_table()
+        yield Footer(compact=True)
+
+    def _new_table(self, table_id: str, count: int, item_name: str) -> DataTable:
+        table: DataTable = DataTable(id=table_id, classes="kaskade-table details-table")
         table.cursor_type = "row"
         table.zebra_stripes = True
-        table.border_subtitle = (
-            f"[{PRIMARY}]next tab:[/] <{NEXT_SHORTCUT}> | [{PRIMARY}]back:[/] <{BACK_SHORTCUT}>"
-        )
-        yield table
+        table.border_title = rf"[{PRIMARY}]{self.topic}[/] \[[{PRIMARY}]{count} {item_name}[/]]"
+        return table
 
-    def on_mount(self) -> None:
-        self.action_next()
-
-    def render_partitions(self) -> None:
-        table = self.query_one(DataTable)
-        table.clear(columns=True)
-        table.border_title = rf"[{PRIMARY}]partitions[/] | groups | group members \[[{PRIMARY}]{self.topic}[/]]\[[{PRIMARY}]{self.topic.partitions_count()}[/]]"
-        table.add_column("id")
-        table.add_column("leader")
-        table.add_column("isrs")
-        table.add_column("replicas")
-        table.add_column("records")
+    def _partitions_table(self) -> DataTable:
+        table = self._new_table("partitions-table", self.topic.partitions_count(), "Partitions")
+        table.add_column("ID")
+        table.add_column("Leader")
+        table.add_column("ISRs")
+        table.add_column("Replicas")
+        table.add_column("Records")
 
         for partition in self.topic.partitions:
-            row = [
+            table.add_row(
                 str(partition.id),
                 str(partition.leader),
                 str(partition.isrs),
                 str(partition.replicas),
                 str(partition.records_count()),
-            ]
-            table.add_row(*row)
+            )
+        return table
 
-    def render_groups(self) -> None:
-        table = self.query_one(DataTable)
-        table.clear(columns=True)
-        table.border_title = rf"partitions | [{PRIMARY}]groups[/] | group members \[[{PRIMARY}]{self.topic}[/]]\[[{PRIMARY}]{self.topic.groups_count()}[/]]"
-        table.add_column("id")
-        table.add_column("coordinator")
-        table.add_column("state")
-        table.add_column("assignor")
-        table.add_column("partitions")
-        table.add_column("members")
-        table.add_column("lag")
+    def _groups_table(self) -> DataTable:
+        table = self._new_table("groups-table", self.topic.groups_count(), "Groups")
+        table.add_column("ID")
+        table.add_column("Coordinator")
+        table.add_column("State")
+        table.add_column("Assignor")
+        table.add_column("Partitions")
+        table.add_column("Members")
+        table.add_column("Lag")
 
         for group in self.topic.groups:
-            row = [
+            table.add_row(
                 group.id,
                 str(group.coordinator) if group.coordinator else "",
                 group.state,
@@ -179,44 +186,52 @@ class DescribeTopicScreen(ModalScreen):
                 str(group.partitions_count()),
                 str(group.members_count()),
                 str(group.lag_count()),
-            ]
-            table.add_row(*row)
+            )
+        return table
 
-    def render_group_members(self) -> None:
-        table = self.query_one(DataTable)
-        table.clear(columns=True)
-        table.border_title = rf"partitions | groups | [{PRIMARY}]group members[/] \[[{PRIMARY}]{self.topic}[/]]\[[{PRIMARY}]{self.topic.group_members_count()}[/]]"
-        table.add_column("group")
-        table.add_column("client id")
-        table.add_column("member id")
-        table.add_column("host")
-        table.add_column("assignment")
+    def _group_members_table(self) -> DataTable:
+        table = self._new_table(
+            "group-members-table", self.topic.group_members_count(), "Group Members"
+        )
+        table.add_column("Group")
+        table.add_column("Client ID")
+        table.add_column("Member ID")
+        table.add_column("Host")
+        table.add_column("Assignment")
 
         for group in self.topic.groups:
             for member in group.members:
-                row = [
+                table.add_row(
                     member.group,
                     member.client_id,
                     member.id,
                     member.host,
                     str(member.assignment),
-                ]
-                table.add_row(*row)
-
-    def action_next(self) -> None:
-        current_tab = next(self.tabs)
-        method_name = current_tab.replace(" ", "_")
-        render_table = getattr(self, f"render_{method_name}")
-        render_table()
+                )
+        return table
 
     def action_close(self) -> None:
         self.dismiss()
 
 
 class EditTopicScreen(ModalScreen[bool]):
+    BINDING_GROUP_TITLE = "Edit Topic"
+    AUTO_FOCUS = "#partitions"
     BINDINGS: ClassVar[list[BindingType]] = [
-        Binding(BACK_SHORTCUT, "back"),
-        Binding(SAVE_SHORTCUT, "edit"),
+        Binding(
+            BACK_SHORTCUT,
+            "back",
+            "Back",
+            tooltip="Close the editor without saving changes.",
+            id="kaskade.edit-topic.close",
+        ),
+        Binding(
+            SAVE_SHORTCUT,
+            "edit",
+            "Save Changes",
+            tooltip="Apply the edited Kafka topic configuration.",
+            id="kaskade.edit-topic.save",
+        ),
     ]
 
     def __init__(
@@ -235,25 +250,29 @@ class EditTopicScreen(ModalScreen[bool]):
         self.retention = retention
 
     def compose(self) -> ComposeResult:
-        input_partitions = Input(id="partitions", type="integer", value=self.partitions)
-        input_partitions.border_title = "partitions"
+        input_partitions = Input(
+            id="partitions", type="integer", value=self.partitions, classes="kaskade-input"
+        )
+        input_partitions.border_title = "Partitions"
 
         input_min_insync = Input(
-            id="min_insync_replicas", type="integer", value=self.min_insync_replicas
+            id="min_insync_replicas",
+            type="integer",
+            value=self.min_insync_replicas,
+            classes="kaskade-input",
         )
-        input_min_insync.border_title = "min insync replicas"
+        input_min_insync.border_title = "Min In-Sync Replicas"
 
-        input_retention = Input(id="retention", type="integer", value=self.retention)
-        input_retention.border_title = "retention (ms)"
-
-        radio_set = RadioSet(id="cleanup")
-        radio_set.border_title = "cleanup policy"
-
-        container = Container()
-        container.border_title = rf"[{PRIMARY}]edit topic[/] \[[{PRIMARY}]{self.topic_name}[/]]"
-        container.border_subtitle = (
-            f"[{PRIMARY}]save:[/] <{SAVE_SHORTCUT}> | [{PRIMARY}]back:[/] <{BACK_SHORTCUT}>"
+        input_retention = Input(
+            id="retention", type="integer", value=self.retention, classes="kaskade-input"
         )
+        input_retention.border_title = "Retention (ms)"
+
+        radio_set = RadioSet(id="cleanup", classes="kaskade-radio")
+        radio_set.border_title = "Cleanup Policy"
+
+        container = Container(classes="topic-form")
+        container.border_title = rf"[{PRIMARY}]Edit Topic[/] \[[{PRIMARY}]{self.topic_name}[/]]"
 
         with container:
             yield input_partitions
@@ -268,6 +287,7 @@ class EditTopicScreen(ModalScreen[bool]):
                     str(CleanupPolicy.COMPACT),
                     value=self.cleanup_policy == str(CleanupPolicy.COMPACT),
                 )
+        yield Footer(compact=True)
 
     def action_edit(self) -> None:
         partitions_input = self.query_one("#partitions", Input)
@@ -293,35 +313,59 @@ class EditTopicScreen(ModalScreen[bool]):
 
 
 class CreateTopicScreen(ModalScreen[NewTopic]):
+    BINDING_GROUP_TITLE = "Create Topic"
+    AUTO_FOCUS = "#name"
     BINDINGS: ClassVar[list[BindingType]] = [
-        Binding(BACK_SHORTCUT, "back"),
-        Binding(SAVE_SHORTCUT, "create"),
+        Binding(
+            BACK_SHORTCUT,
+            "back",
+            "Back",
+            tooltip="Close the form without creating a topic.",
+            id="kaskade.create-topic.close",
+        ),
+        Binding(
+            SAVE_SHORTCUT,
+            "create",
+            "Create Topic",
+            tooltip="Create the topic with the configured values.",
+            id="kaskade.create-topic.save",
+        ),
     ]
 
     def compose(self) -> ComposeResult:
-        input_name = Input(id="name", placeholder="alphanumerics, '.', '_' and '-'")
-        input_name.border_title = "name"
-
-        input_partitions = Input(id="partitions", type="integer", value="1")
-        input_partitions.border_title = "partitions"
-
-        input_replication = Input(id="replicas", type="integer", value="3")
-        input_replication.border_title = "replicas"
-
-        input_min_insync = Input(id="min_insync_replicas", type="integer", value="2")
-        input_min_insync.border_title = "min insync replicas"
-
-        input_retention = Input(id="retention", type="integer", value=f"{MILLISECONDS_1W}")
-        input_retention.border_title = "retention (ms)"
-
-        radio_set = RadioSet(id="cleanup")
-        radio_set.border_title = "cleanup policy"
-
-        container = Container()
-        container.border_title = f"[{PRIMARY}]create topic[/]"
-        container.border_subtitle = (
-            f"[{PRIMARY}]create:[/] <{SAVE_SHORTCUT}> | [{PRIMARY}]back:[/] <{BACK_SHORTCUT}>"
+        input_name = Input(
+            id="name",
+            placeholder="Letters, numbers, '.', '_' and '-'",
+            classes="kaskade-input",
         )
+        input_name.border_title = "Name"
+
+        input_partitions = Input(
+            id="partitions", type="integer", value="1", classes="kaskade-input"
+        )
+        input_partitions.border_title = "Partitions"
+
+        input_replication = Input(id="replicas", type="integer", value="3", classes="kaskade-input")
+        input_replication.border_title = "Replicas"
+
+        input_min_insync = Input(
+            id="min_insync_replicas", type="integer", value="2", classes="kaskade-input"
+        )
+        input_min_insync.border_title = "Min In-Sync Replicas"
+
+        input_retention = Input(
+            id="retention",
+            type="integer",
+            value=f"{MILLISECONDS_1W}",
+            classes="kaskade-input",
+        )
+        input_retention.border_title = "Retention (ms)"
+
+        radio_set = RadioSet(id="cleanup", classes="kaskade-radio")
+        radio_set.border_title = "Cleanup Policy"
+
+        container = Container(classes="topic-form")
+        container.border_title = f"[{PRIMARY}]Create Topic[/]"
 
         with container:
             yield input_name
@@ -332,6 +376,7 @@ class CreateTopicScreen(ModalScreen[NewTopic]):
             with radio_set:
                 yield RadioButton(str(CleanupPolicy.DELETE), value=True)
                 yield RadioButton(str(CleanupPolicy.COMPACT))
+        yield Footer(compact=True)
 
     def action_create(self) -> None:
         name_input = self.query_one("#name", Input)
@@ -374,14 +419,61 @@ class CreateTopicScreen(ModalScreen[NewTopic]):
 
 
 class ListTopics(Container):
+    BINDING_GROUP_TITLE = "Topics"
     BINDINGS: ClassVar[list[BindingType]] = [
-        Binding(FILTER_TOPICS_SHORTCUT, "filter"),
-        Binding(ALL_TOPICS_SHORTCUT, "all"),
-        Binding(REFRESH_TOPICS_SHORTCUT, "refresh"),
-        Binding(DELETE_TOPIC_SHORTCUT, "delete"),
-        Binding(NEW_TOPIC_SHORTCUT, "new"),
-        Binding(EDIT_TOPIC_SHORTCUT, "edit"),
-        Binding(DESCRIBE_TOPIC_SHORTCUT, "describe", priority=True),
+        Binding(
+            DESCRIBE_TOPIC_SHORTCUT,
+            "describe",
+            "Describe",
+            priority=True,
+            tooltip="Show partitions, groups, and members for the selected topic.",
+            id="kaskade.topics.describe",
+        ),
+        Binding(
+            FILTER_TOPICS_SHORTCUT,
+            "filter",
+            "Filter",
+            tooltip="Filter topics by name.",
+            id="kaskade.topics.filter",
+        ),
+        Binding(
+            REFRESH_TOPICS_SHORTCUT,
+            "refresh",
+            "Refresh",
+            tooltip="Reload topic metadata from Kafka.",
+            id="kaskade.topics.refresh",
+        ),
+        Binding(
+            NEW_TOPIC_SHORTCUT,
+            "new",
+            "Create",
+            tooltip="Open the topic creation form.",
+            id="kaskade.topics.create",
+        ),
+        Binding(
+            EDIT_TOPIC_SHORTCUT,
+            "edit",
+            "Edit",
+            show=False,
+            tooltip="Edit the selected topic configuration.",
+            id="kaskade.topics.edit",
+        ),
+        Binding(
+            DELETE_TOPIC_SHORTCUT,
+            "delete",
+            "Delete",
+            show=False,
+            tooltip="Delete the selected topic after confirmation.",
+            id="kaskade.topics.delete",
+        ),
+        Binding(
+            ALL_TOPICS_SHORTCUT,
+            "all",
+            "Show All",
+            show=False,
+            tooltip="Clear the active topic filter.",
+            id="kaskade.topics.show-all",
+        ),
     ]
 
     def __init__(self, topic_service: TopicService):
@@ -392,40 +484,42 @@ class ListTopics(Container):
         self.current_filter: str | None = None
 
     def compose(self) -> ComposeResult:
-        table: DataTable = DataTable()
+        table: DataTable = DataTable(id="topics-table", classes="kaskade-table main-table")
         table.cursor_type = "row"
-        table.border_title = rf"[{PRIMARY}]topics[/] \[[{PRIMARY}]0[/]]"
-        table.border_subtitle = rf"\[[{PRIMARY}]admin mode[/]]"
+        table.border_title = rf"[{PRIMARY}]Topics[/] \[[{PRIMARY}]0[/]]"
+        table.border_subtitle = rf"\[[{PRIMARY}]Admin Mode[/]]"
         table.zebra_stripes = True
 
-        table.add_column("name")
-        table.add_column("partitions", width=10)
-        table.add_column("replicas", width=10)
-        table.add_column("in sync", width=10)
-        table.add_column("groups", width=10)
-        table.add_column("members", width=10)
-        table.add_column("records", width=10)
-        table.add_column("lag", width=10)
+        table.add_column("Name")
+        table.add_column("Partitions", width=10)
+        table.add_column("Replicas", width=10)
+        table.add_column("In Sync", width=10)
+        table.add_column("Groups", width=10)
+        table.add_column("Members", width=10)
+        table.add_column("Records", width=10)
+        table.add_column("Lag", width=10)
 
         yield table
 
     def on_mount(self) -> None:
+        self.query_one("#topics-table", DataTable).focus()
         self.action_refresh()
 
     def on_data_table_row_highlighted(self, data: DataTable.RowHighlighted) -> None:
         if data.row_key.value is None:
             return
         self.current_topic = self.topics.get(data.row_key.value)
+        self.refresh_bindings()
 
     async def refresh_table(self) -> None:
         try:
             self.topics = await self.topic_service.all()
         except KafkaException as ex:
-            notify_error(self.app, "kafka error", ex)
+            notify_error(self.app, "Kafka Error", ex)
 
         self.fill_table()
 
-    @work
+    @work(exclusive=True, group="topics-refresh")
     async def action_refresh(self) -> None:
         self.start_loading_table()
         await self.refresh_table()
@@ -434,16 +528,25 @@ class ListTopics(Container):
         def on_dismiss(result: NewTopic | None) -> None:
             if result is None:
                 return
-
-            self.start_loading_table()
-
-            try:
-                self.topic_service.create([result])
-                self.set_timer(REFRESH_TABLE_DELAY, self.refresh_table)
-            except KafkaException as ex:
-                notify_error(self.app, "kafka error", ex)
+            self.create_topic(result)
 
         self.app.push_screen(CreateTopicScreen(), on_dismiss)
+
+    @work(exclusive=True, group="topic-mutation")
+    async def create_topic(self, topic: NewTopic) -> None:
+        """Create a topic without blocking Textual's message loop."""
+        self.start_loading_table()
+        try:
+            await make_it_async(self.topic_service.create, [topic])
+            self.app.notify(
+                f"Created topic '{topic.topic}'.",
+                title="Topic Created",
+                severity="information",
+            )
+            self.set_timer(REFRESH_TABLE_DELAY, self.refresh_table)
+        except KafkaException as ex:
+            self.finish_loading_table()
+            notify_error(self.app, "Kafka Error", ex)
 
     def start_loading_table(self) -> None:
         table = self.query_one(DataTable)
@@ -453,18 +556,28 @@ class ListTopics(Container):
         table = self.query_one(DataTable)
         table.loading = False
 
-    def action_edit(self) -> None:
+    @work(exclusive=True, group="topic-config")
+    async def action_edit(self) -> None:
         if self.current_topic is None:
             return
 
-        topic_configs = self.topic_service.get_configs(self.current_topic.name)
+        topic = self.current_topic
+        self.start_loading_table()
+        try:
+            topic_configs = await make_it_async(self.topic_service.get_configs, topic.name)
+        except KafkaException as ex:
+            self.finish_loading_table()
+            notify_error(self.app, "Kafka Error", ex)
+            return
+        self.finish_loading_table()
+
         min_insync_replicas = topic_configs.get(MIN_INSYNC_REPLICAS_CONFIG)
         cleanup_policy = topic_configs.get(CLEANUP_POLICY_CONFIG)
         retention = topic_configs.get(RETENTION_MS_CONFIG)
 
         edit_topic_screen = EditTopicScreen(
-            self.current_topic.name,
-            str(self.current_topic.partitions_count()),
+            topic.name,
+            str(topic.partitions_count()),
             min_insync_replicas if min_insync_replicas else "",
             cleanup_policy if cleanup_policy else "",
             retention if retention else "",
@@ -473,53 +586,66 @@ class ListTopics(Container):
         def on_dismiss(result: bool | None) -> None:
             if not result:
                 return
-
-            if self.current_topic is None:
-                return
-
-            self.start_loading_table()
-
-            try:
-                if int(edit_topic_screen.partitions) - self.current_topic.partitions_count() > 0:
-                    self.topic_service.add_partitions(
-                        self.current_topic.name, int(edit_topic_screen.partitions)
-                    )
-
-                self.topic_service.edit(
-                    self.current_topic.name,
-                    {
-                        MIN_INSYNC_REPLICAS_CONFIG: edit_topic_screen.min_insync_replicas,
-                        CLEANUP_POLICY_CONFIG: edit_topic_screen.cleanup_policy,
-                        RETENTION_MS_CONFIG: edit_topic_screen.retention,
-                    },
-                )
-
-                self.set_timer(REFRESH_TABLE_DELAY, self.refresh_table)
-            except (KafkaException, ValueError) as ex:
-                notify_error(self.app, "kafka error", ex)
+            self.update_topic(topic, edit_topic_screen)
 
         self.app.push_screen(edit_topic_screen, on_dismiss)
+
+    @work(exclusive=True, group="topic-mutation")
+    async def update_topic(self, topic: Topic, editor: EditTopicScreen) -> None:
+        """Update a topic without blocking Textual's message loop."""
+        self.start_loading_table()
+        try:
+            partition_count = int(editor.partitions)
+            if partition_count > topic.partitions_count():
+                await make_it_async(self.topic_service.add_partitions, topic.name, partition_count)
+
+            await make_it_async(
+                self.topic_service.edit,
+                topic.name,
+                {
+                    MIN_INSYNC_REPLICAS_CONFIG: editor.min_insync_replicas,
+                    CLEANUP_POLICY_CONFIG: editor.cleanup_policy,
+                    RETENTION_MS_CONFIG: editor.retention,
+                },
+            )
+            self.app.notify(
+                f"Updated topic '{topic.name}'.",
+                title="Topic Updated",
+                severity="information",
+            )
+            self.set_timer(REFRESH_TABLE_DELAY, self.refresh_table)
+        except (KafkaException, ValueError) as ex:
+            self.finish_loading_table()
+            notify_error(self.app, "Kafka Error", ex)
 
     def action_delete(self) -> None:
         if self.current_topic is None:
             return
 
+        topic = self.current_topic
+
         def on_dismiss(result: bool | None) -> None:
             if not result:
                 return
+            self.delete_topic(topic)
 
-            if self.current_topic is None:
-                return
+        self.app.push_screen(DeleteTopicScreen(topic), on_dismiss)
 
-            self.start_loading_table()
-
-            try:
-                self.topic_service.delete(self.current_topic.name)
-                self.set_timer(REFRESH_TABLE_DELAY, self.refresh_table)
-            except KafkaException as ex:
-                notify_error(self.app, "kafka error", ex)
-
-        self.app.push_screen(DeleteTopicScreen(self.current_topic), on_dismiss)
+    @work(exclusive=True, group="topic-mutation")
+    async def delete_topic(self, topic: Topic) -> None:
+        """Delete a topic without blocking Textual's message loop."""
+        self.start_loading_table()
+        try:
+            await make_it_async(self.topic_service.delete, topic.name)
+            self.app.notify(
+                f"Deleted topic '{topic.name}'.",
+                title="Topic Deleted",
+                severity="information",
+            )
+            self.set_timer(REFRESH_TABLE_DELAY, self.refresh_table)
+        except KafkaException as ex:
+            self.finish_loading_table()
+            notify_error(self.app, "Kafka Error", ex)
 
     def action_describe(self) -> None:
         if self.current_topic is None:
@@ -537,9 +663,19 @@ class ListTopics(Container):
 
         self.app.push_screen(FilterTopicsScreen(), on_dismiss)
 
+    def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
+        """Disable contextual actions when their required state is unavailable."""
+        if action in {"delete", "describe", "edit"}:
+            return self.current_topic is not None
+        if action == "all":
+            return self.current_filter is not None
+        return True
+
     def fill_table(self) -> None:
         table = self.query_one(DataTable)
         table.clear()
+        self.current_topic = None
+        self.refresh_bindings()
 
         total_count = 0
         for topic in self.topics.values():
@@ -562,14 +698,15 @@ class ListTopics(Container):
             rf"\[[{PRIMARY}]*{self.current_filter}*[/]]" if self.current_filter else ""
         )
         table.border_title = (
-            rf"[{PRIMARY}]topics[/] {border_title_filter_info}\[[{PRIMARY}]{total_count}[/]]"
+            rf"[{PRIMARY}]Topics[/] {border_title_filter_info}\[[{PRIMARY}]{total_count}[/]]"
         )
-        table.focus()
 
         self.finish_loading_table()
 
 
 class KaskadeAdmin(KaskadeApp):
+    TITLE = "Kaskade Admin"
+    AUTO_FOCUS = "#topics-table"
     CSS_PATH = "styles.css"
 
     def __init__(self, kafka_config: dict[str, Any]):
@@ -577,5 +714,5 @@ class KaskadeAdmin(KaskadeApp):
         self.kafka_config = kafka_config
 
     def compose(self) -> ComposeResult:
-        yield Header()
         yield ListTopics(TopicService(self.kafka_config))
+        yield Footer(compact=True)

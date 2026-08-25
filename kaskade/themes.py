@@ -1,8 +1,16 @@
+from collections.abc import Iterable
+from functools import partial
+from typing import ClassVar
+
 from rich.theme import Theme as RichTheme
-from textual.app import App
+from textual.app import App, SystemCommand
+from textual.binding import Binding, BindingType
+from textual.screen import Screen
 from textual.theme import BUILTIN_THEMES, Theme, ThemeProvider
+from textual.widgets import HelpPanel
 
 DEFAULT_THEME = "eva01"
+KASKADE_COMMAND_ID_PREFIX = "kaskade."
 
 EVA01_THEME = Theme(
     name=DEFAULT_THEME,
@@ -34,7 +42,30 @@ def _rich_color(color: str) -> str:
 class KaskadeApp(App):
     """Base application with Textual and Rich theme support."""
 
+    TITLE = "Kaskade"
+    BINDING_GROUP_TITLE = "Application"
+    HORIZONTAL_BREAKPOINTS = [  # noqa: RUF012
+        (0, "-narrow"),
+        (80, "-wide"),
+    ]
     COMMANDS = App.COMMANDS | {ThemeProvider}
+    BINDINGS: ClassVar[list[BindingType]] = [
+        Binding(
+            "f1",
+            "toggle_help",
+            "Help",
+            tooltip="Show all shortcuts available in the current context.",
+            id="help.toggle",
+        ),
+        Binding(
+            "ctrl+q",
+            "quit",
+            "Quit",
+            priority=True,
+            tooltip="Quit Kaskade and return to the command prompt.",
+            id="app.quit",
+        ),
+    ]
 
     def __init__(self) -> None:
         self._rich_theme_pushed = False
@@ -45,6 +76,34 @@ class KaskadeApp(App):
 
     def watch_theme(self, _: str) -> None:
         self._sync_rich_theme()
+
+    def action_toggle_help(self) -> None:
+        """Show or hide Textual's contextual help panel."""
+        if self.screen.query(HelpPanel):
+            self.action_hide_help_panel()
+        else:
+            self.action_show_help_panel()
+
+    def get_system_commands(self, screen: Screen) -> Iterable[SystemCommand]:
+        """Add active Kaskade bindings to Textual's command palette."""
+        yield from super().get_system_commands(screen)
+
+        command_ids: set[str] = set()
+        for namespace, binding, enabled, _ in screen.active_bindings.values():
+            if (
+                not enabled
+                or binding.id is None
+                or not binding.id.startswith(KASKADE_COMMAND_ID_PREFIX)
+                or binding.id in command_ids
+            ):
+                continue
+
+            command_ids.add(binding.id)
+            yield SystemCommand(
+                binding.description,
+                binding.tooltip or f"Run {binding.description.lower()}.",
+                partial(self.run_action, binding.action, default_namespace=namespace),
+            )
 
     def _sync_rich_theme(self) -> None:
         """Expose the active Textual colors to Rich renderables by semantic name."""
