@@ -14,7 +14,14 @@ from kaskade.admin import (
     KaskadeAdmin,
     ListTopics,
 )
-from kaskade.consumer import ChunkSizeScreen, FilterRecordScreen, ListRecords, TopicScreen
+from kaskade.consumer import (
+    ChunkSizeScreen,
+    FilterRecordScreen,
+    KaskadeConsumer,
+    ListRecords,
+    TopicScreen,
+)
+from kaskade.deserializers import Deserialization
 from kaskade.models import Topic
 from kaskade.themes import (
     DEFAULT_THEME,
@@ -22,6 +29,7 @@ from kaskade.themes import (
     KaskadeApp,
     available_theme_names,
 )
+from kaskade.widgets import StretchyDataTable
 
 
 class TestThemes(unittest.TestCase):
@@ -142,6 +150,8 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                     ],
                     labels,
                 )
+                self.assertIsInstance(table, StretchyDataTable)
+                self.assertFalse(table.show_horizontal_scrollbar)
                 self.assertIn("Topics", table.border_title)
                 self.assertTrue(
                     {"Theme", "Describe", "Filter", "Refresh", "Create"} <= command_titles
@@ -157,6 +167,34 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 self.assertIs(table, app.screen.maximized)
                 self.assertTrue({"Maximize", "Minimize"}.isdisjoint(maximized_command_titles))
 
+    async def test_consumer_uses_a_stretchy_records_table(self):
+        with patch("kaskade.consumer.ConsumerService") as consumer_service:
+            consumer_service.return_value.consume = AsyncMock(return_value=[])
+            app = KaskadeConsumer(
+                "orders",
+                {},
+                {},
+                {},
+                {},
+                Deserialization.STRING,
+                Deserialization.STRING,
+            )
+
+            async with app.run_test(size=(80, 24)) as pilot:
+                await pilot.pause()
+                table = app.query_one("#records-table", DataTable)
+
+                self.assertIsInstance(table, StretchyDataTable)
+                self.assertEqual(
+                    ["Key", "Value", "Timestamp", "Partition", "Offset", "Headers"],
+                    [column.label.plain for column in table.ordered_columns],
+                )
+                self.assertEqual(
+                    [23, 9, 9, 9],
+                    [column.width for column in table.ordered_columns[2:]],
+                )
+                self.assertFalse(table.show_horizontal_scrollbar)
+
     async def test_topic_details_use_native_tabs_and_a_contextual_footer(self):
         with patch("kaskade.admin.TopicService") as topic_service:
             topic_service.return_value.all = AsyncMock(return_value={})
@@ -168,10 +206,13 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
 
                 tabs = app.screen.query_one(TabbedContent)
                 partitions = app.screen.query_one("#partitions-table", DataTable)
+                detail_tables = list(app.screen.query(StretchyDataTable))
                 self.assertEqual("partitions", tabs.active)
                 self.assertEqual(3, len(app.screen.query(TabPane)))
                 self.assertEqual(3, len(app.screen.query(DataTable)))
+                self.assertEqual(3, len(detail_tables))
                 self.assertGreater(partitions.content_region.height, 0)
+                self.assertFalse(partitions.show_horizontal_scrollbar)
                 self.assertIsInstance(app.screen.query_one(Footer), Footer)
 
     async def test_chunk_size_uses_an_option_list_with_the_current_value_selected(self):
