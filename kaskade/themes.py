@@ -46,6 +46,7 @@ class KaskadeApp(App, inherit_bindings=False):
     """Base application with Textual and Rich theme support."""
 
     TITLE = "Kaskade"
+    CSS_PATH = "styles.css"
     BINDING_GROUP_TITLE = "Application"
     COMMAND_PALETTE_BINDING = "colon"
     HORIZONTAL_BREAKPOINTS = [  # noqa: RUF012

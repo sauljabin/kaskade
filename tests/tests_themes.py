@@ -9,6 +9,7 @@ from textual.widgets import (
     Footer,
     Input,
     OptionList,
+    Static,
     TabbedContent,
     TabPane,
 )
@@ -31,7 +32,7 @@ from kaskade.consumer import (
     TopicScreen,
 )
 from kaskade.deserializers import Deserialization
-from kaskade.help import HelpableModalScreen, HelpScreen
+from kaskade.help import KASKADE_ISSUES_URL, KASKADE_URL, HelpableModalScreen, HelpScreen
 from kaskade.models import Topic
 from kaskade.themes import (
     DEFAULT_THEME,
@@ -107,6 +108,11 @@ class TestThemes(unittest.TestCase):
     def test_uses_responsive_screen_breakpoints(self):
         self.assertEqual([(0, "-narrow"), (80, "-wide")], KaskadeApp.HORIZONTAL_BREAKPOINTS)
 
+    def test_uses_one_shared_stylesheet(self):
+        self.assertEqual("styles.css", KaskadeApp.CSS_PATH)
+        self.assertEqual(KaskadeApp.CSS_PATH, KaskadeAdmin.CSS_PATH)
+        self.assertEqual(KaskadeApp.CSS_PATH, KaskadeConsumer.CSS_PATH)
+
 
 class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
     async def test_uses_footer_and_opens_a_keyboard_navigable_help_window(self):
@@ -142,7 +148,16 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 help_screen = app.screen
                 help_dialog = help_screen.query_one("#help-dialog")
                 help_table = help_screen.query_one("#help-table", DataTable)
+                help_about = help_screen.query_one("#help-about", Static)
                 self.assertEqual(help_screen.size, help_dialog.region.size)
+                self.assertEqual([help_about, help_table], list(help_dialog.children)[:2])
+                self.assertEqual("[primary]Help[/primary] — Topics", help_dialog.border_title)
+                self.assertEqual(1, help_about.styles.margin.bottom)
+                self.assertIsNone(help_table.border_title)
+                about_text = help_about.render().plain
+                self.assertIn("About Kaskade", about_text)
+                self.assertIn(KASKADE_URL, about_text)
+                self.assertIn(KASKADE_ISSUES_URL, about_text)
                 self.assertIs(help_table, help_screen.focused)
                 self.assertEqual(0, help_table.cursor_row)
                 self.assertTrue(
@@ -170,6 +185,14 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
 
                 await pilot.press(":")
                 self.assertIsInstance(app.screen, CommandPalette)
+                app.screen.add_class("-ready")
+                await pilot.pause()
+                palette_input = app.screen.query_one("#--input")
+                self.assertEqual(70, palette_input.region.width)
+
+                await pilot.resize_terminal(120, 30)
+                await pilot.pause()
+                self.assertEqual(72, palette_input.region.width)
 
     async def test_admin_supports_vim_navigation(self):
         with patch("kaskade.admin.TopicService") as topic_service:

@@ -737,7 +737,6 @@ class ListTopics(Container):
 class KaskadeAdmin(KaskadeApp):
     TITLE = "Kaskade Admin"
     AUTO_FOCUS = "#topics-table"
-    CSS_PATH = "styles.css"
 
     def __init__(self, kafka_config: dict[str, Any]):
         super().__init__()

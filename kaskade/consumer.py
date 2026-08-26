@@ -411,7 +411,6 @@ class ListRecords(Container):
 class KaskadeConsumer(KaskadeApp):
     TITLE = "Kaskade Consumer"
     AUTO_FOCUS = "#records-table"
-    CSS_PATH = "styles.css"
 
     def __init__(
         self,

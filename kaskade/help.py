@@ -9,10 +9,13 @@ from textual.containers import Vertical
 from textual.screen import ModalScreen, Screen
 from textual.widgets import Static
 
+from kaskade.colors import PRIMARY
 from kaskade.keymaps import NAVIGATION_BINDING_IDS
 from kaskade.widgets import StretchyDataTable
 
 ScreenResult = TypeVar("ScreenResult")
+KASKADE_URL = "https://github.com/sauljabin/kaskade"
+KASKADE_ISSUES_URL = f"{KASKADE_URL}/issues"
 
 
 @dataclass(frozen=True)
@@ -78,40 +81,6 @@ def _class_title(value: object) -> str:
 class HelpScreen(ModalScreen[None]):
     """A centered, keyboard-navigable window of contextual shortcuts."""
 
-    DEFAULT_CSS = """
-    HelpScreen {
-        align: center middle;
-    }
-
-    HelpScreen > #help-dialog {
-        border: $secondary;
-        width: 80%;
-        max-width: 110;
-        height: 80%;
-        background: $surface;
-        padding: 0 1;
-    }
-
-    HelpScreen #help-table {
-        border: none;
-        width: 100%;
-        height: 1fr;
-    }
-
-    HelpScreen #help-footer {
-        width: 100%;
-        height: 1;
-        content-align: center middle;
-        color: $text-muted;
-    }
-
-    HelpScreen.-narrow > #help-dialog {
-        width: 100%;
-        max-width: 100%;
-        height: 100%;
-    }
-    """
-
     BINDING_GROUP_TITLE = "Help"
     AUTO_FOCUS = "#help-table"
     BINDINGS: ClassVar[list[BindingType]] = [
@@ -139,13 +108,21 @@ class HelpScreen(ModalScreen[None]):
         self.help_bindings = bindings
 
     def compose(self) -> ComposeResult:
-        with Vertical(id="help-dialog"):
+        dialog = Vertical(id="help-dialog")
+        dialog.border_title = f"[{PRIMARY}]Help[/] — {self.context}"
+        with dialog:
+            yield Static(
+                "[b]About Kaskade[/] — A terminal user interface for Apache Kafka.\n"
+                f'Project: [link="{KASKADE_URL}"]{KASKADE_URL}[/link]\n'
+                "Report Issues: "
+                f'[link="{KASKADE_ISSUES_URL}"]{KASKADE_ISSUES_URL}[/link]',
+                id="help-about",
+            )
             table: StretchyDataTable[str] = StretchyDataTable(
                 id="help-table",
                 cursor_type="row",
                 zebra_stripes=True,
             )
-            table.border_title = f"[primary]Kaskade Help[/] — {self.context}"
             table.add_column("Context", width=12, stretch=1)
             table.add_column("Key", width=14, stretch=1)
             table.add_column("Action", width=20, stretch=3)
@@ -157,8 +134,8 @@ class HelpScreen(ModalScreen[None]):
                 )
             yield table
             yield Static(
-                "[b]j/k[/], arrows, Page Up/Down, [b]g/G[/] navigate"
-                "  •  [b]Esc/q/?/F1[/] closes",
+                "Navigate: [b]j/k[/], Arrows, Page Up/Down, [b]g/G[/]"
+                "  •  Close: [b]Esc/q/?/F1[/]",
                 id="help-footer",
             )
 

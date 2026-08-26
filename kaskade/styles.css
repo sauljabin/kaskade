@@ -23,6 +23,45 @@ DescribeTopicScreen {
     align: center middle;
 }
 
+HelpScreen {
+    align: center middle;
+}
+
+HelpScreen > #help-dialog {
+    border: $secondary;
+    width: 80%;
+    max-width: 110;
+    height: 80%;
+    background: $surface;
+    padding: 0 1;
+}
+
+HelpScreen #help-table {
+    border: none;
+    width: 100%;
+    height: 1fr;
+}
+
+HelpScreen #help-about {
+    width: 100%;
+    height: auto;
+    padding: 0 1;
+    margin-bottom: 1;
+    color: $text-muted;
+}
+
+HelpScreen #help-footer {
+    width: 100%;
+    height: 1;
+    content-align: center middle;
+    color: $text-muted;
+}
+
+CommandPalette > #--container {
+    width: 72;
+    max-width: 90%;
+}
+
 FilterTopicsScreen > Input,
 DeleteTopicScreen > Input {
     width: 72;
@@ -93,6 +132,17 @@ Screen.-narrow > Input,
 Screen.-narrow > OptionList,
 Screen.-narrow > .record-details,
 DescribeTopicScreen.-narrow > TabbedContent {
+    width: 100%;
+    max-width: 100%;
+}
+
+HelpScreen.-narrow > #help-dialog {
+    width: 100%;
+    max-width: 100%;
+    height: 100%;
+}
+
+CommandPalette.-narrow > #--container {
     width: 100%;
     max-width: 100%;
 }
