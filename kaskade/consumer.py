@@ -149,6 +149,7 @@ class ChunkSizeScreen(ModalScreen[int]):
 
 class TopicScreen(ModalScreen):
     BINDING_GROUP_TITLE = "Record Details"
+    AUTO_FOCUS = ".record-details"
     BINDINGS: ClassVar[list[BindingType]] = [
         Binding(
             BACK_SHORTCUT,

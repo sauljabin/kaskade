@@ -1,6 +1,7 @@
 import unittest
 from unittest.mock import AsyncMock, patch
 
+from textual.containers import ScrollableContainer
 from textual.theme import BUILTIN_THEMES, ThemeProvider
 from textual.widgets import DataTable, Footer, HelpPanel, OptionList, TabbedContent, TabPane
 from textual.widgets._footer import FooterKey
@@ -194,6 +195,30 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                     [column.width for column in table.ordered_columns[2:]],
                 )
                 self.assertFalse(table.show_horizontal_scrollbar)
+
+    async def test_record_details_focus_the_scrollable_content(self):
+        with patch("kaskade.consumer.ConsumerService") as consumer_service:
+            consumer_service.return_value.consume = AsyncMock(return_value=[])
+            app = KaskadeConsumer(
+                "orders",
+                {},
+                {},
+                {},
+                {},
+                Deserialization.STRING,
+                Deserialization.STRING,
+            )
+
+            async with app.run_test() as pilot:
+                records_table = app.query_one("#records-table", DataTable)
+                app.push_screen(TopicScreen("orders", 0, 1, {"value": "record"}))
+                await pilot.pause()
+
+                details = app.screen.query_one(".record-details", ScrollableContainer)
+                self.assertIs(details, app.screen.focused)
+
+                await pilot.press("escape")
+                self.assertIs(records_table, app.screen.focused)
 
     async def test_topic_details_use_native_tabs_and_a_contextual_footer(self):
         with patch("kaskade.admin.TopicService") as topic_service:
