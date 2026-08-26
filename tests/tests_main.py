@@ -1,6 +1,7 @@
 import os
 import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 from click.testing import CliRunner
@@ -8,6 +9,7 @@ from click.testing import CliRunner
 from kaskade.configs import BOOTSTRAP_SERVERS
 from kaskade.deserializers import Deserialization
 from kaskade.main import cli
+from kaskade.themes import DEFAULT_THEME
 from tests import faker
 
 EXPECTED_TOPIC = "my.topic"
@@ -79,6 +81,30 @@ class TestAdminCli(unittest.TestCase):
         self.assertEqual(0, result.exit_code)
 
     @patch("kaskade.main.KaskadeAdmin")
+    def test_default_theme(self, mock_class_kaskade_admin):
+        result = self.runner.invoke(cli, [self.command, "-b", EXPECTED_SERVER])
+
+        self.assertEqual(DEFAULT_THEME, mock_class_kaskade_admin.return_value.theme)
+        self.assertEqual(0, result.exit_code)
+
+    @patch("kaskade.main.KaskadeAdmin")
+    def test_pass_theme(self, mock_class_kaskade_admin):
+        result = self.runner.invoke(
+            cli, [self.command, "-b", EXPECTED_SERVER, "--theme", "dracula"]
+        )
+
+        self.assertEqual("dracula", mock_class_kaskade_admin.return_value.theme)
+        self.assertEqual(0, result.exit_code)
+
+    def test_invalid_theme(self):
+        result = self.runner.invoke(
+            cli, [self.command, "-b", EXPECTED_SERVER, "--theme", "invalid"]
+        )
+
+        self.assertGreater(result.exit_code, 0)
+        self.assertIn("Invalid value for '--theme'", result.output)
+
+    @patch("kaskade.main.KaskadeAdmin")
     def test_update_kafka_config_with_extra_config(self, mock_class_kaskade_admin):
         expected_property_name = "property.name"
         expected_property_value = "property.value"
@@ -133,7 +159,10 @@ class TestConsumerCli(unittest.TestCase):
     def setUp(self):
         self.runner = CliRunner()
         self.command = "consumer"
-        self.temp_descriptor = self.enterContext(tempfile.NamedTemporaryFile())
+        self.temp_directory = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp_directory.cleanup)
+        self.temp_descriptor_path = Path(self.temp_directory.name) / "descriptor"
+        self.temp_descriptor_path.touch()
 
     def test_bootstrap_server_required(self):
         result = self.runner.invoke(cli, [self.command])
@@ -386,6 +415,24 @@ class TestConsumerCli(unittest.TestCase):
         self.assertEqual(0, result.exit_code)
 
     @patch("kaskade.main.KaskadeConsumer")
+    def test_default_theme(self, mock_class_kaskade_consumer):
+        result = self.runner.invoke(
+            cli, [self.command, "-b", EXPECTED_SERVER, "-t", EXPECTED_TOPIC]
+        )
+
+        self.assertEqual(DEFAULT_THEME, mock_class_kaskade_consumer.return_value.theme)
+        self.assertEqual(0, result.exit_code)
+
+    @patch("kaskade.main.KaskadeConsumer")
+    def test_pass_theme(self, mock_class_kaskade_consumer):
+        result = self.runner.invoke(
+            cli, [self.command, "-b", EXPECTED_SERVER, "-t", EXPECTED_TOPIC, "--theme", "dracula"]
+        )
+
+        self.assertEqual("dracula", mock_class_kaskade_consumer.return_value.theme)
+        self.assertEqual(0, result.exit_code)
+
+    @patch("kaskade.main.KaskadeConsumer")
     def test_pass_right_format(self, mock_class_kaskade_consumer):
         options = ["long", "bytes", "string"]
 
@@ -552,7 +599,7 @@ class TestConsumerCli(unittest.TestCase):
                 "-t",
                 EXPECTED_TOPIC,
                 "--protobuf",
-                f"descriptor={self.temp_descriptor.name}",
+                f"descriptor={self.temp_descriptor_path}",
                 "--protobuf",
                 "key=MyMessage",
             ],
@@ -626,7 +673,7 @@ class TestConsumerCli(unittest.TestCase):
                 "-t",
                 EXPECTED_TOPIC,
                 "--protobuf",
-                f"descriptor={self.temp_descriptor.name}",
+                f"descriptor={self.temp_descriptor_path}",
                 "-k",
                 "protobuf",
             ],
@@ -645,7 +692,7 @@ class TestConsumerCli(unittest.TestCase):
                 "-t",
                 EXPECTED_TOPIC,
                 "--protobuf",
-                f"descriptor={self.temp_descriptor.name}",
+                f"descriptor={self.temp_descriptor_path}",
                 "-v",
                 "protobuf",
             ],
@@ -717,7 +764,7 @@ class TestConsumerCli(unittest.TestCase):
                 "-t",
                 EXPECTED_TOPIC,
                 "--protobuf",
-                f"descriptor={self.temp_descriptor.name}",
+                f"descriptor={self.temp_descriptor_path}",
             ],
         )
 
@@ -727,7 +774,7 @@ class TestConsumerCli(unittest.TestCase):
     @patch("kaskade.main.KaskadeConsumer")
     def test_pass_protobuf_configs(self, mock_class_kaskade_consumer):
         expected_descriptor_name = "descriptor"
-        expected_descriptor_value = self.temp_descriptor.name
+        expected_descriptor_value = str(self.temp_descriptor_path)
 
         expected_value_name = "value"
         expected_value = "my-value"

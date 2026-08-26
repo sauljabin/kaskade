@@ -16,6 +16,7 @@ from kaskade.configs import (
 )
 from kaskade.consumer import KaskadeConsumer
 from kaskade.deserializers import Deserialization
+from kaskade.themes import DEFAULT_THEME, available_theme_names
 from kaskade.utils import load_properties
 
 KAFKA_CONFIG_HELP = (
@@ -51,6 +52,13 @@ def cli() -> None:
 
 
 @cli.command(epilog=EPILOG_HELP)
+@cloup.option(
+    "--theme",
+    type=cloup.Choice(available_theme_names(), case_sensitive=False),
+    default=DEFAULT_THEME,
+    show_default=True,
+    help="Textual theme to use.",
+)
 @cloup.option_group(
     "Kafka options",
     cloup.option(
@@ -82,6 +90,7 @@ def admin(
     bootstrap_servers: str,
     kafka_config_file: str | None,
     kafka_config: dict[str, str],
+    theme: str,
 ) -> None:
     """
     Administrator mode.
@@ -99,10 +108,18 @@ def admin(
     kafka_config[BOOTSTRAP_SERVERS] = bootstrap_servers
 
     kaskade_app = KaskadeAdmin(kafka_config)
+    kaskade_app.theme = theme
     kaskade_app.run()
 
 
 @cli.command(epilog=EPILOG_HELP)
+@cloup.option(
+    "--theme",
+    type=cloup.Choice(available_theme_names(), case_sensitive=False),
+    default=DEFAULT_THEME,
+    show_default=True,
+    help="Textual theme to use.",
+)
 @cloup.option_group(
     "Kafka options",
     cloup.option(
@@ -214,6 +231,7 @@ def consumer(
     value_deserialization: Deserialization,
     from_beginning: bool,
     kafka_config_file: str | None,
+    theme: str,
 ) -> None:
     """
     Consumer mode.
@@ -254,6 +272,7 @@ def consumer(
         key_deserialization,
         value_deserialization,
     )
+    kaskade_app.theme = theme
     kaskade_app.run()
 
 

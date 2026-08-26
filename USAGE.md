@@ -18,6 +18,16 @@ kaskade consumer -b my-kafka:9092 -t my-json-topic -k json -v json
 
 Supported deserializers: `bytes`, `boolean`, `string`, `long`, `integer`, `double`, `float`, `json`, `avro`, `protobuf`, and `registry`.
 
+### Themes
+
+Kaskade defaults to the `eva01` Unit-01-inspired theme. Choose any Textual theme at launch:
+
+```bash
+kaskade admin -b my-kafka:9092 --theme dracula
+```
+
+While Kaskade is running, press `Ctrl+P` and select a theme from the command palette. Palette choices apply only to the current session.
+
 ### Consume from the beginning
 
 ```bash

@@ -1,212 +1,98 @@
-$kaskade-green: #00af87;
-$kaskade-orchid: #af5fd7;
-$kaskade-orchid-dark: #5b4666;
-
-Header {
-   height: 6;
-   layout: horizontal;
-   dock: top;
-   background: $surface;
-}
-
-KaskadeBanner {
-    width: 36;
-    margin: 0 0 0 1;
-}
-
-ConsumerShortcuts {
-    width: 38;
-    dock: right;
-    margin: 1 1 0 0;
-}
-
-AdminShortcuts {
-    width: 40;
-    dock: right;
-    margin: 1 1 0 0;
-}
-
-DataTable {
-    border: solid $kaskade-green 50%;
+DataTable.kaskade-table {
+    border: solid $secondary 50%;
     height: 100%;
-
-    scrollbar-color: $kaskade-orchid 60%;
-    scrollbar-color-active: $kaskade-orchid;
-    scrollbar-color-hover: $kaskade-orchid 90%;
-
-    scrollbar-background: $kaskade-orchid-dark;
-    scrollbar-background-active: $kaskade-orchid-dark;
-    scrollbar-background-hover: $kaskade-orchid-dark;
-    scrollbar-corner-color: $kaskade-orchid-dark;
 }
 
-DataTable:focus {
-    border: $kaskade-green;
-    background-tint: $surface;
-}
-
-DataTable > .datatable--header {
-    text-style: none;
-    background-tint: $surface;
-    color: $kaskade-orchid;
-}
-
-DataTable > .datatable--header-hover {
-    text-style: none;
-    background: $surface;
-    color: $kaskade-orchid;
-}
-
-DataTable > .datatable--hover {
-    background: $kaskade-green 30%;
-}
-
-DataTable > .datatable--cursor {
-    background: $kaskade-green 70%;
-    color: $text;
-}
-
-DataTable > .datatable--fixed {
-    background: $surface;
-    color: $text;
-}
-
-DataTable > .datatable--even-row {
-    background: $kaskade-green 5%;
-}
-
-DeleteTopicScreen {
-    align: center middle;
-}
-
-DeleteTopicScreen > Input {
-    width: 60%;
-}
-
-FilterTopicsScreen {
-    align: center middle;
-}
-
-FilterTopicsScreen > Input {
-    width: 60%;
+DataTable.kaskade-table:focus {
+    border: $secondary;
 }
 
 .-textual-loading-indicator {
     background: $surface;
-    color: $kaskade-orchid;
+    color: $primary;
 }
 
-CreateTopicScreen {
+FilterTopicsScreen,
+DeleteTopicScreen,
+CreateTopicScreen,
+EditTopicScreen,
+FilterRecordScreen,
+ChunkSizeScreen,
+TopicScreen,
+DescribeTopicScreen {
     align: center middle;
 }
 
-CreateTopicScreen > Container {
-    border: $kaskade-green;
-    width: 60%;
-    height: 21;
+FilterTopicsScreen > Input,
+DeleteTopicScreen > Input {
+    width: 72;
+    max-width: 90%;
+}
+
+.topic-form,
+.record-filter {
+    border: $secondary;
+    width: 72;
+    max-width: 90%;
+    height: auto;
+    max-height: 90%;
     background: $surface;
-    padding: 0 1 0 1;
+    padding: 0 1;
 }
 
-TopicScreen > ScrollableContainer {
-    background: $surface;
-    border: $kaskade-green;
-
-    scrollbar-color: $kaskade-orchid 60%;
-    scrollbar-color-active: $kaskade-orchid;
-    scrollbar-color-hover: $kaskade-orchid 90%;
-
-    scrollbar-background: $kaskade-orchid-dark;
-    scrollbar-background-active: $kaskade-orchid-dark;
-    scrollbar-background-hover: $kaskade-orchid-dark;
-    scrollbar-corner-color: $kaskade-orchid-dark;
-}
-
-EditTopicScreen {
-    align: center middle;
-}
-
-EditTopicScreen > Container {
-    border: $kaskade-green;
-    width: 60%;
-    height: 15;
-    background: $surface;
-    padding: 0 1 0 1;
-}
-
-Input {
+Input.kaskade-input {
     padding: 0 0 0 1;
-    border: solid $kaskade-green 50%;
-    background-tint: $surface;
+    border: solid $secondary 50%;
 }
 
-Input:focus {
-    border: $kaskade-green;
-    background: $surface;
+Input.kaskade-input:focus {
+    border: $secondary;
 }
 
-RadioSet {
-    border: solid $kaskade-green 50%;
+RadioSet.kaskade-radio {
+    border: solid $secondary 50%;
     width: 100%;
-    background-tint: $surface;
+    height: auto;
 }
 
-RadioSet:focus {
-    border: $kaskade-green;
-    background-tint: $surface;
+RadioSet.kaskade-radio:focus {
+    border: $secondary;
 }
 
-RadioSet > RadioButton > .toggle--button {
-    background-tint: $surface-lighten-1;
-    color: $surface;
+ChunkSizeScreen > OptionList {
+    border: $secondary;
+    width: 40;
+    max-width: 90%;
+    height: 8;
+    background: $surface;
+    padding: 0 1;
 }
 
-RadioSet > RadioButton.-selected {
-    background-tint: $surface;
-}
-
-RadioSet > RadioButton.-selected .toggle--button {
-    background-tint: $surface-lighten-2;
-}
-
-RadioSet > RadioButton.-on .toggle--button {
-    background-tint: $surface-lighten-3;
-    color: $kaskade-green;
-}
-
-RadioSet > RadioButton:blur:hover > .toggle--label {
+TopicScreen > .record-details {
+    border: $secondary;
+    width: 90;
+    max-width: 95%;
+    height: 80%;
     background: $surface;
 }
 
-ChunkSizeScreen {
-    align: center middle;
+DescribeTopicScreen > TabbedContent {
+    width: 95%;
+    height: 90%;
 }
 
-ChunkSizeScreen > ListView {
-    border: $kaskade-green;
-    width: 60%;
-    height: 6;
-    background: $surface;
-    padding: 0 1 0 1;
-    background-tint: $surface;
+DescribeTopicScreen TabbedContent > ContentSwitcher,
+DescribeTopicScreen TabPane {
+    height: 100%;
+    padding: 0;
 }
 
-ChunkSizeScreen > ListView:focus > ListItem.-highlight > Widget {
-    background: $kaskade-green 70%;
-}
-
-ChunkSizeScreen > ListView > ListItem  {
-    background: $surface;
-}
-
-FilterRecordScreen {
-    align: center middle;
-}
-
-FilterRecordScreen > Container {
-    border: $kaskade-green;
-    width: 60%;
-    height: 14;
-    background: $surface;
-    padding: 0 1 0 1;
+Screen.-narrow > .topic-form,
+Screen.-narrow > .record-filter,
+Screen.-narrow > Input,
+Screen.-narrow > OptionList,
+Screen.-narrow > .record-details,
+DescribeTopicScreen.-narrow > TabbedContent {
+    width: 100%;
+    max-width: 100%;
 }
