@@ -19,6 +19,7 @@ from kaskade.models import Record
 from kaskade.services import ConsumerService
 from kaskade.themes import KaskadeApp
 from kaskade.utils import notify_error
+from kaskade.widgets import StretchyDataTable
 
 CHUNKS_SHORTCUT = "#"
 NEXT_SHORTCUT = "n"
@@ -271,14 +272,16 @@ class ListRecords(Container):
         return rf"[{PRIMARY}]Records[/] \[[{PRIMARY}]{self.topic}[/]]{title_filter}\[[{PRIMARY}]{len(self.records)}[/]]"
 
     def compose(self) -> ComposeResult:
-        table: DataTable = DataTable(id="records-table", classes="kaskade-table main-table")
+        table: StretchyDataTable[str] = StretchyDataTable(
+            id="records-table", classes="kaskade-table main-table"
+        )
         table.cursor_type = "row"
         table.border_subtitle = rf"\[[{PRIMARY}]Consumer Mode[/]]"
         table.zebra_stripes = True
         table.border_title = self._get_title()
 
-        table.add_column("Key", width=30)
-        table.add_column("Value", width=45)
+        table.add_column("Key", stretch=2)
+        table.add_column("Value", stretch=3)
         table.add_column("Timestamp", width=23)
         table.add_column("Partition", width=9)
         table.add_column("Offset", width=9)

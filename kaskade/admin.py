@@ -31,6 +31,7 @@ from kaskade.services import (
 from kaskade.themes import KaskadeApp
 from kaskade.unicodes import APPROXIMATION
 from kaskade.utils import make_it_async, notify_error
+from kaskade.widgets import StretchyDataTable
 
 REFRESH_TABLE_DELAY = 1
 FILTER_TOPICS_SHORTCUT = "ctrl+f"
@@ -142,20 +143,22 @@ class DescribeTopicScreen(ModalScreen):
                 yield self._group_members_table()
         yield Footer(compact=True)
 
-    def _new_table(self, table_id: str, count: int, item_name: str) -> DataTable:
-        table: DataTable = DataTable(id=table_id, classes="kaskade-table details-table")
+    def _new_table(self, table_id: str, count: int, item_name: str) -> StretchyDataTable[str]:
+        table: StretchyDataTable[str] = StretchyDataTable(
+            id=table_id, classes="kaskade-table details-table"
+        )
         table.cursor_type = "row"
         table.zebra_stripes = True
         table.border_title = rf"[{PRIMARY}]{self.topic}[/] \[[{PRIMARY}]{count} {item_name}[/]]"
         return table
 
-    def _partitions_table(self) -> DataTable:
+    def _partitions_table(self) -> StretchyDataTable[str]:
         table = self._new_table("partitions-table", self.topic.partitions_count(), "Partitions")
-        table.add_column("ID")
-        table.add_column("Leader")
-        table.add_column("ISRs")
-        table.add_column("Replicas")
-        table.add_column("Records")
+        table.add_column("ID", stretch=1)
+        table.add_column("Leader", stretch=1)
+        table.add_column("ISRs", stretch=1)
+        table.add_column("Replicas", stretch=1)
+        table.add_column("Records", stretch=1)
 
         for partition in self.topic.partitions:
             table.add_row(
@@ -167,15 +170,15 @@ class DescribeTopicScreen(ModalScreen):
             )
         return table
 
-    def _groups_table(self) -> DataTable:
+    def _groups_table(self) -> StretchyDataTable[str]:
         table = self._new_table("groups-table", self.topic.groups_count(), "Groups")
-        table.add_column("ID")
-        table.add_column("Coordinator")
-        table.add_column("State")
-        table.add_column("Assignor")
-        table.add_column("Partitions")
-        table.add_column("Members")
-        table.add_column("Lag")
+        table.add_column("ID", stretch=1)
+        table.add_column("Coordinator", stretch=1)
+        table.add_column("State", stretch=1)
+        table.add_column("Assignor", stretch=1)
+        table.add_column("Partitions", stretch=1)
+        table.add_column("Members", stretch=1)
+        table.add_column("Lag", stretch=1)
 
         for group in self.topic.groups:
             table.add_row(
@@ -189,15 +192,15 @@ class DescribeTopicScreen(ModalScreen):
             )
         return table
 
-    def _group_members_table(self) -> DataTable:
+    def _group_members_table(self) -> StretchyDataTable[str]:
         table = self._new_table(
             "group-members-table", self.topic.group_members_count(), "Group Members"
         )
-        table.add_column("Group")
-        table.add_column("Client ID")
-        table.add_column("Member ID")
-        table.add_column("Host")
-        table.add_column("Assignment")
+        table.add_column("Group", stretch=1)
+        table.add_column("Client ID", stretch=1)
+        table.add_column("Member ID", stretch=1)
+        table.add_column("Host", stretch=1)
+        table.add_column("Assignment", stretch=1)
 
         for group in self.topic.groups:
             for member in group.members:
@@ -484,20 +487,22 @@ class ListTopics(Container):
         self.current_filter: str | None = None
 
     def compose(self) -> ComposeResult:
-        table: DataTable = DataTable(id="topics-table", classes="kaskade-table main-table")
+        table: StretchyDataTable[str] = StretchyDataTable(
+            id="topics-table", classes="kaskade-table main-table"
+        )
         table.cursor_type = "row"
         table.border_title = rf"[{PRIMARY}]Topics[/] \[[{PRIMARY}]0[/]]"
         table.border_subtitle = rf"\[[{PRIMARY}]Admin Mode[/]]"
         table.zebra_stripes = True
 
-        table.add_column("Name")
-        table.add_column("Partitions", width=10)
-        table.add_column("Replicas", width=10)
-        table.add_column("In Sync", width=10)
-        table.add_column("Groups", width=10)
-        table.add_column("Members", width=10)
-        table.add_column("Records", width=10)
-        table.add_column("Lag", width=10)
+        table.add_column("Name", stretch=1)
+        table.add_column("Partitions")
+        table.add_column("Replicas")
+        table.add_column("In Sync")
+        table.add_column("Groups")
+        table.add_column("Members")
+        table.add_column("Records")
+        table.add_column("Lag")
 
         yield table
 
