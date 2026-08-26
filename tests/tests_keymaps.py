@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
-from textual.widgets import DataTable, HelpPanel
+from textual.widgets import DataTable
 
 from kaskade.admin import (
     CreateTopicScreen,
@@ -21,6 +21,7 @@ from kaskade.consumer import (
     ListRecords,
     TopicScreen,
 )
+from kaskade.help import HelpableModalScreen, HelpScreen
 from kaskade.keymaps import CONFIG_ENV_VAR, KNOWN_BINDING_IDS, default_config_path, load_keymap
 from kaskade.models import Topic
 from kaskade.themes import KaskadeApp
@@ -31,6 +32,8 @@ class TestKeymapConfiguration(unittest.TestCase):
     def test_every_kaskade_binding_id_is_configurable(self):
         binding_owners = (
             KaskadeApp,
+            HelpableModalScreen,
+            HelpScreen,
             FilterTopicsScreen,
             DeleteTopicScreen,
             DescribeTopicScreen,
@@ -169,7 +172,10 @@ class TestConfiguredKeymap(unittest.IsolatedAsyncioTestCase):
             async with app.run_test() as pilot:
                 await pilot.press("x")
 
-                self.assertIsInstance(app.screen.query_one(HelpPanel), HelpPanel)
+                self.assertIsInstance(app.screen, HelpScreen)
+
+                await pilot.press("x")
+                self.assertNotIsInstance(app.screen, HelpScreen)
 
     async def test_app_applies_navigation_override_to_child_widgets(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
@@ -195,3 +201,12 @@ class TestConfiguredKeymap(unittest.IsolatedAsyncioTestCase):
                     await pilot.press("x")
 
                     self.assertEqual(1, table.cursor_row)
+
+                    await pilot.press("?")
+                    self.assertIsInstance(app.screen, HelpScreen)
+                    move_down = next(
+                        binding
+                        for binding in app.screen.help_bindings
+                        if binding.description == "Move Down"
+                    )
+                    self.assertEqual(("x",), move_down.keys)

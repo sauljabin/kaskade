@@ -7,9 +7,7 @@ from textual.theme import BUILTIN_THEMES, ThemeProvider
 from textual.widgets import (
     DataTable,
     Footer,
-    HelpPanel,
     Input,
-    KeyPanel,
     OptionList,
     TabbedContent,
     TabPane,
@@ -33,6 +31,7 @@ from kaskade.consumer import (
     TopicScreen,
 )
 from kaskade.deserializers import Deserialization
+from kaskade.help import HelpableModalScreen, HelpScreen
 from kaskade.models import Topic
 from kaskade.themes import (
     DEFAULT_THEME,
@@ -81,6 +80,8 @@ class TestThemes(unittest.TestCase):
     def test_custom_bindings_have_descriptions(self):
         binding_owners = (
             KaskadeApp,
+            HelpableModalScreen,
+            HelpScreen,
             FilterTopicsScreen,
             DeleteTopicScreen,
             DescribeTopicScreen,
@@ -108,7 +109,7 @@ class TestThemes(unittest.TestCase):
 
 
 class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
-    async def test_uses_footer_and_toggles_the_native_help_panel(self):
+    async def test_uses_footer_and_opens_a_keyboard_navigable_help_window(self):
         with patch("kaskade.admin.TopicService") as topic_service:
             topic_service.return_value.all = AsyncMock(
                 return_value={
@@ -118,7 +119,7 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
             )
             app = KaskadeAdmin({})
 
-            async with app.run_test() as pilot:
+            async with app.run_test(size=(70, 18)) as pilot:
                 await pilot.pause()
                 table = app.query_one("#topics-table", DataTable)
                 active_descriptions = {
@@ -136,18 +137,33 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual("Palette", palette_keys[0].description)
 
                 await pilot.press("?")
-                self.assertIsInstance(app.screen.query_one(HelpPanel), HelpPanel)
+                self.assertIsInstance(app.screen, HelpScreen)
 
-                help_keys = app.screen.query_one(HelpPanel).query_one(KeyPanel)
-                self.assertIs(table, app.screen.focused)
-                self.assertEqual(0, help_keys.scroll_y)
+                help_screen = app.screen
+                help_dialog = help_screen.query_one("#help-dialog")
+                help_table = help_screen.query_one("#help-table", DataTable)
+                self.assertEqual(help_screen.size, help_dialog.region.size)
+                self.assertIs(help_table, help_screen.focused)
+                self.assertEqual(0, help_table.cursor_row)
+                self.assertTrue(
+                    {"Describe", "Filter", "Refresh", "Create", "Quit", "Palette"}
+                    <= {binding.description for binding in help_screen.help_bindings}
+                )
+                self.assertIn("Topics", {binding.context for binding in help_screen.help_bindings})
+                quit_binding = next(
+                    binding
+                    for binding in help_screen.help_bindings
+                    if binding.description == "Quit"
+                )
+                self.assertEqual(("ctrl+c",), quit_binding.keys)
                 await pilot.press("pagedown")
                 await pilot.pause()
-                self.assertGreater(help_keys.scroll_y, 0)
+                self.assertGreater(help_table.cursor_row, 0)
                 self.assertEqual(0, table.cursor_row)
 
                 await pilot.press("?")
-                self.assertFalse(app.screen.query(HelpPanel))
+                self.assertNotIsInstance(app.screen, HelpScreen)
+                self.assertIs(table, app.screen.focused)
 
                 await pilot.press("j")
                 self.assertEqual(1, table.cursor_row)
@@ -194,7 +210,15 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 await pilot.press(":", "?")
 
                 self.assertEqual(":?", filter_input.value)
-                self.assertFalse(app.screen.query(HelpPanel))
+                self.assertNotIsInstance(app.screen, HelpScreen)
+
+                await pilot.press("f1")
+                self.assertIsInstance(app.screen, HelpScreen)
+                self.assertEqual("Filter Topics", app.screen.context)
+
+                await pilot.press("escape")
+                self.assertIsInstance(app.screen, FilterTopicsScreen)
+                self.assertIs(filter_input, app.screen.focused)
 
     async def test_admin_uses_title_case_labels_and_contextual_palette_commands(self):
         with patch("kaskade.admin.TopicService") as topic_service:

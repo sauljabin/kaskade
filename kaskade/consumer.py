@@ -5,7 +5,6 @@ from textual import work
 from textual.app import ComposeResult
 from textual.binding import Binding, BindingType
 from textual.containers import Container
-from textual.screen import ModalScreen
 from textual.widgets import DataTable, Footer, Input, OptionList, Pretty
 from textual.widgets.option_list import Option
 
@@ -15,6 +14,7 @@ from kaskade.deserializers import (
     Deserialization,
     DeserializerPool,
 )
+from kaskade.help import HelpableModalScreen
 from kaskade.models import Record
 from kaskade.services import ConsumerService
 from kaskade.themes import KaskadeApp
@@ -32,7 +32,7 @@ CONSUMER_EXCEPTIONS: tuple[type[Exception], ...] = (
 )
 
 
-class FilterRecordScreen(ModalScreen[tuple[str, str, str, str]]):
+class FilterRecordScreen(HelpableModalScreen[tuple[str, str, str, str]]):
     BINDING_GROUP_TITLE = "Filter Records"
     AUTO_FOCUS = "#key"
     BINDINGS: ClassVar[list[BindingType]] = [
@@ -103,7 +103,7 @@ class FilterRecordScreen(ModalScreen[tuple[str, str, str, str]]):
         self.dismiss()
 
 
-class ChunkSizeScreen(ModalScreen[int]):
+class ChunkSizeScreen(HelpableModalScreen[int]):
     BINDING_GROUP_TITLE = "Chunk Size"
     AUTO_FOCUS = "#chunk-size"
     CHUNK_SIZES = ("25", "50", "100", "500", "1000", "1500")
@@ -146,7 +146,7 @@ class ChunkSizeScreen(ModalScreen[int]):
         self.dismiss(chunk_size)
 
 
-class TopicScreen(ModalScreen):
+class TopicScreen(HelpableModalScreen):
     BINDING_GROUP_TITLE = "Record Details"
     AUTO_FOCUS = ".record-details"
     BINDINGS: ClassVar[list[BindingType]] = [

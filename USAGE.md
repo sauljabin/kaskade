@@ -51,6 +51,8 @@ Kaskade supports arrow keys and Vim-style navigation. The defaults follow famili
 | Consume more records | `n` |
 | Change record chunk size | `#` |
 
+Help opens in a contextual window above the current screen. Navigate it with `j`/`k`, arrows, Page Up/Down, or `g`/`G`, then close it with `Esc`, `q`, `?`, or `F1`.
+
 Plain-character application shortcuts do not intercept typing in filter and editor fields.
 
 #### Custom keymap
@@ -80,7 +82,7 @@ Common configurable binding IDs are:
 
 | Context | Binding IDs |
 | --- | --- |
-| Application | `app.quit`, `app.command-palette`, `help.toggle` |
+| Application | `app.quit`, `app.command-palette`, `help.toggle`, `kaskade.help.close` |
 | Navigation | `kaskade.navigation.up`, `.down`, `.left`, `.right`, `.first`, `.last`, `.page-up`, `.page-down`, `.select` |
 | Topics | `kaskade.topics.describe`, `.filter`, `.refresh`, `.create`, `.edit`, `.delete`, `.show-all` |
 | Records | `kaskade.records.show`, `.consume`, `.filter`, `.chunk-size`, `.show-all` |

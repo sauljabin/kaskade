@@ -33,6 +33,7 @@ KNOWN_BINDING_IDS = (
             "app.command-palette",
             "app.quit",
             "help.toggle",
+            "kaskade.help.close",
             "kaskade.chunk-size.close",
             "kaskade.create-topic.close",
             "kaskade.create-topic.save",

@@ -5,6 +5,7 @@ keymap:
   app.quit: ctrl+c
   app.command-palette: colon,ctrl+p
   help.toggle: question_mark,f1
+  kaskade.help.close: escape,q
 
   # Navigation
   kaskade.navigation.select: enter

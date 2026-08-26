@@ -6,7 +6,6 @@ from textual import work
 from textual.app import ComposeResult
 from textual.binding import Binding, BindingType
 from textual.containers import Container
-from textual.screen import ModalScreen
 from textual.widgets import (
     DataTable,
     Footer,
@@ -25,6 +24,7 @@ from kaskade.configs import (
     MIN_INSYNC_REPLICAS_CONFIG,
     RETENTION_MS_CONFIG,
 )
+from kaskade.help import HelpableModalScreen
 from kaskade.models import CleanupPolicy, Topic
 from kaskade.services import (
     TopicService,
@@ -46,7 +46,7 @@ EDIT_TOPIC_SHORTCUT = "e,ctrl+e"
 REFRESH_TOPICS_SHORTCUT = "ctrl+r"
 
 
-class FilterTopicsScreen(ModalScreen[str]):
+class FilterTopicsScreen(HelpableModalScreen[str]):
     BINDING_GROUP_TITLE = "Filter Topics"
     AUTO_FOCUS = "#topic-filter"
     BINDINGS: ClassVar[list[BindingType]] = [
@@ -74,7 +74,7 @@ class FilterTopicsScreen(ModalScreen[str]):
         self.dismiss()
 
 
-class DeleteTopicScreen(ModalScreen[bool]):
+class DeleteTopicScreen(HelpableModalScreen[bool]):
     BINDING_GROUP_TITLE = "Delete Topic"
     AUTO_FOCUS = "#topic-confirmation"
     BINDINGS: ClassVar[list[BindingType]] = [
@@ -115,7 +115,7 @@ class DeleteTopicScreen(ModalScreen[bool]):
         self.dismiss(False)
 
 
-class DescribeTopicScreen(ModalScreen):
+class DescribeTopicScreen(HelpableModalScreen):
     BINDING_GROUP_TITLE = "Topic Details"
     AUTO_FOCUS = "Tabs"
     BINDINGS: ClassVar[list[BindingType]] = [
@@ -238,7 +238,7 @@ class DescribeTopicScreen(ModalScreen):
         self.query_one(Tabs).action_next_tab()
 
 
-class EditTopicScreen(ModalScreen[bool]):
+class EditTopicScreen(HelpableModalScreen[bool]):
     BINDING_GROUP_TITLE = "Edit Topic"
     AUTO_FOCUS = "#partitions"
     BINDINGS: ClassVar[list[BindingType]] = [
@@ -336,7 +336,7 @@ class EditTopicScreen(ModalScreen[bool]):
         self.dismiss(False)
 
 
-class CreateTopicScreen(ModalScreen[NewTopic]):
+class CreateTopicScreen(HelpableModalScreen[NewTopic]):
     BINDING_GROUP_TITLE = "Create Topic"
     AUTO_FOCUS = "#name"
     BINDINGS: ClassVar[list[BindingType]] = [
