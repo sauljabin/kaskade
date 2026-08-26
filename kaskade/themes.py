@@ -64,6 +64,15 @@ class KaskadeApp(App):
             tooltip="Quit Kaskade and return to the command prompt.",
             id="app.quit",
         ),
+        Binding(
+            "ctrl+p",
+            "command_palette",
+            "Palette",
+            show=False,
+            priority=True,
+            tooltip="Search available Kaskade and Textual commands.",
+            id="app.command-palette",
+        ),
     ]
 
     def __init__(self) -> None:

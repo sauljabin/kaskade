@@ -3,6 +3,7 @@ from unittest.mock import AsyncMock, patch
 
 from textual.theme import BUILTIN_THEMES, ThemeProvider
 from textual.widgets import DataTable, Footer, HelpPanel, OptionList, TabbedContent, TabPane
+from textual.widgets._footer import FooterKey
 
 from kaskade.admin import (
     CreateTopicScreen,
@@ -102,8 +103,12 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 self.assertIsInstance(app.query_one(Footer), Footer)
                 self.assertIs(table, app.screen.focused)
                 self.assertTrue(
-                    {"Describe", "Filter", "Refresh", "Create", "Quit"} <= active_descriptions
+                    {"Describe", "Filter", "Refresh", "Create", "Quit", "Palette"}
+                    <= active_descriptions
                 )
+                palette_keys = [key for key in app.query(FooterKey) if key.key == "ctrl+p"]
+                self.assertEqual(1, len(palette_keys))
+                self.assertEqual("Palette", palette_keys[0].description)
 
                 await pilot.press("f1")
                 self.assertIsInstance(app.screen.query_one(HelpPanel), HelpPanel)
