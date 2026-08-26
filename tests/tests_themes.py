@@ -157,14 +157,14 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 self.assertIsInstance(app.query_one(Footer), Footer)
                 self.assertIs(table, app.screen.focused)
                 self.assertTrue(
-                    {"Describe", "Filter", "Refresh", "Create", "Quit", "Palette"}
+                    {"Describe", "Filter", "Refresh", "Create", "Quit", "Commands"}
                     <= active_descriptions
                 )
                 palette_keys = [key for key in app.query(FooterKey) if key.key_display == ":"]
                 self.assertEqual(1, len(palette_keys))
-                self.assertEqual("Palette", palette_keys[0].description)
+                self.assertEqual("Commands", palette_keys[0].description)
                 self.assertEqual(
-                    ["Quit", "Help", "Palette"],
+                    ["Quit", "Help", "Commands"],
                     [key.description for key in app.query(FooterKey)][-3:],
                 )
 
@@ -197,7 +197,7 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 self.assertIs(help_table, help_screen.focused)
                 self.assertEqual(0, help_table.cursor_row)
                 self.assertTrue(
-                    {"Describe", "Filter", "Refresh", "Create", "Quit", "Palette"}
+                    {"Describe", "Filter", "Refresh", "Create", "Quit", "Commands"}
                     <= {binding.description for binding in help_screen.help_bindings}
                 )
                 self.assertIn("Topics", {binding.context for binding in help_screen.help_bindings})

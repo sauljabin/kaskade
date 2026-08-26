@@ -49,7 +49,7 @@ Kaskade follows familiar k9s/Vim-style terminal interactions where practical:
 
 Binding declaration order controls Textual's Footer order. Preserve this order:
 
-- Main screens: contextual actions, then `Quit`, `Help`, and `Palette`.
+- Main screens: contextual actions, then `Quit`, `Help`, and `Commands`.
 - Action modals: primary action, then `Back` or `Cancel`, then `Help`.
 - Read-only modals: `Back`, then `Help`.
 - Help: `Back` only, displayed as `esc Back`.

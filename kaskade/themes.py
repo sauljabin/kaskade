@@ -74,7 +74,7 @@ class KaskadeApp(App, inherit_bindings=False):
         Binding(
             ":,ctrl+p",
             "command_palette",
-            "Palette",
+            "Commands",
             key_display=":",
             show=False,
             tooltip="Search available Kaskade and Textual commands.",

@@ -26,7 +26,7 @@ Kaskade defaults to the `eva01` Unit-01-inspired theme. Choose any Textual theme
 kaskade admin -b my-kafka:9092 --theme dracula
 ```
 
-While Kaskade is running, press `:` (or `Ctrl+P`) and select a theme from the command palette. Palette choices apply only to the current session.
+While Kaskade is running, press `:` (or `Ctrl+P`) and select a theme from the Commands window. Theme changes apply only to the current session.
 
 ### Keyboard shortcuts
 
@@ -40,7 +40,7 @@ Kaskade supports arrow keys and Vim-style navigation. The defaults follow famili
 | Select or apply a modal action | `Enter` |
 | Back or clear a filter | `Esc` |
 | Help | `?` or `F1` |
-| Command palette | `:` or `Ctrl+P` |
+| Commands | `:` or `Ctrl+P` |
 | Quit | `Ctrl+C` |
 | Filter | `/` or `Ctrl+F` |
 | Describe a topic | `d` or `Enter` |
