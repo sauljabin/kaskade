@@ -1,9 +1,22 @@
 # Agent Instructions
 
-## Development Branch and Platforms
+## Living Knowledge and Documentation
 
-- Use `v5` as the base branch for new feature work while it remains the project's
-  development branch.
+- Treat this file as the project's living operational knowledge. Update it when
+  work establishes a durable convention, architectural decision, workflow, or
+  constraint that future agents need to follow.
+- Review existing guidance while updating it. Remove or rewrite knowledge that
+  is obsolete, redundant, contradicted by the implementation, or no longer
+  useful; do not only append new sections.
+- Apply the same rule to all repository documentation and examples. Whenever a
+  change affects documented behavior, commands, configuration, screenshots, or
+  workflows, update every relevant document in the same change and remove stale
+  information.
+- Keep guidance concise and factual. Document stable project knowledge rather
+  than temporary implementation details or a chronological history of changes.
+
+## Supported Platforms
+
 - Kaskade must work consistently on Linux and macOS. Keep paths, terminal key
   handling, and shell-facing documentation portable across both platforms.
 
