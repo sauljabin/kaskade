@@ -94,7 +94,10 @@ class KaskadeApp(App):
 
     def get_system_commands(self, screen: Screen) -> Iterable[SystemCommand]:
         """Add active Kaskade bindings to Textual's command palette."""
-        yield from super().get_system_commands(screen)
+        widget_size_actions = (screen.action_maximize, screen.action_minimize)
+        for command in super().get_system_commands(screen):
+            if command.callback not in widget_size_actions:
+                yield command
 
         command_ids: set[str] = set()
         for namespace, binding, enabled, _ in screen.active_bindings.values():

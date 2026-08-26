@@ -146,6 +146,16 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 self.assertTrue(
                     {"Theme", "Describe", "Filter", "Refresh", "Create"} <= command_titles
                 )
+                self.assertTrue({"Maximize", "Minimize"}.isdisjoint(command_titles))
+
+                app.screen.action_maximize()
+                await pilot.pause()
+                maximized_command_titles = {
+                    command.title for command in app.get_system_commands(app.screen)
+                }
+
+                self.assertIs(table, app.screen.maximized)
+                self.assertTrue({"Maximize", "Minimize"}.isdisjoint(maximized_command_titles))
 
     async def test_topic_details_use_native_tabs_and_a_contextual_footer(self):
         with patch("kaskade.admin.TopicService") as topic_service:
