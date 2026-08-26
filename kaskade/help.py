@@ -9,7 +9,8 @@ from textual.containers import Vertical
 from textual.screen import ModalScreen, Screen
 from textual.widgets import Static
 
-from kaskade.colors import PRIMARY
+from kaskade import APP_NAME, APP_VERSION
+from kaskade.colors import PRIMARY, SECONDARY
 from kaskade.keymaps import NAVIGATION_BINDING_IDS
 from kaskade.widgets import StretchyDataTable
 
@@ -111,6 +112,10 @@ class HelpScreen(ModalScreen[None]):
         dialog = Vertical(id="help-dialog")
         dialog.border_title = f"[{PRIMARY}]Help[/] — {self.context}"
         with dialog:
+            yield Static(
+                f"[b {PRIMARY}]{APP_NAME.title()}[/] " f"[b {SECONDARY}]v{APP_VERSION}[/]",
+                id="help-heading",
+            )
             yield Static(
                 "[b]About Kaskade[/] — A terminal user interface for Apache Kafka.\n"
                 f'Project: [link="{KASKADE_URL}"]{KASKADE_URL}[/link]\n'

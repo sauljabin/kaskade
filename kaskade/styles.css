@@ -7,6 +7,11 @@ DataTable.kaskade-table:focus {
     border: $secondary;
 }
 
+DataTable.details-table {
+    border: none;
+    height: 100%;
+}
+
 .-textual-loading-indicator {
     background: $surface;
     color: $primary;
@@ -42,6 +47,12 @@ HelpScreen #help-table {
     height: 1fr;
 }
 
+HelpScreen #help-heading {
+    width: 100%;
+    height: 1;
+    content-align: center middle;
+}
+
 HelpScreen #help-about {
     width: 100%;
     height: auto;
@@ -53,6 +64,7 @@ HelpScreen #help-about {
 HelpScreen #help-footer {
     width: 100%;
     height: 1;
+    margin-top: 1;
     content-align: center middle;
     color: $text-muted;
 }
@@ -116,8 +128,11 @@ TopicScreen > .record-details {
 }
 
 DescribeTopicScreen > TabbedContent {
+    border: $secondary;
     width: 95%;
     height: 90%;
+    background: $surface;
+    padding: 0 1;
 }
 
 DescribeTopicScreen TabbedContent > ContentSwitcher,

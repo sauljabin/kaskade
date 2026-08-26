@@ -10,11 +10,13 @@ from textual.widgets import (
     Input,
     OptionList,
     Static,
+    Tab,
     TabbedContent,
     TabPane,
 )
 from textual.widgets._footer import FooterKey
 
+from kaskade import APP_NAME, APP_VERSION
 from kaskade.admin import (
     CreateTopicScreen,
     DeleteTopicScreen,
@@ -148,11 +150,18 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 help_screen = app.screen
                 help_dialog = help_screen.query_one("#help-dialog")
                 help_table = help_screen.query_one("#help-table", DataTable)
+                help_heading = help_screen.query_one("#help-heading", Static)
                 help_about = help_screen.query_one("#help-about", Static)
+                help_footer = help_screen.query_one("#help-footer", Static)
                 self.assertEqual(help_screen.size, help_dialog.region.size)
-                self.assertEqual([help_about, help_table], list(help_dialog.children)[:2])
+                self.assertEqual(
+                    [help_heading, help_about, help_table],
+                    list(help_dialog.children)[:3],
+                )
                 self.assertEqual("[primary]Help[/primary] — Topics", help_dialog.border_title)
+                self.assertEqual(f"{APP_NAME.title()} v{APP_VERSION}", help_heading.render().plain)
                 self.assertEqual(1, help_about.styles.margin.bottom)
+                self.assertEqual(1, help_footer.styles.margin.top)
                 self.assertIsNone(help_table.border_title)
                 about_text = help_about.render().plain
                 self.assertIn("About Kaskade", about_text)
@@ -351,9 +360,21 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 partitions = app.screen.query_one("#partitions-table", DataTable)
                 detail_tables = list(app.screen.query(StretchyDataTable))
                 self.assertEqual("partitions", tabs.active)
+                self.assertEqual(
+                    ["Partitions [0]", "Groups [0]", "Group Members [0]"],
+                    [tab.label_text for tab in app.screen.query(Tab)],
+                )
+                self.assertEqual(
+                    "[primary]Describe Topic[/primary] [[primary]orders[/primary]]",
+                    tabs.border_title,
+                )
+                self.assertNotEqual("none", tabs.styles.border_top[0])
                 self.assertEqual(3, len(app.screen.query(TabPane)))
                 self.assertEqual(3, len(app.screen.query(DataTable)))
                 self.assertEqual(3, len(detail_tables))
+                for table in detail_tables:
+                    self.assertIsNone(table.border_title)
+                    self.assertEqual("", table.styles.border_top[0])
                 self.assertGreater(partitions.content_region.height, 0)
                 self.assertFalse(partitions.show_horizontal_scrollbar)
                 self.assertIsInstance(app.screen.query_one(Footer), Footer)

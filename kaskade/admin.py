@@ -6,6 +6,7 @@ from textual import work
 from textual.app import ComposeResult
 from textual.binding import Binding, BindingType
 from textual.containers import Container
+from textual.content import Content
 from textual.widgets import (
     DataTable,
     Footer,
@@ -149,26 +150,31 @@ class DescribeTopicScreen(HelpableModalScreen):
         self.topic = topic
 
     def compose(self) -> ComposeResult:
-        with TabbedContent(initial="partitions", id="topic-details"):
-            with TabPane("Partitions", id="partitions"):
+        details = TabbedContent(initial="partitions", id="topic-details")
+        details.border_title = rf"[{PRIMARY}]Describe Topic[/] \[[{PRIMARY}]{self.topic.name}[/]]"
+        with details:
+            with TabPane(
+                Content(f"Partitions [{self.topic.partitions_count()}]"),
+                id="partitions",
+            ):
                 yield self._partitions_table()
-            with TabPane("Groups", id="groups"):
+            with TabPane(Content(f"Groups [{self.topic.groups_count()}]"), id="groups"):
                 yield self._groups_table()
-            with TabPane("Group Members", id="group-members"):
+            with TabPane(
+                Content(f"Group Members [{self.topic.group_members_count()}]"),
+                id="group-members",
+            ):
                 yield self._group_members_table()
         yield Footer(compact=True)
 
-    def _new_table(self, table_id: str, count: int, item_name: str) -> StretchyDataTable[str]:
-        table: StretchyDataTable[str] = StretchyDataTable(
-            id=table_id, classes="kaskade-table details-table"
-        )
+    def _new_table(self, table_id: str) -> StretchyDataTable[str]:
+        table: StretchyDataTable[str] = StretchyDataTable(id=table_id, classes="details-table")
         table.cursor_type = "row"
         table.zebra_stripes = True
-        table.border_title = rf"[{PRIMARY}]{self.topic}[/] \[[{PRIMARY}]{count} {item_name}[/]]"
         return table
 
     def _partitions_table(self) -> StretchyDataTable[str]:
-        table = self._new_table("partitions-table", self.topic.partitions_count(), "Partitions")
+        table = self._new_table("partitions-table")
         table.add_column("ID", stretch=1)
         table.add_column("Leader", stretch=1)
         table.add_column("ISRs", stretch=1)
@@ -186,7 +192,7 @@ class DescribeTopicScreen(HelpableModalScreen):
         return table
 
     def _groups_table(self) -> StretchyDataTable[str]:
-        table = self._new_table("groups-table", self.topic.groups_count(), "Groups")
+        table = self._new_table("groups-table")
         table.add_column("ID", stretch=1)
         table.add_column("Coordinator", stretch=1)
         table.add_column("State", stretch=1)
@@ -208,9 +214,7 @@ class DescribeTopicScreen(HelpableModalScreen):
         return table
 
     def _group_members_table(self) -> StretchyDataTable[str]:
-        table = self._new_table(
-            "group-members-table", self.topic.group_members_count(), "Group Members"
-        )
+        table = self._new_table("group-members-table")
         table.add_column("Group", stretch=1)
         table.add_column("Client ID", stretch=1)
         table.add_column("Member ID", stretch=1)
