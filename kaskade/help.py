@@ -7,7 +7,7 @@ from textual.app import ComposeResult
 from textual.binding import Binding, BindingType
 from textual.containers import Vertical
 from textual.screen import ModalScreen, Screen
-from textual.widgets import Static
+from textual.widgets import Footer, Static
 
 from kaskade import APP_NAME, APP_VERSION
 from kaskade.colors import PRIMARY, SECONDARY
@@ -86,17 +86,17 @@ class HelpScreen(ModalScreen[None]):
     AUTO_FOCUS = "#help-table"
     BINDINGS: ClassVar[list[BindingType]] = [
         Binding(
-            "escape,q",
+            "escape",
             "close",
-            "Close Help",
-            show=False,
+            "Back",
+            key_display="esc",
             tooltip="Return to the previous Kaskade screen.",
             id="kaskade.help.close",
         ),
         Binding(
-            "?,f1",
+            "q,?,f1",
             "close",
-            "Close Help",
+            "Back",
             show=False,
             tooltip="Toggle the contextual help window.",
             id="help.toggle",
@@ -138,11 +138,7 @@ class HelpScreen(ModalScreen[None]):
                     binding.description,
                 )
             yield table
-            yield Static(
-                "Navigate: [b]j/k[/], Arrows, Page Up/Down, [b]g/G[/]"
-                "  •  Close: [b]Esc/q/?/F1[/]",
-                id="help-footer",
-            )
+        yield Footer(compact=True)
 
     def action_close(self) -> None:
         self.dismiss()

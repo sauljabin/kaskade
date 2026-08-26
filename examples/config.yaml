@@ -39,13 +39,17 @@ keymap:
   kaskade.records.show-all: escape
 
   # Dialogs and editors
+  kaskade.filter-topics.apply: enter
   kaskade.filter-topics.close: escape
+  kaskade.delete-topic.confirm: enter
   kaskade.delete-topic.cancel: escape
   kaskade.describe-topic.close: escape
   kaskade.edit-topic.close: escape
   kaskade.edit-topic.save: ctrl+s
   kaskade.create-topic.close: escape
   kaskade.create-topic.save: ctrl+s
+  kaskade.filter-records.apply: enter
   kaskade.filter-records.close: escape
+  kaskade.chunk-size.select: enter
   kaskade.chunk-size.close: escape
   kaskade.record-details.close: escape

@@ -115,6 +115,26 @@ class TestThemes(unittest.TestCase):
         self.assertEqual(KaskadeApp.CSS_PATH, KaskadeAdmin.CSS_PATH)
         self.assertEqual(KaskadeApp.CSS_PATH, KaskadeConsumer.CSS_PATH)
 
+    def test_modal_commands_match_the_footer_matrix(self):
+        expected_commands = {
+            FilterTopicsScreen: {"Apply Filter", "Back"},
+            DeleteTopicScreen: {"Delete Topic", "Cancel"},
+            DescribeTopicScreen: {"Back"},
+            EditTopicScreen: {"Back", "Save Changes"},
+            CreateTopicScreen: {"Back", "Create Topic"},
+            FilterRecordScreen: {"Apply Filters", "Back"},
+            ChunkSizeScreen: {"Select", "Back"},
+            TopicScreen: {"Back"},
+            HelpScreen: {"Back"},
+        }
+
+        for modal, expected in expected_commands.items():
+            with self.subTest(modal=modal.__name__):
+                visible_commands = {
+                    binding.description for binding in modal.BINDINGS if binding.show
+                }
+                self.assertEqual(expected, visible_commands)
+
 
 class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
     async def test_uses_footer_and_opens_a_keyboard_navigable_help_window(self):
@@ -152,8 +172,8 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 help_table = help_screen.query_one("#help-table", DataTable)
                 help_heading = help_screen.query_one("#help-heading", Static)
                 help_about = help_screen.query_one("#help-about", Static)
-                help_footer = help_screen.query_one("#help-footer", Static)
-                self.assertEqual(help_screen.size, help_dialog.region.size)
+                help_footer = help_screen.query_one(Footer)
+                self.assertEqual(help_screen.size.width, help_dialog.region.width)
                 self.assertEqual(
                     [help_heading, help_about, help_table],
                     list(help_dialog.children)[:3],
@@ -161,8 +181,11 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual("[primary]Help[/primary] — Topics", help_dialog.border_title)
                 self.assertEqual(f"{APP_NAME.title()} v{APP_VERSION}", help_heading.render().plain)
                 self.assertEqual(1, help_about.styles.margin.bottom)
-                self.assertEqual(1, help_footer.styles.margin.top)
                 self.assertIsNone(help_table.border_title)
+                help_footer_keys = list(help_footer.query(FooterKey))
+                self.assertEqual(1, len(help_footer_keys))
+                self.assertEqual("esc", help_footer_keys[0].key_display)
+                self.assertEqual("Back", help_footer_keys[0].description)
                 about_text = help_about.render().plain
                 self.assertIn("About Kaskade", about_text)
                 self.assertIn(KASKADE_URL, about_text)
@@ -251,6 +274,49 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 await pilot.press("escape")
                 self.assertIsInstance(app.screen, FilterTopicsScreen)
                 self.assertIs(filter_input, app.screen.focused)
+
+    async def test_modal_footers_show_and_run_implicit_submit_actions(self):
+        with patch("kaskade.admin.TopicService") as topic_service:
+            topic_service.return_value.all = AsyncMock(return_value={})
+            app = KaskadeAdmin({})
+            results: list[object] = []
+
+            async with app.run_test() as pilot:
+
+                def footer_commands() -> dict[str, str]:
+                    footer = app.screen.query_one(Footer)
+                    return {key.description: key.key_display for key in footer.query(FooterKey)}
+
+                app.push_screen(FilterTopicsScreen(), results.append)
+                await pilot.pause()
+                self.assertEqual("⏎", footer_commands()["Apply Filter"])
+                self.assertEqual("esc", footer_commands()["Back"])
+                app.screen.query_one("#topic-filter", Input).value = "orders"
+                await pilot.press("enter")
+                self.assertEqual("orders", results.pop())
+
+                app.push_screen(DeleteTopicScreen(Topic(name="orders")), results.append)
+                await pilot.pause()
+                self.assertEqual("⏎", footer_commands()["Delete Topic"])
+                self.assertEqual("esc", footer_commands()["Cancel"])
+                app.screen.query_one("#topic-confirmation", Input).value = "orders"
+                await pilot.press("enter")
+                self.assertIs(True, results.pop())
+
+                app.push_screen(FilterRecordScreen(), results.append)
+                await pilot.pause()
+                self.assertEqual("⏎", footer_commands()["Apply Filters"])
+                self.assertEqual("esc", footer_commands()["Back"])
+                app.screen.query_one("#key", Input).value = "customer"
+                await pilot.press("enter")
+                self.assertEqual(("customer", "", "", ""), results.pop())
+
+                app.push_screen(ChunkSizeScreen(100), results.append)
+                await pilot.pause()
+                self.assertEqual("⏎", footer_commands()["Select"])
+                self.assertEqual("esc", footer_commands()["Back"])
+                await pilot.press("enter")
+                self.assertEqual(100, results.pop())
 
     async def test_admin_uses_title_case_labels_and_contextual_palette_commands(self):
         with patch("kaskade.admin.TopicService") as topic_service:

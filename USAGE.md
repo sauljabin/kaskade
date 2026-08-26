@@ -37,7 +37,7 @@ Kaskade supports arrow keys and Vim-style navigation. The defaults follow famili
 | Move | `h`, `j`, `k`, `l` or arrow keys |
 | First or last item | `g` or `G` |
 | Page up or down | `PageUp` or `PageDown` |
-| Select | `Enter` |
+| Select or apply a modal action | `Enter` |
 | Back or clear a filter | `Esc` |
 | Help | `?` or `F1` |
 | Command palette | `:` or `Ctrl+P` |
@@ -86,6 +86,7 @@ Common configurable binding IDs are:
 | Navigation | `kaskade.navigation.up`, `.down`, `.left`, `.right`, `.first`, `.last`, `.page-up`, `.page-down`, `.select` |
 | Topics | `kaskade.topics.describe`, `.filter`, `.refresh`, `.create`, `.edit`, `.delete`, `.show-all` |
 | Records | `kaskade.records.show`, `.consume`, `.filter`, `.chunk-size`, `.show-all` |
+| Dialogs | `kaskade.filter-topics.apply`, `kaskade.delete-topic.confirm`, `kaskade.filter-records.apply`, `kaskade.chunk-size.select` |
 | Editors | `kaskade.create-topic.save`, `kaskade.edit-topic.save` |
 
 Unknown binding IDs, invalid key names, and malformed configuration produce an in-app warning while Kaskade continues with its default bindings.

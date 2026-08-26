@@ -61,14 +61,6 @@ HelpScreen #help-about {
     color: $text-muted;
 }
 
-HelpScreen #help-footer {
-    width: 100%;
-    height: 1;
-    margin-top: 1;
-    content-align: center middle;
-    color: $text-muted;
-}
-
 CommandPalette > #--container {
     width: 72;
     max-width: 90%;

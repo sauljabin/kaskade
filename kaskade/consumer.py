@@ -37,12 +37,20 @@ class FilterRecordScreen(HelpableModalScreen[tuple[str, str, str, str]]):
     AUTO_FOCUS = "#key"
     BINDINGS: ClassVar[list[BindingType]] = [
         Binding(
+            SUBMIT_SHORTCUT,
+            "apply_filters",
+            "Apply Filters",
+            priority=True,
+            tooltip="Apply the record filters.",
+            id="kaskade.filter-records.apply",
+        ),
+        Binding(
             BACK_SHORTCUT,
             "back",
             "Back",
             tooltip="Close the filter without applying it.",
             id="kaskade.filter-records.close",
-        )
+        ),
     ]
 
     def __init__(self) -> None:
@@ -83,6 +91,9 @@ class FilterRecordScreen(HelpableModalScreen[tuple[str, str, str, str]]):
         yield Footer(compact=True)
 
     def on_input_submitted(self) -> None:
+        self.action_apply_filters()
+
+    def action_apply_filters(self) -> None:
         input_key = self.query_one("#key", Input)
         self.key_filter = input_key.value
 
@@ -109,12 +120,20 @@ class ChunkSizeScreen(HelpableModalScreen[int]):
     CHUNK_SIZES = ("25", "50", "100", "500", "1000", "1500")
     BINDINGS: ClassVar[list[BindingType]] = [
         Binding(
+            SUBMIT_SHORTCUT,
+            "select",
+            "Select",
+            priority=True,
+            tooltip="Use the highlighted chunk size.",
+            id="kaskade.chunk-size.select",
+        ),
+        Binding(
             BACK_SHORTCUT,
             "close",
             "Back",
             tooltip="Keep the current chunk size.",
             id="kaskade.chunk-size.close",
-        )
+        ),
     ]
 
     def __init__(self, current_size: int):
@@ -140,6 +159,9 @@ class ChunkSizeScreen(HelpableModalScreen[int]):
 
     def action_close(self) -> None:
         self.dismiss()
+
+    def action_select(self) -> None:
+        self.query_one(KaskadeOptionList).action_select()
 
     def on_option_list_option_selected(self, event: OptionList.OptionSelected) -> None:
         chunk_size = int(event.option_id) if event.option_id is not None else self.current_size

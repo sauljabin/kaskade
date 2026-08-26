@@ -52,12 +52,20 @@ class FilterTopicsScreen(HelpableModalScreen[str]):
     AUTO_FOCUS = "#topic-filter"
     BINDINGS: ClassVar[list[BindingType]] = [
         Binding(
+            "enter",
+            "apply_filter",
+            "Apply Filter",
+            priority=True,
+            tooltip="Apply the topic name filter.",
+            id="kaskade.filter-topics.apply",
+        ),
+        Binding(
             BACK_SHORTCUT,
             "close",
             "Back",
             tooltip="Close the filter without applying it.",
             id="kaskade.filter-topics.close",
-        )
+        ),
     ]
 
     def compose(self) -> ComposeResult:
@@ -71,6 +79,9 @@ class FilterTopicsScreen(HelpableModalScreen[str]):
     def on_input_submitted(self, event: Input.Submitted) -> None:
         self.dismiss(event.value)
 
+    def action_apply_filter(self) -> None:
+        self.dismiss(self.query_one("#topic-filter", Input).value)
+
     def action_close(self) -> None:
         self.dismiss()
 
@@ -80,12 +91,20 @@ class DeleteTopicScreen(HelpableModalScreen[bool]):
     AUTO_FOCUS = "#topic-confirmation"
     BINDINGS: ClassVar[list[BindingType]] = [
         Binding(
+            "enter",
+            "delete",
+            "Delete Topic",
+            priority=True,
+            tooltip="Delete the topic after its name has been confirmed.",
+            id="kaskade.delete-topic.confirm",
+        ),
+        Binding(
             BACK_SHORTCUT,
             "cancel",
             "Cancel",
             tooltip="Keep the topic and close this confirmation.",
             id="kaskade.delete-topic.cancel",
-        )
+        ),
     ]
 
     def __init__(self, topic: Topic):
@@ -103,7 +122,13 @@ class DeleteTopicScreen(HelpableModalScreen[bool]):
         yield Footer(compact=True)
 
     def on_input_submitted(self, event: Input.Submitted) -> None:
-        if self.topic.name == event.value:
+        self._delete_if_confirmed(event.value)
+
+    def action_delete(self) -> None:
+        self._delete_if_confirmed(self.query_one("#topic-confirmation", Input).value)
+
+    def _delete_if_confirmed(self, confirmation: str) -> None:
+        if self.topic.name == confirmation:
             self.dismiss(True)
         else:
             self.notify(
