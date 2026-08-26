@@ -117,22 +117,22 @@ class TestThemes(unittest.TestCase):
 
     def test_modal_commands_match_the_footer_matrix(self):
         expected_commands = {
-            FilterTopicsScreen: {"Apply Filter", "Back"},
-            DeleteTopicScreen: {"Delete Topic", "Cancel"},
-            DescribeTopicScreen: {"Back"},
-            EditTopicScreen: {"Back", "Save Changes"},
-            CreateTopicScreen: {"Back", "Create Topic"},
-            FilterRecordScreen: {"Apply Filters", "Back"},
-            ChunkSizeScreen: {"Select", "Back"},
-            TopicScreen: {"Back"},
-            HelpScreen: {"Back"},
+            FilterTopicsScreen: ["Apply Filter", "Back", "Help"],
+            DeleteTopicScreen: ["Delete Topic", "Cancel", "Help"],
+            DescribeTopicScreen: ["Back", "Help"],
+            EditTopicScreen: ["Save Changes", "Back", "Help"],
+            CreateTopicScreen: ["Create Topic", "Back", "Help"],
+            FilterRecordScreen: ["Apply Filters", "Back", "Help"],
+            ChunkSizeScreen: ["Select", "Back", "Help"],
+            TopicScreen: ["Back", "Help"],
+            HelpScreen: ["Back"],
         }
 
         for modal, expected in expected_commands.items():
             with self.subTest(modal=modal.__name__):
-                visible_commands = {
+                visible_commands = [
                     binding.description for binding in modal.BINDINGS if binding.show
-                }
+                ]
                 self.assertEqual(expected, visible_commands)
 
 
@@ -163,6 +163,10 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 palette_keys = [key for key in app.query(FooterKey) if key.key_display == ":"]
                 self.assertEqual(1, len(palette_keys))
                 self.assertEqual("Palette", palette_keys[0].description)
+                self.assertEqual(
+                    ["Quit", "Help", "Palette"],
+                    [key.description for key in app.query(FooterKey)][-3:],
+                )
 
                 await pilot.press("?")
                 self.assertIsInstance(app.screen, HelpScreen)
@@ -283,38 +287,46 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
 
             async with app.run_test() as pilot:
 
-                def footer_commands() -> dict[str, str]:
+                def footer_commands() -> list[tuple[str, str]]:
                     footer = app.screen.query_one(Footer)
-                    return {key.description: key.key_display for key in footer.query(FooterKey)}
+                    return [(key.key_display, key.description) for key in footer.query(FooterKey)]
 
                 app.push_screen(FilterTopicsScreen(), results.append)
                 await pilot.pause()
-                self.assertEqual("⏎", footer_commands()["Apply Filter"])
-                self.assertEqual("esc", footer_commands()["Back"])
+                self.assertEqual(
+                    [("⏎", "Apply Filter"), ("esc", "Back"), ("?", "Help")],
+                    footer_commands(),
+                )
                 app.screen.query_one("#topic-filter", Input).value = "orders"
                 await pilot.press("enter")
                 self.assertEqual("orders", results.pop())
 
                 app.push_screen(DeleteTopicScreen(Topic(name="orders")), results.append)
                 await pilot.pause()
-                self.assertEqual("⏎", footer_commands()["Delete Topic"])
-                self.assertEqual("esc", footer_commands()["Cancel"])
+                self.assertEqual(
+                    [("⏎", "Delete Topic"), ("esc", "Cancel"), ("?", "Help")],
+                    footer_commands(),
+                )
                 app.screen.query_one("#topic-confirmation", Input).value = "orders"
                 await pilot.press("enter")
                 self.assertIs(True, results.pop())
 
                 app.push_screen(FilterRecordScreen(), results.append)
                 await pilot.pause()
-                self.assertEqual("⏎", footer_commands()["Apply Filters"])
-                self.assertEqual("esc", footer_commands()["Back"])
+                self.assertEqual(
+                    [("⏎", "Apply Filters"), ("esc", "Back"), ("?", "Help")],
+                    footer_commands(),
+                )
                 app.screen.query_one("#key", Input).value = "customer"
                 await pilot.press("enter")
                 self.assertEqual(("customer", "", "", ""), results.pop())
 
                 app.push_screen(ChunkSizeScreen(100), results.append)
                 await pilot.pause()
-                self.assertEqual("⏎", footer_commands()["Select"])
-                self.assertEqual("esc", footer_commands()["Back"])
+                self.assertEqual(
+                    [("⏎", "Select"), ("esc", "Back"), ("?", "Help")],
+                    footer_commands(),
+                )
                 await pilot.press("enter")
                 self.assertEqual(100, results.pop())
 

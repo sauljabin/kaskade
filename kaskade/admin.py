@@ -25,7 +25,7 @@ from kaskade.configs import (
     MIN_INSYNC_REPLICAS_CONFIG,
     RETENTION_MS_CONFIG,
 )
-from kaskade.help import HelpableModalScreen
+from kaskade.help import HelpableModalScreen, modal_bindings
 from kaskade.models import CleanupPolicy, Topic
 from kaskade.services import (
     TopicService,
@@ -50,7 +50,7 @@ REFRESH_TOPICS_SHORTCUT = "ctrl+r"
 class FilterTopicsScreen(HelpableModalScreen[str]):
     BINDING_GROUP_TITLE = "Filter Topics"
     AUTO_FOCUS = "#topic-filter"
-    BINDINGS: ClassVar[list[BindingType]] = [
+    BINDINGS: ClassVar[list[BindingType]] = modal_bindings(
         Binding(
             "enter",
             "apply_filter",
@@ -66,7 +66,7 @@ class FilterTopicsScreen(HelpableModalScreen[str]):
             tooltip="Close the filter without applying it.",
             id="kaskade.filter-topics.close",
         ),
-    ]
+    )
 
     def compose(self) -> ComposeResult:
         input_filter = Input(
@@ -89,7 +89,7 @@ class FilterTopicsScreen(HelpableModalScreen[str]):
 class DeleteTopicScreen(HelpableModalScreen[bool]):
     BINDING_GROUP_TITLE = "Delete Topic"
     AUTO_FOCUS = "#topic-confirmation"
-    BINDINGS: ClassVar[list[BindingType]] = [
+    BINDINGS: ClassVar[list[BindingType]] = modal_bindings(
         Binding(
             "enter",
             "delete",
@@ -105,7 +105,7 @@ class DeleteTopicScreen(HelpableModalScreen[bool]):
             tooltip="Keep the topic and close this confirmation.",
             id="kaskade.delete-topic.cancel",
         ),
-    ]
+    )
 
     def __init__(self, topic: Topic):
         super().__init__()
@@ -144,7 +144,7 @@ class DeleteTopicScreen(HelpableModalScreen[bool]):
 class DescribeTopicScreen(HelpableModalScreen):
     BINDING_GROUP_TITLE = "Topic Details"
     AUTO_FOCUS = "Tabs"
-    BINDINGS: ClassVar[list[BindingType]] = [
+    BINDINGS: ClassVar[list[BindingType]] = modal_bindings(
         Binding(
             BACK_SHORTCUT,
             "close",
@@ -168,7 +168,7 @@ class DescribeTopicScreen(HelpableModalScreen):
             tooltip="Show the next topic detail tab.",
             id="kaskade.navigation.right",
         ),
-    ]
+    )
 
     def __init__(self, topic: Topic):
         super().__init__()
@@ -270,14 +270,7 @@ class DescribeTopicScreen(HelpableModalScreen):
 class EditTopicScreen(HelpableModalScreen[bool]):
     BINDING_GROUP_TITLE = "Edit Topic"
     AUTO_FOCUS = "#partitions"
-    BINDINGS: ClassVar[list[BindingType]] = [
-        Binding(
-            BACK_SHORTCUT,
-            "back",
-            "Back",
-            tooltip="Close the editor without saving changes.",
-            id="kaskade.edit-topic.close",
-        ),
+    BINDINGS: ClassVar[list[BindingType]] = modal_bindings(
         Binding(
             SAVE_SHORTCUT,
             "edit",
@@ -285,7 +278,14 @@ class EditTopicScreen(HelpableModalScreen[bool]):
             tooltip="Apply the edited Kafka topic configuration.",
             id="kaskade.edit-topic.save",
         ),
-    ]
+        Binding(
+            BACK_SHORTCUT,
+            "back",
+            "Back",
+            tooltip="Close the editor without saving changes.",
+            id="kaskade.edit-topic.close",
+        ),
+    )
 
     def __init__(
         self,
@@ -368,14 +368,7 @@ class EditTopicScreen(HelpableModalScreen[bool]):
 class CreateTopicScreen(HelpableModalScreen[NewTopic]):
     BINDING_GROUP_TITLE = "Create Topic"
     AUTO_FOCUS = "#name"
-    BINDINGS: ClassVar[list[BindingType]] = [
-        Binding(
-            BACK_SHORTCUT,
-            "back",
-            "Back",
-            tooltip="Close the form without creating a topic.",
-            id="kaskade.create-topic.close",
-        ),
+    BINDINGS: ClassVar[list[BindingType]] = modal_bindings(
         Binding(
             SAVE_SHORTCUT,
             "create",
@@ -383,7 +376,14 @@ class CreateTopicScreen(HelpableModalScreen[NewTopic]):
             tooltip="Create the topic with the configured values.",
             id="kaskade.create-topic.save",
         ),
-    ]
+        Binding(
+            BACK_SHORTCUT,
+            "back",
+            "Back",
+            tooltip="Close the form without creating a topic.",
+            id="kaskade.create-topic.close",
+        ),
+    )
 
     def compose(self) -> ComposeResult:
         input_name = Input(

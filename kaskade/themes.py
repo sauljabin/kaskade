@@ -55,14 +55,6 @@ class KaskadeApp(App, inherit_bindings=False):
     ]
     BINDINGS: ClassVar[list[BindingType]] = [
         Binding(
-            "?,f1",
-            "toggle_help",
-            "Help",
-            key_display="?",
-            tooltip="Show all shortcuts available in the current context.",
-            id="help.toggle",
-        ),
-        Binding(
             "ctrl+c",
             "quit",
             "Quit",
@@ -70,6 +62,14 @@ class KaskadeApp(App, inherit_bindings=False):
             priority=True,
             tooltip="Quit Kaskade and return to the command prompt.",
             id="app.quit",
+        ),
+        Binding(
+            "?,f1",
+            "toggle_help",
+            "Help",
+            key_display="?",
+            tooltip="Show all shortcuts available in the current context.",
+            id="help.toggle",
         ),
         Binding(
             ":,ctrl+p",

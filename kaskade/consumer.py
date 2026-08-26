@@ -14,7 +14,7 @@ from kaskade.deserializers import (
     Deserialization,
     DeserializerPool,
 )
-from kaskade.help import HelpableModalScreen
+from kaskade.help import HelpableModalScreen, modal_bindings
 from kaskade.models import Record
 from kaskade.services import ConsumerService
 from kaskade.themes import KaskadeApp
@@ -35,7 +35,7 @@ CONSUMER_EXCEPTIONS: tuple[type[Exception], ...] = (
 class FilterRecordScreen(HelpableModalScreen[tuple[str, str, str, str]]):
     BINDING_GROUP_TITLE = "Filter Records"
     AUTO_FOCUS = "#key"
-    BINDINGS: ClassVar[list[BindingType]] = [
+    BINDINGS: ClassVar[list[BindingType]] = modal_bindings(
         Binding(
             SUBMIT_SHORTCUT,
             "apply_filters",
@@ -51,7 +51,7 @@ class FilterRecordScreen(HelpableModalScreen[tuple[str, str, str, str]]):
             tooltip="Close the filter without applying it.",
             id="kaskade.filter-records.close",
         ),
-    ]
+    )
 
     def __init__(self) -> None:
         super().__init__()
@@ -118,7 +118,7 @@ class ChunkSizeScreen(HelpableModalScreen[int]):
     BINDING_GROUP_TITLE = "Chunk Size"
     AUTO_FOCUS = "#chunk-size"
     CHUNK_SIZES = ("25", "50", "100", "500", "1000", "1500")
-    BINDINGS: ClassVar[list[BindingType]] = [
+    BINDINGS: ClassVar[list[BindingType]] = modal_bindings(
         Binding(
             SUBMIT_SHORTCUT,
             "select",
@@ -134,7 +134,7 @@ class ChunkSizeScreen(HelpableModalScreen[int]):
             tooltip="Keep the current chunk size.",
             id="kaskade.chunk-size.close",
         ),
-    ]
+    )
 
     def __init__(self, current_size: int):
         super().__init__()
@@ -171,7 +171,7 @@ class ChunkSizeScreen(HelpableModalScreen[int]):
 class TopicScreen(HelpableModalScreen):
     BINDING_GROUP_TITLE = "Record Details"
     AUTO_FOCUS = ".record-details"
-    BINDINGS: ClassVar[list[BindingType]] = [
+    BINDINGS: ClassVar[list[BindingType]] = modal_bindings(
         Binding(
             BACK_SHORTCUT,
             "close",
@@ -179,7 +179,7 @@ class TopicScreen(HelpableModalScreen):
             tooltip="Close the record details.",
             id="kaskade.record-details.close",
         )
-    ]
+    )
 
     def __init__(self, topic: str, partition: int, offset: int, data: dict[str, Any]):
         super().__init__()

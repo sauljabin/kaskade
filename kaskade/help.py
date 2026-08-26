@@ -147,13 +147,19 @@ class HelpScreen(ModalScreen[None]):
 class HelpableModalScreen(ModalScreen[ScreenResult], Generic[ScreenResult]):
     """A Kaskade modal that can open contextual help without capturing text."""
 
-    BINDINGS: ClassVar[list[BindingType]] = [
-        Binding(
-            "?,f1",
-            "app.toggle_help",
-            "Help",
-            key_display="?",
-            tooltip="Show all shortcuts available in the current context.",
-            id="help.toggle",
-        )
-    ]
+    BINDINGS: ClassVar[list[BindingType]] = []
+
+
+HELP_BINDING = Binding(
+    "?,f1",
+    "app.toggle_help",
+    "Help",
+    key_display="?",
+    tooltip="Show all shortcuts available in the current context.",
+    id="help.toggle",
+)
+
+
+def modal_bindings(*bindings: BindingType) -> list[BindingType]:
+    """Place contextual modal commands before the shared Help command."""
+    return [*bindings, HELP_BINDING]
