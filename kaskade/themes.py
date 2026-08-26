@@ -8,7 +8,7 @@ from textual.app import App, SystemCommand
 from textual.binding import Binding, BindingType
 from textual.screen import Screen
 from textual.theme import BUILTIN_THEMES, Theme
-from textual.widgets import HelpPanel
+from textual.widgets import HelpPanel, KeyPanel
 
 from kaskade.keymaps import NAVIGATION_BINDING_IDS, load_keymap
 
@@ -79,6 +79,66 @@ class KaskadeApp(App):
             tooltip="Search available Kaskade and Textual commands.",
             id="app.command-palette",
         ),
+        Binding(
+            "up,k",
+            "scroll_help('up')",
+            "Scroll Help Up",
+            priority=True,
+            show=False,
+            system=True,
+            tooltip="Scroll the open help panel up one row.",
+            id="kaskade.navigation.up",
+        ),
+        Binding(
+            "down,j",
+            "scroll_help('down')",
+            "Scroll Help Down",
+            priority=True,
+            show=False,
+            system=True,
+            tooltip="Scroll the open help panel down one row.",
+            id="kaskade.navigation.down",
+        ),
+        Binding(
+            "pageup",
+            "scroll_help('page-up')",
+            "Scroll Help Page Up",
+            priority=True,
+            show=False,
+            system=True,
+            tooltip="Scroll the open help panel up one page.",
+            id="kaskade.navigation.page-up",
+        ),
+        Binding(
+            "pagedown",
+            "scroll_help('page-down')",
+            "Scroll Help Page Down",
+            priority=True,
+            show=False,
+            system=True,
+            tooltip="Scroll the open help panel down one page.",
+            id="kaskade.navigation.page-down",
+        ),
+        Binding(
+            "home,g",
+            "scroll_help('home')",
+            "Scroll Help to Top",
+            priority=True,
+            show=False,
+            system=True,
+            tooltip="Scroll the open help panel to the top.",
+            id="kaskade.navigation.first",
+        ),
+        Binding(
+            "end,G",
+            "scroll_help('end')",
+            "Scroll Help to Bottom",
+            priority=True,
+            show=False,
+            system=True,
+            tooltip="Scroll the open help panel to the bottom.",
+            id="kaskade.navigation.last",
+        ),
     ]
 
     def __init__(self, *, keymap_path: Path | None = None) -> None:
@@ -107,6 +167,28 @@ class KaskadeApp(App):
             self.action_hide_help_panel()
         else:
             self.action_show_help_panel()
+
+    def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
+        """Enable priority scrolling bindings only while help is visible."""
+        if action == "scroll_help":
+            return bool(self.screen.query(HelpPanel))
+        return super().check_action(action, parameters)
+
+    def action_scroll_help(self, direction: str) -> None:
+        """Scroll help without taking focus from its contextual source widget."""
+        key_panel = self.screen.query_one(HelpPanel).query_one(KeyPanel)
+        if direction == "up":
+            key_panel.scroll_up()
+        elif direction == "down":
+            key_panel.scroll_down()
+        elif direction == "page-up":
+            key_panel.scroll_page_up()
+        elif direction == "page-down":
+            key_panel.scroll_page_down()
+        elif direction == "home":
+            key_panel.scroll_home()
+        else:
+            key_panel.scroll_end()
 
     def get_system_commands(self, screen: Screen) -> Iterable[SystemCommand]:
         """Add active Kaskade bindings to Textual's command palette."""

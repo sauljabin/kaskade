@@ -4,7 +4,16 @@ from unittest.mock import AsyncMock, patch
 from textual.command import CommandPalette
 from textual.containers import ScrollableContainer
 from textual.theme import BUILTIN_THEMES, ThemeProvider
-from textual.widgets import DataTable, Footer, HelpPanel, Input, OptionList, TabbedContent, TabPane
+from textual.widgets import (
+    DataTable,
+    Footer,
+    HelpPanel,
+    Input,
+    KeyPanel,
+    OptionList,
+    TabbedContent,
+    TabPane,
+)
 from textual.widgets._footer import FooterKey
 
 from kaskade.admin import (
@@ -102,7 +111,10 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
     async def test_uses_footer_and_toggles_the_native_help_panel(self):
         with patch("kaskade.admin.TopicService") as topic_service:
             topic_service.return_value.all = AsyncMock(
-                return_value={"orders": Topic(name="orders")}
+                return_value={
+                    "orders": Topic(name="orders"),
+                    "payments": Topic(name="payments"),
+                }
             )
             app = KaskadeAdmin({})
 
@@ -126,8 +138,19 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 await pilot.press("?")
                 self.assertIsInstance(app.screen.query_one(HelpPanel), HelpPanel)
 
+                help_keys = app.screen.query_one(HelpPanel).query_one(KeyPanel)
+                self.assertIs(table, app.screen.focused)
+                self.assertEqual(0, help_keys.scroll_y)
+                await pilot.press("pagedown")
+                await pilot.pause()
+                self.assertGreater(help_keys.scroll_y, 0)
+                self.assertEqual(0, table.cursor_row)
+
                 await pilot.press("?")
                 self.assertFalse(app.screen.query(HelpPanel))
+
+                await pilot.press("j")
+                self.assertEqual(1, table.cursor_row)
 
                 await pilot.press(":")
                 self.assertIsInstance(app.screen, CommandPalette)
