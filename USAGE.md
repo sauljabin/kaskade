@@ -57,6 +57,13 @@ Plain-character application shortcuts do not intercept typing in filter and edit
 
 On Linux and macOS, Kaskade reads `$XDG_CONFIG_HOME/kaskade/config.yaml`. If `XDG_CONFIG_HOME` is not set, it reads `~/.config/kaskade/config.yaml`. Set `KASKADE_CONFIG` to use a different file.
 
+Copy the complete example to the default location before customizing it:
+
+```bash
+mkdir -p ~/.config/kaskade
+cp examples/config.yaml ~/.config/kaskade/config.yaml
+```
+
 The `keymap` values use Textual key names. Separate keys with commas to assign aliases:
 
 ```yaml
