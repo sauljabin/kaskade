@@ -41,7 +41,7 @@ Kaskade supports arrow keys and Vim-style navigation. The defaults follow famili
 | Back or clear a filter | `Esc` |
 | Help | `?` or `F1` |
 | Command palette | `:` or `Ctrl+P` |
-| Quit | `Ctrl+C` or `Ctrl+Q` |
+| Quit | `Ctrl+C` |
 | Filter | `/` or `Ctrl+F` |
 | Describe a topic | `d` or `Enter` |
 | Create a topic | `n` or `Ctrl+N` |
@@ -68,7 +68,7 @@ The `keymap` values use Textual key names. Separate keys with commas to assign a
 
 ```yaml
 keymap:
-  app.quit: ctrl+c,ctrl+q
+  app.quit: ctrl+c
   help.toggle: question_mark,f1
   kaskade.navigation.down: down,j
   kaskade.navigation.up: up,k

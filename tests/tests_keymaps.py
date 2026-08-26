@@ -97,7 +97,7 @@ class TestKeymapConfiguration(unittest.TestCase):
             path = Path(temporary_directory) / "config.yaml"
             path.write_text(
                 """keymap:
-  app.quit: ctrl+c,ctrl+q
+  app.quit: ctrl+c
   kaskade.navigation.down: down,j
   kaskade.topics.filter: slash
 """,
@@ -108,7 +108,7 @@ class TestKeymapConfiguration(unittest.TestCase):
 
         self.assertEqual(
             {
-                "app.quit": "ctrl+c,ctrl+q",
+                "app.quit": "ctrl+c",
                 "kaskade.navigation.down": "down,j",
                 "kaskade.topics.filter": "slash",
             },

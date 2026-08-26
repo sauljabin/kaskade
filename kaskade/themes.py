@@ -62,7 +62,7 @@ class KaskadeApp(App):
             id="help.toggle",
         ),
         Binding(
-            "ctrl+c,ctrl+q",
+            "ctrl+c",
             "quit",
             "Quit",
             key_display="ctrl+c",

@@ -2,7 +2,7 @@
 # Values are Textual key names; use commas to assign multiple keys.
 keymap:
   # Application
-  app.quit: ctrl+c,ctrl+q
+  app.quit: ctrl+c
   app.command-palette: colon,ctrl+p
   help.toggle: question_mark,f1
 
