@@ -1,9 +1,10 @@
 import unittest
 from unittest.mock import AsyncMock, patch
 
+from textual.command import CommandPalette
 from textual.containers import ScrollableContainer
 from textual.theme import BUILTIN_THEMES, ThemeProvider
-from textual.widgets import DataTable, Footer, HelpPanel, OptionList, TabbedContent, TabPane
+from textual.widgets import DataTable, Footer, HelpPanel, Input, OptionList, TabbedContent, TabPane
 from textual.widgets._footer import FooterKey
 
 from kaskade.admin import (
@@ -30,7 +31,7 @@ from kaskade.themes import (
     KaskadeApp,
     available_theme_names,
 )
-from kaskade.widgets import StretchyDataTable
+from kaskade.widgets import KaskadeOptionList, KaskadeScrollableContainer, StretchyDataTable
 
 
 class TestThemes(unittest.TestCase):
@@ -81,6 +82,9 @@ class TestThemes(unittest.TestCase):
             ChunkSizeScreen,
             TopicScreen,
             ListRecords,
+            StretchyDataTable,
+            KaskadeOptionList,
+            KaskadeScrollableContainer,
         )
 
         for owner in binding_owners:
@@ -115,14 +119,58 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                     {"Describe", "Filter", "Refresh", "Create", "Quit", "Palette"}
                     <= active_descriptions
                 )
-                palette_keys = [key for key in app.query(FooterKey) if key.key == "ctrl+p"]
+                palette_keys = [key for key in app.query(FooterKey) if key.key_display == ":"]
                 self.assertEqual(1, len(palette_keys))
                 self.assertEqual("Palette", palette_keys[0].description)
 
-                await pilot.press("f1")
+                await pilot.press("?")
                 self.assertIsInstance(app.screen.query_one(HelpPanel), HelpPanel)
 
-                await pilot.press("f1")
+                await pilot.press("?")
+                self.assertFalse(app.screen.query(HelpPanel))
+
+                await pilot.press(":")
+                self.assertIsInstance(app.screen, CommandPalette)
+
+    async def test_admin_supports_vim_navigation(self):
+        with patch("kaskade.admin.TopicService") as topic_service:
+            topic_service.return_value.all = AsyncMock(
+                return_value={
+                    "alpha": Topic(name="alpha"),
+                    "bravo": Topic(name="bravo"),
+                    "charlie": Topic(name="charlie"),
+                }
+            )
+            app = KaskadeAdmin({})
+
+            async with app.run_test() as pilot:
+                await pilot.pause()
+                table = app.query_one("#topics-table", DataTable)
+
+                self.assertEqual(0, table.cursor_row)
+                await pilot.press("j")
+                self.assertEqual(1, table.cursor_row)
+                await pilot.press("k")
+                self.assertEqual(0, table.cursor_row)
+                await pilot.press("G")
+                self.assertEqual(2, table.cursor_row)
+                await pilot.press("g")
+                self.assertEqual(0, table.cursor_row)
+
+    async def test_plain_shortcuts_do_not_intercept_filter_input(self):
+        with patch("kaskade.admin.TopicService") as topic_service:
+            topic_service.return_value.all = AsyncMock(return_value={})
+            app = KaskadeAdmin({})
+
+            async with app.run_test() as pilot:
+                await pilot.pause()
+                await pilot.press("/")
+                await pilot.pause()
+                filter_input = app.screen.query_one("#topic-filter", Input)
+
+                await pilot.press(":", "?")
+
+                self.assertEqual(":?", filter_input.value)
                 self.assertFalse(app.screen.query(HelpPanel))
 
     async def test_admin_uses_title_case_labels_and_contextual_palette_commands(self):
@@ -239,6 +287,11 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 self.assertGreater(partitions.content_region.height, 0)
                 self.assertFalse(partitions.show_horizontal_scrollbar)
                 self.assertIsInstance(app.screen.query_one(Footer), Footer)
+
+                await pilot.press("l")
+                self.assertEqual("groups", tabs.active)
+                await pilot.press("h")
+                self.assertEqual("partitions", tabs.active)
 
     async def test_chunk_size_uses_an_option_list_with_the_current_value_selected(self):
         with patch("kaskade.admin.TopicService") as topic_service:

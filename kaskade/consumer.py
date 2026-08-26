@@ -4,7 +4,7 @@ from confluent_kafka import KafkaException
 from textual import work
 from textual.app import ComposeResult
 from textual.binding import Binding, BindingType
-from textual.containers import Container, ScrollableContainer
+from textual.containers import Container
 from textual.screen import ModalScreen
 from textual.widgets import DataTable, Footer, Input, OptionList, Pretty
 from textual.widgets.option_list import Option
@@ -19,14 +19,13 @@ from kaskade.models import Record
 from kaskade.services import ConsumerService
 from kaskade.themes import KaskadeApp
 from kaskade.utils import notify_error
-from kaskade.widgets import StretchyDataTable
+from kaskade.widgets import KaskadeOptionList, KaskadeScrollableContainer, StretchyDataTable
 
 CHUNKS_SHORTCUT = "#"
 NEXT_SHORTCUT = "n"
-QUIT_SHORTCUT = "ctrl+q"
 SUBMIT_SHORTCUT = "enter"
 BACK_SHORTCUT = "escape"
-FILTER_SHORTCUT = "ctrl+f"
+FILTER_SHORTCUT = "/,ctrl+f"
 CONSUMER_EXCEPTIONS: tuple[type[Exception], ...] = (
     KafkaException,
     *DESERIALIZATION_EXCEPTIONS,
@@ -129,7 +128,7 @@ class ChunkSizeScreen(ModalScreen[int]):
             return 0
 
     def compose(self) -> ComposeResult:
-        view = OptionList(
+        view = KaskadeOptionList(
             *(Option(size, id=size) for size in self.CHUNK_SIZES),
             id="chunk-size",
             compact=True,
@@ -168,7 +167,7 @@ class TopicScreen(ModalScreen):
         self.record_offset = offset
 
     def compose(self) -> ComposeResult:
-        container = ScrollableContainer(classes="record-details")
+        container = KaskadeScrollableContainer(classes="record-details")
         container.border_title = rf"[{PRIMARY}]Record[/] \[[{PRIMARY}]{self.topic}[/]]\[[{PRIMARY}]{self.partition}[/]]\[[{PRIMARY}]{self.record_offset}[/]]"
         with container:
             yield Pretty(self.data)
@@ -200,6 +199,7 @@ class ListRecords(Container):
             FILTER_SHORTCUT,
             "filter",
             "Filter",
+            key_display="/",
             tooltip="Filter records by key, value, partition, or header.",
             id="kaskade.records.filter",
         ),

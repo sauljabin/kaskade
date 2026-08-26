@@ -22,6 +22,7 @@ dependencies = [
     "cloup>=3.1",
     "textual>=8.2",
     "confluent-kafka[avro,json,protobuf]>=2.15",
+    "pyyaml>=6.0",
 ]
 
 [project.scripts]
@@ -42,6 +43,7 @@ pre-commit = "*"
 ruff = "*"
 mypy = "*"
 types-attrs = "*"
+types-pyyaml = "*"
 types-protobuf = "*"
 changeloggh = "*"
 textual-dev = "*"

@@ -1,5 +1,6 @@
 from collections.abc import Iterable
 from functools import partial
+from pathlib import Path
 from typing import ClassVar
 
 from rich.theme import Theme as RichTheme
@@ -8,6 +9,8 @@ from textual.binding import Binding, BindingType
 from textual.screen import Screen
 from textual.theme import BUILTIN_THEMES, Theme
 from textual.widgets import HelpPanel
+
+from kaskade.keymaps import NAVIGATION_BINDING_IDS, load_keymap
 
 DEFAULT_THEME = "eva01"
 KASKADE_COMMAND_ID_PREFIX = "kaskade."
@@ -44,43 +47,56 @@ class KaskadeApp(App):
 
     TITLE = "Kaskade"
     BINDING_GROUP_TITLE = "Application"
+    COMMAND_PALETTE_BINDING = "colon"
     HORIZONTAL_BREAKPOINTS = [  # noqa: RUF012
         (0, "-narrow"),
         (80, "-wide"),
     ]
     BINDINGS: ClassVar[list[BindingType]] = [
         Binding(
-            "f1",
+            "?,f1",
             "toggle_help",
             "Help",
+            key_display="?",
             tooltip="Show all shortcuts available in the current context.",
             id="help.toggle",
         ),
         Binding(
-            "ctrl+q",
+            "ctrl+c,ctrl+q",
             "quit",
             "Quit",
+            key_display="ctrl+c",
             priority=True,
             tooltip="Quit Kaskade and return to the command prompt.",
             id="app.quit",
         ),
         Binding(
-            "ctrl+p",
+            ":,ctrl+p",
             "command_palette",
             "Palette",
+            key_display=":",
             show=False,
-            priority=True,
             tooltip="Search available Kaskade and Textual commands.",
             id="app.command-palette",
         ),
     ]
 
-    def __init__(self) -> None:
+    def __init__(self, *, keymap_path: Path | None = None) -> None:
         self._rich_theme_pushed = False
         super().__init__()
+        self.keymap_settings = load_keymap(keymap_path)
+        self.set_keymap(self.keymap_settings.keymap)
         self.register_theme(EVA01_THEME)
         self.theme = DEFAULT_THEME
         self._sync_rich_theme()
+
+    def on_mount(self) -> None:
+        for warning_message in self.keymap_settings.warnings:
+            self.notify(
+                warning_message,
+                title="Keymap Configuration",
+                severity="warning",
+            )
 
     def watch_theme(self, _: str) -> None:
         self._sync_rich_theme()
@@ -105,6 +121,7 @@ class KaskadeApp(App):
                 not enabled
                 or binding.id is None
                 or not binding.id.startswith(KASKADE_COMMAND_ID_PREFIX)
+                or binding.id in NAVIGATION_BINDING_IDS
                 or binding.id in command_ids
             ):
                 continue

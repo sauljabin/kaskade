@@ -15,6 +15,7 @@ from textual.widgets import (
     RadioSet,
     TabbedContent,
     TabPane,
+    Tabs,
 )
 
 from kaskade.colors import PRIMARY
@@ -34,17 +35,15 @@ from kaskade.utils import make_it_async, notify_error
 from kaskade.widgets import StretchyDataTable
 
 REFRESH_TABLE_DELAY = 1
-FILTER_TOPICS_SHORTCUT = "ctrl+f"
+FILTER_TOPICS_SHORTCUT = "/,ctrl+f"
 BACK_SHORTCUT = "escape"
 ALL_TOPICS_SHORTCUT = BACK_SHORTCUT
-SUBMIT_SHORTCUT = "enter"
 SAVE_SHORTCUT = "ctrl+s"
-DESCRIBE_TOPIC_SHORTCUT = SUBMIT_SHORTCUT
-NEW_TOPIC_SHORTCUT = "ctrl+n"
+DESCRIBE_TOPIC_SHORTCUT = "d,enter"
+NEW_TOPIC_SHORTCUT = "n,ctrl+n"
 DELETE_TOPIC_SHORTCUT = "ctrl+d"
-EDIT_TOPIC_SHORTCUT = "ctrl+e"
+EDIT_TOPIC_SHORTCUT = "e,ctrl+e"
 REFRESH_TOPICS_SHORTCUT = "ctrl+r"
-QUIT_SHORTCUT = "ctrl+q"
 
 
 class FilterTopicsScreen(ModalScreen[str]):
@@ -126,7 +125,23 @@ class DescribeTopicScreen(ModalScreen):
             "Back",
             tooltip="Close the topic details.",
             id="kaskade.describe-topic.close",
-        )
+        ),
+        Binding(
+            "h",
+            "previous_tab",
+            "Previous Tab",
+            show=False,
+            tooltip="Show the previous topic detail tab.",
+            id="kaskade.navigation.left",
+        ),
+        Binding(
+            "l",
+            "next_tab",
+            "Next Tab",
+            show=False,
+            tooltip="Show the next topic detail tab.",
+            id="kaskade.navigation.right",
+        ),
     ]
 
     def __init__(self, topic: Topic):
@@ -215,6 +230,12 @@ class DescribeTopicScreen(ModalScreen):
 
     def action_close(self) -> None:
         self.dismiss()
+
+    def action_previous_tab(self) -> None:
+        self.query_one(Tabs).action_previous_tab()
+
+    def action_next_tab(self) -> None:
+        self.query_one(Tabs).action_next_tab()
 
 
 class EditTopicScreen(ModalScreen[bool]):
@@ -429,6 +450,7 @@ class ListTopics(Container):
             "describe",
             "Describe",
             priority=True,
+            key_display="d",
             tooltip="Show partitions, groups, and members for the selected topic.",
             id="kaskade.topics.describe",
         ),
@@ -436,6 +458,7 @@ class ListTopics(Container):
             FILTER_TOPICS_SHORTCUT,
             "filter",
             "Filter",
+            key_display="/",
             tooltip="Filter topics by name.",
             id="kaskade.topics.filter",
         ),
@@ -450,6 +473,7 @@ class ListTopics(Container):
             NEW_TOPIC_SHORTCUT,
             "new",
             "Create",
+            key_display="n",
             tooltip="Open the topic creation form.",
             id="kaskade.topics.create",
         ),
@@ -457,6 +481,7 @@ class ListTopics(Container):
             EDIT_TOPIC_SHORTCUT,
             "edit",
             "Edit",
+            key_display="e",
             show=False,
             tooltip="Edit the selected topic configuration.",
             id="kaskade.topics.edit",
