@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import AsyncMock, patch
 
-from textual.command import CommandPalette
+from textual.command import CommandList, CommandPalette
 from textual.containers import ScrollableContainer
 from textual.theme import BUILTIN_THEMES, ThemeProvider
 from textual.widgets import (
@@ -209,6 +209,12 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                     if binding.description == "Quit"
                 )
                 self.assertEqual(("ctrl+c",), quit_binding.keys)
+                binding_keys = {
+                    binding.description: binding.keys for binding in help_screen.help_bindings
+                }
+                self.assertEqual(("?", "f1"), binding_keys["Help"])
+                self.assertEqual((":", "^p"), binding_keys["Commands"])
+                self.assertEqual(("d", "⏎"), binding_keys["Describe"])
                 await pilot.press("pagedown")
                 await pilot.pause()
                 self.assertGreater(help_table.cursor_row, 0)
@@ -231,6 +237,20 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 await pilot.resize_terminal(120, 30)
                 await pilot.pause()
                 self.assertEqual(72, palette_input.region.width)
+
+                palette_input.value = "help"
+                await pilot.pause()
+                command_list = app.screen.query_one(CommandList)
+                command_list.highlighted = next(
+                    index
+                    for index in range(command_list.option_count)
+                    if command_list.get_option_at_index(index).hit.text == "Help"
+                )
+                await pilot.press("enter")
+                await pilot.pause()
+
+                self.assertIsInstance(app.screen, HelpScreen)
+                self.assertEqual("Topics", app.screen.context)
 
     async def test_admin_supports_vim_navigation(self):
         with patch("kaskade.admin.TopicService") as topic_service:
@@ -364,8 +384,19 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 self.assertFalse(table.show_horizontal_scrollbar)
                 self.assertIn("Topics", table.border_title)
                 self.assertTrue(
-                    {"Theme", "Describe", "Filter", "Refresh", "Create"} <= command_titles
+                    {
+                        "Theme",
+                        "Quit",
+                        "Help",
+                        "Screenshot",
+                        "Describe",
+                        "Filter",
+                        "Refresh",
+                        "Create",
+                    }
+                    <= command_titles
                 )
+                self.assertNotIn("Keys", command_titles)
                 self.assertTrue({"Maximize", "Minimize"}.isdisjoint(command_titles))
 
                 app.screen.action_maximize()

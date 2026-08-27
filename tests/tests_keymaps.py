@@ -229,16 +229,23 @@ class TestConfiguredKeymap(unittest.IsolatedAsyncioTestCase):
     async def test_app_applies_configured_keymap(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
             path = Path(temporary_directory) / "config.yaml"
-            path.write_text("keymap:\n  help.toggle: x\n", encoding="utf-8")
+            path.write_text("keymap:\n  help.toggle: x,y\n", encoding="utf-8")
             app = KaskadeApp(keymap_path=path)
 
             async with app.run_test() as pilot:
                 await pilot.press("x")
 
                 self.assertIsInstance(app.screen, HelpScreen)
+                help_binding = next(
+                    binding for binding in app.screen.help_bindings if binding.description == "Help"
+                )
+                self.assertEqual(("x", "y"), help_binding.keys)
 
                 await pilot.press("x")
                 self.assertNotIsInstance(app.screen, HelpScreen)
+
+                await pilot.press("y")
+                self.assertIsInstance(app.screen, HelpScreen)
 
     async def test_app_applies_navigation_override_to_child_widgets(self):
         with tempfile.TemporaryDirectory() as temporary_directory:

@@ -78,7 +78,8 @@ Kaskade follows familiar k9s/Vim-style terminal interactions where practical:
   text input.
 - Keep Textual's command palette on `:` with `ctrl+p` as an alternative. Expose
   contextual Kaskade actions in it, omit duplicate navigation actions, and do
-  not expose Textual maximize/minimize commands.
+  not expose Textual maximize/minimize commands. Replace Textual's generic Keys
+  command with Kaskade's contextual Help window.
 
 ### Footer command order
 
@@ -100,6 +101,8 @@ primary action.
 Help is a dedicated centered `ModalScreen`, not a sidebar. It must:
 
 - Snapshot the bindings of the screen beneath it and group them by context.
+- Show every effective shortcut alias for each action while leaving compact
+  Footer key displays unchanged.
 - Put keyboard focus on its command table so arrows and page navigation work
   without a mouse, then restore the previous focus when it closes.
 - Use the contextual border title `Help — <Context>`.
