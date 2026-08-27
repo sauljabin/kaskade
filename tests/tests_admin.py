@@ -69,6 +69,18 @@ class TestCreateTopic(unittest.IsolatedAsyncioTestCase):
 
 
 class TestAdminRefresh(unittest.IsolatedAsyncioTestCase):
+    async def test_command_line_interval_overrides_config(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            config_path = Path(temporary_directory) / "config.yaml"
+            config_path.write_text(
+                "admin:\n  refresh_interval_seconds: 60\n",
+                encoding="utf-8",
+            )
+            with patch.dict(os.environ, {CONFIG_ENV_VAR: str(config_path)}):
+                app = KaskadeAdmin({}, refresh_interval=10)
+
+                self.assertEqual(10, app.auto_refresh_interval)
+
     async def test_can_disable_auto_refresh(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             config_path = Path(temporary_directory) / "config.yaml"

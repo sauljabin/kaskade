@@ -48,7 +48,8 @@ warnings in the application.
   automatic, manual, resumed, or post-mutation refresh work.
 - Admin auto-refresh defaults to 30 seconds, pauses while another screen is
   open, and is configured with `admin.refresh_interval_seconds` in Kaskade's
-  YAML configuration. A value of `0` disables it.
+  YAML configuration or overridden per session with `admin --refresh-interval`.
+  A value of `0` disables it.
 
 ## TUI Interaction Conventions
 

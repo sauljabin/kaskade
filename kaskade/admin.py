@@ -1016,10 +1016,18 @@ class KaskadeAdmin(KaskadeApp):
     TITLE = "Kaskade Admin"
     AUTO_FOCUS = "#topics-table"
 
-    def __init__(self, kafka_config: dict[str, Any]):
+    def __init__(
+        self,
+        kafka_config: dict[str, Any],
+        refresh_interval: int | None = None,
+    ):
         super().__init__()
         self.kafka_config = kafka_config
-        self.auto_refresh_interval = self.keymap_settings.admin_refresh_interval_seconds
+        self.auto_refresh_interval = (
+            self.keymap_settings.admin_refresh_interval_seconds
+            if refresh_interval is None
+            else refresh_interval
+        )
         self._auto_refresh_timer: Any | None = None
 
     def on_mount(self) -> None:

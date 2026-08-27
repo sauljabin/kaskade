@@ -41,6 +41,15 @@ admin:
 
 Use `0` to disable auto-refresh. Enabled intervals must be at least 5 seconds. Missing or invalid values use the 30-second default and invalid values produce an in-app warning.
 
+Override the configured interval for one admin session with `--refresh-interval`:
+
+```bash
+kaskade admin -b my-kafka:9092 --refresh-interval 10
+kaskade admin -b my-kafka:9092 --refresh-interval 0
+```
+
+The command-line value takes precedence over `config.yaml`. As with the YAML setting, `0` disables auto-refresh and enabled intervals must be at least 5 seconds.
+
 ### Keyboard shortcuts
 
 Kaskade supports arrow keys and Vim-style navigation. The defaults follow familiar k9s conventions where the applications have equivalent actions.

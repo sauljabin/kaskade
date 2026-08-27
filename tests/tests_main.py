@@ -46,7 +46,9 @@ class TestAdminCli(unittest.TestCase):
     def test_update_kafka_config(self, mock_class_kaskade_admin):
         result = self.runner.invoke(cli, [self.command, "-b", EXPECTED_SERVER])
 
-        mock_class_kaskade_admin.assert_called_with({BOOTSTRAP_SERVERS: EXPECTED_SERVER})
+        mock_class_kaskade_admin.assert_called_with(
+            {BOOTSTRAP_SERVERS: EXPECTED_SERVER}, refresh_interval=None
+        )
         self.assertEqual(0, result.exit_code)
 
     @patch("kaskade.main.KaskadeAdmin")
@@ -56,7 +58,8 @@ class TestAdminCli(unittest.TestCase):
         )
 
         mock_class_kaskade_admin.assert_called_with(
-            {BOOTSTRAP_SERVERS: EXPECTED_SERVER, "security.protocol": "SSL"}
+            {BOOTSTRAP_SERVERS: EXPECTED_SERVER, "security.protocol": "SSL"},
+            refresh_interval=None,
         )
         self.assertEqual(0, result.exit_code)
 
@@ -76,7 +79,8 @@ class TestAdminCli(unittest.TestCase):
         )
 
         mock_class_kaskade_admin.assert_called_with(
-            {BOOTSTRAP_SERVERS: EXPECTED_SERVER, "security.protocol": "SASL_SSL"}
+            {BOOTSTRAP_SERVERS: EXPECTED_SERVER, "security.protocol": "SASL_SSL"},
+            refresh_interval=None,
         )
         self.assertEqual(0, result.exit_code)
 
@@ -105,6 +109,39 @@ class TestAdminCli(unittest.TestCase):
         self.assertIn("Invalid value for '--theme'", result.output)
 
     @patch("kaskade.main.KaskadeAdmin")
+    def test_pass_refresh_interval(self, mock_class_kaskade_admin):
+        result = self.runner.invoke(
+            cli,
+            [self.command, "-b", EXPECTED_SERVER, "--refresh-interval", "10"],
+        )
+
+        mock_class_kaskade_admin.assert_called_with(
+            {BOOTSTRAP_SERVERS: EXPECTED_SERVER}, refresh_interval=10
+        )
+        self.assertEqual(0, result.exit_code)
+
+    @patch("kaskade.main.KaskadeAdmin")
+    def test_disable_refresh_interval(self, mock_class_kaskade_admin):
+        result = self.runner.invoke(
+            cli,
+            [self.command, "-b", EXPECTED_SERVER, "--refresh-interval", "0"],
+        )
+
+        mock_class_kaskade_admin.assert_called_with(
+            {BOOTSTRAP_SERVERS: EXPECTED_SERVER}, refresh_interval=0
+        )
+        self.assertEqual(0, result.exit_code)
+
+    def test_reject_refresh_interval_below_minimum(self):
+        result = self.runner.invoke(
+            cli,
+            [self.command, "-b", EXPECTED_SERVER, "--refresh-interval", "4"],
+        )
+
+        self.assertGreater(result.exit_code, 0)
+        self.assertIn("Should be 0 or at least 5 seconds", result.output)
+
+    @patch("kaskade.main.KaskadeAdmin")
     def test_update_kafka_config_with_extra_config(self, mock_class_kaskade_admin):
         expected_property_name = "property.name"
         expected_property_value = "property.value"
@@ -121,7 +158,8 @@ class TestAdminCli(unittest.TestCase):
         )
 
         mock_class_kaskade_admin.assert_called_with(
-            {BOOTSTRAP_SERVERS: EXPECTED_SERVER, expected_property_name: expected_property_value}
+            {BOOTSTRAP_SERVERS: EXPECTED_SERVER, expected_property_name: expected_property_value},
+            refresh_interval=None,
         )
         self.assertEqual(0, result.exit_code)
 
@@ -150,7 +188,8 @@ class TestAdminCli(unittest.TestCase):
                 BOOTSTRAP_SERVERS: EXPECTED_SERVER,
                 expected_property_name: expected_property_value,
                 expected_property_name2: expected_property_value2,
-            }
+            },
+            refresh_interval=None,
         )
         self.assertEqual(0, result.exit_code)
 

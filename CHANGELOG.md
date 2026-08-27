@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Add configurable admin auto-refresh with modal-aware pause and resume behavior
+- Add configurable admin auto-refresh, including a command-line override, with modal-aware pause and resume behavior
 
 ### Changed
 
