@@ -22,7 +22,7 @@ from kaskade.deserializers import (
     RegistryDeserializer,
     StringDeserializer,
 )
-from kaskade.models import Header
+from kaskade.models import Header, Record
 from kaskade.utils import file_to_str, py_to_avro
 from tests import faker
 from tests.protobuf_model.user_pb2 import User
@@ -47,8 +47,23 @@ class TestDeserializer(unittest.TestCase):
     def test_missing_deserializer_configuration_raises_deserialization_error(self):
         pool = DeserializerPool()
 
-        with self.assertRaisesRegex(DeserializationError, "Schema Registry is not configured"):
-            pool.get(Deserialization.REGISTRY)
+        missing_configurations = {
+            Deserialization.REGISTRY: "Schema Registry is not configured",
+            Deserialization.AVRO: "Avro is not configured",
+            Deserialization.PROTOBUF: "Protobuf is not configured",
+        }
+        for deserialization, message in missing_configurations.items():
+            with (
+                self.subTest(deserialization=deserialization),
+                self.assertRaisesRegex(DeserializationError, message),
+            ):
+                pool.get(deserialization)
+
+    def test_pool_reuses_configured_deserializers(self):
+        pool = DeserializerPool()
+
+        self.assertIs(pool.get(Deserialization.STRING), pool.get(Deserialization.STRING))
+        self.assertIs(pool.default_deserializer, pool.get(Deserialization.BYTES))
 
     def test_header_falls_back_to_binary_value_for_deserialization_error(self):
         value = b"invalid"
@@ -57,6 +72,28 @@ class TestDeserializer(unittest.TestCase):
         header = Header(value=value, value_deserializer=deserializer)
 
         self.assertEqual(str(value), header.value_deserialized())
+        self.assertEqual(str(value), header.value_deserialized())
+        deserializer.deserialize.assert_called_once_with(value)
+
+    def test_record_caches_successful_deserialization(self):
+        key_deserializer = MagicMock()
+        key_deserializer.deserialize.return_value = "customer-1"
+        value_deserializer = MagicMock()
+        value_deserializer.deserialize.return_value = {"total": 10}
+        record = Record(
+            topic="orders",
+            key=b"customer-1",
+            value=b"payload",
+            key_deserializer=key_deserializer,
+            value_deserializer=value_deserializer,
+        )
+
+        self.assertEqual("customer-1", record.key_str())
+        self.assertEqual("customer-1", record.key_str())
+        self.assertEqual("{'total': 10}", record.value_str())
+        self.assertEqual("{'total': 10}", record.value_str())
+        key_deserializer.deserialize.assert_called_once()
+        value_deserializer.deserialize.assert_called_once()
 
     def test_header_propagates_unexpected_errors(self):
         deserializer = MagicMock()

@@ -40,7 +40,6 @@ It includes features like:
 Kaskade does not include:
 
 - Schema Registry for protobuf.
-- Runtime auto-refresh.
 
 ## Screenshots
 

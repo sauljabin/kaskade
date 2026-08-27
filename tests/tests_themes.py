@@ -43,6 +43,7 @@ from kaskade.themes import (
     available_theme_names,
 )
 from kaskade.widgets import KaskadeOptionList, KaskadeScrollableContainer, StretchyDataTable
+from tests import configure_admin_service
 
 
 class TestThemes(unittest.TestCase):
@@ -139,11 +140,12 @@ class TestThemes(unittest.TestCase):
 class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
     async def test_uses_footer_and_opens_a_keyboard_navigable_help_window(self):
         with patch("kaskade.admin.TopicService") as topic_service:
-            topic_service.return_value.all = AsyncMock(
-                return_value={
+            configure_admin_service(
+                topic_service.return_value,
+                {
                     "orders": Topic(name="orders"),
                     "payments": Topic(name="payments"),
-                }
+                },
             )
             app = KaskadeAdmin({})
 
@@ -232,12 +234,13 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
 
     async def test_admin_supports_vim_navigation(self):
         with patch("kaskade.admin.TopicService") as topic_service:
-            topic_service.return_value.all = AsyncMock(
-                return_value={
+            configure_admin_service(
+                topic_service.return_value,
+                {
                     "alpha": Topic(name="alpha"),
                     "bravo": Topic(name="bravo"),
                     "charlie": Topic(name="charlie"),
-                }
+                },
             )
             app = KaskadeAdmin({})
 
@@ -257,7 +260,7 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
 
     async def test_plain_shortcuts_do_not_intercept_filter_input(self):
         with patch("kaskade.admin.TopicService") as topic_service:
-            topic_service.return_value.all = AsyncMock(return_value={})
+            configure_admin_service(topic_service.return_value, {})
             app = KaskadeAdmin({})
 
             async with app.run_test() as pilot:
@@ -281,7 +284,7 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
 
     async def test_modal_footers_show_and_run_implicit_submit_actions(self):
         with patch("kaskade.admin.TopicService") as topic_service:
-            topic_service.return_value.all = AsyncMock(return_value={})
+            configure_admin_service(topic_service.return_value, {})
             app = KaskadeAdmin({})
             results: list[object] = []
 
@@ -332,8 +335,9 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
 
     async def test_admin_uses_title_case_labels_and_contextual_palette_commands(self):
         with patch("kaskade.admin.TopicService") as topic_service:
-            topic_service.return_value.all = AsyncMock(
-                return_value={"orders": Topic(name="orders")}
+            configure_admin_service(
+                topic_service.return_value,
+                {"orders": Topic(name="orders")},
             )
             app = KaskadeAdmin({})
 
@@ -427,7 +431,7 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
 
     async def test_topic_details_use_native_tabs_and_a_contextual_footer(self):
         with patch("kaskade.admin.TopicService") as topic_service:
-            topic_service.return_value.all = AsyncMock(return_value={})
+            configure_admin_service(topic_service.return_value, {})
             app = KaskadeAdmin({})
 
             async with app.run_test() as pilot:
@@ -464,7 +468,7 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
 
     async def test_chunk_size_uses_an_option_list_with_the_current_value_selected(self):
         with patch("kaskade.admin.TopicService") as topic_service:
-            topic_service.return_value.all = AsyncMock(return_value={})
+            configure_admin_service(topic_service.return_value, {})
             app = KaskadeAdmin({})
 
             async with app.run_test() as pilot:
@@ -483,7 +487,7 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
     async def test_renders_dark_light_and_ansi_themes(self):
         for theme in (DEFAULT_THEME, "textual-light", "ansi-light"):
             with self.subTest(theme=theme), patch("kaskade.admin.TopicService") as topic_service:
-                topic_service.return_value.all = AsyncMock(return_value={})
+                configure_admin_service(topic_service.return_value, {})
                 app = KaskadeAdmin({})
                 app.theme = theme
 

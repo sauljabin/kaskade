@@ -127,14 +127,7 @@ class JsonDeserializer(Deserializer):
     def deserialize(
         self, data: bytes, topic: str | None = None, context: MessageField = MessageField.NONE
     ) -> Any:
-        if len(data) > 5:
-            magic, _schema_id = unpack(">bI", data[:5])
-            if magic == SCHEMA_REGISTRY_MAGIC_BYTE:
-                # in case that the json has a confluent schema registry magic byte
-                # https://docs.confluent.io/platform/current/schema-registry/fundamentals/serdes-develop/index.html#wire-format
-                return json.loads(data[5:])
-
-        return json.loads(data)
+        return json.loads(_without_confluent_header(data))
 
 
 class RegistryDeserializer(Deserializer):
@@ -203,14 +196,7 @@ class AvroDeserializer(Deserializer):
         if schema_path is None:
             raise DeserializationError("Avro schema file not found")
 
-        if len(data) > 5:
-            magic, _schema_id = unpack(">bI", data[:5])
-            if magic == SCHEMA_REGISTRY_MAGIC_BYTE:
-                # in case that the avro has a confluent schema registry magic byte
-                # https://docs.confluent.io/platform/current/schema-registry/fundamentals/serdes-develop/index.html#wire-format
-                return avro_to_py(schema_path, data[5:])
-
-        return avro_to_py(schema_path, data)
+        return avro_to_py(schema_path, _without_confluent_header(data))
 
 
 class ProtobufDeserializer(Deserializer):
@@ -225,47 +211,48 @@ class ProtobufDeserializer(Deserializer):
     ) -> Any:
         if topic is None:
             raise DeserializationError("Topic name needed")
+        message_class = self._message_class(context)
+        if _has_confluent_header(data):
+            return self._deserialize_confluent(data, topic, context, message_class)
 
-        if context == MessageField.NONE:
-            raise DeserializationError("Context is needed: KEY or VALUE")
+        new_message = message_class()
+        new_message.ParseFromString(data)
+        return MessageToDict(new_message, always_print_fields_with_no_presence=True)
 
+    def _message_class(self, context: MessageField) -> type[Message]:
+        class_name = self._class_name(context)
         if self.descriptor_path is None:
             raise DeserializationError("Descriptor not found")
-
         if self.descriptor_classes is None:
             descriptor = FileDescriptorSet.FromString(file_to_bytes(self.descriptor_path))
             self.descriptor_classes = GetMessages(descriptor.file)
-
-        deserialization_class: type[Message] | None = None
-
-        if context == MessageField.KEY:
-            if self.key_class is None:
-                raise DeserializationError("Protobuf message name not provided for context KEY")
-            deserialization_class = self.descriptor_classes.get(self.key_class)
-
-        if context == MessageField.VALUE:
-            if self.value_class is None:
-                raise DeserializationError("Protobuf message name not provided for context VALUE")
-            deserialization_class = self.descriptor_classes.get(self.value_class)
-
-        if deserialization_class is None:
+        message_class = self.descriptor_classes.get(class_name)
+        if message_class is None:
             raise DeserializationError("Deserialization class not found")
+        return message_class
 
-        if len(data) > 5:
-            magic, _schema_id = unpack(">bI", data[:5])
-            if magic == SCHEMA_REGISTRY_MAGIC_BYTE:
-                # in case that the protobuf has a confluent schema registry magic byte
-                # https://docs.confluent.io/platform/current/schema-registry/fundamentals/serdes-develop/index.html#wire-format
-                deserializer_config = {"use.deprecated.format": False}
-                protobuf_deserializer = ConfluentProtobufDeserializer(
-                    deserialization_class, deserializer_config
-                )
-                new_message = protobuf_deserializer(data, SerializationContext(topic, context))
-                return MessageToDict(new_message, always_print_fields_with_no_presence=True)
+    def _class_name(self, context: MessageField) -> str:
+        if context == MessageField.NONE:
+            raise DeserializationError("Context is needed: KEY or VALUE")
+        class_name = self.key_class if context == MessageField.KEY else self.value_class
+        if class_name is None:
+            raise DeserializationError(
+                f"Protobuf message name not provided for context {context.name}"
+            )
+        return class_name
 
-        new_message = deserialization_class()
-        new_message.ParseFromString(data)
-        return MessageToDict(new_message, always_print_fields_with_no_presence=True)
+    @staticmethod
+    def _deserialize_confluent(
+        data: bytes,
+        topic: str,
+        context: MessageField,
+        message_class: type[Message],
+    ) -> Any:
+        deserializer = ConfluentProtobufDeserializer(
+            message_class, {"use.deprecated.format": False}
+        )
+        message = deserializer(data, SerializationContext(topic, context))
+        return MessageToDict(message, always_print_fields_with_no_presence=True)
 
 
 class DeserializerPool:
@@ -296,34 +283,37 @@ class DeserializerPool:
         self.boolean_deserializer = BooleanDeserializer()
         self.long_deserializer = LongDeserializer()
         self.default_deserializer = DefaultDeserializer()
+        self._deserializers: dict[Deserialization, Deserializer | None] = {
+            Deserialization.STRING: self.string_deserializer,
+            Deserialization.JSON: self.json_deserializer,
+            Deserialization.INTEGER: self.integer_deserializer,
+            Deserialization.LONG: self.long_deserializer,
+            Deserialization.DOUBLE: self.double_deserializer,
+            Deserialization.FLOAT: self.float_deserializer,
+            Deserialization.BOOLEAN: self.boolean_deserializer,
+            Deserialization.REGISTRY: self.registry_deserializer,
+            Deserialization.AVRO: self.avro_deserializer,
+            Deserialization.PROTOBUF: self.protobuf_deserializer,
+        }
 
     def get(self, deserialization_format: Deserialization) -> Deserializer:
-        match deserialization_format:
-            case Deserialization.STRING:
-                return self.string_deserializer
-            case Deserialization.JSON:
-                return self.json_deserializer
-            case Deserialization.INTEGER:
-                return self.integer_deserializer
-            case Deserialization.LONG:
-                return self.long_deserializer
-            case Deserialization.DOUBLE:
-                return self.double_deserializer
-            case Deserialization.FLOAT:
-                return self.float_deserializer
-            case Deserialization.BOOLEAN:
-                return self.boolean_deserializer
-            case Deserialization.REGISTRY:
-                if self.registry_deserializer is None:
-                    raise DeserializationError("Schema Registry is not configured")
-                return self.registry_deserializer
-            case Deserialization.AVRO:
-                if self.avro_deserializer is None:
-                    raise DeserializationError("Avro is not configured")
-                return self.avro_deserializer
-            case Deserialization.PROTOBUF:
-                if self.protobuf_deserializer is None:
-                    raise DeserializationError("Protobuf is not configured")
-                return self.protobuf_deserializer
-            case _:
-                return self.default_deserializer
+        deserializer = self._deserializers.get(deserialization_format, self.default_deserializer)
+        if deserializer is None:
+            configured_name = {
+                Deserialization.REGISTRY: "Schema Registry",
+                Deserialization.AVRO: "Avro",
+                Deserialization.PROTOBUF: "Protobuf",
+            }[deserialization_format]
+            raise DeserializationError(f"{configured_name} is not configured")
+        return deserializer
+
+
+def _has_confluent_header(data: bytes) -> bool:
+    if len(data) <= 5:
+        return False
+    magic = int(unpack(">bI", data[:5])[0])
+    return magic == SCHEMA_REGISTRY_MAGIC_BYTE
+
+
+def _without_confluent_header(data: bytes) -> bytes:
+    return data[5:] if _has_confluent_header(data) else data

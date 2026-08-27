@@ -28,6 +28,28 @@ kaskade admin -b my-kafka:9092 --theme dracula
 
 While Kaskade is running, press `:` (or `Ctrl+P`) and select a theme from the Commands window. Theme changes apply only to the current session.
 
+### Admin auto-refresh
+
+Admin mode refreshes topic metadata and metrics every 30 seconds. Auto-refresh pauses while a dialog, topic details, Help, or the command palette is open, then refreshes after returning to the topic list. Press `Ctrl+R` to refresh immediately.
+
+Configure the interval in Kaskade's `config.yaml`:
+
+```yaml
+admin:
+  refresh_interval_seconds: 30
+```
+
+Use `0` to disable auto-refresh. Enabled intervals must be at least 5 seconds. Missing or invalid values use the 30-second default and invalid values produce an in-app warning.
+
+Override the configured interval for one admin session with `--refresh-interval`:
+
+```bash
+kaskade admin -b my-kafka:9092 --refresh-interval 10
+kaskade admin -b my-kafka:9092 --refresh-interval 0
+```
+
+The command-line value takes precedence over `config.yaml`. As with the YAML setting, `0` disables auto-refresh and enabled intervals must be at least 5 seconds.
+
 ### Keyboard shortcuts
 
 Kaskade supports arrow keys and Vim-style navigation. The defaults follow familiar k9s conventions where the applications have equivalent actions.
@@ -152,7 +174,7 @@ sasl.password=replace-with-your-api-secret
 client.id=kaskade
 ```
 
-This file contains only properties for `confluent-kafka`; Kaskade UI and keymap settings remain in `config.yaml` as documented above. The required `-b/--bootstrap-servers` option sets `bootstrap.servers`, so it does not need to appear in `kafka.properties`.
+This file contains only properties for `confluent-kafka`; Kaskade UI, admin, and keymap settings remain in `config.yaml` as documented above. The required `-b/--bootstrap-servers` option sets `bootstrap.servers`, so it does not need to appear in `kafka.properties`.
 
 Configuration precedence, from lowest to highest, is:
 

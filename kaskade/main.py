@@ -16,6 +16,10 @@ from kaskade.configs import (
 )
 from kaskade.consumer import KaskadeConsumer
 from kaskade.deserializers import Deserialization
+from kaskade.keymaps import (
+    MIN_ADMIN_REFRESH_INTERVAL_SECONDS,
+    is_valid_admin_refresh_interval,
+)
 from kaskade.themes import DEFAULT_THEME, available_theme_names
 from kaskade.utils import load_properties
 
@@ -45,6 +49,16 @@ def string_to_deserializer_type(ctx: Any, param: Any, value: Any) -> Any:
     return Deserialization.from_str(value)
 
 
+def validate_admin_refresh_interval(ctx: Any, param: Any, value: int | None) -> int | None:
+    if value is not None and not is_valid_admin_refresh_interval(value):
+        raise BadParameter(
+            message=f"Should be 0 or at least {MIN_ADMIN_REFRESH_INTERVAL_SECONDS} seconds.",
+            ctx=ctx,
+            param=param,
+        )
+    return value
+
+
 @cloup.group(epilog=EPILOG_HELP)
 @cloup.version_option(APP_VERSION)
 def cli() -> None:
@@ -58,6 +72,13 @@ def cli() -> None:
     default=DEFAULT_THEME,
     show_default=True,
     help="Textual theme to use.",
+)
+@cloup.option(
+    "--refresh-interval",
+    type=int,
+    callback=validate_admin_refresh_interval,
+    metavar="seconds",
+    help="Admin auto-refresh interval. Use 0 to disable; overrides config.yaml.",
 )
 @cloup.option_group(
     "Kafka options",
@@ -91,6 +112,7 @@ def admin(
     kafka_config_file: str | None,
     kafka_config: dict[str, str],
     theme: str,
+    refresh_interval: int | None,
 ) -> None:
     """
     Administrator mode.
@@ -98,6 +120,7 @@ def admin(
     \b
     Examples:
       kaskade admin -b localhost:9092
+      kaskade admin -b localhost:9092 --refresh-interval 10
       kaskade admin -b localhost:9092 --config security.protocol=SSL
       kaskade admin -b localhost:9092 --config-file kafka.properties
     """
@@ -107,7 +130,7 @@ def admin(
 
     kafka_config[BOOTSTRAP_SERVERS] = bootstrap_servers
 
-    kaskade_app = KaskadeAdmin(kafka_config)
+    kaskade_app = KaskadeAdmin(kafka_config, refresh_interval=refresh_interval)
     kaskade_app.theme = theme
     kaskade_app.run()
 

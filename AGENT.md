@@ -1,5 +1,11 @@
 # Agent Instructions
 
+## Code Quality
+
+- Keep cyclomatic complexity at or below 10. The repository-wide Ruff `C901`
+  check is part of `scripts.analyze`; prefer focused named helpers over lint
+  suppressions.
+
 ## Living Knowledge and Documentation
 
 - Treat this file as the project's living operational knowledge. Update it when
@@ -37,6 +43,22 @@ Kaskade has two intentionally separate configuration formats:
 Missing, empty, malformed, or partially invalid Kaskade configuration must not
 make startup fragile. Ignore invalid entries, retain valid entries, and surface
 warnings in the application.
+
+## Admin Data Loading
+
+- Render topic metadata before loading record and consumer-group metrics.
+- Fetch partition offsets with batched Admin API requests and consumer-group
+  offsets with bounded concurrency; do not create temporary consumers for admin
+  metrics.
+- Keep the last complete metrics visible during refreshes and never overlap
+  automatic, manual, resumed, or post-mutation refresh work.
+- Coalesce non-periodic refresh requests behind active work and keep refresh
+  state transitions in the shared coordinator rather than adding independent
+  flags to the topic list.
+- Admin auto-refresh defaults to 30 seconds, pauses while another screen is
+  open, and is configured with `admin.refresh_interval_seconds` in Kaskade's
+  YAML configuration or overridden per session with `admin --refresh-interval`.
+  A value of `0` disables it.
 
 ## TUI Interaction Conventions
 
