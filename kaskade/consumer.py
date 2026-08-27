@@ -4,8 +4,7 @@ from confluent_kafka import KafkaException
 from textual import work
 from textual.app import ComposeResult
 from textual.binding import Binding, BindingType
-from textual.containers import Container, ScrollableContainer
-from textual.screen import ModalScreen
+from textual.containers import Container
 from textual.widgets import DataTable, Footer, Input, OptionList, Pretty
 from textual.widgets.option_list import Option
 
@@ -15,36 +14,44 @@ from kaskade.deserializers import (
     Deserialization,
     DeserializerPool,
 )
+from kaskade.help import HelpableModalScreen, modal_bindings
 from kaskade.models import Record
 from kaskade.services import ConsumerService
 from kaskade.themes import KaskadeApp
 from kaskade.utils import notify_error
-from kaskade.widgets import StretchyDataTable
+from kaskade.widgets import KaskadeOptionList, KaskadeScrollableContainer, StretchyDataTable
 
 CHUNKS_SHORTCUT = "#"
 NEXT_SHORTCUT = "n"
-QUIT_SHORTCUT = "ctrl+q"
 SUBMIT_SHORTCUT = "enter"
 BACK_SHORTCUT = "escape"
-FILTER_SHORTCUT = "ctrl+f"
+FILTER_SHORTCUT = "/,ctrl+f"
 CONSUMER_EXCEPTIONS: tuple[type[Exception], ...] = (
     KafkaException,
     *DESERIALIZATION_EXCEPTIONS,
 )
 
 
-class FilterRecordScreen(ModalScreen[tuple[str, str, str, str]]):
+class FilterRecordScreen(HelpableModalScreen[tuple[str, str, str, str]]):
     BINDING_GROUP_TITLE = "Filter Records"
     AUTO_FOCUS = "#key"
-    BINDINGS: ClassVar[list[BindingType]] = [
+    BINDINGS: ClassVar[list[BindingType]] = modal_bindings(
+        Binding(
+            SUBMIT_SHORTCUT,
+            "apply_filters",
+            "Apply Filters",
+            priority=True,
+            tooltip="Apply the record filters.",
+            id="kaskade.filter-records.apply",
+        ),
         Binding(
             BACK_SHORTCUT,
             "back",
             "Back",
             tooltip="Close the filter without applying it.",
             id="kaskade.filter-records.close",
-        )
-    ]
+        ),
+    )
 
     def __init__(self) -> None:
         super().__init__()
@@ -84,6 +91,9 @@ class FilterRecordScreen(ModalScreen[tuple[str, str, str, str]]):
         yield Footer(compact=True)
 
     def on_input_submitted(self) -> None:
+        self.action_apply_filters()
+
+    def action_apply_filters(self) -> None:
         input_key = self.query_one("#key", Input)
         self.key_filter = input_key.value
 
@@ -104,19 +114,27 @@ class FilterRecordScreen(ModalScreen[tuple[str, str, str, str]]):
         self.dismiss()
 
 
-class ChunkSizeScreen(ModalScreen[int]):
+class ChunkSizeScreen(HelpableModalScreen[int]):
     BINDING_GROUP_TITLE = "Chunk Size"
     AUTO_FOCUS = "#chunk-size"
     CHUNK_SIZES = ("25", "50", "100", "500", "1000", "1500")
-    BINDINGS: ClassVar[list[BindingType]] = [
+    BINDINGS: ClassVar[list[BindingType]] = modal_bindings(
+        Binding(
+            SUBMIT_SHORTCUT,
+            "select",
+            "Select",
+            priority=True,
+            tooltip="Use the highlighted chunk size.",
+            id="kaskade.chunk-size.select",
+        ),
         Binding(
             BACK_SHORTCUT,
             "close",
             "Back",
             tooltip="Keep the current chunk size.",
             id="kaskade.chunk-size.close",
-        )
-    ]
+        ),
+    )
 
     def __init__(self, current_size: int):
         super().__init__()
@@ -129,7 +147,7 @@ class ChunkSizeScreen(ModalScreen[int]):
             return 0
 
     def compose(self) -> ComposeResult:
-        view = OptionList(
+        view = KaskadeOptionList(
             *(Option(size, id=size) for size in self.CHUNK_SIZES),
             id="chunk-size",
             compact=True,
@@ -142,15 +160,18 @@ class ChunkSizeScreen(ModalScreen[int]):
     def action_close(self) -> None:
         self.dismiss()
 
+    def action_select(self) -> None:
+        self.query_one(KaskadeOptionList).action_select()
+
     def on_option_list_option_selected(self, event: OptionList.OptionSelected) -> None:
         chunk_size = int(event.option_id) if event.option_id is not None else self.current_size
         self.dismiss(chunk_size)
 
 
-class TopicScreen(ModalScreen):
+class TopicScreen(HelpableModalScreen):
     BINDING_GROUP_TITLE = "Record Details"
     AUTO_FOCUS = ".record-details"
-    BINDINGS: ClassVar[list[BindingType]] = [
+    BINDINGS: ClassVar[list[BindingType]] = modal_bindings(
         Binding(
             BACK_SHORTCUT,
             "close",
@@ -158,7 +179,7 @@ class TopicScreen(ModalScreen):
             tooltip="Close the record details.",
             id="kaskade.record-details.close",
         )
-    ]
+    )
 
     def __init__(self, topic: str, partition: int, offset: int, data: dict[str, Any]):
         super().__init__()
@@ -168,7 +189,7 @@ class TopicScreen(ModalScreen):
         self.record_offset = offset
 
     def compose(self) -> ComposeResult:
-        container = ScrollableContainer(classes="record-details")
+        container = KaskadeScrollableContainer(classes="record-details")
         container.border_title = rf"[{PRIMARY}]Record[/] \[[{PRIMARY}]{self.topic}[/]]\[[{PRIMARY}]{self.partition}[/]]\[[{PRIMARY}]{self.record_offset}[/]]"
         with container:
             yield Pretty(self.data)
@@ -200,6 +221,7 @@ class ListRecords(Container):
             FILTER_SHORTCUT,
             "filter",
             "Filter",
+            key_display="/",
             tooltip="Filter records by key, value, partition, or header.",
             id="kaskade.records.filter",
         ),
@@ -411,7 +433,6 @@ class ListRecords(Container):
 class KaskadeConsumer(KaskadeApp):
     TITLE = "Kaskade Consumer"
     AUTO_FOCUS = "#records-table"
-    CSS_PATH = "styles.css"
 
     def __init__(
         self,

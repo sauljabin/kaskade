@@ -1,14 +1,123 @@
-from typing import Any
+from typing import Any, ClassVar
 
 from rich.text import TextType
 from textual import events
+from textual.binding import Binding, BindingType
+from textual.containers import ScrollableContainer
 from textual.geometry import Size
-from textual.widgets import DataTable
+from textual.widgets import DataTable, OptionList
 from textual.widgets.data_table import CellType, ColumnKey
 
 
 class StretchyDataTable(DataTable[CellType]):
     """A data table whose columns can expand to fill the available width."""
+
+    BINDINGS: ClassVar[list[BindingType]] = [
+        Binding(
+            "enter",
+            "select_cursor",
+            "Select",
+            show=False,
+            tooltip="Select the highlighted row or cell.",
+            id="kaskade.navigation.select",
+        ),
+        Binding(
+            "up,k",
+            "cursor_up",
+            "Move Up",
+            show=False,
+            tooltip="Move the cursor up one row.",
+            id="kaskade.navigation.up",
+        ),
+        Binding(
+            "down,j",
+            "cursor_down",
+            "Move Down",
+            show=False,
+            tooltip="Move the cursor down one row.",
+            id="kaskade.navigation.down",
+        ),
+        Binding(
+            "left,h",
+            "cursor_left",
+            "Move Left",
+            show=False,
+            tooltip="Move the cursor or viewport left.",
+            id="kaskade.navigation.left",
+        ),
+        Binding(
+            "right,l",
+            "cursor_right",
+            "Move Right",
+            show=False,
+            tooltip="Move the cursor or viewport right.",
+            id="kaskade.navigation.right",
+        ),
+        Binding(
+            "pageup",
+            "page_up",
+            "Page Up",
+            show=False,
+            tooltip="Move the cursor up one page.",
+            id="kaskade.navigation.page-up",
+        ),
+        Binding(
+            "pagedown",
+            "page_down",
+            "Page Down",
+            show=False,
+            tooltip="Move the cursor down one page.",
+            id="kaskade.navigation.page-down",
+        ),
+        Binding(
+            "ctrl+pageup",
+            "page_left",
+            "Page Left",
+            show=False,
+            tooltip="Move the viewport left one page.",
+            id="kaskade.navigation.page-left",
+        ),
+        Binding(
+            "ctrl+pagedown",
+            "page_right",
+            "Page Right",
+            show=False,
+            tooltip="Move the viewport right one page.",
+            id="kaskade.navigation.page-right",
+        ),
+        Binding(
+            "ctrl+home,g",
+            "scroll_top",
+            "First Row",
+            show=False,
+            tooltip="Move to the first row.",
+            id="kaskade.navigation.first",
+        ),
+        Binding(
+            "ctrl+end,G",
+            "scroll_bottom",
+            "Last Row",
+            show=False,
+            tooltip="Move to the last row.",
+            id="kaskade.navigation.last",
+        ),
+        Binding(
+            "home",
+            "scroll_home",
+            "Row Start",
+            show=False,
+            tooltip="Move to the first visible column.",
+            id="kaskade.navigation.home",
+        ),
+        Binding(
+            "end",
+            "scroll_end",
+            "Row End",
+            show=False,
+            tooltip="Move to the last visible column.",
+            id="kaskade.navigation.end",
+        ),
+    ]
 
     DEFAULT_CSS = """
     StretchyDataTable {
@@ -81,3 +190,153 @@ class StretchyDataTable(DataTable[CellType]):
         data_width = sum(column.get_render_width(self) for column in columns)
         self.virtual_size = Size(data_width + row_label_width, self.virtual_size.height)
         self.refresh()
+
+
+class KaskadeOptionList(OptionList):
+    """An option list with arrow and Vim-style navigation."""
+
+    BINDINGS: ClassVar[list[BindingType]] = [
+        Binding(
+            "down,j",
+            "cursor_down",
+            "Move Down",
+            show=False,
+            tooltip="Move to the next option.",
+            id="kaskade.navigation.down",
+        ),
+        Binding(
+            "up,k",
+            "cursor_up",
+            "Move Up",
+            show=False,
+            tooltip="Move to the previous option.",
+            id="kaskade.navigation.up",
+        ),
+        Binding(
+            "home,g",
+            "first",
+            "First Option",
+            show=False,
+            tooltip="Move to the first option.",
+            id="kaskade.navigation.first",
+        ),
+        Binding(
+            "end,G",
+            "last",
+            "Last Option",
+            show=False,
+            tooltip="Move to the last option.",
+            id="kaskade.navigation.last",
+        ),
+        Binding(
+            "pageup",
+            "page_up",
+            "Page Up",
+            show=False,
+            tooltip="Move up one page of options.",
+            id="kaskade.navigation.page-up",
+        ),
+        Binding(
+            "pagedown",
+            "page_down",
+            "Page Down",
+            show=False,
+            tooltip="Move down one page of options.",
+            id="kaskade.navigation.page-down",
+        ),
+        Binding(
+            "enter",
+            "select",
+            "Select",
+            show=False,
+            tooltip="Select the highlighted option.",
+            id="kaskade.navigation.select",
+        ),
+    ]
+
+
+class KaskadeScrollableContainer(ScrollableContainer):
+    """A scrollable container with arrow and Vim-style navigation."""
+
+    BINDINGS: ClassVar[list[BindingType]] = [
+        Binding(
+            "up,k",
+            "scroll_up",
+            "Scroll Up",
+            show=False,
+            tooltip="Scroll up one line.",
+            id="kaskade.navigation.up",
+        ),
+        Binding(
+            "down,j",
+            "scroll_down",
+            "Scroll Down",
+            show=False,
+            tooltip="Scroll down one line.",
+            id="kaskade.navigation.down",
+        ),
+        Binding(
+            "left,h",
+            "scroll_left",
+            "Scroll Left",
+            show=False,
+            tooltip="Scroll left one column.",
+            id="kaskade.navigation.left",
+        ),
+        Binding(
+            "right,l",
+            "scroll_right",
+            "Scroll Right",
+            show=False,
+            tooltip="Scroll right one column.",
+            id="kaskade.navigation.right",
+        ),
+        Binding(
+            "home,g",
+            "scroll_home",
+            "Scroll Home",
+            show=False,
+            tooltip="Scroll to the beginning.",
+            id="kaskade.navigation.first",
+        ),
+        Binding(
+            "end,G",
+            "scroll_end",
+            "Scroll End",
+            show=False,
+            tooltip="Scroll to the end.",
+            id="kaskade.navigation.last",
+        ),
+        Binding(
+            "pageup",
+            "page_up",
+            "Page Up",
+            show=False,
+            tooltip="Scroll up one page.",
+            id="kaskade.navigation.page-up",
+        ),
+        Binding(
+            "pagedown",
+            "page_down",
+            "Page Down",
+            show=False,
+            tooltip="Scroll down one page.",
+            id="kaskade.navigation.page-down",
+        ),
+        Binding(
+            "ctrl+pageup",
+            "page_left",
+            "Page Left",
+            show=False,
+            tooltip="Scroll left one page.",
+            id="kaskade.navigation.page-left",
+        ),
+        Binding(
+            "ctrl+pagedown",
+            "page_right",
+            "Page Right",
+            show=False,
+            tooltip="Scroll right one page.",
+            id="kaskade.navigation.page-right",
+        ),
+    ]

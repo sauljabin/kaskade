@@ -6,7 +6,7 @@ from textual import work
 from textual.app import ComposeResult
 from textual.binding import Binding, BindingType
 from textual.containers import Container
-from textual.screen import ModalScreen
+from textual.content import Content
 from textual.widgets import (
     DataTable,
     Footer,
@@ -15,6 +15,7 @@ from textual.widgets import (
     RadioSet,
     TabbedContent,
     TabPane,
+    Tabs,
 )
 
 from kaskade.colors import PRIMARY
@@ -24,6 +25,7 @@ from kaskade.configs import (
     MIN_INSYNC_REPLICAS_CONFIG,
     RETENTION_MS_CONFIG,
 )
+from kaskade.help import HelpableModalScreen, modal_bindings
 from kaskade.models import CleanupPolicy, Topic
 from kaskade.services import (
     TopicService,
@@ -34,31 +36,37 @@ from kaskade.utils import make_it_async, notify_error
 from kaskade.widgets import StretchyDataTable
 
 REFRESH_TABLE_DELAY = 1
-FILTER_TOPICS_SHORTCUT = "ctrl+f"
+FILTER_TOPICS_SHORTCUT = "/,ctrl+f"
 BACK_SHORTCUT = "escape"
 ALL_TOPICS_SHORTCUT = BACK_SHORTCUT
-SUBMIT_SHORTCUT = "enter"
 SAVE_SHORTCUT = "ctrl+s"
-DESCRIBE_TOPIC_SHORTCUT = SUBMIT_SHORTCUT
-NEW_TOPIC_SHORTCUT = "ctrl+n"
+DESCRIBE_TOPIC_SHORTCUT = "d,enter"
+NEW_TOPIC_SHORTCUT = "n,ctrl+n"
 DELETE_TOPIC_SHORTCUT = "ctrl+d"
-EDIT_TOPIC_SHORTCUT = "ctrl+e"
+EDIT_TOPIC_SHORTCUT = "e,ctrl+e"
 REFRESH_TOPICS_SHORTCUT = "ctrl+r"
-QUIT_SHORTCUT = "ctrl+q"
 
 
-class FilterTopicsScreen(ModalScreen[str]):
+class FilterTopicsScreen(HelpableModalScreen[str]):
     BINDING_GROUP_TITLE = "Filter Topics"
     AUTO_FOCUS = "#topic-filter"
-    BINDINGS: ClassVar[list[BindingType]] = [
+    BINDINGS: ClassVar[list[BindingType]] = modal_bindings(
+        Binding(
+            "enter",
+            "apply_filter",
+            "Apply Filter",
+            priority=True,
+            tooltip="Apply the topic name filter.",
+            id="kaskade.filter-topics.apply",
+        ),
         Binding(
             BACK_SHORTCUT,
             "close",
             "Back",
             tooltip="Close the filter without applying it.",
             id="kaskade.filter-topics.close",
-        )
-    ]
+        ),
+    )
 
     def compose(self) -> ComposeResult:
         input_filter = Input(
@@ -71,22 +79,33 @@ class FilterTopicsScreen(ModalScreen[str]):
     def on_input_submitted(self, event: Input.Submitted) -> None:
         self.dismiss(event.value)
 
+    def action_apply_filter(self) -> None:
+        self.dismiss(self.query_one("#topic-filter", Input).value)
+
     def action_close(self) -> None:
         self.dismiss()
 
 
-class DeleteTopicScreen(ModalScreen[bool]):
+class DeleteTopicScreen(HelpableModalScreen[bool]):
     BINDING_GROUP_TITLE = "Delete Topic"
     AUTO_FOCUS = "#topic-confirmation"
-    BINDINGS: ClassVar[list[BindingType]] = [
+    BINDINGS: ClassVar[list[BindingType]] = modal_bindings(
+        Binding(
+            "enter",
+            "delete",
+            "Delete Topic",
+            priority=True,
+            tooltip="Delete the topic after its name has been confirmed.",
+            id="kaskade.delete-topic.confirm",
+        ),
         Binding(
             BACK_SHORTCUT,
             "cancel",
             "Cancel",
             tooltip="Keep the topic and close this confirmation.",
             id="kaskade.delete-topic.cancel",
-        )
-    ]
+        ),
+    )
 
     def __init__(self, topic: Topic):
         super().__init__()
@@ -103,7 +122,13 @@ class DeleteTopicScreen(ModalScreen[bool]):
         yield Footer(compact=True)
 
     def on_input_submitted(self, event: Input.Submitted) -> None:
-        if self.topic.name == event.value:
+        self._delete_if_confirmed(event.value)
+
+    def action_delete(self) -> None:
+        self._delete_if_confirmed(self.query_one("#topic-confirmation", Input).value)
+
+    def _delete_if_confirmed(self, confirmation: str) -> None:
+        if self.topic.name == confirmation:
             self.dismiss(True)
         else:
             self.notify(
@@ -116,44 +141,65 @@ class DeleteTopicScreen(ModalScreen[bool]):
         self.dismiss(False)
 
 
-class DescribeTopicScreen(ModalScreen):
+class DescribeTopicScreen(HelpableModalScreen):
     BINDING_GROUP_TITLE = "Topic Details"
     AUTO_FOCUS = "Tabs"
-    BINDINGS: ClassVar[list[BindingType]] = [
+    BINDINGS: ClassVar[list[BindingType]] = modal_bindings(
         Binding(
             BACK_SHORTCUT,
             "close",
             "Back",
             tooltip="Close the topic details.",
             id="kaskade.describe-topic.close",
-        )
-    ]
+        ),
+        Binding(
+            "h",
+            "previous_tab",
+            "Previous Tab",
+            show=False,
+            tooltip="Show the previous topic detail tab.",
+            id="kaskade.navigation.left",
+        ),
+        Binding(
+            "l",
+            "next_tab",
+            "Next Tab",
+            show=False,
+            tooltip="Show the next topic detail tab.",
+            id="kaskade.navigation.right",
+        ),
+    )
 
     def __init__(self, topic: Topic):
         super().__init__()
         self.topic = topic
 
     def compose(self) -> ComposeResult:
-        with TabbedContent(initial="partitions", id="topic-details"):
-            with TabPane("Partitions", id="partitions"):
+        details = TabbedContent(initial="partitions", id="topic-details")
+        details.border_title = rf"[{PRIMARY}]Describe Topic[/] \[[{PRIMARY}]{self.topic.name}[/]]"
+        with details:
+            with TabPane(
+                Content(f"Partitions [{self.topic.partitions_count()}]"),
+                id="partitions",
+            ):
                 yield self._partitions_table()
-            with TabPane("Groups", id="groups"):
+            with TabPane(Content(f"Groups [{self.topic.groups_count()}]"), id="groups"):
                 yield self._groups_table()
-            with TabPane("Group Members", id="group-members"):
+            with TabPane(
+                Content(f"Group Members [{self.topic.group_members_count()}]"),
+                id="group-members",
+            ):
                 yield self._group_members_table()
         yield Footer(compact=True)
 
-    def _new_table(self, table_id: str, count: int, item_name: str) -> StretchyDataTable[str]:
-        table: StretchyDataTable[str] = StretchyDataTable(
-            id=table_id, classes="kaskade-table details-table"
-        )
+    def _new_table(self, table_id: str) -> StretchyDataTable[str]:
+        table: StretchyDataTable[str] = StretchyDataTable(id=table_id, classes="details-table")
         table.cursor_type = "row"
         table.zebra_stripes = True
-        table.border_title = rf"[{PRIMARY}]{self.topic}[/] \[[{PRIMARY}]{count} {item_name}[/]]"
         return table
 
     def _partitions_table(self) -> StretchyDataTable[str]:
-        table = self._new_table("partitions-table", self.topic.partitions_count(), "Partitions")
+        table = self._new_table("partitions-table")
         table.add_column("ID", stretch=1)
         table.add_column("Leader", stretch=1)
         table.add_column("ISRs", stretch=1)
@@ -171,7 +217,7 @@ class DescribeTopicScreen(ModalScreen):
         return table
 
     def _groups_table(self) -> StretchyDataTable[str]:
-        table = self._new_table("groups-table", self.topic.groups_count(), "Groups")
+        table = self._new_table("groups-table")
         table.add_column("ID", stretch=1)
         table.add_column("Coordinator", stretch=1)
         table.add_column("State", stretch=1)
@@ -193,9 +239,7 @@ class DescribeTopicScreen(ModalScreen):
         return table
 
     def _group_members_table(self) -> StretchyDataTable[str]:
-        table = self._new_table(
-            "group-members-table", self.topic.group_members_count(), "Group Members"
-        )
+        table = self._new_table("group-members-table")
         table.add_column("Group", stretch=1)
         table.add_column("Client ID", stretch=1)
         table.add_column("Member ID", stretch=1)
@@ -216,18 +260,17 @@ class DescribeTopicScreen(ModalScreen):
     def action_close(self) -> None:
         self.dismiss()
 
+    def action_previous_tab(self) -> None:
+        self.query_one(Tabs).action_previous_tab()
 
-class EditTopicScreen(ModalScreen[bool]):
+    def action_next_tab(self) -> None:
+        self.query_one(Tabs).action_next_tab()
+
+
+class EditTopicScreen(HelpableModalScreen[bool]):
     BINDING_GROUP_TITLE = "Edit Topic"
     AUTO_FOCUS = "#partitions"
-    BINDINGS: ClassVar[list[BindingType]] = [
-        Binding(
-            BACK_SHORTCUT,
-            "back",
-            "Back",
-            tooltip="Close the editor without saving changes.",
-            id="kaskade.edit-topic.close",
-        ),
+    BINDINGS: ClassVar[list[BindingType]] = modal_bindings(
         Binding(
             SAVE_SHORTCUT,
             "edit",
@@ -235,7 +278,14 @@ class EditTopicScreen(ModalScreen[bool]):
             tooltip="Apply the edited Kafka topic configuration.",
             id="kaskade.edit-topic.save",
         ),
-    ]
+        Binding(
+            BACK_SHORTCUT,
+            "back",
+            "Back",
+            tooltip="Close the editor without saving changes.",
+            id="kaskade.edit-topic.close",
+        ),
+    )
 
     def __init__(
         self,
@@ -315,17 +365,10 @@ class EditTopicScreen(ModalScreen[bool]):
         self.dismiss(False)
 
 
-class CreateTopicScreen(ModalScreen[NewTopic]):
+class CreateTopicScreen(HelpableModalScreen[NewTopic]):
     BINDING_GROUP_TITLE = "Create Topic"
     AUTO_FOCUS = "#name"
-    BINDINGS: ClassVar[list[BindingType]] = [
-        Binding(
-            BACK_SHORTCUT,
-            "back",
-            "Back",
-            tooltip="Close the form without creating a topic.",
-            id="kaskade.create-topic.close",
-        ),
+    BINDINGS: ClassVar[list[BindingType]] = modal_bindings(
         Binding(
             SAVE_SHORTCUT,
             "create",
@@ -333,7 +376,14 @@ class CreateTopicScreen(ModalScreen[NewTopic]):
             tooltip="Create the topic with the configured values.",
             id="kaskade.create-topic.save",
         ),
-    ]
+        Binding(
+            BACK_SHORTCUT,
+            "back",
+            "Back",
+            tooltip="Close the form without creating a topic.",
+            id="kaskade.create-topic.close",
+        ),
+    )
 
     def compose(self) -> ComposeResult:
         input_name = Input(
@@ -429,6 +479,7 @@ class ListTopics(Container):
             "describe",
             "Describe",
             priority=True,
+            key_display="d",
             tooltip="Show partitions, groups, and members for the selected topic.",
             id="kaskade.topics.describe",
         ),
@@ -436,6 +487,7 @@ class ListTopics(Container):
             FILTER_TOPICS_SHORTCUT,
             "filter",
             "Filter",
+            key_display="/",
             tooltip="Filter topics by name.",
             id="kaskade.topics.filter",
         ),
@@ -450,6 +502,7 @@ class ListTopics(Container):
             NEW_TOPIC_SHORTCUT,
             "new",
             "Create",
+            key_display="n",
             tooltip="Open the topic creation form.",
             id="kaskade.topics.create",
         ),
@@ -457,6 +510,7 @@ class ListTopics(Container):
             EDIT_TOPIC_SHORTCUT,
             "edit",
             "Edit",
+            key_display="e",
             show=False,
             tooltip="Edit the selected topic configuration.",
             id="kaskade.topics.edit",
@@ -712,7 +766,6 @@ class ListTopics(Container):
 class KaskadeAdmin(KaskadeApp):
     TITLE = "Kaskade Admin"
     AUTO_FOCUS = "#topics-table"
-    CSS_PATH = "styles.css"
 
     def __init__(self, kafka_config: dict[str, Any]):
         super().__init__()

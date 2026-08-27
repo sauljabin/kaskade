@@ -1,5 +1,6 @@
 from collections.abc import Iterable
 from functools import partial
+from pathlib import Path
 from typing import ClassVar
 
 from rich.theme import Theme as RichTheme
@@ -7,7 +8,9 @@ from textual.app import App, SystemCommand
 from textual.binding import Binding, BindingType
 from textual.screen import Screen
 from textual.theme import BUILTIN_THEMES, Theme
-from textual.widgets import HelpPanel
+
+from kaskade.help import HelpScreen, contextual_help
+from kaskade.keymaps import NAVIGATION_BINDING_IDS, load_keymap
 
 DEFAULT_THEME = "eva01"
 KASKADE_COMMAND_ID_PREFIX = "kaskade."
@@ -39,58 +42,70 @@ def _rich_color(color: str) -> str:
     return color.removeprefix("ansi_")
 
 
-class KaskadeApp(App):
+class KaskadeApp(App, inherit_bindings=False):
     """Base application with Textual and Rich theme support."""
 
     TITLE = "Kaskade"
+    CSS_PATH = "styles.css"
     BINDING_GROUP_TITLE = "Application"
+    COMMAND_PALETTE_BINDING = "colon"
     HORIZONTAL_BREAKPOINTS = [  # noqa: RUF012
         (0, "-narrow"),
         (80, "-wide"),
     ]
     BINDINGS: ClassVar[list[BindingType]] = [
         Binding(
-            "f1",
-            "toggle_help",
-            "Help",
-            tooltip="Show all shortcuts available in the current context.",
-            id="help.toggle",
-        ),
-        Binding(
-            "ctrl+q",
+            "ctrl+c",
             "quit",
             "Quit",
+            key_display="ctrl+c",
             priority=True,
             tooltip="Quit Kaskade and return to the command prompt.",
             id="app.quit",
         ),
         Binding(
-            "ctrl+p",
+            "?,f1",
+            "toggle_help",
+            "Help",
+            key_display="?",
+            tooltip="Show all shortcuts available in the current context.",
+            id="help.toggle",
+        ),
+        Binding(
+            ":,ctrl+p",
             "command_palette",
-            "Palette",
+            "Commands",
+            key_display=":",
             show=False,
-            priority=True,
             tooltip="Search available Kaskade and Textual commands.",
             id="app.command-palette",
         ),
     ]
 
-    def __init__(self) -> None:
+    def __init__(self, *, keymap_path: Path | None = None) -> None:
         self._rich_theme_pushed = False
         super().__init__()
+        self.keymap_settings = load_keymap(keymap_path)
+        self.set_keymap(self.keymap_settings.keymap)
         self.register_theme(EVA01_THEME)
         self.theme = DEFAULT_THEME
         self._sync_rich_theme()
+
+    def on_mount(self) -> None:
+        for warning_message in self.keymap_settings.warnings:
+            self.notify(
+                warning_message,
+                title="Keymap Configuration",
+                severity="warning",
+            )
 
     def watch_theme(self, _: str) -> None:
         self._sync_rich_theme()
 
     def action_toggle_help(self) -> None:
-        """Show or hide Textual's contextual help panel."""
-        if self.screen.query(HelpPanel):
-            self.action_hide_help_panel()
-        else:
-            self.action_show_help_panel()
+        """Open a contextual help window above the current screen."""
+        context, bindings = contextual_help(self.screen)
+        self.push_screen(HelpScreen(context, bindings))
 
     def get_system_commands(self, screen: Screen) -> Iterable[SystemCommand]:
         """Add active Kaskade bindings to Textual's command palette."""
@@ -105,6 +120,7 @@ class KaskadeApp(App):
                 not enabled
                 or binding.id is None
                 or not binding.id.startswith(KASKADE_COMMAND_ID_PREFIX)
+                or binding.id in NAVIGATION_BINDING_IDS
                 or binding.id in command_ids
             ):
                 continue

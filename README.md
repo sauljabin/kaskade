@@ -16,8 +16,7 @@
 
 ## Kaskade
 
-Kaskade is a text user interface (TUI) for Apache Kafka, built with [Textual](https://github.com/Textualize/textual)
-by [Textualize](https://www.textualize.io/).
+Kaskade is a text user interface (TUI) for Apache Kafka.
 
 It includes features like:
 

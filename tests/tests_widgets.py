@@ -1,8 +1,9 @@
 import unittest
 
 from textual.app import App, ComposeResult
+from textual.widgets import OptionList
 
-from kaskade.widgets import StretchyDataTable
+from kaskade.widgets import KaskadeOptionList, StretchyDataTable
 
 
 class StretchyTableApp(App):
@@ -72,3 +73,26 @@ class TestStretchyDataTable(unittest.IsolatedAsyncioTestCase):
 
         async with app.run_test(size=(40, 10)):
             self.assertEqual([], app.query_one(StretchyDataTable).ordered_columns)
+
+
+class OptionListApp(App):
+    def compose(self) -> ComposeResult:
+        yield KaskadeOptionList("alpha", "bravo", "charlie")
+
+
+class TestKaskadeOptionList(unittest.IsolatedAsyncioTestCase):
+    async def test_supports_vim_navigation(self):
+        app = OptionListApp()
+
+        async with app.run_test() as pilot:
+            option_list = app.query_one(OptionList)
+            option_list.highlighted = 0
+
+            await pilot.press("j")
+            self.assertEqual(1, option_list.highlighted)
+            await pilot.press("k")
+            self.assertEqual(0, option_list.highlighted)
+            await pilot.press("G")
+            self.assertEqual(2, option_list.highlighted)
+            await pilot.press("g")
+            self.assertEqual(0, option_list.highlighted)

@@ -1,0 +1,55 @@
+# Copy this file to ~/.config/kaskade/config.yaml on Linux or macOS.
+# Values are Textual key names; use commas to assign multiple keys.
+keymap:
+  # Application
+  app.quit: ctrl+c
+  app.command-palette: colon,ctrl+p
+  help.toggle: question_mark,f1
+  kaskade.help.close: escape,q
+
+  # Navigation
+  kaskade.navigation.select: enter
+  kaskade.navigation.up: up,k
+  kaskade.navigation.down: down,j
+  kaskade.navigation.left: left,h
+  kaskade.navigation.right: right,l
+  kaskade.navigation.page-up: pageup
+  kaskade.navigation.page-down: pagedown
+  kaskade.navigation.page-left: ctrl+pageup
+  kaskade.navigation.page-right: ctrl+pagedown
+  kaskade.navigation.first: ctrl+home,g
+  kaskade.navigation.last: ctrl+end,G
+  kaskade.navigation.home: home
+  kaskade.navigation.end: end
+
+  # Topics
+  kaskade.topics.describe: d,enter
+  kaskade.topics.filter: slash,ctrl+f
+  kaskade.topics.refresh: ctrl+r
+  kaskade.topics.create: n,ctrl+n
+  kaskade.topics.edit: e,ctrl+e
+  kaskade.topics.delete: ctrl+d
+  kaskade.topics.show-all: escape
+
+  # Records
+  kaskade.records.show: enter
+  kaskade.records.consume: n
+  kaskade.records.filter: slash,ctrl+f
+  kaskade.records.chunk-size: "#"
+  kaskade.records.show-all: escape
+
+  # Dialogs and editors
+  kaskade.filter-topics.apply: enter
+  kaskade.filter-topics.close: escape
+  kaskade.delete-topic.confirm: enter
+  kaskade.delete-topic.cancel: escape
+  kaskade.describe-topic.close: escape
+  kaskade.edit-topic.close: escape
+  kaskade.edit-topic.save: ctrl+s
+  kaskade.create-topic.close: escape
+  kaskade.create-topic.save: ctrl+s
+  kaskade.filter-records.apply: enter
+  kaskade.filter-records.close: escape
+  kaskade.chunk-size.select: enter
+  kaskade.chunk-size.close: escape
+  kaskade.record-details.close: escape
