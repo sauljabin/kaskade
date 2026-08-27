@@ -48,15 +48,42 @@ def contextual_help(screen: Screen) -> tuple[str, tuple[HelpBinding, ...]]:
                 binding.description,
             )
         keys = groups[group_key][1]
-        key_display = screen.app.get_key_display(binding)
-        if key_display not in keys:
-            keys.append(key_display)
+        for alias in _binding_aliases(screen, namespace, binding):
+            key_display = screen.app.get_key_display(alias)
+            if key_display in keys:
+                key_display = screen.app.get_key_display(
+                    alias.with_key(alias.key, key_display=None)
+                )
+            if key_display not in keys:
+                keys.append(key_display)
 
     bindings = tuple(
         HelpBinding(context, tuple(keys), description)
         for context, keys, description in groups.values()
     )
     return _focused_context(screen), bindings
+
+
+def _binding_aliases(screen: Screen, namespace: object, binding: Binding) -> tuple[Binding, ...]:
+    """Return every effective alias owned by the binding's namespace."""
+    settings = getattr(screen.app, "keymap_settings", None)
+    configured_keys = getattr(settings, "keymap", {}).get(binding.id)
+    if configured_keys:
+        return tuple(
+            binding.with_key(key.strip(), key_display=None) for key in configured_keys.split(",")
+        )
+
+    bindings_map = getattr(namespace, "_bindings", None)
+    if bindings_map is None:
+        return (binding,)
+
+    aliases = tuple(
+        candidate
+        for candidates in bindings_map.key_to_bindings.values()
+        for candidate in candidates
+        if candidate.action == binding.action and candidate.id == binding.id
+    )
+    return aliases or (binding,)
 
 
 def _binding_context(namespace: object) -> str:

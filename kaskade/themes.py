@@ -9,7 +9,7 @@ from textual.binding import Binding, BindingType
 from textual.screen import Screen
 from textual.theme import BUILTIN_THEMES, Theme
 
-from kaskade.help import HelpScreen, contextual_help
+from kaskade.help import HELP_BINDING, HelpScreen, contextual_help
 from kaskade.keymaps import NAVIGATION_BINDING_IDS, load_settings
 
 DEFAULT_THEME = "eva01"
@@ -110,8 +110,15 @@ class KaskadeApp(App, inherit_bindings=False):
     def get_system_commands(self, screen: Screen) -> Iterable[SystemCommand]:
         """Add active Kaskade bindings to Textual's command palette."""
         widget_size_actions = (screen.action_maximize, screen.action_minimize)
+        help_panel_actions = (self.action_show_help_panel, self.action_hide_help_panel)
         for command in super().get_system_commands(screen):
-            if command.callback not in widget_size_actions:
+            if command.callback in help_panel_actions:
+                yield SystemCommand(
+                    HELP_BINDING.description,
+                    HELP_BINDING.tooltip,
+                    self.action_toggle_help,
+                )
+            elif command.callback not in widget_size_actions:
                 yield command
 
         command_ids: set[str] = set()

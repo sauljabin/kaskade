@@ -73,7 +73,7 @@ Kaskade supports arrow keys and Vim-style navigation. The defaults follow famili
 | Consume more records | `n` |
 | Change record chunk size | `#` |
 
-Help opens in a contextual window above the current screen. Navigate it with `j`/`k`, arrows, Page Up/Down, or `g`/`G`, then close it with `Esc`, `q`, `?`, or `F1`.
+Help opens in a contextual window above the current screen and lists every effective shortcut alias. Navigate it with `j`/`k`, arrows, Page Up/Down, or `g`/`G`, then close it with `Esc`, `q`, `?`, or `F1`. The command palette includes this contextual Help window instead of Textual's generic Keys panel.
 
 Plain-character application shortcuts do not intercept typing in filter and editor fields.
 
