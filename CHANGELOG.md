@@ -15,6 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Load admin topic metrics progressively with batched Kafka Admin requests
 - Consume records in batches and reuse deserialized record values
+- Simplify refresh, settings, Kafka mapping, and deserialization control flow
+- Coalesce manual refresh requests to prevent overlapping broker scans
 
 ## [4.0.7] - 2026-03-02
 

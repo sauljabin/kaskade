@@ -180,7 +180,7 @@ class ConsumerService:
             date=self._message_date(message),
             headers=[
                 Header(key=key, value=value, value_deserializer=self.header_deserializer)
-                for key, value in (message.headers() or [])
+                for key, value in message.headers() or []
             ],
             key_deserialization=self.key_deserialization,
             value_deserialization=self.value_deserialization,

@@ -61,6 +61,12 @@ line-length = 100
 [tool.ruff]
 line-length = 100
 
+[tool.ruff.lint]
+extend-select = ["C901"]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
 [tool.typos]
 type.lock.extend-glob = ["*.lock"]
 type.lock.check-file = true
