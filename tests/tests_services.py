@@ -3,7 +3,7 @@ import unittest
 from concurrent.futures import Future
 from unittest.mock import MagicMock, patch
 
-from confluent_kafka import ConsumerGroupTopicPartitions, Node
+from confluent_kafka import ConsumerGroupTopicPartitions, KafkaException, Node
 from confluent_kafka.admin import (
     ConsumerGroupDescription,
     ConsumerGroupListing,
@@ -16,7 +16,7 @@ from confluent_kafka.admin import (
 )
 from confluent_kafka.cimpl import CONSUMER_GROUP_STATE_STABLE, TopicPartition
 
-from kaskade.deserializers import Deserialization, DeserializerPool
+from kaskade.deserializers import Deserialization, DeserializerPool, StringDeserializer
 from kaskade.models import MetricState
 from kaskade.services import ConsumerService, TopicService
 from tests import faker
@@ -46,6 +46,25 @@ def topic_metadata(name: str, partition_id: int, partition_count: int = 1) -> To
         partition.replicas = [0, 1, 2]
         topic.partitions[current_partition_id] = partition
     return topic
+
+
+def consumer_message(
+    *,
+    partition: int = 0,
+    key: bytes = b"key",
+    value: bytes = b"value",
+    headers: list[tuple[str, bytes]] | None = None,
+    error: object | None = None,
+) -> MagicMock:
+    message = MagicMock()
+    message.error.return_value = error
+    message.timestamp.return_value = (0, 0)
+    message.partition.return_value = partition
+    message.offset.return_value = 1
+    message.key.return_value = key
+    message.value.return_value = value
+    message.headers.return_value = headers or []
+    return message
 
 
 class TestTopicService(unittest.IsolatedAsyncioTestCase):
@@ -227,6 +246,102 @@ class TestConsumerService(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(1, len(records))
         self.assertEqual("key", records[0].key_str())
         consumer.consume.assert_called_once_with(1, timeout=service.timeout)
+
+    @patch("kaskade.services.Consumer")
+    async def test_filters_batches_until_a_record_matches(
+        self, mock_class_consumer: MagicMock
+    ) -> None:
+        consumer = mock_class_consumer.return_value
+        consumer.consume.side_effect = [
+            [consumer_message(partition=0)],
+            [
+                consumer_message(
+                    partition=1,
+                    key=b"customer-1",
+                    value=b"paid",
+                    headers=[("source", b"checkout")],
+                )
+            ],
+        ]
+        service = ConsumerService(
+            "orders",
+            {"bootstrap.servers": "localhost:9092"},
+            DeserializerPool(),
+            Deserialization.STRING,
+            Deserialization.STRING,
+            page_size=1,
+        )
+        service.on_assign(consumer, [TopicPartition("orders", 1)])
+
+        records = await service.consume(
+            partition_filter=1,
+            key_filter="customer",
+            value_filter="paid",
+            header_filter="checkout",
+        )
+
+        self.assertEqual(1, len(records))
+        self.assertEqual(2, consumer.consume.call_count)
+
+    @patch("kaskade.services.Consumer")
+    async def test_stops_after_empty_batch_retries(self, mock_class_consumer: MagicMock) -> None:
+        consumer = mock_class_consumer.return_value
+        consumer.consume.return_value = []
+        service = ConsumerService(
+            "orders",
+            {"bootstrap.servers": "localhost:9092"},
+            DeserializerPool(),
+            Deserialization.STRING,
+            Deserialization.STRING,
+            poll_retries=2,
+        )
+        service.on_assign(consumer, [TopicPartition("orders", 0)])
+
+        self.assertEqual([], await service.consume())
+        self.assertEqual(2, consumer.consume.call_count)
+
+    @patch("kaskade.services.Consumer")
+    async def test_raises_kafka_message_errors(self, mock_class_consumer: MagicMock) -> None:
+        error = MagicMock()
+        consumer = mock_class_consumer.return_value
+        consumer.consume.return_value = [consumer_message(error=error)]
+        service = ConsumerService(
+            "orders",
+            {"bootstrap.servers": "localhost:9092"},
+            DeserializerPool(),
+            Deserialization.STRING,
+            Deserialization.STRING,
+            page_size=1,
+        )
+        service.on_assign(consumer, [TopicPartition("orders", 0)])
+
+        with self.assertRaises(KafkaException):
+            await service.consume()
+
+    @patch("kaskade.services.Consumer")
+    async def test_reuses_deserializer_instances_and_closes(
+        self, mock_class_consumer: MagicMock
+    ) -> None:
+        consumer = mock_class_consumer.return_value
+        consumer.consume.return_value = [consumer_message()]
+        deserializer_factory = MagicMock(spec=DeserializerPool)
+        deserializer_factory.get.return_value = StringDeserializer()
+        service = ConsumerService(
+            "orders",
+            {"bootstrap.servers": "localhost:9092"},
+            deserializer_factory,
+            Deserialization.STRING,
+            Deserialization.STRING,
+            page_size=1,
+        )
+        service.on_assign(consumer, [TopicPartition("orders", 0)])
+
+        await service.consume()
+        service.close()
+
+        self.assertEqual(3, deserializer_factory.get.call_count)
+        consumer.unsubscribe.assert_called_once_with()
+        consumer.close.assert_called_once_with()
 
 
 if __name__ == "__main__":

@@ -1,6 +1,6 @@
 import asyncio
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from time import perf_counter
 from typing import Any
@@ -86,6 +86,9 @@ class ConsumerService:
         )
         self.consumer.subscribe([topic], on_assign=self.on_assign)
         self.deserializer_factory = deserializer_factory
+        self.key_deserializer = deserializer_factory.get(key_deserialization)
+        self.value_deserializer = deserializer_factory.get(value_deserialization)
+        self.header_deserializer = deserializer_factory.get(Deserialization.STRING)
 
     def on_assign(self, consumer: Consumer, partitions: list[TopicPartition]) -> None:
         self.stable = True
@@ -116,13 +119,11 @@ class ConsumerService:
         scanned_records = 0
         first_record_at: float | None = None
 
-        while len(records) < self.page_size:
-            if poll_retries >= self.poll_retries:
-                break
-
-            if stabilization_retries >= self.stabilization_retries:
-                break
-
+        while (
+            len(records) < self.page_size
+            and poll_retries < self.poll_retries
+            and stabilization_retries < self.stabilization_retries
+        ):
             record_batch = await make_it_async(
                 self.consumer.consume,
                 self.page_size - len(records),
@@ -140,68 +141,18 @@ class ConsumerService:
             poll_retries = 0
 
             for record_metadata in record_batch:
-                if record_metadata.error():
-                    raise KafkaException(record_metadata.error())
-
                 scanned_records += 1
                 if first_record_at is None:
                     first_record_at = perf_counter()
-
-                timestamp_available, timestamp = record_metadata.timestamp()
-                date = (
-                    datetime.fromtimestamp(timestamp / 1000, tz=timezone.utc)
-                    .astimezone()
-                    .strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
-                    if timestamp_available > 0
-                    else ""
-                )
-
-                record = Record(
-                    topic=self.topic,
-                    partition=record_metadata.partition(),
-                    offset=record_metadata.offset(),
-                    key=record_metadata.key(),
-                    value=record_metadata.value(),
-                    date=date,
-                    headers=(
-                        [
-                            Header(
-                                key=key,
-                                value=value,
-                                value_deserializer=self.deserializer_factory.get(
-                                    Deserialization.STRING
-                                ),
-                            )
-                            for key, value in record_metadata.headers()
-                        ]
-                        if record_metadata.headers() is not None
-                        else []
-                    ),
-                    key_deserialization=self.key_deserialization,
-                    value_deserialization=self.value_deserialization,
-                    key_deserializer=self.deserializer_factory.get(self.key_deserialization),
-                    value_deserializer=self.deserializer_factory.get(self.value_deserialization),
-                )
-
-                if partition_filter is not None and record.partition != partition_filter:
-                    continue
-
-                if key_filter and key_filter not in record.key_str():
-                    continue
-
-                if value_filter and value_filter not in record.value_str():
-                    continue
-
-                if header_filter:
-                    if record.headers is None:
-                        continue
-
-                    if not [
-                        header for header in record.headers if header_filter in header.value_str()
-                    ]:
-                        continue
-
-                records.append(record)
+                record = self._record_from_message(record_metadata)
+                if self._matches(
+                    record,
+                    partition_filter=partition_filter,
+                    key_filter=key_filter,
+                    value_filter=value_filter,
+                    header_filter=header_filter,
+                ):
+                    records.append(record)
                 if len(records) >= self.page_size:
                     break
 
@@ -216,6 +167,56 @@ class ConsumerService:
         )
 
         return records
+
+    def _record_from_message(self, message: Any) -> Record:
+        if message.error():
+            raise KafkaException(message.error())
+        return Record(
+            topic=self.topic,
+            partition=message.partition(),
+            offset=message.offset(),
+            key=message.key(),
+            value=message.value(),
+            date=self._message_date(message),
+            headers=[
+                Header(key=key, value=value, value_deserializer=self.header_deserializer)
+                for key, value in (message.headers() or [])
+            ],
+            key_deserialization=self.key_deserialization,
+            value_deserialization=self.value_deserialization,
+            key_deserializer=self.key_deserializer,
+            value_deserializer=self.value_deserializer,
+        )
+
+    @staticmethod
+    def _message_date(message: Any) -> str:
+        timestamp_available, timestamp = message.timestamp()
+        if timestamp_available <= 0:
+            return ""
+        return (
+            datetime.fromtimestamp(timestamp / 1000, tz=timezone.utc)
+            .astimezone()
+            .strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+        )
+
+    @staticmethod
+    def _matches(
+        record: Record,
+        *,
+        partition_filter: int | None,
+        key_filter: str | None,
+        value_filter: str | None,
+        header_filter: str | None,
+    ) -> bool:
+        if partition_filter is not None and record.partition != partition_filter:
+            return False
+        if key_filter and key_filter not in record.key_str():
+            return False
+        if value_filter and value_filter not in record.value_str():
+            return False
+        return not header_filter or any(
+            header_filter in header.value_str() for header in record.headers
+        )
 
 
 class ClusterService:
@@ -266,11 +267,11 @@ class EnrichmentResult:
 @dataclass(frozen=True)
 class GroupSnapshot:
     descriptions: tuple[ConsumerGroupDescription, ...] = ()
-    offsets: dict[str, tuple[TopicPartition, ...]] | None = None
+    offsets: dict[str, tuple[TopicPartition, ...]] = field(default_factory=dict)
     errors: tuple[Exception, ...] = ()
 
     def offsets_for(self, group_id: str) -> tuple[TopicPartition, ...]:
-        return (self.offsets or {}).get(group_id, ())
+        return self.offsets.get(group_id, ())
 
 
 class TopicService:
@@ -347,16 +348,26 @@ class TopicService:
 
     async def enrich_offsets(self, topics: dict[str, Topic]) -> EnrichmentResult:
         started_at = perf_counter()
-        partitions = {
-            TopicPartition(topic.name, partition.id): partition
-            for topic in topics.values()
-            for partition in topic.partitions
-        }
+        partitions = self._partition_lookup(topics)
         if not partitions:
-            for topic in topics.values():
-                topic.records_state = MetricState.READY
+            self._set_records_state(topics, MetricState.READY)
             return EnrichmentResult()
 
+        earliest, latest, errors = await self._load_partition_offsets(tuple(partitions))
+        self._apply_partition_offsets(topics, earliest, latest)
+        logger.info(
+            "admin offsets loaded partitions=%d errors=%d elapsed=%.3fs",
+            len(partitions),
+            len(errors),
+            perf_counter() - started_at,
+        )
+        return EnrichmentResult(errors)
+
+    async def _load_partition_offsets(self, partitions: tuple[TopicPartition, ...]) -> tuple[
+        dict[tuple[str, int], int],
+        dict[tuple[str, int], int],
+        tuple[Exception, ...],
+    ]:
         try:
             earliest_futures = self.admin_client.list_offsets(
                 {
@@ -374,17 +385,22 @@ class TopicService:
             )
         except ADMIN_EXCEPTIONS as ex:
             logger.error("admin offset request failed: %s", ex)
-            for topic in topics.values():
-                if topic.records_state is not MetricState.READY:
-                    topic.records_state = MetricState.UNAVAILABLE
-            return EnrichmentResult((ex,))
+            return {}, {}, (ex,)
 
-        earliest_task = asyncio.create_task(self._resolve_offset_futures(earliest_futures))
-        latest_task = asyncio.create_task(self._resolve_offset_futures(latest_futures))
-        earliest, earliest_errors = await earliest_task
-        latest, latest_errors = await latest_task
-        errors = (*earliest_errors, *latest_errors)
+        earliest_result, latest_result = await asyncio.gather(
+            self._resolve_offset_futures(earliest_futures),
+            self._resolve_offset_futures(latest_futures),
+        )
+        earliest, earliest_errors = earliest_result
+        latest, latest_errors = latest_result
+        return earliest, latest, (*earliest_errors, *latest_errors)
 
+    @staticmethod
+    def _apply_partition_offsets(
+        topics: dict[str, Topic],
+        earliest: dict[tuple[str, int], int],
+        latest: dict[tuple[str, int], int],
+    ) -> None:
         for topic in topics.values():
             topic_offsets = [
                 (
@@ -404,13 +420,19 @@ class TopicService:
                         partition.high = high
                 topic.records_state = MetricState.READY
 
-        logger.info(
-            "admin offsets loaded partitions=%d errors=%d elapsed=%.3fs",
-            len(partitions),
-            len(errors),
-            perf_counter() - started_at,
-        )
-        return EnrichmentResult(errors)
+    @staticmethod
+    def _set_records_state(topics: dict[str, Topic], state: MetricState) -> None:
+        for topic in topics.values():
+            if topic.records_state is not MetricState.READY:
+                topic.records_state = state
+
+    @staticmethod
+    def _partition_lookup(topics: dict[str, Topic]) -> dict[TopicPartition, Partition]:
+        return {
+            TopicPartition(topic.name, partition.id): partition
+            for topic in topics.values()
+            for partition in topic.partitions
+        }
 
     async def _resolve_offset_futures(
         self, futures: dict[TopicPartition, Any]
@@ -438,73 +460,89 @@ class TopicService:
 
     async def load_groups(self) -> GroupSnapshot:
         started_at = perf_counter()
-        errors: list[Exception] = []
-        try:
-            list_result = await asyncio.wrap_future(
-                self.admin_client.list_consumer_groups(request_timeout=self.timeout)
-            )
-        except ADMIN_EXCEPTIONS as ex:
-            logger.error("admin consumer-group listing failed: %s", ex)
-            return GroupSnapshot(errors=(ex,))
-
-        errors.extend(list_result.errors or [])
-        group_ids = [group.group_id for group in list_result.valid or []]
+        group_ids, list_errors = await self._list_group_ids()
         if not group_ids:
-            return GroupSnapshot(errors=tuple(errors))
+            return GroupSnapshot(errors=list_errors)
 
-        descriptions: list[ConsumerGroupDescription] = []
-        description_futures = self.admin_client.describe_consumer_groups(
-            group_ids, request_timeout=self.timeout
-        )
-        description_results = await asyncio.gather(
-            *(self._resolve_future(future) for future in description_futures.values())
-        )
-        for description, error in description_results:
-            if error is not None:
-                errors.append(error)
-            elif description is not None:
-                descriptions.append(description)
-
-        semaphore = asyncio.Semaphore(self.GROUP_OFFSET_CONCURRENCY)
-
-        async def load_offsets(
-            group_id: str,
-        ) -> tuple[str, tuple[TopicPartition, ...], Exception | None]:
-            async with semaphore:
-                try:
-                    futures = self.admin_client.list_consumer_group_offsets(
-                        [ConsumerGroupTopicPartitions(group_id)],
-                        request_timeout=self.timeout,
-                    )
-                    result = await asyncio.wrap_future(futures[group_id])
-                    topic_partitions = tuple(result.topic_partitions or ())
-                    partition_errors = [
-                        KafkaException(partition.error)
-                        for partition in topic_partitions
-                        if partition.error is not None
-                    ]
-                    if partition_errors:
-                        return group_id, (), partition_errors[0]
-                    return group_id, topic_partitions, None
-                except ADMIN_EXCEPTIONS as ex:
-                    return group_id, (), ex
-
-        offset_results = await asyncio.gather(*(load_offsets(group_id) for group_id in group_ids))
-        offsets: dict[str, tuple[TopicPartition, ...]] = {}
-        for group_id, topic_partitions, error in offset_results:
-            if error is not None:
-                logger.error("admin consumer-group offsets failed for %s: %s", group_id, error)
-                errors.append(error)
-            else:
-                offsets[group_id] = topic_partitions
-
+        descriptions, description_errors = await self._load_group_descriptions(group_ids)
+        offsets, offset_errors = await self._load_group_offsets(group_ids)
+        errors = (*list_errors, *description_errors, *offset_errors)
         logger.info(
             "admin groups loaded groups=%d errors=%d elapsed=%.3fs",
             len(group_ids),
             len(errors),
             perf_counter() - started_at,
         )
-        return GroupSnapshot(tuple(descriptions), offsets, tuple(errors))
+        return GroupSnapshot(descriptions, offsets, errors)
+
+    async def _list_group_ids(self) -> tuple[tuple[str, ...], tuple[Exception, ...]]:
+        try:
+            list_result = await asyncio.wrap_future(
+                self.admin_client.list_consumer_groups(request_timeout=self.timeout)
+            )
+        except ADMIN_EXCEPTIONS as ex:
+            logger.error("admin consumer-group listing failed: %s", ex)
+            return (), (ex,)
+        return (
+            tuple(group.group_id for group in list_result.valid or []),
+            tuple(list_result.errors or ()),
+        )
+
+    async def _load_group_descriptions(
+        self, group_ids: tuple[str, ...]
+    ) -> tuple[tuple[ConsumerGroupDescription, ...], tuple[Exception, ...]]:
+        descriptions: list[ConsumerGroupDescription] = []
+        description_futures = self.admin_client.describe_consumer_groups(
+            list(group_ids), request_timeout=self.timeout
+        )
+        description_results = await asyncio.gather(
+            *(self._resolve_future(future) for future in description_futures.values())
+        )
+        errors: list[Exception] = []
+        for description, error in description_results:
+            if error is not None:
+                errors.append(error)
+            elif description is not None:
+                descriptions.append(description)
+        return tuple(descriptions), tuple(errors)
+
+    async def _load_group_offsets(
+        self, group_ids: tuple[str, ...]
+    ) -> tuple[dict[str, tuple[TopicPartition, ...]], tuple[Exception, ...]]:
+        semaphore = asyncio.Semaphore(self.GROUP_OFFSET_CONCURRENCY)
+        offset_results = await asyncio.gather(
+            *(self._load_single_group_offsets(group_id, semaphore) for group_id in group_ids)
+        )
+        offsets: dict[str, tuple[TopicPartition, ...]] = {}
+        errors: list[Exception] = []
+        for group_id, topic_partitions, error in offset_results:
+            if error is not None:
+                logger.error("admin consumer-group offsets failed for %s: %s", group_id, error)
+                errors.append(error)
+            else:
+                offsets[group_id] = topic_partitions
+        return offsets, tuple(errors)
+
+    async def _load_single_group_offsets(
+        self, group_id: str, semaphore: asyncio.Semaphore
+    ) -> tuple[str, tuple[TopicPartition, ...], Exception | None]:
+        async with semaphore:
+            try:
+                futures = self.admin_client.list_consumer_group_offsets(
+                    [ConsumerGroupTopicPartitions(group_id)],
+                    request_timeout=self.timeout,
+                )
+                result = await asyncio.wrap_future(futures[group_id])
+                topic_partitions = tuple(result.topic_partitions or ())
+                error = self._first_partition_error(topic_partitions)
+                return group_id, () if error else topic_partitions, error
+            except ADMIN_EXCEPTIONS as ex:
+                return group_id, (), ex
+
+    @staticmethod
+    def _first_partition_error(partitions: tuple[TopicPartition, ...]) -> Exception | None:
+        partition = next((item for item in partitions if item.error is not None), None)
+        return KafkaException(partition.error) if partition is not None else None
 
     async def _resolve_future(self, future: Any) -> tuple[Any | None, Exception | None]:
         try:
@@ -515,11 +553,29 @@ class TopicService:
 
     def apply_groups(self, topics: dict[str, Topic], snapshot: GroupSnapshot) -> EnrichmentResult:
         if snapshot.errors:
-            for topic in topics.values():
-                if topic.groups_state is not MetricState.READY:
-                    topic.groups_state = MetricState.UNAVAILABLE
+            self._set_groups_unavailable(topics)
             return EnrichmentResult(snapshot.errors)
 
+        self._reset_groups(topics)
+        partitions = self._partitions_by_key(topics)
+
+        for group_metadata in snapshot.descriptions:
+            committed_by_topic = self._committed_by_topic(group_metadata, snapshot, topics)
+            for topic_name, committed in committed_by_topic.items():
+                group = self._map_group(group_metadata, topic_name, committed, partitions)
+                if group.partitions:
+                    topics[topic_name].groups.append(group)
+
+        return EnrichmentResult()
+
+    @staticmethod
+    def _set_groups_unavailable(topics: dict[str, Topic]) -> None:
+        for topic in topics.values():
+            if topic.groups_state is not MetricState.READY:
+                topic.groups_state = MetricState.UNAVAILABLE
+
+    @staticmethod
+    def _reset_groups(topics: dict[str, Topic]) -> None:
         for topic in topics.values():
             topic.groups = []
             topic.groups_state = (
@@ -528,77 +584,101 @@ class TopicService:
                 else MetricState.UNAVAILABLE
             )
 
-        partitions = {
+    @staticmethod
+    def _partitions_by_key(topics: dict[str, Topic]) -> dict[tuple[str, int], Partition]:
+        return {
             (topic.name, partition.id): partition
             for topic in topics.values()
             for partition in topic.partitions
         }
 
-        for group_metadata in snapshot.descriptions:
-            committed_by_topic: dict[str, list[TopicPartition]] = {}
-            for committed in snapshot.offsets_for(group_metadata.group_id):
-                if committed.offset == OFFSET_INVALID or committed.topic not in topics:
-                    continue
-                committed_by_topic.setdefault(str(committed.topic), []).append(committed)
+    @staticmethod
+    def _committed_by_topic(
+        group_metadata: ConsumerGroupDescription,
+        snapshot: GroupSnapshot,
+        topics: dict[str, Topic],
+    ) -> dict[str, list[TopicPartition]]:
+        committed_by_topic: dict[str, list[TopicPartition]] = {}
+        for committed in snapshot.offsets_for(group_metadata.group_id):
+            topic_name = str(committed.topic)
+            if committed.offset == OFFSET_INVALID or topic_name not in topics:
+                continue
+            committed_by_topic.setdefault(topic_name, []).append(committed)
+        return committed_by_topic
 
-            for topic_name, committed_partitions in committed_by_topic.items():
-                topic = topics[topic_name]
-                coordinator = group_metadata.coordinator
-                group = Group(
-                    id=group_metadata.group_id,
-                    partition_assignor=group_metadata.partition_assignor,
-                    state=str(getattr(group_metadata.state, "name", group_metadata.state)).lower(),
-                    coordinator=(
-                        Node(
-                            id=coordinator.id,
-                            host=coordinator.host,
-                            port=coordinator.port,
-                            rack=coordinator.rack,
-                        )
-                        if coordinator is not None
-                        else None
-                    ),
-                )
+    def _map_group(
+        self,
+        metadata: ConsumerGroupDescription,
+        topic_name: str,
+        committed_partitions: list[TopicPartition],
+        partitions: dict[tuple[str, int], Partition],
+    ) -> Group:
+        group = Group(
+            id=metadata.group_id,
+            partition_assignor=metadata.partition_assignor,
+            state=str(getattr(metadata.state, "name", metadata.state)).lower(),
+            coordinator=self._map_coordinator(metadata.coordinator),
+        )
+        group.partitions = self._map_group_partitions(
+            metadata.group_id, topic_name, committed_partitions, partitions
+        )
+        group.members = self._map_group_members(metadata, topic_name)
+        return group
 
-                for committed in committed_partitions:
-                    partition = partitions.get((topic_name, committed.partition))
-                    if partition is None:
-                        continue
-                    group.partitions.append(
-                        GroupPartition(
-                            id=committed.partition,
-                            topic=topic_name,
-                            offset=committed.offset,
-                            group=group_metadata.group_id,
-                            high=partition.high,
-                            low=partition.low,
-                        )
+    @staticmethod
+    def _map_coordinator(coordinator: Any) -> Node | None:
+        if coordinator is None:
+            return None
+        return Node(
+            id=coordinator.id,
+            host=coordinator.host,
+            port=coordinator.port,
+            rack=coordinator.rack,
+        )
+
+    @staticmethod
+    def _map_group_partitions(
+        group_id: str,
+        topic_name: str,
+        committed_partitions: list[TopicPartition],
+        partitions: dict[tuple[str, int], Partition],
+    ) -> list[GroupPartition]:
+        return [
+            GroupPartition(
+                id=committed.partition,
+                topic=topic_name,
+                offset=committed.offset,
+                group=group_id,
+                high=partition.high,
+                low=partition.low,
+            )
+            for committed in committed_partitions
+            if (partition := partitions.get((topic_name, committed.partition))) is not None
+        ]
+
+    @staticmethod
+    def _map_group_members(
+        metadata: ConsumerGroupDescription, topic_name: str
+    ) -> list[GroupMember]:
+        members: list[GroupMember] = []
+        for member in metadata.members:
+            assignments = [
+                assigned.partition
+                for assigned in member.assignment.topic_partitions
+                if assigned.topic == topic_name
+            ]
+            if assignments:
+                members.append(
+                    GroupMember(
+                        id=member.member_id,
+                        group=metadata.group_id,
+                        client_id=member.client_id,
+                        host=member.host,
+                        instance_id=member.group_instance_id,
+                        assignment=assignments,
                     )
-
-                if not group.partitions:
-                    continue
-
-                for member_metadata in group_metadata.members:
-                    member_partitions = [
-                        assigned.partition
-                        for assigned in member_metadata.assignment.topic_partitions
-                        if assigned.topic == topic_name
-                    ]
-                    if member_partitions:
-                        group.members.append(
-                            GroupMember(
-                                id=member_metadata.member_id,
-                                group=group_metadata.group_id,
-                                client_id=member_metadata.client_id,
-                                host=member_metadata.host,
-                                instance_id=member_metadata.group_instance_id,
-                                assignment=member_partitions,
-                            )
-                        )
-
-                topic.groups.append(group)
-
-        return EnrichmentResult()
+                )
+        return members
 
     def _map_topics(self, topics_metadata: list[TopicMetadata]) -> dict[str, Topic]:
         topics: dict[str, Topic] = {}
