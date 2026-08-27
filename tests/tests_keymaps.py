@@ -22,7 +22,15 @@ from kaskade.consumer import (
     TopicScreen,
 )
 from kaskade.help import HelpableModalScreen, HelpScreen
-from kaskade.keymaps import CONFIG_ENV_VAR, KNOWN_BINDING_IDS, default_config_path, load_keymap
+from kaskade.keymaps import (
+    CONFIG_ENV_VAR,
+    KNOWN_BINDING_IDS,
+    AppSettings,
+    KeymapSettings,
+    default_config_path,
+    load_keymap,
+    load_settings,
+)
 from kaskade.models import Topic
 from kaskade.themes import KaskadeApp
 from kaskade.widgets import KaskadeOptionList, KaskadeScrollableContainer, StretchyDataTable
@@ -30,6 +38,17 @@ from tests import configure_admin_service
 
 
 class TestKeymapConfiguration(unittest.TestCase):
+    def test_preserves_original_settings_names_as_aliases(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            path = Path(temporary_directory) / "config.yaml"
+            path.write_text("admin:\n  refresh_interval_seconds: 10\n", encoding="utf-8")
+
+            settings = load_settings(path)
+            compatibility_settings = load_keymap(path)
+
+        self.assertIs(AppSettings, KeymapSettings)
+        self.assertEqual(settings, compatibility_settings)
+
     def test_every_kaskade_binding_id_is_configurable(self):
         binding_owners = (
             KaskadeApp,

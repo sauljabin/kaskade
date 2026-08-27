@@ -2,6 +2,7 @@ import os
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 import yaml
 from textual.keys import KEY_NAME_REPLACEMENTS, KEY_TO_UNICODE_NAME, Keys, key_to_character
@@ -74,11 +75,15 @@ _NAMED_KEYS = (
 
 
 @dataclass(frozen=True)
-class KeymapSettings:
+class AppSettings:
     path: Path
     keymap: dict[str, str]
     admin_refresh_interval_seconds: int = DEFAULT_ADMIN_REFRESH_INTERVAL_SECONDS
     warnings: tuple[str, ...] = ()
+
+
+# Compatibility name retained for callers that imported the original settings type.
+KeymapSettings = AppSettings
 
 
 def default_config_path(environ: Mapping[str, str] | None = None, home: Path | None = None) -> Path:
@@ -94,31 +99,48 @@ def default_config_path(environ: Mapping[str, str] | None = None, home: Path | N
     return base_path / "kaskade" / CONFIG_FILE_NAME
 
 
-def load_keymap(path: Path | None = None) -> KeymapSettings:
+def load_settings(path: Path | None = None) -> AppSettings:
     """Load valid application settings without making startup fragile."""
     config_path = default_config_path() if path is None else path
+    data, read_warnings = _read_config(config_path)
+    keymap, keymap_warnings = _parse_keymap(data.get("keymap", {}), config_path)
+    refresh_interval, admin_warnings = _parse_admin_settings(data.get("admin", {}))
+    return AppSettings(
+        config_path,
+        keymap,
+        admin_refresh_interval_seconds=refresh_interval,
+        warnings=(*read_warnings, *keymap_warnings, *admin_warnings),
+    )
+
+
+def load_keymap(path: Path | None = None) -> AppSettings:
+    """Compatibility wrapper for the original application settings loader."""
+    return load_settings(path)
+
+
+def is_valid_admin_refresh_interval(value: int) -> bool:
+    return value == 0 or value >= MIN_ADMIN_REFRESH_INTERVAL_SECONDS
+
+
+def _read_config(config_path: Path) -> tuple[dict[str, Any], tuple[str, ...]]:
     if not config_path.exists():
-        return KeymapSettings(config_path, {})
+        return {}, ()
 
     try:
         data = yaml.safe_load(config_path.read_text(encoding="utf-8"))
     except (OSError, yaml.YAMLError) as ex:
-        return KeymapSettings(
-            config_path,
-            {},
-            warnings=(f"Could not read {config_path}: {ex}",),
-        )
+        return {}, (f"Could not read {config_path}: {ex}",)
 
     if data is None:
-        return KeymapSettings(config_path, {})
+        return {}, ()
     if not isinstance(data, dict):
-        return KeymapSettings(
-            config_path,
-            {},
-            warnings=(f"Ignoring {config_path}: the document must be a mapping.",),
-        )
+        return {}, (f"Ignoring {config_path}: the document must be a mapping.",)
+    return data, ()
 
-    configured_keymap = data.get("keymap", {})
+
+def _parse_keymap(
+    configured_keymap: Any, config_path: Path
+) -> tuple[dict[str, str], tuple[str, ...]]:
     warning_messages: list[str] = []
     if not isinstance(configured_keymap, dict):
         warning_messages.append(f"Ignoring {config_path}: 'keymap' must be a mapping.")
@@ -139,9 +161,12 @@ def load_keymap(path: Path | None = None) -> KeymapSettings:
             )
             continue
         keymap[binding_id] = keys
+    return keymap, tuple(warning_messages)
 
+
+def _parse_admin_settings(configured_admin: Any) -> tuple[int, tuple[str, ...]]:
     refresh_interval = DEFAULT_ADMIN_REFRESH_INTERVAL_SECONDS
-    configured_admin = data.get("admin", {})
+    warning_messages: list[str] = []
     if not isinstance(configured_admin, dict):
         warning_messages.append("Ignoring 'admin': it must be a mapping.")
     elif "refresh_interval_seconds" in configured_admin:
@@ -150,20 +175,14 @@ def load_keymap(path: Path | None = None) -> KeymapSettings:
             warning_messages.append(
                 "Ignoring 'admin.refresh_interval_seconds': it must be an integer."
             )
-        elif configured_interval != 0 and configured_interval < MIN_ADMIN_REFRESH_INTERVAL_SECONDS:
+        elif not is_valid_admin_refresh_interval(configured_interval):
             warning_messages.append(
                 "Ignoring 'admin.refresh_interval_seconds': it must be 0 or at least "
                 f"{MIN_ADMIN_REFRESH_INTERVAL_SECONDS}."
             )
         else:
             refresh_interval = configured_interval
-
-    return KeymapSettings(
-        config_path,
-        keymap,
-        admin_refresh_interval_seconds=refresh_interval,
-        warnings=tuple(warning_messages),
-    )
+    return refresh_interval, tuple(warning_messages)
 
 
 def _is_valid_key(key: str) -> bool:

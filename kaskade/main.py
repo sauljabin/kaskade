@@ -16,7 +16,10 @@ from kaskade.configs import (
 )
 from kaskade.consumer import KaskadeConsumer
 from kaskade.deserializers import Deserialization
-from kaskade.keymaps import MIN_ADMIN_REFRESH_INTERVAL_SECONDS
+from kaskade.keymaps import (
+    MIN_ADMIN_REFRESH_INTERVAL_SECONDS,
+    is_valid_admin_refresh_interval,
+)
 from kaskade.themes import DEFAULT_THEME, available_theme_names
 from kaskade.utils import load_properties
 
@@ -47,7 +50,7 @@ def string_to_deserializer_type(ctx: Any, param: Any, value: Any) -> Any:
 
 
 def validate_admin_refresh_interval(ctx: Any, param: Any, value: int | None) -> int | None:
-    if value is not None and value != 0 and value < MIN_ADMIN_REFRESH_INTERVAL_SECONDS:
+    if value is not None and not is_valid_admin_refresh_interval(value):
         raise BadParameter(
             message=f"Should be 0 or at least {MIN_ADMIN_REFRESH_INTERVAL_SECONDS} seconds.",
             ctx=ctx,

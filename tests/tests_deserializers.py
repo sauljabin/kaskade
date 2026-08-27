@@ -47,8 +47,23 @@ class TestDeserializer(unittest.TestCase):
     def test_missing_deserializer_configuration_raises_deserialization_error(self):
         pool = DeserializerPool()
 
-        with self.assertRaisesRegex(DeserializationError, "Schema Registry is not configured"):
-            pool.get(Deserialization.REGISTRY)
+        missing_configurations = {
+            Deserialization.REGISTRY: "Schema Registry is not configured",
+            Deserialization.AVRO: "Avro is not configured",
+            Deserialization.PROTOBUF: "Protobuf is not configured",
+        }
+        for deserialization, message in missing_configurations.items():
+            with (
+                self.subTest(deserialization=deserialization),
+                self.assertRaisesRegex(DeserializationError, message),
+            ):
+                pool.get(deserialization)
+
+    def test_pool_reuses_configured_deserializers(self):
+        pool = DeserializerPool()
+
+        self.assertIs(pool.get(Deserialization.STRING), pool.get(Deserialization.STRING))
+        self.assertIs(pool.default_deserializer, pool.get(Deserialization.BYTES))
 
     def test_header_falls_back_to_binary_value_for_deserialization_error(self):
         value = b"invalid"
