@@ -1,12 +1,38 @@
+from collections.abc import Mapping
 from typing import Any, ClassVar
 
 from rich.text import TextType
 from textual import events
+from textual.app import ComposeResult
 from textual.binding import Binding, BindingType
-from textual.containers import ScrollableContainer
+from textual.containers import Horizontal, ScrollableContainer
 from textual.geometry import Size
-from textual.widgets import DataTable, OptionList
+from textual.widgets import DataTable, OptionList, Static
 from textual.widgets.data_table import CellType, ColumnKey
+
+from kaskade import APP_NAME, APP_VERSION
+from kaskade.configs import BOOTSTRAP_SERVERS
+
+
+class KaskadeHeader(Horizontal):
+    """Display the application version and active Kafka bootstrap servers."""
+
+    def __init__(self, kafka_config: Mapping[str, Any]) -> None:
+        super().__init__(id="kaskade-header")
+        bootstrap_servers = kafka_config.get(BOOTSTRAP_SERVERS, "Not configured")
+        self.kafka_information = f"Kafka: {bootstrap_servers}"
+
+    def compose(self) -> ComposeResult:
+        yield Static(
+            f"{APP_NAME.title()} v{APP_VERSION}",
+            id="kaskade-product",
+            markup=False,
+        )
+        yield Static(
+            self.kafka_information,
+            id="kaskade-kafka",
+            markup=False,
+        )
 
 
 class StretchyDataTable(DataTable[CellType]):
