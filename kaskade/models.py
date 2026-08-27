@@ -5,6 +5,8 @@ from confluent_kafka.serialization import MessageField
 
 from kaskade.deserializers import DESERIALIZATION_EXCEPTIONS, Deserialization, Deserializer
 
+_NOT_DESERIALIZED = object()
+
 
 class Node:
     def __init__(
@@ -190,6 +192,8 @@ class Topic:
         name: str = "",
         partitions: None | list[Partition] = None,
         groups: None | list[Group] = None,
+        records_state: "MetricState | None" = None,
+        groups_state: "MetricState | None" = None,
     ) -> None:
         if groups is None:
             groups = []
@@ -198,6 +202,8 @@ class Topic:
         self.name = name
         self.partitions = partitions
         self.groups = groups
+        self.records_state = records_state or MetricState.LOADING
+        self.groups_state = groups_state or MetricState.LOADING
 
     def partitions_count(self) -> int:
         return len(self.partitions) if self.partitions is not None else 0
@@ -290,6 +296,12 @@ class CleanupPolicy(Enum):
         return [str(policy) for policy in CleanupPolicy]
 
 
+class MetricState(Enum):
+    LOADING = auto()
+    READY = auto()
+    UNAVAILABLE = auto()
+
+
 class Header:
     def __init__(
         self,
@@ -300,6 +312,7 @@ class Header:
         self.key = key
         self.value = value
         self.value_deserializer = value_deserializer
+        self._deserialized: Any = _NOT_DESERIALIZED
 
     def __repr__(self) -> str:
         return str(self)
@@ -313,17 +326,23 @@ class Header:
         return False
 
     def value_deserialized(self) -> Any:
+        if self._deserialized is not _NOT_DESERIALIZED:
+            return self._deserialized
+
         if self.value is None:
-            return
+            self._deserialized = None
+            return self._deserialized
 
         if self.value_deserializer is None:
-            return str(self.value)
+            self._deserialized = str(self.value)
+            return self._deserialized
 
         try:
-            return self.value_deserializer.deserialize(self.value)
+            self._deserialized = self.value_deserializer.deserialize(self.value)
         except DESERIALIZATION_EXCEPTIONS:
             # it doesn't matter to show the binaries
-            return str(self.value)
+            self._deserialized = str(self.value)
+        return self._deserialized
 
     def value_str(self) -> str:
         return str(self.value_deserialized())
@@ -357,6 +376,8 @@ class Record:
         self.value_deserialization = value_deserialization
         self.key_deserializer = key_deserializer
         self.value_deserializer = value_deserializer
+        self._key_deserialized: Any = _NOT_DESERIALIZED
+        self._value_deserialized: Any = _NOT_DESERIALIZED
 
     def __repr__(self) -> str:
         return str(self)
@@ -390,22 +411,38 @@ class Record:
         }
 
     def key_deserialized(self) -> Any:
+        if self._key_deserialized is not _NOT_DESERIALIZED:
+            return self._key_deserialized
+
         if self.key is None:
-            return
+            self._key_deserialized = None
+            return self._key_deserialized
 
         if self.key_deserializer is None:
-            return str(self.key)
+            self._key_deserialized = str(self.key)
+            return self._key_deserialized
 
-        return self.key_deserializer.deserialize(self.key, self.topic, MessageField.KEY)
+        self._key_deserialized = self.key_deserializer.deserialize(
+            self.key, self.topic, MessageField.KEY
+        )
+        return self._key_deserialized
 
     def value_deserialized(self) -> Any:
+        if self._value_deserialized is not _NOT_DESERIALIZED:
+            return self._value_deserialized
+
         if self.value is None:
-            return
+            self._value_deserialized = None
+            return self._value_deserialized
 
         if self.value_deserializer is None:
-            return str(self.value)
+            self._value_deserialized = str(self.value)
+            return self._value_deserialized
 
-        return self.value_deserializer.deserialize(self.value, self.topic, MessageField.VALUE)
+        self._value_deserialized = self.value_deserializer.deserialize(
+            self.value, self.topic, MessageField.VALUE
+        )
+        return self._value_deserialized
 
     def key_str(self) -> str:
         return str(self.key_deserialized())

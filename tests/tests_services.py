@@ -1,10 +1,14 @@
+import asyncio
 import unittest
+from concurrent.futures import Future
 from unittest.mock import MagicMock, patch
 
-from confluent_kafka import Node
+from confluent_kafka import ConsumerGroupTopicPartitions, Node
 from confluent_kafka.admin import (
     ConsumerGroupDescription,
     ConsumerGroupListing,
+    ListConsumerGroupsResult,
+    ListOffsetsResultInfo,
     MemberAssignment,
     MemberDescription,
     PartitionMetadata,
@@ -12,176 +16,217 @@ from confluent_kafka.admin import (
 )
 from confluent_kafka.cimpl import CONSUMER_GROUP_STATE_STABLE, TopicPartition
 
-from kaskade.services import TopicService
+from kaskade.deserializers import Deserialization, DeserializerPool
+from kaskade.models import MetricState
+from kaskade.services import ConsumerService, TopicService
 from tests import faker
 
 
+def completed(value: object) -> Future[object]:
+    future: Future[object] = Future()
+    future.set_result(value)
+    return future
+
+
+def failed(error: Exception) -> Future[object]:
+    future: Future[object] = Future()
+    future.set_exception(error)
+    return future
+
+
+def topic_metadata(name: str, partition_id: int, partition_count: int = 1) -> TopicMetadata:
+    topic = TopicMetadata()
+    topic.topic = name
+    topic.partitions = {}
+    for current_partition_id in range(partition_id, partition_id + partition_count):
+        partition = PartitionMetadata()
+        partition.id = current_partition_id
+        partition.leader = 0
+        partition.isrs = [0, 1]
+        partition.replicas = [0, 1, 2]
+        topic.partitions[current_partition_id] = partition
+    return topic
+
+
 class TestTopicService(unittest.IsolatedAsyncioTestCase):
+    @patch("kaskade.services.Consumer")
+    @patch("kaskade.services.AdminClient")
+    async def test_batches_offsets_without_admin_consumers(
+        self, mock_class_admin: MagicMock, mock_class_consumer: MagicMock
+    ) -> None:
+        topic_name = faker.word()
+        partition_id = faker.pyint()
+        metadata = topic_metadata(topic_name, partition_id, partition_count=25)
+        admin = mock_class_admin.return_value
+        admin.list_topics.return_value.topics = {topic_name: metadata}
+
+        def list_offsets(request: dict[TopicPartition, object], **_: object) -> object:
+            offset = 0 if admin.list_offsets.call_count == 1 else 50
+            return {
+                partition: completed(ListOffsetsResultInfo(offset, -1, -1)) for partition in request
+            }
+
+        admin.list_offsets.side_effect = list_offsets
+        admin.list_consumer_groups.return_value = completed(ListConsumerGroupsResult(valid=[]))
+
+        topics = await TopicService({"bootstrap.servers": faker.hostname()}).all()
+
+        topic = topics[topic_name]
+        self.assertEqual(MetricState.READY, topic.records_state)
+        self.assertEqual(MetricState.READY, topic.groups_state)
+        self.assertEqual(1250, topic.records_count())
+        self.assertEqual(2, admin.list_offsets.call_count)
+        mock_class_consumer.assert_not_called()
 
     @patch("kaskade.services.Consumer")
     @patch("kaskade.services.AdminClient")
-    async def test_get_topics_without_group(self, mock_class_admin, mock_class_consumer):
-        # prepare get_watermark
-        expected_low_watermark = 0
-        expected_high_watermark = 50
+    async def test_maps_groups_with_one_offset_request_per_group(
+        self, mock_class_admin: MagicMock, mock_class_consumer: MagicMock
+    ) -> None:
+        topic_name = faker.word()
+        partition_id = faker.pyint()
+        metadata = topic_metadata(topic_name, partition_id)
+        admin = mock_class_admin.return_value
+        admin.list_topics.return_value.topics = {topic_name: metadata}
 
-        mock_consumer = MagicMock()
-        mock_class_consumer.return_value = mock_consumer
-        mock_consumer.get_watermark_offsets.return_value = (
-            expected_low_watermark,
-            expected_high_watermark,
+        def list_offsets(request: dict[TopicPartition, object], **_: object) -> object:
+            offset = 0 if admin.list_offsets.call_count == 1 else 50
+            return {
+                partition: completed(ListOffsetsResultInfo(offset, -1, -1)) for partition in request
+            }
+
+        admin.list_offsets.side_effect = list_offsets
+        group_id = faker.word()
+        committed = TopicPartition(topic_name, partition_id, 30)
+        member = MemberDescription(
+            member_id=f"{group_id}-1",
+            client_id=f"{group_id}-client",
+            host=faker.hostname(),
+            assignment=MemberAssignment([committed]),
         )
-
-        # prepare topic: 1 topic and 1 partition
-        expected_topic_name = faker.word()
-
-        partition_metadata = PartitionMetadata()
-        partition_metadata.id = faker.pyint()
-        partition_metadata.isrs = [0, 1]
-        partition_metadata.replicas = [0, 1, 2]
-
-        topic_metadata = TopicMetadata()
-        topic_metadata.topic = expected_topic_name
-        topic_metadata.partitions = {partition_metadata.id: partition_metadata}
-
-        # prepare list_topics
-        mock_admin = MagicMock()
-        mock_class_admin.return_value = mock_admin
-        mock_admin.list_topics.return_value.topics = {topic_metadata.topic: topic_metadata}
-
-        # prepare consumer groups: no groups
-        mock_admin.list_consumer_groups.return_value.result.return_value.valid = []
-
-        # asserts
-        topic_service = TopicService({"bootstrap.servers": faker.hostname()})
-
-        topics_list = await topic_service.all()
-        self.assertEqual(1, len(topics_list))
-
-        topic = topics_list[expected_topic_name]
-        self.assertEqual(expected_topic_name, topic.name)
-
-        partitions_list = topic.partitions
-        self.assertEqual(1, len(partitions_list))
-
-        partition = partitions_list[0]
-        self.assertEqual(expected_low_watermark, partition.low)
-        self.assertEqual(expected_high_watermark, partition.high)
-
-        groups_list = topic.groups
-        self.assertEqual(0, len(groups_list))
-
-        self.assertEqual(0, topic.groups_count())
-        self.assertEqual(1, topic.partitions_count())
-        self.assertEqual(2, topic.isrs_count())
-        self.assertEqual(50, topic.records_count())
-        self.assertEqual(3, topic.replicas_count())
-        self.assertEqual(0, topic.lag())
-
-    @patch("kaskade.services.Consumer")
-    @patch("kaskade.services.AdminClient")
-    async def test_get_topics_with_group(self, mock_class_admin, mock_class_consumer):
-        # prepare get_watermark
-        expected_low_watermark = 0
-        expected_high_watermark = 50
-
-        mock_consumer = MagicMock()
-        mock_class_consumer.return_value = mock_consumer
-        mock_consumer.get_watermark_offsets.return_value = (
-            expected_low_watermark,
-            expected_high_watermark,
-        )
-
-        # prepare topic: 1 topic and 1 partition
-        expected_topic_name = faker.word()
-
-        partition_metadata = PartitionMetadata()
-        partition_metadata.id = faker.pyint()
-        partition_metadata.isrs = [0, 1]
-        partition_metadata.replicas = [0, 1, 2]
-
-        topic_metadata = TopicMetadata()
-        topic_metadata.topic = expected_topic_name
-        topic_metadata.partitions = {partition_metadata.id: partition_metadata}
-
-        # prepare list_topics
-        mock_admin = MagicMock()
-        mock_class_admin.return_value = mock_admin
-        mock_admin.list_topics.return_value.topics = {topic_metadata.topic: topic_metadata}
-
-        # prepare consumer groups: no groups
-        expected_group_name = faker.word()
-        expected_partition_assignor = faker.word()
-        expected_member_id = expected_group_name + "-1"
-        expected_client_id = expected_group_name + "-client"
-        expected_host = faker.hostname()
-        expected_node_id = 1
-        expected_node_port = 9092
-        expected_offset = 30
-
-        committed_partition_metadata = TopicPartition(
-            expected_topic_name, partition_metadata.id, expected_offset
-        )
-        consume_group_assignment = MemberAssignment([committed_partition_metadata])
-        consumer_group_member_metadata = MemberDescription(
-            member_id=expected_member_id,
-            client_id=expected_client_id,
-            host=expected_host,
-            assignment=consume_group_assignment,
-        )
-        consumer_group_node_metadata = Node(expected_node_id, expected_host, expected_node_port)
-        consumer_group_metadata = ConsumerGroupDescription(
-            group_id=expected_group_name,
+        description = ConsumerGroupDescription(
+            group_id=group_id,
             is_simple_consumer_group=True,
-            partition_assignor=expected_partition_assignor,
+            partition_assignor="range",
             state=CONSUMER_GROUP_STATE_STABLE,
-            members=[consumer_group_member_metadata],
-            coordinator=consumer_group_node_metadata,
+            members=[member],
+            coordinator=Node(1, faker.hostname(), 9092),
         )
+        admin.list_consumer_groups.return_value = completed(
+            ListConsumerGroupsResult(valid=[ConsumerGroupListing(group_id, True)])
+        )
+        admin.describe_consumer_groups.return_value = {group_id: completed(description)}
+        admin.list_consumer_group_offsets.return_value = {
+            group_id: completed(ConsumerGroupTopicPartitions(group_id, [committed]))
+        }
 
-        mock_describe_consumer_result = MagicMock()
-        mock_describe_consumer_result.result.return_value = consumer_group_metadata
-        mock_admin.list_consumer_groups.return_value.result.return_value.valid = [
-            ConsumerGroupListing(expected_group_name, True)
-        ]
-        mock_admin.describe_consumer_groups.return_value.items.return_value = [
-            (expected_group_name, mock_describe_consumer_result)
-        ]
-        mock_consumer.committed.return_value = [committed_partition_metadata]
+        topics = await TopicService({"bootstrap.servers": faker.hostname()}).all()
 
-        # asserts
-        topic_service = TopicService({"bootstrap.servers": faker.hostname()})
-
-        topics_list = await topic_service.all()
-        self.assertEqual(1, len(topics_list))
-
-        topic = topics_list[expected_topic_name]
-        self.assertEqual(expected_topic_name, topic.name)
-
-        partitions_list = topic.partitions
-        self.assertEqual(1, len(partitions_list))
-
-        partition = partitions_list[0]
-        self.assertEqual(expected_low_watermark, partition.low)
-        self.assertEqual(expected_high_watermark, partition.high)
-
-        groups_list = topic.groups
-        self.assertEqual(1, len(groups_list))
-
-        group = groups_list[0]
-        self.assertEqual(1, group.partitions_count())
-        self.assertEqual(1, group.members_count())
-        self.assertEqual(20, group.lag_count())
-
-        member = group.members[0]
-        self.assertEqual(expected_member_id, member.id)
-
+        topic = topics[topic_name]
         self.assertEqual(1, topic.groups_count())
-        self.assertEqual(1, topic.partitions_count())
-        self.assertEqual(2, topic.isrs_count())
-        self.assertEqual(50, topic.records_count())
-        self.assertEqual(3, topic.replicas_count())
+        self.assertEqual(1, topic.group_members_count())
         self.assertEqual(20, topic.lag())
+        self.assertEqual(1, admin.list_consumer_group_offsets.call_count)
+        mock_class_consumer.assert_not_called()
+
+    @patch("kaskade.services.AdminClient")
+    async def test_marks_failed_metrics_unavailable(self, mock_class_admin: MagicMock) -> None:
+        topic_name = "orders"
+        metadata = topic_metadata(topic_name, 0)
+        admin = mock_class_admin.return_value
+        admin.list_topics.return_value.topics = {topic_name: metadata}
+
+        def list_offsets(request: dict[TopicPartition, object], **_: object) -> object:
+            if admin.list_offsets.call_count == 1:
+                return {partition: failed(RuntimeError("unavailable")) for partition in request}
+            return {
+                partition: completed(ListOffsetsResultInfo(50, -1, -1)) for partition in request
+            }
+
+        admin.list_offsets.side_effect = list_offsets
+        admin.list_consumer_groups.return_value = completed(ListConsumerGroupsResult(valid=[]))
+
+        topic = (await TopicService({"bootstrap.servers": "localhost:9092"}).all())[topic_name]
+
+        self.assertEqual(MetricState.UNAVAILABLE, topic.records_state)
+        self.assertEqual(MetricState.UNAVAILABLE, topic.groups_state)
+
+    @patch("kaskade.services.AdminClient")
+    async def test_bounds_group_offset_concurrency(self, mock_class_admin: MagicMock) -> None:
+        admin = mock_class_admin.return_value
+        group_ids = [f"group-{index}" for index in range(20)]
+        admin.list_consumer_groups.return_value = completed(
+            ListConsumerGroupsResult(
+                valid=[ConsumerGroupListing(group_id, True) for group_id in group_ids]
+            )
+        )
+        admin.describe_consumer_groups.return_value = {
+            group_id: completed(
+                ConsumerGroupDescription(
+                    group_id=group_id,
+                    is_simple_consumer_group=True,
+                    partition_assignor="range",
+                    state=CONSUMER_GROUP_STATE_STABLE,
+                    members=[],
+                    coordinator=Node(1, "localhost", 9092),
+                )
+            )
+            for group_id in group_ids
+        }
+        pending: dict[str, Future[object]] = {}
+
+        def list_group_offsets(request: list[ConsumerGroupTopicPartitions], **_: object) -> object:
+            group_id = request[0].group_id
+            future: Future[object] = Future()
+            pending[group_id] = future
+            return {group_id: future}
+
+        admin.list_consumer_group_offsets.side_effect = list_group_offsets
+        service = TopicService({"bootstrap.servers": "localhost:9092"})
+        task = asyncio.create_task(service.load_groups())
+        for _ in range(100):
+            if len(pending) == service.GROUP_OFFSET_CONCURRENCY:
+                break
+            await asyncio.sleep(0)
+
+        self.assertEqual(service.GROUP_OFFSET_CONCURRENCY, len(pending))
+        while not task.done():
+            for group_id, future in list(pending.items()):
+                if not future.done():
+                    future.set_result(ConsumerGroupTopicPartitions(group_id, []))
+            await asyncio.sleep(0)
+        await task
+        self.assertEqual(len(group_ids), admin.list_consumer_group_offsets.call_count)
+
+
+class TestConsumerService(unittest.IsolatedAsyncioTestCase):
+    @patch("kaskade.services.Consumer")
+    async def test_consumes_records_in_batches(self, mock_class_consumer: MagicMock) -> None:
+        message = MagicMock()
+        message.error.return_value = None
+        message.timestamp.return_value = (0, 0)
+        message.partition.return_value = 0
+        message.offset.return_value = 1
+        message.key.return_value = b"key"
+        message.value.return_value = b"value"
+        message.headers.return_value = []
+        consumer = mock_class_consumer.return_value
+        consumer.consume.return_value = [message]
+        service = ConsumerService(
+            "orders",
+            {"bootstrap.servers": "localhost:9092"},
+            DeserializerPool(),
+            Deserialization.STRING,
+            Deserialization.STRING,
+            page_size=1,
+        )
+        service.on_assign(consumer, [TopicPartition("orders", 0)])
+
+        records = await service.consume()
+
+        self.assertEqual(1, len(records))
+        self.assertEqual("key", records[0].key_str())
+        consumer.consume.assert_called_once_with(1, timeout=service.timeout)
 
 
 if __name__ == "__main__":

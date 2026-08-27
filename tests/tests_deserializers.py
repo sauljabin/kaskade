@@ -22,7 +22,7 @@ from kaskade.deserializers import (
     RegistryDeserializer,
     StringDeserializer,
 )
-from kaskade.models import Header
+from kaskade.models import Header, Record
 from kaskade.utils import file_to_str, py_to_avro
 from tests import faker
 from tests.protobuf_model.user_pb2 import User
@@ -57,6 +57,28 @@ class TestDeserializer(unittest.TestCase):
         header = Header(value=value, value_deserializer=deserializer)
 
         self.assertEqual(str(value), header.value_deserialized())
+        self.assertEqual(str(value), header.value_deserialized())
+        deserializer.deserialize.assert_called_once_with(value)
+
+    def test_record_caches_successful_deserialization(self):
+        key_deserializer = MagicMock()
+        key_deserializer.deserialize.return_value = "customer-1"
+        value_deserializer = MagicMock()
+        value_deserializer.deserialize.return_value = {"total": 10}
+        record = Record(
+            topic="orders",
+            key=b"customer-1",
+            value=b"payload",
+            key_deserializer=key_deserializer,
+            value_deserializer=value_deserializer,
+        )
+
+        self.assertEqual("customer-1", record.key_str())
+        self.assertEqual("customer-1", record.key_str())
+        self.assertEqual("{'total': 10}", record.value_str())
+        self.assertEqual("{'total': 10}", record.value_str())
+        key_deserializer.deserialize.assert_called_once()
+        value_deserializer.deserialize.assert_called_once()
 
     def test_header_propagates_unexpected_errors(self):
         deserializer = MagicMock()
