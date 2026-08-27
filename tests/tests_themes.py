@@ -167,10 +167,19 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
 
                 self.assertEqual(f"Kaskade v{APP_VERSION}", product.render().plain)
                 self.assertEqual("Not configured", kafka.render().plain)
-                self.assertEqual(1, header.styles.padding.left)
-                self.assertEqual(1, header.styles.padding.right)
+                self.assertTrue(app.screen.has_class("main-view-screen"))
+                self.assertEqual(1, app.screen.styles.padding.left)
+                self.assertEqual(1, app.screen.styles.padding.right)
+                self.assertEqual(1, header.styles.margin.top)
+                self.assertEqual(1, header.styles.margin.bottom)
                 self.assertEqual(app.current_theme.primary, product.styles.color.hex)
-                self.assertIsInstance(app.query_one(Footer), Footer)
+                footer = app.query_one(Footer)
+                self.assertIsInstance(footer, Footer)
+                for widget in (header, table, footer):
+                    self.assertEqual(1, widget.region.x)
+                    self.assertEqual(app.screen.region.right - 1, widget.region.right)
+                self.assertEqual(1, header.region.y)
+                self.assertEqual(header.region.bottom + 1, table.region.y)
                 self.assertIs(table, app.screen.focused)
                 self.assertTrue(
                     {"Describe", "Filter", "Refresh", "Create", "Quit", "Commands"}
@@ -476,7 +485,7 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(f"Kaskade v{APP_VERSION}", product.render().plain)
                 self.assertEqual(bootstrap_servers, kafka.render().plain)
                 self.assertEqual(1, header.region.height)
-                self.assertEqual(app.screen.size.width, header.region.width)
+                self.assertEqual(app.screen.content_region.width, header.region.width)
                 self.assertEqual(
                     header.content_region.width,
                     product.region.width + kafka.region.width,

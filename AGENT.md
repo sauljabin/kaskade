@@ -120,7 +120,8 @@ Help is a dedicated centered `ModalScreen`, not a sidebar. It must:
   and consumer applications inherit `KaskadeApp.CSS_PATH`.
 - Keep the shared one-line root header on both main applications: show the
   Kaskade version on the left and only Kafka `bootstrap.servers` on the right.
-  Truncate the Kafka text before allowing the version to disappear.
+  Truncate the Kafka text before allowing the version to disappear. Leave one
+  row around the header and one column on each side of the complete root view.
 - Use Title Case for screen titles, border titles, table headings, tabs, command
   labels, and field labels.
 - Follow the existing centered-modal vocabulary: one visible outer border,

@@ -92,6 +92,7 @@ class KaskadeApp(App, inherit_bindings=False):
         self._sync_rich_theme()
 
     def on_mount(self) -> None:
+        self.screen.add_class("main-view-screen")
         for warning_message in self.keymap_settings.warnings:
             self.notify(
                 warning_message,
