@@ -166,7 +166,10 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 }
 
                 self.assertEqual(f"Kaskade v{APP_VERSION}", product.render().plain)
-                self.assertEqual("Kafka: Not configured", kafka.render().plain)
+                self.assertEqual("Not configured", kafka.render().plain)
+                self.assertEqual(1, header.styles.padding.left)
+                self.assertEqual(1, header.styles.padding.right)
+                self.assertEqual(app.current_theme.primary, product.styles.color.hex)
                 self.assertIsInstance(app.query_one(Footer), Footer)
                 self.assertIs(table, app.screen.focused)
                 self.assertTrue(
@@ -443,7 +446,7 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                     header.query_one("#kaskade-product", Static).render().plain,
                 )
                 self.assertEqual(
-                    f"Kafka: {bootstrap_servers}",
+                    bootstrap_servers,
                     header.query_one("#kaskade-kafka", Static).render().plain,
                 )
                 self.assertIsInstance(table, StretchyDataTable)
@@ -471,10 +474,13 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 kafka = header.query_one("#kaskade-kafka", Static)
 
                 self.assertEqual(f"Kaskade v{APP_VERSION}", product.render().plain)
-                self.assertEqual(f"Kafka: {bootstrap_servers}", kafka.render().plain)
+                self.assertEqual(bootstrap_servers, kafka.render().plain)
                 self.assertEqual(1, header.region.height)
                 self.assertEqual(app.screen.size.width, header.region.width)
-                self.assertEqual(header.region.width, product.region.width + kafka.region.width)
+                self.assertEqual(
+                    header.content_region.width,
+                    product.region.width + kafka.region.width,
+                )
                 self.assertLess(kafka.content_region.width, len(kafka.render().plain))
                 self.assertEqual("ellipsis", kafka.styles.text_overflow)
 

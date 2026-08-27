@@ -20,7 +20,7 @@ class KaskadeHeader(Horizontal):
     def __init__(self, kafka_config: Mapping[str, Any]) -> None:
         super().__init__(id="kaskade-header")
         bootstrap_servers = kafka_config.get(BOOTSTRAP_SERVERS, "Not configured")
-        self.kafka_information = f"Kafka: {bootstrap_servers}"
+        self.bootstrap_servers = str(bootstrap_servers)
 
     def compose(self) -> ComposeResult:
         yield Static(
@@ -29,7 +29,7 @@ class KaskadeHeader(Horizontal):
             markup=False,
         )
         yield Static(
-            self.kafka_information,
+            self.bootstrap_servers,
             id="kaskade-kafka",
             markup=False,
         )
