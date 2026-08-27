@@ -7,6 +7,7 @@ from textual.app import ComposeResult
 from textual.binding import Binding, BindingType
 from textual.containers import Container
 from textual.content import Content
+from textual.validation import Function, Integer
 from textual.widgets import (
     DataTable,
     Footer,
@@ -45,6 +46,17 @@ NEW_TOPIC_SHORTCUT = "n,ctrl+n"
 DELETE_TOPIC_SHORTCUT = "ctrl+d"
 EDIT_TOPIC_SHORTCUT = "e,ctrl+e"
 REFRESH_TOPICS_SHORTCUT = "ctrl+r"
+
+
+def _valid_topic_name(name: str) -> bool:
+    return (
+        0 < len(name) <= 249
+        and name not in {".", ".."}
+        and all(
+            character.isascii() and (character.isalnum() or character in "._-")
+            for character in name
+        )
+    )
 
 
 class FilterTopicsScreen(HelpableModalScreen[str]):
@@ -389,20 +401,39 @@ class CreateTopicScreen(HelpableModalScreen[NewTopic]):
         input_name = Input(
             id="name",
             placeholder="Letters, numbers, '.', '_' and '-'",
+            validators=Function(
+                _valid_topic_name,
+                "Enter a name up to 249 characters using letters, numbers, dots, underscores, "
+                "or hyphens. The name can't be empty or consist only of one or two dots.",
+            ),
             classes="kaskade-input",
         )
         input_name.border_title = "Name"
 
         input_partitions = Input(
-            id="partitions", type="integer", value="1", classes="kaskade-input"
+            id="partitions",
+            type="integer",
+            value="1",
+            validators=Integer(minimum=1),
+            classes="kaskade-input",
         )
         input_partitions.border_title = "Partitions"
 
-        input_replication = Input(id="replicas", type="integer", value="3", classes="kaskade-input")
+        input_replication = Input(
+            id="replicas",
+            type="integer",
+            value="3",
+            validators=Integer(minimum=1),
+            classes="kaskade-input",
+        )
         input_replication.border_title = "Replicas"
 
         input_min_insync = Input(
-            id="min_insync_replicas", type="integer", value="2", classes="kaskade-input"
+            id="min_insync_replicas",
+            type="integer",
+            value="2",
+            validators=Integer(minimum=1),
+            classes="kaskade-input",
         )
         input_min_insync.border_title = "Min In-Sync Replicas"
 
@@ -410,6 +441,7 @@ class CreateTopicScreen(HelpableModalScreen[NewTopic]):
             id="retention",
             type="integer",
             value=f"{MILLISECONDS_1W}",
+            validators=Integer(minimum=-1),
             classes="kaskade-input",
         )
         input_retention.border_title = "Retention (ms)"
@@ -432,20 +464,35 @@ class CreateTopicScreen(HelpableModalScreen[NewTopic]):
         yield Footer(compact=True)
 
     def action_create(self) -> None:
-        name_input = self.query_one("#name", Input)
-        name = name_input.value
+        inputs = {
+            "Name": self.query_one("#name", Input),
+            "Partitions": self.query_one("#partitions", Input),
+            "Replicas": self.query_one("#replicas", Input),
+            "Min In-Sync Replicas": self.query_one("#min_insync_replicas", Input),
+            "Retention": self.query_one("#retention", Input),
+        }
+        failures: list[str] = []
 
-        partitions_input = self.query_one("#partitions", Input)
-        partitions = partitions_input.value
+        for label, input_widget in inputs.items():
+            result = input_widget.validate(input_widget.value)
+            if result is not None and not result.is_valid:
+                failures.append(f"{label}: {result.failure_descriptions[0]}")
 
-        replication_input = self.query_one("#replicas", Input)
-        replication = replication_input.value
+        replicas = inputs["Replicas"]
+        min_insync_replicas = inputs["Min In-Sync Replicas"]
+        if not failures and int(min_insync_replicas.value) > int(replicas.value):
+            min_insync_replicas.add_class("-invalid")
+            failures.append("Min In-Sync Replicas cannot exceed Replicas.")
 
-        retention_input = self.query_one("#retention", Input)
-        retention = retention_input.value
-
-        min_insync_replicas_input = self.query_one("#min_insync_replicas", Input)
-        min_insync_replicas = min_insync_replicas_input.value
+        if failures:
+            first_invalid = next(
+                input_widget
+                for input_widget in inputs.values()
+                if input_widget.has_class("-invalid")
+            )
+            first_invalid.focus()
+            self.notify("\n".join(failures), title="Invalid Topic", severity="warning")
+            return
 
         cleanup_input = self.query_one("#cleanup", RadioSet)
         cleanup = (
@@ -455,13 +502,13 @@ class CreateTopicScreen(HelpableModalScreen[NewTopic]):
         )
 
         new_topic = NewTopic(
-            topic=name,
-            num_partitions=int(partitions),
-            replication_factor=int(replication),
+            topic=inputs["Name"].value,
+            num_partitions=int(inputs["Partitions"].value),
+            replication_factor=int(replicas.value),
             config={
                 CLEANUP_POLICY_CONFIG: cleanup,
-                RETENTION_MS_CONFIG: retention,
-                MIN_INSYNC_REPLICAS_CONFIG: min_insync_replicas,
+                RETENTION_MS_CONFIG: inputs["Retention"].value,
+                MIN_INSYNC_REPLICAS_CONFIG: min_insync_replicas.value,
             },
         )
 
@@ -602,10 +649,11 @@ class ListTopics(Container):
                 title="Topic Created",
                 severity="information",
             )
-            self.set_timer(REFRESH_TABLE_DELAY, self.refresh_table)
+            self.set_timer(REFRESH_TABLE_DELAY, self.action_refresh)
         except KafkaException as ex:
-            self.finish_loading_table()
             notify_error(self.app, "Kafka Error", ex)
+        finally:
+            self.finish_loading_table()
 
     def start_loading_table(self) -> None:
         table = self.query_one(DataTable)
