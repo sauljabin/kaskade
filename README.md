@@ -110,13 +110,7 @@ For Q&A go to [GitHub Discussions](https://github.com/sauljabin/kaskade/discussi
 ## Acknowledgements & Sponsorship
 
 <p>
-  <a href="https://github.com/littlehorse-enterprises/littlehorse">
-    <img alt="Sponsored by LittleHorse" src="images/littlehorse-badge.svg">
-  </a>
-  <a href="https://textual.textualize.io/">
-    <img alt="Built with Textual" src="images/textual-badge.svg">
-  </a>
-  <a href="https://openai.com/codex/">
-    <img alt="Assisted by Codex" src="images/codex-badge.svg">
-  </a>
+<a href="https://github.com/littlehorse-enterprises/littlehorse"><img alt="Sponsored by LittleHorse" src="images/littlehorse-badge.svg"></a>
+<a href="https://textual.textualize.io/"><img alt="Built with Textual" src="images/textual-badge.svg"></a>
+<a href="https://openai.com/codex/"><img alt="Assisted by Codex" src="images/codex-badge.svg"></a>
 </p>
