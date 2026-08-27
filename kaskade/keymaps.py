@@ -8,6 +8,8 @@ from textual.keys import KEY_NAME_REPLACEMENTS, KEY_TO_UNICODE_NAME, Keys, key_t
 
 CONFIG_ENV_VAR = "KASKADE_CONFIG"
 CONFIG_FILE_NAME = "config.yaml"
+DEFAULT_ADMIN_REFRESH_INTERVAL_SECONDS = 30
+MIN_ADMIN_REFRESH_INTERVAL_SECONDS = 5
 
 NAVIGATION_BINDING_IDS = frozenset(
     {
@@ -75,6 +77,7 @@ _NAMED_KEYS = (
 class KeymapSettings:
     path: Path
     keymap: dict[str, str]
+    admin_refresh_interval_seconds: int = DEFAULT_ADMIN_REFRESH_INTERVAL_SECONDS
     warnings: tuple[str, ...] = ()
 
 
@@ -92,7 +95,7 @@ def default_config_path(environ: Mapping[str, str] | None = None, home: Path | N
 
 
 def load_keymap(path: Path | None = None) -> KeymapSettings:
-    """Load valid Textual binding overrides without making startup fragile."""
+    """Load valid application settings without making startup fragile."""
     config_path = default_config_path() if path is None else path
     if not config_path.exists():
         return KeymapSettings(config_path, {})
@@ -103,7 +106,7 @@ def load_keymap(path: Path | None = None) -> KeymapSettings:
         return KeymapSettings(
             config_path,
             {},
-            (f"Could not read {config_path}: {ex}",),
+            warnings=(f"Could not read {config_path}: {ex}",),
         )
 
     if data is None:
@@ -112,19 +115,16 @@ def load_keymap(path: Path | None = None) -> KeymapSettings:
         return KeymapSettings(
             config_path,
             {},
-            (f"Ignoring {config_path}: the document must be a mapping.",),
+            warnings=(f"Ignoring {config_path}: the document must be a mapping.",),
         )
 
     configured_keymap = data.get("keymap", {})
+    warning_messages: list[str] = []
     if not isinstance(configured_keymap, dict):
-        return KeymapSettings(
-            config_path,
-            {},
-            (f"Ignoring {config_path}: 'keymap' must be a mapping.",),
-        )
+        warning_messages.append(f"Ignoring {config_path}: 'keymap' must be a mapping.")
+        configured_keymap = {}
 
     keymap: dict[str, str] = {}
-    warning_messages: list[str] = []
     for binding_id, keys in configured_keymap.items():
         if not isinstance(binding_id, str) or binding_id not in KNOWN_BINDING_IDS:
             warning_messages.append(f"Ignoring unknown binding ID: {binding_id!r}.")
@@ -140,7 +140,30 @@ def load_keymap(path: Path | None = None) -> KeymapSettings:
             continue
         keymap[binding_id] = keys
 
-    return KeymapSettings(config_path, keymap, tuple(warning_messages))
+    refresh_interval = DEFAULT_ADMIN_REFRESH_INTERVAL_SECONDS
+    configured_admin = data.get("admin", {})
+    if not isinstance(configured_admin, dict):
+        warning_messages.append("Ignoring 'admin': it must be a mapping.")
+    elif "refresh_interval_seconds" in configured_admin:
+        configured_interval = configured_admin["refresh_interval_seconds"]
+        if not isinstance(configured_interval, int) or isinstance(configured_interval, bool):
+            warning_messages.append(
+                "Ignoring 'admin.refresh_interval_seconds': it must be an integer."
+            )
+        elif configured_interval != 0 and configured_interval < MIN_ADMIN_REFRESH_INTERVAL_SECONDS:
+            warning_messages.append(
+                "Ignoring 'admin.refresh_interval_seconds': it must be 0 or at least "
+                f"{MIN_ADMIN_REFRESH_INTERVAL_SECONDS}."
+            )
+        else:
+            refresh_interval = configured_interval
+
+    return KeymapSettings(
+        config_path,
+        keymap,
+        admin_refresh_interval_seconds=refresh_interval,
+        warnings=tuple(warning_messages),
+    )
 
 
 def _is_valid_key(key: str) -> bool:

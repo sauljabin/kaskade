@@ -38,6 +38,18 @@ Missing, empty, malformed, or partially invalid Kaskade configuration must not
 make startup fragile. Ignore invalid entries, retain valid entries, and surface
 warnings in the application.
 
+## Admin Data Loading
+
+- Render topic metadata before loading record and consumer-group metrics.
+- Fetch partition offsets with batched Admin API requests and consumer-group
+  offsets with bounded concurrency; do not create temporary consumers for admin
+  metrics.
+- Keep the last complete metrics visible during refreshes and never overlap
+  automatic, manual, resumed, or post-mutation refresh work.
+- Admin auto-refresh defaults to 30 seconds, pauses while another screen is
+  open, and is configured with `admin.refresh_interval_seconds` in Kaskade's
+  YAML configuration. A value of `0` disables it.
+
 ## TUI Interaction Conventions
 
 Kaskade follows familiar k9s/Vim-style terminal interactions where practical:

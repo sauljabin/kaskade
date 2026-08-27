@@ -2,7 +2,7 @@ import os
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import AsyncMock, patch
+from unittest.mock import patch
 
 from textual.widgets import DataTable
 
@@ -26,6 +26,7 @@ from kaskade.keymaps import CONFIG_ENV_VAR, KNOWN_BINDING_IDS, default_config_pa
 from kaskade.models import Topic
 from kaskade.themes import KaskadeApp
 from kaskade.widgets import KaskadeOptionList, KaskadeScrollableContainer, StretchyDataTable
+from tests import configure_admin_service
 
 
 class TestKeymapConfiguration(unittest.TestCase):
@@ -119,6 +120,49 @@ class TestKeymapConfiguration(unittest.TestCase):
         )
         self.assertEqual((), settings.warnings)
 
+    def test_loads_admin_refresh_interval(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            path = Path(temporary_directory) / "config.yaml"
+            path.write_text(
+                "admin:\n  refresh_interval_seconds: 10\n",
+                encoding="utf-8",
+            )
+
+            settings = load_keymap(path)
+
+        self.assertEqual(10, settings.admin_refresh_interval_seconds)
+        self.assertEqual((), settings.warnings)
+
+    def test_disables_admin_refresh_with_zero(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            path = Path(temporary_directory) / "config.yaml"
+            path.write_text(
+                "admin:\n  refresh_interval_seconds: 0\n",
+                encoding="utf-8",
+            )
+
+            settings = load_keymap(path)
+
+        self.assertEqual(0, settings.admin_refresh_interval_seconds)
+
+    def test_invalid_admin_refresh_uses_default_without_discarding_keymap(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            path = Path(temporary_directory) / "config.yaml"
+            path.write_text(
+                """admin:
+  refresh_interval_seconds: 2
+keymap:
+  app.quit: x
+""",
+                encoding="utf-8",
+            )
+
+            settings = load_keymap(path)
+
+        self.assertEqual(30, settings.admin_refresh_interval_seconds)
+        self.assertEqual({"app.quit": "x"}, settings.keymap)
+        self.assertEqual(1, len(settings.warnings))
+
     def test_ignores_invalid_entries_without_discarding_valid_ones(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
             path = Path(temporary_directory) / "config.yaml"
@@ -186,11 +230,12 @@ class TestConfiguredKeymap(unittest.IsolatedAsyncioTestCase):
                 patch.dict(os.environ, {CONFIG_ENV_VAR: str(path)}),
                 patch("kaskade.admin.TopicService") as topic_service,
             ):
-                topic_service.return_value.all = AsyncMock(
-                    return_value={
+                configure_admin_service(
+                    topic_service.return_value,
+                    {
                         "alpha": Topic(name="alpha"),
                         "bravo": Topic(name="bravo"),
-                    }
+                    },
                 )
                 app = KaskadeAdmin({})
 

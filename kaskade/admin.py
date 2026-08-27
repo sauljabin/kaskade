@@ -1,3 +1,6 @@
+import asyncio
+from datetime import datetime
+from time import perf_counter
 from typing import Any, ClassVar
 
 from confluent_kafka import KafkaException
@@ -19,6 +22,7 @@ from textual.widgets import (
     Tabs,
 )
 
+from kaskade import logger
 from kaskade.colors import PRIMARY
 from kaskade.configs import (
     CLEANUP_POLICY_CONFIG,
@@ -27,8 +31,9 @@ from kaskade.configs import (
     RETENTION_MS_CONFIG,
 )
 from kaskade.help import HelpableModalScreen, modal_bindings
-from kaskade.models import CleanupPolicy, Topic
+from kaskade.models import CleanupPolicy, MetricState, Topic
 from kaskade.services import (
+    ADMIN_EXCEPTIONS,
     TopicService,
 )
 from kaskade.themes import KaskadeApp
@@ -46,6 +51,8 @@ NEW_TOPIC_SHORTCUT = "n,ctrl+n"
 DELETE_TOPIC_SHORTCUT = "ctrl+d"
 EDIT_TOPIC_SHORTCUT = "e,ctrl+e"
 REFRESH_TOPICS_SHORTCUT = "ctrl+r"
+LOADING_METRIC = "…"
+UNAVAILABLE_METRIC = "—"
 
 
 def _valid_topic_name(name: str) -> bool:
@@ -586,6 +593,11 @@ class ListTopics(Container):
         self.topics: dict[str, Topic] = {}
         self.current_topic: Topic | None = None
         self.current_filter: str | None = None
+        self.last_updated_at: datetime | None = None
+        self._refresh_generation = 0
+        self._refreshing = False
+        self._refresh_pending = False
+        self._mutation_in_progress = False
 
     def compose(self) -> ComposeResult:
         table: StretchyDataTable[str] = StretchyDataTable(
@@ -596,20 +608,22 @@ class ListTopics(Container):
         table.border_subtitle = rf"\[[{PRIMARY}]Admin Mode[/]]"
         table.zebra_stripes = True
 
-        table.add_column("Name", stretch=1)
-        table.add_column("Partitions")
-        table.add_column("Replicas")
-        table.add_column("In Sync")
-        table.add_column("Groups")
-        table.add_column("Members")
-        table.add_column("Records")
-        table.add_column("Lag")
+        table.add_column("Name", key="name", stretch=1)
+        table.add_column("Partitions", key="partitions")
+        table.add_column("Replicas", key="replicas")
+        table.add_column("In Sync", key="isrs")
+        table.add_column("Groups", key="groups")
+        table.add_column("Members", key="members")
+        table.add_column("Records", key="records")
+        table.add_column("Lag", key="lag")
 
         yield table
 
     def on_mount(self) -> None:
-        self.query_one("#topics-table", DataTable).focus()
-        self.action_refresh()
+        table = self.query_one("#topics-table", DataTable)
+        table.focus()
+        table.loading = True
+        self._update_status(refreshing=True)
 
     def on_data_table_row_highlighted(self, data: DataTable.RowHighlighted) -> None:
         if data.row_key.value is None:
@@ -617,23 +631,125 @@ class ListTopics(Container):
         self.current_topic = self.topics.get(data.row_key.value)
         self.refresh_bindings()
 
-    async def refresh_table(self) -> None:
-        try:
-            self.topics = await self.topic_service.all()
-        except KafkaException as ex:
-            notify_error(self.app, "Kafka Error", ex)
+    def action_refresh(self) -> None:
+        self.request_refresh("manual")
 
-        self.fill_table()
+    def request_refresh(self, reason: str) -> None:
+        if self._mutation_in_progress:
+            if reason != "periodic":
+                self._refresh_pending = True
+            return
+        if self._refreshing:
+            if reason == "manual":
+                self._start_refresh()
+            elif reason != "periodic":
+                self._refresh_pending = True
+            return
+        self._start_refresh()
+
+    def _start_refresh(self) -> None:
+        self._refresh_generation += 1
+        generation = self._refresh_generation
+        self._refreshing = True
+        self._update_status(refreshing=True)
+        self.refresh_topics(generation)
 
     @work(exclusive=True, group="topics-refresh")
-    async def action_refresh(self) -> None:
-        self.start_loading_table()
-        await self.refresh_table()
+    async def refresh_topics(self, generation: int) -> None:
+        table = self.query_one(DataTable)
+        if not self.topics:
+            table.loading = True
+        started_at = perf_counter()
+        offsets_task: asyncio.Task[Any] | None = None
+        groups_task: asyncio.Task[Any] | None = None
+
+        try:
+            refreshed_topics = await self.topic_service.metadata()
+            self._preserve_completed_metrics(refreshed_topics)
+            if generation != self._refresh_generation:
+                return
+
+            self.topics = refreshed_topics
+            self.fill_table()
+            table.loading = False
+
+            offsets_task = asyncio.create_task(self.topic_service.enrich_offsets(self.topics))
+            groups_task = asyncio.create_task(self.topic_service.load_groups())
+
+            offsets_result = await offsets_task
+            if generation != self._refresh_generation:
+                return
+            self.fill_table()
+            if offsets_result.errors:
+                self._notify_stage_failure("record metrics", len(offsets_result.errors))
+
+            groups_snapshot = await groups_task
+            if generation != self._refresh_generation:
+                return
+            groups_result = self.topic_service.apply_groups(self.topics, groups_snapshot)
+            self.fill_table()
+            if groups_result.errors:
+                self._notify_stage_failure("consumer-group metrics", len(groups_result.errors))
+
+            self.last_updated_at = datetime.now().astimezone()
+            logger.info(
+                "admin refresh completed topics=%d elapsed=%.3fs",
+                len(self.topics),
+                perf_counter() - started_at,
+            )
+        except KafkaException as ex:
+            notify_error(self.app, "Kafka Error", ex)
+        except ADMIN_EXCEPTIONS as ex:
+            notify_error(self.app, "Refresh Error", ex)
+        finally:
+            for task in (offsets_task, groups_task):
+                if task is not None and not task.done():
+                    task.cancel()
+            if generation == self._refresh_generation:
+                table.loading = False
+                self._refreshing = False
+                self._update_status(refreshing=False)
+                refresh_completed = getattr(self.app, "admin_refresh_completed", None)
+                if refresh_completed is not None:
+                    refresh_completed()
+                if self._refresh_pending and not self._mutation_in_progress:
+                    self._refresh_pending = False
+                    self.call_after_refresh(lambda: self.request_refresh("pending"))
+
+    def _preserve_completed_metrics(self, refreshed_topics: dict[str, Topic]) -> None:
+        for topic_name, refreshed_topic in refreshed_topics.items():
+            previous_topic = self.topics.get(topic_name)
+            if previous_topic is None:
+                continue
+            previous_partitions = {
+                partition.id: partition for partition in previous_topic.partitions
+            }
+            if set(previous_partitions) != {
+                partition.id for partition in refreshed_topic.partitions
+            }:
+                continue
+            if previous_topic.records_state is MetricState.READY:
+                for partition in refreshed_topic.partitions:
+                    previous_partition = previous_partitions[partition.id]
+                    partition.low = previous_partition.low
+                    partition.high = previous_partition.high
+                refreshed_topic.records_state = MetricState.READY
+            if previous_topic.groups_state is MetricState.READY:
+                refreshed_topic.groups = previous_topic.groups
+                refreshed_topic.groups_state = MetricState.READY
+
+    def _notify_stage_failure(self, stage: str, error_count: int) -> None:
+        self.app.notify(
+            f"Could not refresh {stage} ({error_count} failed request(s)).",
+            title="Partial Refresh",
+            severity="warning",
+        )
 
     def action_new(self) -> None:
         def on_dismiss(result: NewTopic | None) -> None:
             if result is None:
                 return
+            self._mutation_in_progress = True
             self.create_topic(result)
 
         self.app.push_screen(CreateTopicScreen(), on_dismiss)
@@ -642,6 +758,7 @@ class ListTopics(Container):
     async def create_topic(self, topic: NewTopic) -> None:
         """Create a topic without blocking Textual's message loop."""
         self.start_loading_table()
+        refresh_after = False
         try:
             await make_it_async(self.topic_service.create, [topic])
             self.app.notify(
@@ -649,11 +766,12 @@ class ListTopics(Container):
                 title="Topic Created",
                 severity="information",
             )
-            self.set_timer(REFRESH_TABLE_DELAY, self.action_refresh)
+            refresh_after = True
         except KafkaException as ex:
             notify_error(self.app, "Kafka Error", ex)
         finally:
             self.finish_loading_table()
+            self._finish_mutation(refresh_after)
 
     def start_loading_table(self) -> None:
         table = self.query_one(DataTable)
@@ -693,6 +811,7 @@ class ListTopics(Container):
         def on_dismiss(result: bool | None) -> None:
             if not result:
                 return
+            self._mutation_in_progress = True
             self.update_topic(topic, edit_topic_screen)
 
         self.app.push_screen(edit_topic_screen, on_dismiss)
@@ -701,6 +820,7 @@ class ListTopics(Container):
     async def update_topic(self, topic: Topic, editor: EditTopicScreen) -> None:
         """Update a topic without blocking Textual's message loop."""
         self.start_loading_table()
+        refresh_after = False
         try:
             partition_count = int(editor.partitions)
             if partition_count > topic.partitions_count():
@@ -720,10 +840,12 @@ class ListTopics(Container):
                 title="Topic Updated",
                 severity="information",
             )
-            self.set_timer(REFRESH_TABLE_DELAY, self.refresh_table)
+            refresh_after = True
         except (KafkaException, ValueError) as ex:
-            self.finish_loading_table()
             notify_error(self.app, "Kafka Error", ex)
+        finally:
+            self.finish_loading_table()
+            self._finish_mutation(refresh_after)
 
     def action_delete(self) -> None:
         if self.current_topic is None:
@@ -734,6 +856,7 @@ class ListTopics(Container):
         def on_dismiss(result: bool | None) -> None:
             if not result:
                 return
+            self._mutation_in_progress = True
             self.delete_topic(topic)
 
         self.app.push_screen(DeleteTopicScreen(topic), on_dismiss)
@@ -742,6 +865,7 @@ class ListTopics(Container):
     async def delete_topic(self, topic: Topic) -> None:
         """Delete a topic without blocking Textual's message loop."""
         self.start_loading_table()
+        refresh_after = False
         try:
             await make_it_async(self.topic_service.delete, topic.name)
             self.app.notify(
@@ -749,10 +873,24 @@ class ListTopics(Container):
                 title="Topic Deleted",
                 severity="information",
             )
-            self.set_timer(REFRESH_TABLE_DELAY, self.refresh_table)
+            refresh_after = True
         except KafkaException as ex:
-            self.finish_loading_table()
             notify_error(self.app, "Kafka Error", ex)
+        finally:
+            self.finish_loading_table()
+            self._finish_mutation(refresh_after)
+
+    def _finish_mutation(self, refresh_after: bool) -> None:
+        self._mutation_in_progress = False
+        if refresh_after:
+            self._refresh_pending = False
+            self.set_timer(
+                REFRESH_TABLE_DELAY,
+                lambda: self.request_refresh("mutation"),
+            )
+        elif self._refresh_pending:
+            self._refresh_pending = False
+            self.call_after_refresh(lambda: self.request_refresh("pending"))
 
     def action_describe(self) -> None:
         if self.current_topic is None:
@@ -772,7 +910,15 @@ class ListTopics(Container):
 
     def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
         """Disable contextual actions when their required state is unavailable."""
-        if action in {"delete", "describe", "edit"}:
+        if action == "describe":
+            return self.current_topic is not None and all(
+                state is MetricState.READY
+                for state in (
+                    self.current_topic.records_state,
+                    self.current_topic.groups_state,
+                )
+            )
+        if action in {"delete", "edit"}:
             return self.current_topic is not None
         if action == "all":
             return self.current_filter is not None
@@ -780,35 +926,90 @@ class ListTopics(Container):
 
     def fill_table(self) -> None:
         table = self.query_one(DataTable)
-        table.clear()
-        self.current_topic = None
-        self.refresh_bindings()
+        selected_topic_name = self.current_topic.name if self.current_topic is not None else None
+        visible_topics = [
+            topic
+            for topic in self.topics.values()
+            if self.current_filter is None or self.current_filter in topic.name
+        ]
+        desired_keys = [topic.name for topic in visible_topics]
+        current_keys = [str(row_key.value) for row_key in table.rows]
 
-        total_count = 0
-        for topic in self.topics.values():
-            if self.current_filter is not None and self.current_filter not in topic.name:
-                continue
-            total_count += 1
-            row = [
-                topic.name,
-                str(topic.partitions_count()),
-                str(topic.replicas_count()),
-                str(topic.isrs_count()),
-                str(topic.groups_count()),
-                str(topic.group_members_count()),
-                f"{APPROXIMATION}{topic.records_count()}",
-                f"{APPROXIMATION}{topic.lag()}",
-            ]
-            table.add_row(*row, key=topic.name)
+        if current_keys == desired_keys:
+            for topic in visible_topics:
+                for column_key, value in zip(
+                    (
+                        "name",
+                        "partitions",
+                        "replicas",
+                        "isrs",
+                        "groups",
+                        "members",
+                        "records",
+                        "lag",
+                    ),
+                    self._topic_row(topic),
+                ):
+                    table.update_cell(topic.name, column_key, value)
+        else:
+            table.clear()
+            for topic in visible_topics:
+                table.add_row(*self._topic_row(topic), key=topic.name)
+            if selected_topic_name in desired_keys:
+                table.move_cursor(row=desired_keys.index(selected_topic_name), animate=False)
+
+        if selected_topic_name in self.topics and selected_topic_name in desired_keys:
+            self.current_topic = self.topics[selected_topic_name]
+        elif desired_keys:
+            cursor_row = min(table.cursor_row, len(desired_keys) - 1)
+            self.current_topic = self.topics[desired_keys[cursor_row]]
+        else:
+            self.current_topic = None
+        self.refresh_bindings()
 
         border_title_filter_info = (
             rf"\[[{PRIMARY}]*{self.current_filter}*[/]]" if self.current_filter else ""
         )
         table.border_title = (
-            rf"[{PRIMARY}]Topics[/] {border_title_filter_info}\[[{PRIMARY}]{total_count}[/]]"
+            rf"[{PRIMARY}]Topics[/] {border_title_filter_info}"
+            rf"\[[{PRIMARY}]{len(visible_topics)}[/]]"
         )
-
         self.finish_loading_table()
+
+    def _topic_row(self, topic: Topic) -> list[str]:
+        return [
+            topic.name,
+            str(topic.partitions_count()),
+            str(topic.replicas_count()),
+            str(topic.isrs_count()),
+            self._metric(topic.groups_state, str(topic.groups_count())),
+            self._metric(topic.groups_state, str(topic.group_members_count())),
+            self._metric(
+                topic.records_state,
+                f"{APPROXIMATION}{topic.records_count()}",
+            ),
+            self._metric(topic.groups_state, f"{APPROXIMATION}{topic.lag()}"),
+        ]
+
+    @staticmethod
+    def _metric(state: MetricState, value: str) -> str:
+        if state is MetricState.READY:
+            return value
+        if state is MetricState.UNAVAILABLE:
+            return UNAVAILABLE_METRIC
+        return LOADING_METRIC
+
+    def _update_status(self, *, refreshing: bool) -> None:
+        table = self.query_one(DataTable)
+        interval = getattr(self.app, "auto_refresh_interval", 0)
+        auto_status = f"Auto {interval}s" if interval else "Auto Off"
+        if refreshing:
+            state = "Refreshing…"
+        elif self.last_updated_at is not None:
+            state = f"Updated {self.last_updated_at:%H:%M:%S}"
+        else:
+            state = "Not Updated"
+        table.border_subtitle = rf"\[[{PRIMARY}]Admin Mode · {state} · {auto_status}[/]]"
 
 
 class KaskadeAdmin(KaskadeApp):
@@ -818,6 +1019,51 @@ class KaskadeAdmin(KaskadeApp):
     def __init__(self, kafka_config: dict[str, Any]):
         super().__init__()
         self.kafka_config = kafka_config
+        self.auto_refresh_interval = self.keymap_settings.admin_refresh_interval_seconds
+        self._auto_refresh_timer: Any | None = None
+
+    def on_mount(self) -> None:
+        super().on_mount()
+        if self.auto_refresh_interval:
+            self._auto_refresh_timer = self.set_interval(
+                self.auto_refresh_interval,
+                self._request_periodic_refresh,
+                name="admin-auto-refresh",
+                pause=True,
+            )
+        self.query_one(ListTopics).request_refresh("initial")
+
+    def push_screen(self, *args: Any, **kwargs: Any) -> Any:
+        self._pause_auto_refresh()
+        return super().push_screen(*args, **kwargs)
+
+    def pop_screen(self) -> Any:
+        returning_to_topics = len(self.screen_stack) == 2
+        result = super().pop_screen()
+        if returning_to_topics:
+            self.set_timer(0.1, self._resume_auto_refresh, name="resume-admin-auto-refresh")
+        return result
+
+    def _pause_auto_refresh(self) -> None:
+        if self._auto_refresh_timer is not None:
+            self._auto_refresh_timer.pause()
+
+    def _resume_auto_refresh(self) -> None:
+        if not self.auto_refresh_interval or len(self.screen_stack) != 1:
+            return
+        if self._auto_refresh_timer is not None:
+            self._auto_refresh_timer.resume()
+            self._auto_refresh_timer.reset()
+        self.query_one(ListTopics).request_refresh("resume")
+
+    def _request_periodic_refresh(self) -> None:
+        if len(self.screen_stack) == 1:
+            self.query_one(ListTopics).request_refresh("periodic")
+
+    def admin_refresh_completed(self) -> None:
+        if self._auto_refresh_timer is not None and len(self.screen_stack) == 1:
+            self._auto_refresh_timer.resume()
+            self._auto_refresh_timer.reset()
 
     def compose(self) -> ComposeResult:
         yield ListTopics(TopicService(self.kafka_config))

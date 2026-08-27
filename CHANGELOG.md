@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Add configurable admin auto-refresh with modal-aware pause and resume behavior
+
+### Changed
+
+- Load admin topic metrics progressively with batched Kafka Admin requests
+- Consume records in batches and reuse deserialized record values
+
 ## [4.0.7] - 2026-03-02
 
 ### Security
