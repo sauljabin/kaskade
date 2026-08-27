@@ -30,12 +30,12 @@ DataTable {
 }
 
 DataTable.kaskade-table {
-    border: solid transparent;
+    border: solid $secondary 50%;
     height: 100%;
 }
 
 DataTable.kaskade-table:focus {
-    border: solid transparent;
+    border: $secondary;
 }
 
 DataTable.details-table {

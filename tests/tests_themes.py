@@ -180,7 +180,8 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(app.current_theme.panel, header.styles.background.hex)
                 self.assertEqual(header.styles.background, app.screen.styles.background)
                 self.assertEqual(0, table.styles.background.a)
-                self.assertEqual(0, table.styles.border_top[1].a)
+                self.assertNotEqual("", table.styles.border_top[0])
+                self.assertGreater(table.styles.border_top[1].a, 0)
                 footer = app.query_one(Footer)
                 self.assertIsInstance(footer, Footer)
                 for widget in (header, table, footer):

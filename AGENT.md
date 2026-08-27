@@ -139,9 +139,9 @@ Help is a dedicated centered `ModalScreen`, not a sidebar. It must:
   the tabs. Put collection counts in tab labels, for example
   `Partitions [50]`.
 - Keep table backgrounds transparent so they inherit each window's background.
-  Primary tables retain transparent border geometry, while detail tables
-  embedded inside another bordered component use the borderless `details-table`
-  style.
+  Primary tables retain Kaskade's visible focus-aware border, while detail
+  tables embedded inside another bordered component use the borderless
+  `details-table` style.
 
 ## Themes
 
