@@ -138,9 +138,10 @@ Help is a dedicated centered `ModalScreen`, not a sidebar. It must:
   outer `TabbedContent`. Do not add borders or border titles to the tables inside
   the tabs. Put collection counts in tab labels, for example
   `Partitions [50]`.
-- Tables used as primary screens retain Kaskade's focus-aware border. Detail
-  tables embedded inside another bordered component use the borderless
-  `details-table` style.
+- Keep table backgrounds transparent so they inherit each window's background.
+  Primary tables retain transparent border geometry, while detail tables
+  embedded inside another bordered component use the borderless `details-table`
+  style.
 
 ## Themes
 

@@ -179,6 +179,8 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(1, header.styles.padding.bottom)
                 self.assertEqual(app.current_theme.panel, header.styles.background.hex)
                 self.assertEqual(header.styles.background, app.screen.styles.background)
+                self.assertEqual(0, table.styles.background.a)
+                self.assertEqual(0, table.styles.border_top[1].a)
                 footer = app.query_one(Footer)
                 self.assertIsInstance(footer, Footer)
                 for widget in (header, table, footer):
@@ -552,6 +554,7 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 for table in detail_tables:
                     self.assertIsNone(table.border_title)
                     self.assertEqual("", table.styles.border_top[0])
+                    self.assertEqual(0, table.styles.background.a)
                 self.assertGreater(partitions.content_region.height, 0)
                 self.assertFalse(partitions.show_horizontal_scrollbar)
                 self.assertIsInstance(app.screen.query_one(Footer), Footer)

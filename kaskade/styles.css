@@ -25,13 +25,17 @@ KaskadeHeader > #kaskade-kafka {
     text-wrap: nowrap;
 }
 
+DataTable {
+    background: transparent;
+}
+
 DataTable.kaskade-table {
-    border: solid $secondary 50%;
+    border: solid transparent;
     height: 100%;
 }
 
 DataTable.kaskade-table:focus {
-    border: $secondary;
+    border: solid transparent;
 }
 
 DataTable.details-table {
