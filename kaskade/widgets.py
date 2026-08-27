@@ -1,7 +1,7 @@
 from collections.abc import Mapping
 from typing import Any, ClassVar
 
-from rich.text import TextType
+from rich.text import Text, TextType
 from textual import events
 from textual.app import ComposeResult
 from textual.binding import Binding, BindingType
@@ -23,8 +23,11 @@ class KaskadeHeader(Horizontal):
         self.bootstrap_servers = str(bootstrap_servers)
 
     def compose(self) -> ComposeResult:
+        product = Text()
+        product.append(APP_NAME.title(), style="primary")
+        product.append(f" v{APP_VERSION}", style="secondary")
         yield Static(
-            f"{APP_NAME.title()} v{APP_VERSION}",
+            product,
             id="kaskade-product",
             markup=False,
         )

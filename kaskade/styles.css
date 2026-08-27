@@ -1,19 +1,19 @@
 Screen.main-view-screen {
     padding: 0 1;
+    background: $panel;
 }
 
 KaskadeHeader {
     dock: top;
     width: 100%;
-    height: 1;
-    margin: 1 0;
+    height: 3;
+    padding: 1 0;
     background: $panel;
     color: $foreground;
 }
 
 KaskadeHeader > #kaskade-product {
     width: auto;
-    color: $primary;
     text-style: bold;
 }
 

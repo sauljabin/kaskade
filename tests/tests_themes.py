@@ -165,21 +165,28 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                     binding.description for _, binding, _, _ in app.screen.active_bindings.values()
                 }
 
-                self.assertEqual(f"Kaskade v{APP_VERSION}", product.render().plain)
+                product_text = product.render()
+                self.assertEqual(f"Kaskade v{APP_VERSION}", product_text.plain)
+                self.assertEqual(
+                    [app.current_theme.primary, app.current_theme.secondary],
+                    [span.style.foreground.hex for span in product_text.spans],
+                )
                 self.assertEqual("Not configured", kafka.render().plain)
                 self.assertTrue(app.screen.has_class("main-view-screen"))
                 self.assertEqual(1, app.screen.styles.padding.left)
                 self.assertEqual(1, app.screen.styles.padding.right)
-                self.assertEqual(1, header.styles.margin.top)
-                self.assertEqual(1, header.styles.margin.bottom)
-                self.assertEqual(app.current_theme.primary, product.styles.color.hex)
+                self.assertEqual(1, header.styles.padding.top)
+                self.assertEqual(1, header.styles.padding.bottom)
+                self.assertEqual(app.current_theme.panel, header.styles.background.hex)
+                self.assertEqual(header.styles.background, app.screen.styles.background)
                 footer = app.query_one(Footer)
                 self.assertIsInstance(footer, Footer)
                 for widget in (header, table, footer):
                     self.assertEqual(1, widget.region.x)
                     self.assertEqual(app.screen.region.right - 1, widget.region.right)
-                self.assertEqual(1, header.region.y)
-                self.assertEqual(header.region.bottom + 1, table.region.y)
+                self.assertEqual(0, header.region.y)
+                self.assertEqual(1, header.content_region.y)
+                self.assertEqual(header.region.bottom, table.region.y)
                 self.assertIs(table, app.screen.focused)
                 self.assertTrue(
                     {"Describe", "Filter", "Refresh", "Create", "Quit", "Commands"}
@@ -484,7 +491,7 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
 
                 self.assertEqual(f"Kaskade v{APP_VERSION}", product.render().plain)
                 self.assertEqual(bootstrap_servers, kafka.render().plain)
-                self.assertEqual(1, header.region.height)
+                self.assertEqual(3, header.region.height)
                 self.assertEqual(app.screen.content_region.width, header.region.width)
                 self.assertEqual(
                     header.content_region.width,
