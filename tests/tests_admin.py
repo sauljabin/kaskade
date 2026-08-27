@@ -9,11 +9,56 @@ from confluent_kafka import KafkaException
 from confluent_kafka.cimpl import NewTopic
 from textual.widgets import DataTable, Input
 
-from kaskade.admin import CreateTopicScreen, FilterTopicsScreen, KaskadeAdmin, ListTopics
+from kaskade.admin import (
+    CreateTopicScreen,
+    FilterTopicsScreen,
+    KaskadeAdmin,
+    ListTopics,
+    RefreshCoordinator,
+    RefreshReason,
+)
 from kaskade.keymaps import CONFIG_ENV_VAR
 from kaskade.models import MetricState, Partition, Topic
 from kaskade.services import EnrichmentResult, GroupSnapshot
 from tests import configure_admin_service
+
+
+class TestRefreshCoordinator(unittest.TestCase):
+    def test_coalesces_non_periodic_requests(self) -> None:
+        coordinator = RefreshCoordinator()
+
+        generation = coordinator.request(RefreshReason.INITIAL)
+
+        self.assertEqual(1, generation)
+        self.assertIsNone(coordinator.request(RefreshReason.MANUAL))
+        self.assertIsNone(coordinator.request(RefreshReason.RESUME))
+        self.assertTrue(coordinator.pending)
+        self.assertTrue(coordinator.complete(1))
+        self.assertTrue(coordinator.take_pending())
+        self.assertFalse(coordinator.take_pending())
+
+    def test_skips_periodic_requests_during_active_work(self) -> None:
+        coordinator = RefreshCoordinator()
+        coordinator.request(RefreshReason.INITIAL)
+
+        self.assertIsNone(coordinator.request(RefreshReason.PERIODIC))
+        self.assertFalse(coordinator.pending)
+
+    def test_queues_requests_during_mutation(self) -> None:
+        coordinator = RefreshCoordinator()
+        coordinator.begin_mutation()
+
+        self.assertIsNone(coordinator.request(RefreshReason.MANUAL))
+        self.assertTrue(coordinator.pending)
+        coordinator.end_mutation()
+        self.assertTrue(coordinator.take_pending())
+
+    def test_rejects_stale_completion(self) -> None:
+        coordinator = RefreshCoordinator()
+        generation = coordinator.request(RefreshReason.INITIAL)
+
+        self.assertFalse(coordinator.complete(0))
+        self.assertTrue(coordinator.is_current(generation or 0))
 
 
 class TestCreateTopic(unittest.IsolatedAsyncioTestCase):
@@ -69,6 +114,18 @@ class TestCreateTopic(unittest.IsolatedAsyncioTestCase):
 
 
 class TestAdminRefresh(unittest.IsolatedAsyncioTestCase):
+    async def test_cancels_and_awaits_pending_stage_tasks(self) -> None:
+        gate = asyncio.Event()
+
+        async def wait_forever() -> None:
+            await gate.wait()
+
+        tasks = [asyncio.create_task(wait_forever()), asyncio.create_task(wait_forever())]
+
+        await ListTopics._cancel_stage_tasks(tasks)
+
+        self.assertTrue(all(task.done() and task.cancelled() for task in tasks))
+
     async def test_command_line_interval_overrides_config(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             config_path = Path(temporary_directory) / "config.yaml"
@@ -172,3 +229,134 @@ class TestAdminRefresh(unittest.IsolatedAsyncioTestCase):
                 await asyncio.sleep(0.2)
                 await pilot.pause()
                 self.assertEqual(1, service.metadata.call_count)
+
+    async def test_manual_refreshes_coalesce_without_overlapping(self) -> None:
+        first_refresh_gate = asyncio.Event()
+        active_calls = 0
+        max_active_calls = 0
+        service = MagicMock()
+
+        async def metadata() -> dict[str, Topic]:
+            nonlocal active_calls, max_active_calls
+            active_calls += 1
+            max_active_calls = max(max_active_calls, active_calls)
+            if service.metadata.call_count == 1:
+                await first_refresh_gate.wait()
+            active_calls -= 1
+            return {}
+
+        service.metadata.side_effect = metadata
+        service.enrich_offsets = AsyncMock(return_value=EnrichmentResult())
+        service.load_groups = AsyncMock(return_value=GroupSnapshot())
+        service.apply_groups.return_value = EnrichmentResult()
+
+        with patch("kaskade.admin.TopicService", return_value=service):
+            app = KaskadeAdmin({})
+            async with app.run_test() as pilot:
+                await pilot.pause()
+                topics = app.query_one(ListTopics)
+                topics.request_refresh(RefreshReason.MANUAL)
+                topics.request_refresh(RefreshReason.MANUAL)
+
+                self.assertEqual(1, service.metadata.call_count)
+                first_refresh_gate.set()
+                await app.workers.wait_for_complete()
+                await pilot.pause()
+                await app.workers.wait_for_complete()
+
+                self.assertEqual(2, service.metadata.call_count)
+                self.assertEqual(1, max_active_calls)
+
+    async def test_consolidates_partial_stage_failures(self) -> None:
+        topic = Topic(name="orders", partitions=[Partition(id=0)])
+        service = MagicMock()
+        service.metadata = AsyncMock(return_value={"orders": topic})
+        service.enrich_offsets = AsyncMock(
+            return_value=EnrichmentResult((RuntimeError("offsets"),))
+        )
+        service.load_groups = AsyncMock(
+            return_value=GroupSnapshot(errors=(RuntimeError("groups"),))
+        )
+        service.apply_groups.return_value = EnrichmentResult((RuntimeError("groups"),))
+
+        with patch("kaskade.admin.TopicService", return_value=service):
+            app = KaskadeAdmin({})
+            with patch.object(app, "notify") as notify:
+                async with app.run_test():
+                    await app.workers.wait_for_complete()
+
+            partial_notifications = [
+                call
+                for call in notify.call_args_list
+                if call.kwargs.get("title") == "Partial Refresh"
+            ]
+            self.assertEqual(1, len(partial_notifications))
+            message = partial_notifications[0].args[0]
+            self.assertIn("record metrics", message)
+            self.assertIn("consumer-group metrics", message)
+
+    async def test_metadata_failure_keeps_previous_snapshot(self) -> None:
+        topic = Topic(
+            name="orders",
+            partitions=[Partition(id=0, high=10)],
+            records_state=MetricState.READY,
+            groups_state=MetricState.READY,
+        )
+        service = MagicMock()
+        service.metadata = AsyncMock(
+            side_effect=[{"orders": topic}, KafkaException("metadata unavailable")]
+        )
+        service.enrich_offsets = AsyncMock(return_value=EnrichmentResult())
+        service.load_groups = AsyncMock(return_value=GroupSnapshot())
+        service.apply_groups.return_value = EnrichmentResult()
+
+        with patch("kaskade.admin.TopicService", return_value=service):
+            app = KaskadeAdmin({})
+            async with app.run_test() as pilot:
+                await app.workers.wait_for_complete()
+                table = app.query_one(DataTable)
+                topics = app.query_one(ListTopics)
+
+                topics.request_refresh(RefreshReason.MANUAL)
+                await app.workers.wait_for_complete()
+                await pilot.pause()
+
+                self.assertEqual("≈10", table.get_cell("orders", "records"))
+                self.assertIs(topic, topics.topics["orders"])
+
+    async def test_refresh_preserves_filter_selection_and_completed_metrics(self) -> None:
+        previous = Topic(
+            name="payments",
+            partitions=[Partition(id=0, high=25)],
+            records_state=MetricState.READY,
+            groups_state=MetricState.READY,
+        )
+        refreshed = Topic(name="payments", partitions=[Partition(id=0)])
+        service = MagicMock()
+        service.metadata = AsyncMock(
+            side_effect=[
+                {"orders": Topic(name="orders"), "payments": previous},
+                {"payments": refreshed},
+            ]
+        )
+        service.enrich_offsets = AsyncMock(return_value=EnrichmentResult())
+        service.load_groups = AsyncMock(return_value=GroupSnapshot())
+        service.apply_groups.return_value = EnrichmentResult()
+
+        with patch("kaskade.admin.TopicService", return_value=service):
+            app = KaskadeAdmin({})
+            async with app.run_test() as pilot:
+                await app.workers.wait_for_complete()
+                topics = app.query_one(ListTopics)
+                topics.current_filter = "payments"
+                topics.current_topic = previous
+                topics.fill_table()
+
+                topics.request_refresh(RefreshReason.MANUAL)
+                await app.workers.wait_for_complete()
+                await pilot.pause()
+
+                table = app.query_one(DataTable)
+                self.assertEqual("payments", topics.current_filter)
+                self.assertEqual("payments", topics.current_topic.name)
+                self.assertEqual("≈25", table.get_cell("payments", "records"))

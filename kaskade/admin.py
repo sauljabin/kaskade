@@ -1,5 +1,7 @@
 import asyncio
+from dataclasses import dataclass
 from datetime import datetime
+from enum import Enum, auto
 from time import perf_counter
 from typing import Any, ClassVar
 
@@ -53,6 +55,66 @@ EDIT_TOPIC_SHORTCUT = "e,ctrl+e"
 REFRESH_TOPICS_SHORTCUT = "ctrl+r"
 LOADING_METRIC = "…"
 UNAVAILABLE_METRIC = "—"
+TOPIC_COLUMN_KEYS = (
+    "name",
+    "partitions",
+    "replicas",
+    "isrs",
+    "groups",
+    "members",
+    "records",
+    "lag",
+)
+
+
+class RefreshReason(Enum):
+    INITIAL = auto()
+    MANUAL = auto()
+    PERIODIC = auto()
+    RESUME = auto()
+    MUTATION = auto()
+    PENDING = auto()
+
+
+@dataclass
+class RefreshCoordinator:
+    generation: int = 0
+    active: bool = False
+    pending: bool = False
+    mutation_active: bool = False
+
+    def request(self, reason: RefreshReason) -> int | None:
+        if self.active or self.mutation_active:
+            if reason is not RefreshReason.PERIODIC:
+                self.pending = True
+            return None
+        self.generation += 1
+        self.active = True
+        return self.generation
+
+    def is_current(self, generation: int) -> bool:
+        return self.active and generation == self.generation
+
+    def complete(self, generation: int) -> bool:
+        if not self.is_current(generation):
+            return False
+        self.active = False
+        return True
+
+    def take_pending(self) -> bool:
+        if not self.pending or self.active or self.mutation_active:
+            return False
+        self.pending = False
+        return True
+
+    def begin_mutation(self) -> None:
+        self.mutation_active = True
+
+    def end_mutation(self) -> None:
+        self.mutation_active = False
+
+    def discard_pending(self) -> None:
+        self.pending = False
 
 
 def _valid_topic_name(name: str) -> bool:
@@ -594,10 +656,7 @@ class ListTopics(Container):
         self.current_topic: Topic | None = None
         self.current_filter: str | None = None
         self.last_updated_at: datetime | None = None
-        self._refresh_generation = 0
-        self._refreshing = False
-        self._refresh_pending = False
-        self._mutation_in_progress = False
+        self.refresh_coordinator = RefreshCoordinator()
 
     def compose(self) -> ComposeResult:
         table: StretchyDataTable[str] = StretchyDataTable(
@@ -632,25 +691,14 @@ class ListTopics(Container):
         self.refresh_bindings()
 
     def action_refresh(self) -> None:
-        self.request_refresh("manual")
+        self.request_refresh(RefreshReason.MANUAL)
 
-    def request_refresh(self, reason: str) -> None:
-        if self._mutation_in_progress:
-            if reason != "periodic":
-                self._refresh_pending = True
-            return
-        if self._refreshing:
-            if reason == "manual":
-                self._start_refresh()
-            elif reason != "periodic":
-                self._refresh_pending = True
-            return
-        self._start_refresh()
+    def request_refresh(self, reason: RefreshReason) -> None:
+        generation = self.refresh_coordinator.request(reason)
+        if generation is not None:
+            self._start_refresh(generation)
 
-    def _start_refresh(self) -> None:
-        self._refresh_generation += 1
-        generation = self._refresh_generation
-        self._refreshing = True
+    def _start_refresh(self, generation: int) -> None:
         self._update_status(refreshing=True)
         self.refresh_topics(generation)
 
@@ -660,61 +708,77 @@ class ListTopics(Container):
         if not self.topics:
             table.loading = True
         started_at = perf_counter()
-        offsets_task: asyncio.Task[Any] | None = None
-        groups_task: asyncio.Task[Any] | None = None
+        stage_tasks: list[asyncio.Task[Any]] = []
 
         try:
-            refreshed_topics = await self.topic_service.metadata()
-            self._preserve_completed_metrics(refreshed_topics)
-            if generation != self._refresh_generation:
-                return
-
-            self.topics = refreshed_topics
-            self.fill_table()
-            table.loading = False
-
-            offsets_task = asyncio.create_task(self.topic_service.enrich_offsets(self.topics))
-            groups_task = asyncio.create_task(self.topic_service.load_groups())
-
-            offsets_result = await offsets_task
-            if generation != self._refresh_generation:
-                return
-            self.fill_table()
-            if offsets_result.errors:
-                self._notify_stage_failure("record metrics", len(offsets_result.errors))
-
-            groups_snapshot = await groups_task
-            if generation != self._refresh_generation:
-                return
-            groups_result = self.topic_service.apply_groups(self.topics, groups_snapshot)
-            self.fill_table()
-            if groups_result.errors:
-                self._notify_stage_failure("consumer-group metrics", len(groups_result.errors))
-
-            self.last_updated_at = datetime.now().astimezone()
-            logger.info(
-                "admin refresh completed topics=%d elapsed=%.3fs",
-                len(self.topics),
-                perf_counter() - started_at,
-            )
-        except KafkaException as ex:
-            notify_error(self.app, "Kafka Error", ex)
+            await self._run_refresh(generation, stage_tasks, started_at)
         except ADMIN_EXCEPTIONS as ex:
-            notify_error(self.app, "Refresh Error", ex)
+            title = "Kafka Error" if isinstance(ex, KafkaException) else "Refresh Error"
+            notify_error(self.app, title, ex)
         finally:
-            for task in (offsets_task, groups_task):
-                if task is not None and not task.done():
-                    task.cancel()
-            if generation == self._refresh_generation:
-                table.loading = False
-                self._refreshing = False
-                self._update_status(refreshing=False)
-                refresh_completed = getattr(self.app, "admin_refresh_completed", None)
-                if refresh_completed is not None:
-                    refresh_completed()
-                if self._refresh_pending and not self._mutation_in_progress:
-                    self._refresh_pending = False
-                    self.call_after_refresh(lambda: self.request_refresh("pending"))
+            await self._cancel_stage_tasks(stage_tasks)
+            self._complete_refresh(generation, table)
+
+    async def _run_refresh(
+        self,
+        generation: int,
+        stage_tasks: list[asyncio.Task[Any]],
+        started_at: float,
+    ) -> None:
+        refreshed_topics = await self.topic_service.metadata()
+        self._preserve_completed_metrics(refreshed_topics)
+        if not self.refresh_coordinator.is_current(generation):
+            return
+
+        self.topics = refreshed_topics
+        self.fill_table()
+        self.query_one(DataTable).loading = False
+        offsets_task = asyncio.create_task(self.topic_service.enrich_offsets(self.topics))
+        groups_task = asyncio.create_task(self.topic_service.load_groups())
+        stage_tasks.extend((offsets_task, groups_task))
+
+        failures: list[tuple[str, int]] = []
+        offsets_result = await offsets_task
+        if not self.refresh_coordinator.is_current(generation):
+            return
+        self.fill_table()
+        if offsets_result.errors:
+            failures.append(("record metrics", len(offsets_result.errors)))
+
+        groups_snapshot = await groups_task
+        if not self.refresh_coordinator.is_current(generation):
+            return
+        groups_result = self.topic_service.apply_groups(self.topics, groups_snapshot)
+        self.fill_table()
+        if groups_result.errors:
+            failures.append(("consumer-group metrics", len(groups_result.errors)))
+
+        self._notify_stage_failures(failures)
+        self.last_updated_at = datetime.now().astimezone()
+        logger.info(
+            "admin refresh completed topics=%d elapsed=%.3fs",
+            len(self.topics),
+            perf_counter() - started_at,
+        )
+
+    @staticmethod
+    async def _cancel_stage_tasks(stage_tasks: list[asyncio.Task[Any]]) -> None:
+        pending_tasks = [task for task in stage_tasks if not task.done()]
+        for task in pending_tasks:
+            task.cancel()
+        if pending_tasks:
+            await asyncio.gather(*pending_tasks, return_exceptions=True)
+
+    def _complete_refresh(self, generation: int, table: DataTable[Any]) -> None:
+        if not self.refresh_coordinator.complete(generation):
+            return
+        table.loading = False
+        self._update_status(refreshing=False)
+        refresh_completed = getattr(self.app, "admin_refresh_completed", None)
+        if refresh_completed is not None:
+            refresh_completed()
+        if self.refresh_coordinator.take_pending():
+            self.call_after_refresh(lambda: self.request_refresh(RefreshReason.PENDING))
 
     def _preserve_completed_metrics(self, refreshed_topics: dict[str, Topic]) -> None:
         for topic_name, refreshed_topic in refreshed_topics.items():
@@ -738,9 +802,14 @@ class ListTopics(Container):
                 refreshed_topic.groups = previous_topic.groups
                 refreshed_topic.groups_state = MetricState.READY
 
-    def _notify_stage_failure(self, stage: str, error_count: int) -> None:
+    def _notify_stage_failures(self, failures: list[tuple[str, int]]) -> None:
+        if not failures:
+            return
+        failure_summary = ", ".join(
+            f"{stage} ({error_count} failed request(s))" for stage, error_count in failures
+        )
         self.app.notify(
-            f"Could not refresh {stage} ({error_count} failed request(s)).",
+            f"Could not refresh {failure_summary}.",
             title="Partial Refresh",
             severity="warning",
         )
@@ -749,7 +818,7 @@ class ListTopics(Container):
         def on_dismiss(result: NewTopic | None) -> None:
             if result is None:
                 return
-            self._mutation_in_progress = True
+            self.refresh_coordinator.begin_mutation()
             self.create_topic(result)
 
         self.app.push_screen(CreateTopicScreen(), on_dismiss)
@@ -811,7 +880,7 @@ class ListTopics(Container):
         def on_dismiss(result: bool | None) -> None:
             if not result:
                 return
-            self._mutation_in_progress = True
+            self.refresh_coordinator.begin_mutation()
             self.update_topic(topic, edit_topic_screen)
 
         self.app.push_screen(edit_topic_screen, on_dismiss)
@@ -856,7 +925,7 @@ class ListTopics(Container):
         def on_dismiss(result: bool | None) -> None:
             if not result:
                 return
-            self._mutation_in_progress = True
+            self.refresh_coordinator.begin_mutation()
             self.delete_topic(topic)
 
         self.app.push_screen(DeleteTopicScreen(topic), on_dismiss)
@@ -881,16 +950,15 @@ class ListTopics(Container):
             self._finish_mutation(refresh_after)
 
     def _finish_mutation(self, refresh_after: bool) -> None:
-        self._mutation_in_progress = False
+        self.refresh_coordinator.end_mutation()
         if refresh_after:
-            self._refresh_pending = False
+            self.refresh_coordinator.discard_pending()
             self.set_timer(
                 REFRESH_TABLE_DELAY,
-                lambda: self.request_refresh("mutation"),
+                lambda: self.request_refresh(RefreshReason.MUTATION),
             )
-        elif self._refresh_pending:
-            self._refresh_pending = False
-            self.call_after_refresh(lambda: self.request_refresh("pending"))
+        elif self.refresh_coordinator.take_pending():
+            self.call_after_refresh(lambda: self.request_refresh(RefreshReason.PENDING))
 
     def action_describe(self) -> None:
         if self.current_topic is None:
@@ -927,37 +995,45 @@ class ListTopics(Container):
     def fill_table(self) -> None:
         table = self.query_one(DataTable)
         selected_topic_name = self.current_topic.name if self.current_topic is not None else None
-        visible_topics = [
+        visible_topics = self._visible_topics()
+        desired_keys = [topic.name for topic in visible_topics]
+        self._render_topic_rows(table, visible_topics, desired_keys, selected_topic_name)
+        self._restore_selection(table, desired_keys, selected_topic_name)
+        self._update_table_title(table, len(visible_topics))
+        self.finish_loading_table()
+
+    def _visible_topics(self) -> list[Topic]:
+        return [
             topic
             for topic in self.topics.values()
             if self.current_filter is None or self.current_filter in topic.name
         ]
-        desired_keys = [topic.name for topic in visible_topics]
-        current_keys = [str(row_key.value) for row_key in table.rows]
 
+    def _render_topic_rows(
+        self,
+        table: DataTable[Any],
+        visible_topics: list[Topic],
+        desired_keys: list[str],
+        selected_topic_name: str | None,
+    ) -> None:
+        current_keys = [str(row_key.value) for row_key in table.rows]
         if current_keys == desired_keys:
             for topic in visible_topics:
-                for column_key, value in zip(
-                    (
-                        "name",
-                        "partitions",
-                        "replicas",
-                        "isrs",
-                        "groups",
-                        "members",
-                        "records",
-                        "lag",
-                    ),
-                    self._topic_row(topic),
-                ):
+                for column_key, value in zip(TOPIC_COLUMN_KEYS, self._topic_row(topic)):
                     table.update_cell(topic.name, column_key, value)
-        else:
-            table.clear()
-            for topic in visible_topics:
-                table.add_row(*self._topic_row(topic), key=topic.name)
-            if selected_topic_name in desired_keys:
-                table.move_cursor(row=desired_keys.index(selected_topic_name), animate=False)
+            return
+        table.clear()
+        for topic in visible_topics:
+            table.add_row(*self._topic_row(topic), key=topic.name)
+        if selected_topic_name in desired_keys:
+            table.move_cursor(row=desired_keys.index(selected_topic_name), animate=False)
 
+    def _restore_selection(
+        self,
+        table: DataTable[Any],
+        desired_keys: list[str],
+        selected_topic_name: str | None,
+    ) -> None:
         if selected_topic_name in self.topics and selected_topic_name in desired_keys:
             self.current_topic = self.topics[selected_topic_name]
         elif desired_keys:
@@ -967,14 +1043,14 @@ class ListTopics(Container):
             self.current_topic = None
         self.refresh_bindings()
 
+    def _update_table_title(self, table: DataTable[Any], visible_topic_count: int) -> None:
         border_title_filter_info = (
             rf"\[[{PRIMARY}]*{self.current_filter}*[/]]" if self.current_filter else ""
         )
         table.border_title = (
             rf"[{PRIMARY}]Topics[/] {border_title_filter_info}"
-            rf"\[[{PRIMARY}]{len(visible_topics)}[/]]"
+            rf"\[[{PRIMARY}]{visible_topic_count}[/]]"
         )
-        self.finish_loading_table()
 
     def _topic_row(self, topic: Topic) -> list[str]:
         return [
@@ -1039,7 +1115,7 @@ class KaskadeAdmin(KaskadeApp):
                 name="admin-auto-refresh",
                 pause=True,
             )
-        self.query_one(ListTopics).request_refresh("initial")
+        self.query_one(ListTopics).request_refresh(RefreshReason.INITIAL)
 
     def push_screen(self, *args: Any, **kwargs: Any) -> Any:
         self._pause_auto_refresh()
@@ -1062,11 +1138,11 @@ class KaskadeAdmin(KaskadeApp):
         if self._auto_refresh_timer is not None:
             self._auto_refresh_timer.resume()
             self._auto_refresh_timer.reset()
-        self.query_one(ListTopics).request_refresh("resume")
+        self.query_one(ListTopics).request_refresh(RefreshReason.RESUME)
 
     def _request_periodic_refresh(self) -> None:
         if len(self.screen_stack) == 1:
-            self.query_one(ListTopics).request_refresh("periodic")
+            self.query_one(ListTopics).request_refresh(RefreshReason.PERIODIC)
 
     def admin_refresh_completed(self) -> None:
         if self._auto_refresh_timer is not None and len(self.screen_stack) == 1:
