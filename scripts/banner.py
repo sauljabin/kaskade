@@ -1,7 +1,5 @@
 import asyncio
 import os
-from collections.abc import Iterator
-from contextlib import contextmanager
 from pathlib import Path
 
 from textual.app import ComposeResult
@@ -32,11 +30,10 @@ class Banner(KaskadeApp):
 
 async def generate_banner() -> Path:
     """Render the README banner with Textual's SVG screenshot exporter."""
-    with _color_enabled():
-        app = Banner()
-        async with app.run_test(size=BANNER_SIZE) as pilot:
-            await pilot.pause()
-            svg = app.export_screenshot(title="Kaskade", simplify=True)
+    app = _new_banner()
+    async with app.run_test(size=BANNER_SIZE) as pilot:
+        await pilot.pause()
+        svg = app.export_screenshot(title="Kaskade", simplify=True)
 
     IMAGES_DIRECTORY.mkdir(parents=True, exist_ok=True)
     BANNER_PATH.write_text(_normalize_svg(svg), encoding="utf-8")
@@ -47,11 +44,10 @@ def _normalize_svg(svg: str) -> str:
     return "\n".join(line.rstrip() for line in svg.splitlines()) + "\n"
 
 
-@contextmanager
-def _color_enabled() -> Iterator[None]:
+def _new_banner() -> Banner:
     no_color = os.environ.pop("NO_COLOR", None)
     try:
-        yield
+        return Banner()
     finally:
         if no_color is not None:
             os.environ["NO_COLOR"] = no_color
