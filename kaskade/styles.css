@@ -29,6 +29,15 @@ DataTable {
     background: transparent;
 }
 
+DataTable > .datatable--header {
+    background: $panel-darken-2;
+    color: $text-secondary;
+}
+
+DataTable:focus > .datatable--header {
+    background-tint: transparent;
+}
+
 DataTable.kaskade-table {
     border: solid $secondary 50%;
     height: 100%;

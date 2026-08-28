@@ -148,6 +148,27 @@ class TestThemes(unittest.TestCase):
 
 
 class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
+    async def test_header_updates_semantic_colors_when_theme_changes(self):
+        with patch("kaskade.admin.TopicService") as topic_service:
+            configure_admin_service(topic_service.return_value, {})
+            app = KaskadeAdmin({})
+
+            async with app.run_test() as pilot:
+                product = app.query_one("#kaskade-product", Static)
+
+                for theme in ("textual-light", "dracula", DEFAULT_THEME):
+                    app.theme = theme
+                    await pilot.pause()
+
+                    product_text = product.render()
+                    self.assertEqual(
+                        [
+                            app.current_theme.primary.lower(),
+                            (app.current_theme.secondary or app.current_theme.primary).lower(),
+                        ],
+                        [span.style.foreground.hex.lower() for span in product_text.spans],
+                    )
+
     async def test_uses_footer_and_opens_a_keyboard_navigable_help_window(self):
         with patch("kaskade.admin.TopicService") as topic_service:
             configure_admin_service(
@@ -184,6 +205,18 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(app.current_theme.panel, header.styles.background.hex)
                 self.assertEqual(header.styles.background, app.screen.styles.background)
                 self.assertEqual(0, table.styles.background.a)
+                self.assertEqual(
+                    app.get_css_variables()["panel-darken-2"].lower(),
+                    table.get_component_styles("datatable--header").background.hex.lower(),
+                )
+                self.assertEqual(
+                    app.get_css_variables()["text-secondary"].lower(),
+                    table.get_component_styles("datatable--header").color.hex.lower(),
+                )
+                self.assertEqual(
+                    0,
+                    table.get_component_styles("datatable--header").background_tint.a,
+                )
                 self.assertNotEqual("", table.styles.border_top[0])
                 self.assertGreater(table.styles.border_top[1].a, 0)
                 footer = app.query_one(Footer)
@@ -235,6 +268,16 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 self.assertIn(KASKADE_ISSUES_URL, about_text)
                 self.assertIs(help_table, help_screen.focused)
                 self.assertEqual(0, help_table.cursor_row)
+                help_header_styles = help_table.get_component_styles("datatable--header")
+                self.assertEqual(
+                    app.get_css_variables()["panel-darken-2"].lower(),
+                    help_header_styles.background.hex.lower(),
+                )
+                self.assertEqual(
+                    app.get_css_variables()["text-secondary"].lower(),
+                    help_header_styles.color.hex.lower(),
+                )
+                self.assertEqual(0, help_header_styles.background_tint.a)
                 self.assertTrue(
                     {
                         "Copy Selected Text",
