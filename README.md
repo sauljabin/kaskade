@@ -3,48 +3,42 @@
 </p>
 
 <p align="center">
-<a href="https://github.com/sauljabin/kaskade"><img alt="GitHub" src="https://img.shields.io/badge/github-blueviolet?logo=github&logoColor=white"></a>
-<a href="https://github.com/sponsors/sauljabin"><img alt="donate" src="https://img.shields.io/badge/donate-EA4AAA?logo=github-sponsors&logoColor=white"></a>
-<a href="https://libraries.io/pypi/kaskade"><img alt="Libraries.io dependency status for latest release" src="https://img.shields.io/librariesio/release/pypi/kaskade?logo=python&logoColor=white&label="></a>
-<a href="https://github.com/sauljabin/kaskade/blob/main/LICENSE"><img alt="MIT License" src="https://img.shields.io/github/license/sauljabin/kaskade"></a>
-<a href="https://pypi.org/project/kaskade"><img alt="Pypi Version" src="https://img.shields.io/pypi/v/kaskade"></a>
-<a href="https://formulae.brew.sh/formula/kaskade"><img alt="Homebrew Version" src="https://img.shields.io/homebrew/v/kaskade"></a>
-<a href="https://hub.docker.com/r/sauljabin/kaskade/tags"><img alt="Docker Version" src="https://img.shields.io/docker/v/sauljabin/kaskade?label=dockerhub"></a>
-<a href="https://pypi.org/project/kaskade"><img alt="Platform" src="https://img.shields.io/badge/os-linux%20%7C%20macos-blue"></a>
-<a href="https://pypi.org/project/kaskade"><img alt="Python Versions" src="https://img.shields.io/pypi/pyversions/kaskade?label=python"></a>
+<a href="https://github.com/sauljabin/kaskade/actions/workflows/main.yml"><img alt="CI status" src="https://img.shields.io/github/actions/workflow/status/sauljabin/kaskade/main.yml?branch=main&style=flat-square&logo=githubactions&logoColor=white&label=ci"></a>
+<a href="https://github.com/sauljabin/kaskade/blob/main/LICENSE"><img alt="MIT License" src="https://img.shields.io/github/license/sauljabin/kaskade?style=flat-square&logo=opensourceinitiative&logoColor=white&label=license"></a>
+<a href="https://github.com/sponsors/sauljabin"><img alt="Sponsor on GitHub" src="https://img.shields.io/badge/sponsor-GitHub-EA4AAA?style=flat-square&logo=githubsponsors&logoColor=white"></a>
 </p>
 
-## Kaskade
+<p align="center">
+<a href="https://pypi.org/project/kaskade"><img alt="PyPI version" src="https://img.shields.io/pypi/v/kaskade?style=flat-square&logo=pypi&logoColor=white&label=pypi"></a>
+<a href="https://formulae.brew.sh/formula/kaskade"><img alt="Homebrew version" src="https://img.shields.io/homebrew/v/kaskade?style=flat-square&logo=homebrew&logoColor=white&label=homebrew"></a>
+<a href="https://hub.docker.com/r/sauljabin/kaskade/tags"><img alt="Docker version" src="https://img.shields.io/docker/v/sauljabin/kaskade?style=flat-square&logo=docker&logoColor=white&label=docker"></a>
+</p>
+
+<p align="center">
+<a href="https://pypi.org/project/kaskade"><img alt="Linux support" src="https://img.shields.io/badge/os-Linux-blue?style=flat-square&logo=linux&logoColor=white"></a>
+<a href="https://pypi.org/project/kaskade"><img alt="macOS support" src="https://img.shields.io/badge/os-macOS-blue?style=flat-square&logo=apple&logoColor=white"></a>
+<a href="https://pypi.org/project/kaskade"><img alt="Supported Python versions" src="https://img.shields.io/pypi/pyversions/kaskade?style=flat-square&logo=python&logoColor=white&label=python"></a>
+</p>
 
 Kaskade is a text user interface (TUI) for Apache Kafka.
 
-It includes features like:
+## Features
 
-### Admin
-
-- List topics, partitions, groups and group members.
-- Topic information like lag, replicas and records count.
-- Create, edit and delete topics.
-- Filter topics by name.
-- Copy topic names to the clipboard.
-
-### Consumer
-
-- Json, string, integer, long, float, boolean and double deserialization.
-- Filter by key, value, header and/or partition.
-- Copy individual consumed records as JSON.
-- Export individual consumed records as JSON.
-- Schema Registry support for avro and json.
-- Protobuf deserialization support without Schema Registry.
-- Avro deserialization without Schema Registry.
-
-Clipboard copy requires an OSC 52-compatible terminal. See [clipboard compatibility](USAGE.md#osc-52-compatibility) for supported terminals, configuration, and remote-session behavior.
-
-## Limitations
-
-Kaskade does not include:
-
-- Schema Registry for protobuf.
+| Area | Capability | Availability |
+| --- | --- | --- |
+| General | Customize themes and keybindings | Supported |
+| Admin | Browse topics, partitions, groups, and group members | Supported |
+| Admin | View topic lag, replicas, and record counts | Supported |
+| Admin | Create, edit, and delete topics | Supported |
+| Admin | Filter topics by name | Supported |
+| Admin | Copy topic names to the clipboard | Supported in [OSC 52-compatible terminals](https://github.com/sauljabin/kaskade/blob/main/USAGE.md#osc-52-compatibility) |
+| Admin | Refresh topic metadata and metrics | Automatic every 30 seconds, configurable, or manual |
+| Consumer | Deserialize keys and values as bytes, JSON, string, integer, long, float, boolean, or double | Supported |
+| Consumer | Filter records by key, value, header, and/or partition | Supported |
+| Consumer | Copy individual records as JSON | Supported in [OSC 52-compatible terminals](https://github.com/sauljabin/kaskade/blob/main/USAGE.md#osc-52-compatibility) |
+| Consumer | Export individual records as JSON | Supported |
+| Consumer | Deserialize with Schema Registry | Avro and JSON are supported; Protobuf is not supported |
+| Consumer | Deserialize without Schema Registry | Avro and Protobuf are supported |
 
 ## Screenshots
 
@@ -63,33 +57,29 @@ Kaskade does not include:
   </tr>
 </table>
 
-## Installation
+## Quick start
 
-#### Install it with `brew`:
+### Homebrew
 
 ```bash
 brew install kaskade
 ```
 
-[brew installation](https://brew.sh/).
-
-#### Install it with `pipx`:
+### pipx
 
 ```bash
 pipx install kaskade
 ```
 
-[pipx installation](https://pipx.pypa.io/stable/installation/).
+### Connect to Kafka
 
-## Running kaskade
-
-#### Admin view:
+Admin view:
 
 ```bash
 kaskade admin -b my-kafka:9092
 ```
 
-#### Consumer view:
+Consumer view:
 
 ```bash
 kaskade consumer -b my-kafka:9092 -t my-topic
@@ -97,11 +87,11 @@ kaskade consumer -b my-kafka:9092 -t my-topic
 
 ## Usage
 
-For configuration and usage examples, see [USAGE.md](USAGE.md).
+For configuration and usage examples, see the [Kaskade usage guide](https://github.com/sauljabin/kaskade/blob/main/USAGE.md).
 
 ## Development
 
-For development instructions see [DEVELOPMENT.md](https://github.com/sauljabin/kaskade/blob/main/DEVELOPMENT.md).
+For development instructions, see the [Kaskade development guide](https://github.com/sauljabin/kaskade/blob/main/DEVELOPMENT.md).
 
 ## Releases
 
@@ -110,6 +100,10 @@ See [GitHub Releases](https://github.com/sauljabin/kaskade/releases) for release
 ## Questions
 
 For Q&A go to [GitHub Discussions](https://github.com/sauljabin/kaskade/discussions/categories/q-a).
+
+## Donations
+
+If Kaskade is useful to you, consider [supporting its development on GitHub Sponsors](https://github.com/sponsors/sauljabin).
 
 ## Acknowledgements & Sponsorship
 

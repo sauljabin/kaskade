@@ -1,7 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="133" height="20" role="img" aria-labelledby="title desc">
   <title id="title">Built with Textual</title>
   <desc id="desc">A badge with the Textual logo and the text Built with Textual.</desc>
-  <rect width="133" height="20" rx="3" fill="#5C2D80"/>
+  <rect width="82" height="20" fill="#555555"/>
+  <rect x="82" width="51" height="20" fill="#5C2D80"/>
   <path fill="#FFFFFF" fill-rule="evenodd" clip-rule="evenodd" d="M618 0h461l-77.4 174.1-141.3 79.5h-96L531.3 728 390.7 833.4H237.5l33.6-504.2H75.1L0 160.3l112.9-84.7h370.7L618 0zM470.3 102.3l-11.2 48.9H56.6l65.2-48.9h348.5zM37.1 178h415.8L308.4 806.7h-42.3l33.6-504.2H92.4L37.1 178zm298.7 628.7 161.9-704.3h405.7l-55.3 124.5H612.5L377.3 806.7h-41.5zM920.5 75.6H538.1l87-48.9h382.5l-87.1 48.9z" transform="translate(4 2) scale(.0192)"/>
-  <text x="29" y="14" fill="#FFFFFF" font-family="Verdana, Geneva, DejaVu Sans, sans-serif" font-size="11">Built with Textual</text>
+  <text x="54" y="14" fill="#FFFFFF" font-family="Verdana, Geneva, DejaVu Sans, sans-serif" font-size="11" text-anchor="middle">built with</text>
+  <text x="107.5" y="14" fill="#FFFFFF" font-family="Verdana, Geneva, DejaVu Sans, sans-serif" font-size="11" text-anchor="middle">Textual</text>
 </svg>
