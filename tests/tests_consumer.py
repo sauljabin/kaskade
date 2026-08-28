@@ -223,5 +223,114 @@ class TestRecordExportActions(unittest.IsolatedAsyncioTestCase):
             app.deliver_text.assert_not_called()
 
 
+class TestRecordCopyActions(unittest.IsolatedAsyncioTestCase):
+    @patch("kaskade.consumer.ConsumerService")
+    async def test_y_copies_json_from_table_and_record_details(
+        self, consumer_service: MagicMock
+    ) -> None:
+        record = exported_record()
+        expected_json = record_json(record).removesuffix("\n")
+        consumer_service.return_value.consume = AsyncMock(return_value=[record])
+        app = KaskadeConsumer(
+            "orders",
+            {},
+            {},
+            {},
+            {},
+            Deserialization.STRING,
+            Deserialization.JSON,
+        )
+        app.notify = MagicMock()
+
+        async with app.run_test() as pilot:
+            await app.workers.wait_for_complete()
+            await pilot.pause()
+            records = app.query_one(ListRecords)
+
+            self.assertTrue(records.check_action("copy_record", ()))
+            self.assertIn(
+                "Copy Record",
+                {command.title for command in app.get_system_commands(app.screen)},
+            )
+
+            await pilot.press("y")
+
+            self.assertEqual(expected_json, app.clipboard)
+            self.assertFalse(app.clipboard.endswith("\n"))
+            self.assertEqual("Zoë", json.loads(app.clipboard)["value"]["content"]["customer"])
+            app.notify.assert_called_once_with(
+                "Copied record JSON to clipboard.",
+                title="Copied",
+            )
+
+            await pilot.press("enter")
+            await pilot.pause()
+            self.assertIsInstance(app.screen, TopicScreen)
+            app.copy_to_clipboard("")
+            app.notify.reset_mock()
+
+            await pilot.press("y")
+
+            self.assertEqual(expected_json, app.clipboard)
+            app.notify.assert_called_once_with(
+                "Copied record JSON to clipboard.",
+                title="Copied",
+            )
+
+    @patch("kaskade.consumer.ConsumerService")
+    async def test_copy_is_disabled_without_a_record(self, consumer_service: MagicMock) -> None:
+        consumer_service.return_value.consume = AsyncMock(return_value=[])
+        app = KaskadeConsumer(
+            "orders",
+            {},
+            {},
+            {},
+            {},
+            Deserialization.STRING,
+            Deserialization.JSON,
+        )
+        app.notify = MagicMock()
+
+        async with app.run_test() as pilot:
+            await app.workers.wait_for_complete()
+            await pilot.pause()
+            records = app.query_one(ListRecords)
+
+            self.assertFalse(records.check_action("copy_record", ()))
+            await pilot.press("y")
+
+            self.assertEqual("", app.clipboard)
+            app.notify.assert_not_called()
+
+    @patch("kaskade.consumer.ConsumerService")
+    async def test_copy_reports_deserialization_errors(self, consumer_service: MagicMock) -> None:
+        record = exported_record()
+        consumer_service.return_value.consume = AsyncMock(return_value=[record])
+        app = KaskadeConsumer(
+            "orders",
+            {},
+            {},
+            {},
+            {},
+            Deserialization.STRING,
+            Deserialization.JSON,
+        )
+        app.notify = MagicMock()
+
+        async with app.run_test() as pilot:
+            await app.workers.wait_for_complete()
+            await pilot.pause()
+
+            with patch.object(record, "dict", side_effect=ValueError("invalid payload")):
+                await pilot.press("y")
+
+            self.assertEqual("", app.clipboard)
+            app.notify.assert_called_once_with(
+                "invalid payload",
+                severity="error",
+                title="Deserialization Error",
+            )
+
+
 if __name__ == "__main__":
     unittest.main()

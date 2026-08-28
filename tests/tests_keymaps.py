@@ -281,3 +281,34 @@ class TestConfiguredKeymap(unittest.IsolatedAsyncioTestCase):
                         if binding.description == "Move Down"
                     )
                     self.assertEqual(("x",), move_down.keys)
+
+    async def test_app_applies_copy_override_to_contextual_action(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            path = Path(temporary_directory) / "config.yaml"
+            path.write_text("keymap:\n  kaskade.topics.copy: x\n", encoding="utf-8")
+
+            with (
+                patch.dict(os.environ, {CONFIG_ENV_VAR: str(path)}),
+                patch("kaskade.admin.TopicService") as topic_service,
+            ):
+                configure_admin_service(
+                    topic_service.return_value,
+                    {"orders": Topic(name="orders")},
+                )
+                app = KaskadeAdmin({})
+
+                async with app.run_test() as pilot:
+                    await app.workers.wait_for_complete()
+                    await pilot.pause()
+
+                    await pilot.press("x")
+
+                    self.assertEqual("orders", app.clipboard)
+
+                    await pilot.press("?")
+                    copy_topic = next(
+                        binding
+                        for binding in app.screen.help_bindings
+                        if binding.description == "Copy Topic"
+                    )
+                    self.assertEqual(("x",), copy_topic.keys)

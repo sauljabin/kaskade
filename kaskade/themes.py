@@ -1,3 +1,4 @@
+import sys
 from collections.abc import Iterable
 from functools import partial
 from pathlib import Path
@@ -15,6 +16,8 @@ from kaskade.keymaps import NAVIGATION_BINDING_IDS, load_settings
 
 DEFAULT_THEME = "eva01"
 KASKADE_COMMAND_ID_PREFIX = "kaskade."
+SELECTED_TEXT_COPY_SHORTCUT = "super+c" if sys.platform == "darwin" else "ctrl+shift+c"
+SELECTED_TEXT_COPY_KEY_DISPLAY = "cmd+c" if sys.platform == "darwin" else "ctrl+shift+c"
 
 EVA01_THEME = Theme(
     name=DEFAULT_THEME,
@@ -65,6 +68,30 @@ class KaskadeApp(App, inherit_bindings=False):
             id="app.quit",
         ),
         Binding(
+            SELECTED_TEXT_COPY_SHORTCUT,
+            "screen.copy_text",
+            "Copy Selected Text",
+            key_display=SELECTED_TEXT_COPY_KEY_DISPLAY,
+            show=False,
+            priority=True,
+            tooltip="Copy only the text selected on the current screen.",
+        ),
+        *(
+            [
+                Binding(
+                    "super+c",
+                    "ignore_selected_text_copy",
+                    "Copy Selected Text",
+                    show=False,
+                    priority=True,
+                    system=True,
+                    tooltip="Use Ctrl+Shift+C to copy selected text on Linux.",
+                )
+            ]
+            if sys.platform != "darwin"
+            else []
+        ),
+        Binding(
             "?,f1",
             "toggle_help",
             "Help",
@@ -108,6 +135,9 @@ class KaskadeApp(App, inherit_bindings=False):
         """Open a contextual help window above the current screen."""
         context, bindings = contextual_help(self.screen)
         self.push_screen(HelpScreen(context, bindings))
+
+    def action_ignore_selected_text_copy(self) -> None:
+        """Shadow Textual's macOS copy alias on non-macOS platforms."""
 
     @on(events.DeliveryComplete)
     def on_record_delivery_complete(self, event: events.DeliveryComplete) -> None:

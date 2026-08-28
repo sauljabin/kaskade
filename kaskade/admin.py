@@ -40,7 +40,7 @@ from kaskade.services import (
 )
 from kaskade.themes import KaskadeApp
 from kaskade.unicodes import APPROXIMATION
-from kaskade.utils import make_it_async, notify_error
+from kaskade.utils import copy_text, make_it_async, notify_error
 from kaskade.widgets import KaskadeHeader, StretchyDataTable
 
 REFRESH_TABLE_DELAY = 1
@@ -53,6 +53,7 @@ NEW_TOPIC_SHORTCUT = "n,ctrl+n"
 DELETE_TOPIC_SHORTCUT = "ctrl+d"
 EDIT_TOPIC_SHORTCUT = "e,ctrl+e"
 REFRESH_TOPICS_SHORTCUT = "ctrl+r"
+COPY_TOPIC_SHORTCUT = "y"
 LOADING_METRIC = "…"
 UNAVAILABLE_METRIC = "—"
 TOPIC_COLUMN_KEYS = (
@@ -227,6 +228,14 @@ class DescribeTopicScreen(HelpableModalScreen):
     AUTO_FOCUS = "Tabs"
     BINDINGS: ClassVar[list[BindingType]] = modal_bindings(
         Binding(
+            COPY_TOPIC_SHORTCUT,
+            "copy_topic",
+            "Copy Topic",
+            show=False,
+            tooltip="Copy the topic name to the clipboard.",
+            id="kaskade.topics.copy",
+        ),
+        Binding(
             BACK_SHORTCUT,
             "close",
             "Back",
@@ -340,6 +349,9 @@ class DescribeTopicScreen(HelpableModalScreen):
 
     def action_close(self) -> None:
         self.dismiss()
+
+    def action_copy_topic(self) -> None:
+        copy_text(self.app, self.topic.name, "topic name")
 
     def action_previous_tab(self) -> None:
         self.query_one(Tabs).action_previous_tab()
@@ -600,6 +612,14 @@ class ListTopics(Container):
             id="kaskade.topics.describe",
         ),
         Binding(
+            COPY_TOPIC_SHORTCUT,
+            "copy_topic",
+            "Copy Topic",
+            show=False,
+            tooltip="Copy the selected topic name to the clipboard.",
+            id="kaskade.topics.copy",
+        ),
+        Binding(
             FILTER_TOPICS_SHORTCUT,
             "filter",
             "Filter",
@@ -692,6 +712,10 @@ class ListTopics(Container):
 
     def action_refresh(self) -> None:
         self.request_refresh(RefreshReason.MANUAL)
+
+    def action_copy_topic(self) -> None:
+        if self.current_topic is not None:
+            copy_text(self.app, self.current_topic.name, "topic name")
 
     def request_refresh(self, reason: RefreshReason) -> None:
         generation = self.refresh_coordinator.request(reason)
@@ -986,7 +1010,7 @@ class ListTopics(Container):
                     self.current_topic.groups_state,
                 )
             )
-        if action in {"delete", "edit"}:
+        if action in {"copy_topic", "delete", "edit"}:
             return self.current_topic is not None
         if action == "all":
             return self.current_filter is not None

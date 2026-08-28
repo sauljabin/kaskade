@@ -76,6 +76,10 @@ Kaskade follows familiar k9s/Vim-style terminal interactions where practical:
 - Plain-character shortcuts must not intercept typing in inputs. In particular,
   `?` opens Help in normal contexts while `f1` remains available from a focused
   text input.
+- Contextual entity copy uses `y`, is hidden from the Footer, and is available in
+  Help and Commands. Textual selected-text copy uses `Cmd+C` on macOS or
+  `Ctrl+Shift+C` on Linux; `Ctrl+C` always quits Kaskade and must never be shown
+  as a copy alias.
 - Keep Textual's command palette on `:` with `ctrl+p` as an alternative. Expose
   contextual Kaskade actions in it, omit duplicate navigation actions, and do
   not expose Textual maximize/minimize commands. Replace Textual's generic Keys

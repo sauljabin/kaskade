@@ -1,8 +1,10 @@
 import unittest
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from textual.command import CommandList, CommandPalette
 from textual.containers import ScrollableContainer
+from textual.geometry import Offset
+from textual.selection import Selection
 from textual.theme import BUILTIN_THEMES, ThemeProvider
 from textual.widgets import (
     DataTable,
@@ -40,6 +42,8 @@ from kaskade.models import Record, Topic
 from kaskade.themes import (
     DEFAULT_THEME,
     EVA01_THEME,
+    SELECTED_TEXT_COPY_KEY_DISPLAY,
+    SELECTED_TEXT_COPY_SHORTCUT,
     KaskadeApp,
     available_theme_names,
 )
@@ -232,7 +236,16 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 self.assertIs(help_table, help_screen.focused)
                 self.assertEqual(0, help_table.cursor_row)
                 self.assertTrue(
-                    {"Describe", "Filter", "Refresh", "Create", "Quit", "Commands"}
+                    {
+                        "Copy Selected Text",
+                        "Copy Topic",
+                        "Describe",
+                        "Filter",
+                        "Refresh",
+                        "Create",
+                        "Quit",
+                        "Commands",
+                    }
                     <= {binding.description for binding in help_screen.help_bindings}
                 )
                 self.assertIn("Topics", {binding.context for binding in help_screen.help_bindings})
@@ -248,6 +261,15 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(("?", "f1"), binding_keys["Help"])
                 self.assertEqual((":", "^p"), binding_keys["Commands"])
                 self.assertEqual(("d", "⏎"), binding_keys["Describe"])
+                self.assertEqual(("y",), binding_keys["Copy Topic"])
+                self.assertEqual(
+                    (SELECTED_TEXT_COPY_KEY_DISPLAY,),
+                    binding_keys["Copy Selected Text"],
+                )
+                self.assertNotIn(
+                    "ctrl+c",
+                    binding_keys["Copy Selected Text"],
+                )
                 await pilot.press("pagedown")
                 await pilot.pause()
                 self.assertGreater(help_table.cursor_row, 0)
@@ -422,6 +444,7 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                         "Quit",
                         "Help",
                         "Screenshot",
+                        "Copy Topic",
                         "Describe",
                         "Filter",
                         "Refresh",
@@ -440,6 +463,46 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
 
                 self.assertIs(table, app.screen.maximized)
                 self.assertTrue({"Maximize", "Minimize"}.isdisjoint(maximized_command_titles))
+
+    async def test_selected_text_copy_is_separate_from_ctrl_c_quit(self):
+        with patch("kaskade.admin.TopicService") as topic_service:
+            configure_admin_service(topic_service.return_value, {"orders": Topic(name="orders")})
+            app = KaskadeAdmin({})
+
+            async with app.run_test() as pilot:
+                await pilot.pause()
+                product = app.query_one("#kaskade-product", Static)
+                app.screen.selections = {
+                    product: Selection(Offset(0, 0), Offset(len("Kaskade"), 0))
+                }
+
+                await pilot.press(SELECTED_TEXT_COPY_SHORTCUT)
+
+                self.assertEqual("Kaskade", app.clipboard)
+
+                app.copy_to_clipboard("")
+                app.screen.clear_selection()
+                await pilot.press(SELECTED_TEXT_COPY_SHORTCUT)
+                self.assertEqual("", app.clipboard)
+
+                app.screen.selections = {
+                    product: Selection(Offset(0, 0), Offset(len("Kaskade"), 0))
+                }
+                app.exit = MagicMock()
+                app.push_screen(FilterTopicsScreen())
+                await pilot.pause()
+
+                await pilot.press("ctrl+c")
+
+                app.exit.assert_called_once_with()
+                self.assertEqual("", app.clipboard)
+                app.exit.reset_mock()
+                await pilot.press("escape")
+
+                await pilot.press("ctrl+c")
+
+                app.exit.assert_called_once_with()
+                self.assertEqual("", app.clipboard)
 
     async def test_consumer_uses_a_stretchy_records_table(self):
         with patch("kaskade.consumer.ConsumerService") as consumer_service:

@@ -26,11 +26,13 @@ It includes features like:
 - Topic information like lag, replicas and records count.
 - Create, edit and delete topics.
 - Filter topics by name.
+- Copy topic names to the clipboard.
 
 ### Consumer
 
 - Json, string, integer, long, float, boolean and double deserialization.
 - Filter by key, value, header and/or partition.
+- Copy individual consumed records as JSON.
 - Export individual consumed records as JSON.
 - Schema Registry support for avro and json.
 - Protobuf deserialization support without Schema Registry.

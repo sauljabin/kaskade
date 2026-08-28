@@ -28,6 +28,7 @@ keymap:
 
   # Topics
   kaskade.topics.describe: d,enter
+  kaskade.topics.copy: y
   kaskade.topics.filter: slash,ctrl+f
   kaskade.topics.refresh: ctrl+r
   kaskade.topics.create: n,ctrl+n
@@ -37,6 +38,7 @@ keymap:
 
   # Records
   kaskade.records.show: enter
+  kaskade.records.copy: y
   kaskade.records.export: ctrl+e
   kaskade.records.consume: n
   kaskade.records.filter: slash,ctrl+f

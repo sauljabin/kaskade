@@ -11,6 +11,7 @@ from textual.widgets import DataTable, Input
 
 from kaskade.admin import (
     CreateTopicScreen,
+    DescribeTopicScreen,
     FilterTopicsScreen,
     KaskadeAdmin,
     ListTopics,
@@ -111,6 +112,64 @@ class TestCreateTopic(unittest.IsolatedAsyncioTestCase):
                 await pilot.pause()
 
                 self.assertFalse(table.loading)
+
+
+class TestTopicCopyActions(unittest.IsolatedAsyncioTestCase):
+    async def test_y_copies_topic_from_table_and_details(self) -> None:
+        topic = Topic(name="orders")
+        with patch("kaskade.admin.TopicService") as topic_service:
+            configure_admin_service(topic_service.return_value, {topic.name: topic})
+            app = KaskadeAdmin({})
+            app.notify = MagicMock()
+
+            async with app.run_test() as pilot:
+                await app.workers.wait_for_complete()
+                await pilot.pause()
+                topics = app.query_one(ListTopics)
+
+                self.assertTrue(topics.check_action("copy_topic", ()))
+                self.assertIn(
+                    "Copy Topic",
+                    {command.title for command in app.get_system_commands(app.screen)},
+                )
+
+                await pilot.press("y")
+
+                self.assertEqual("orders", app.clipboard)
+                app.notify.assert_called_once_with(
+                    "Copied topic name to clipboard.",
+                    title="Copied",
+                )
+
+                app.push_screen(DescribeTopicScreen(topic))
+                await pilot.pause()
+                app.copy_to_clipboard("")
+                app.notify.reset_mock()
+
+                await pilot.press("y")
+
+                self.assertEqual("orders", app.clipboard)
+                app.notify.assert_called_once_with(
+                    "Copied topic name to clipboard.",
+                    title="Copied",
+                )
+
+    async def test_copy_is_disabled_without_a_topic(self) -> None:
+        with patch("kaskade.admin.TopicService") as topic_service:
+            configure_admin_service(topic_service.return_value, {})
+            app = KaskadeAdmin({})
+            app.notify = MagicMock()
+
+            async with app.run_test() as pilot:
+                await app.workers.wait_for_complete()
+                await pilot.pause()
+                topics = app.query_one(ListTopics)
+
+                self.assertFalse(topics.check_action("copy_topic", ()))
+                await pilot.press("y")
+
+                self.assertEqual("", app.clipboard)
+                app.notify.assert_not_called()
 
 
 class TestAdminRefresh(unittest.IsolatedAsyncioTestCase):

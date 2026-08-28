@@ -70,6 +70,8 @@ Kaskade supports arrow keys and Vim-style navigation. The defaults follow famili
 | Edit a topic | `e` or `Ctrl+E` |
 | Delete a topic | `Ctrl+D` |
 | Refresh topics | `Ctrl+R` |
+| Copy selected topic or record | `y` |
+| Copy selected screen text | `Cmd+C` on macOS or `Ctrl+Shift+C` on Linux |
 | Export selected record | `Ctrl+E` |
 | Consume more records | `n` |
 | Change record chunk size | `#` |
@@ -107,12 +109,24 @@ Common configurable binding IDs are:
 | --- | --- |
 | Application | `app.quit`, `app.command-palette`, `help.toggle`, `kaskade.help.close` |
 | Navigation | `kaskade.navigation.up`, `.down`, `.left`, `.right`, `.first`, `.last`, `.page-up`, `.page-down`, `.select` |
-| Topics | `kaskade.topics.describe`, `.filter`, `.refresh`, `.create`, `.edit`, `.delete`, `.show-all` |
-| Records | `kaskade.records.show`, `.export`, `.consume`, `.filter`, `.chunk-size`, `.show-all` |
+| Topics | `kaskade.topics.describe`, `.copy`, `.filter`, `.refresh`, `.create`, `.edit`, `.delete`, `.show-all` |
+| Records | `kaskade.records.show`, `.copy`, `.export`, `.consume`, `.filter`, `.chunk-size`, `.show-all` |
 | Dialogs | `kaskade.filter-topics.apply`, `kaskade.delete-topic.confirm`, `kaskade.filter-records.apply`, `kaskade.chunk-size.select` |
 | Editors | `kaskade.create-topic.save`, `kaskade.edit-topic.save` |
 
 Unknown binding IDs, invalid key names, and malformed configuration produce an in-app warning while Kaskade continues with its default bindings.
+
+### Copy topics and consumed records
+
+Select a topic in Admin mode or a consumed record in Consumer mode, then press `y` to copy
+the topic name or readable record JSON to the clipboard. The same actions are available from
+Topic Details and Record Details. Copy is intentionally omitted from the Footer; open Help
+with `?` or `F1` to see its contextual shortcut, or search for it in Commands.
+
+Kaskade uses Textual's terminal clipboard support. It works in terminals that support OSC 52
+on Linux and macOS, including remote sessions, but not in Apple's Terminal app. Selecting
+screen text remains separate: use `Cmd+C` on macOS or `Ctrl+Shift+C` on Linux. `Ctrl+C`
+always quits Kaskade, even while text is selected.
 
 ### Export a consumed record
 
