@@ -24,7 +24,7 @@ jobs:
       version: ${{ steps.release.outputs.version }}
     steps:
       - name: Checkout complete history
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0
           persist-credentials: false
@@ -44,7 +44,7 @@ jobs:
           fi
           echo "version=${RELEASE_TAG#v}" >> "$GITHUB_OUTPUT"
       - name: Set up uv and Python
-        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        uses: astral-sh/setup-uv@v10.0.1
         with:
           version: ${{ env.UV_VERSION }}
           python-version: "3.10"
@@ -69,14 +69,14 @@ jobs:
           uv pip install --python "$RUNNER_TEMP/release-venv/bin/python" dist/*.whl
           "$RUNNER_TEMP/release-venv/bin/kaskade" --version | grep -F "$RELEASE_VERSION"
       - name: Generate release notes
-        uses: orhun/git-cliff-action@f50e11560dce63f7c33227798f90b924471a88b5 # v4.8.0
+        uses: orhun/git-cliff-action@v4.8.0
         with:
           version: v2.13.1
           config: cliff.toml
           args: --current --strip header --output release-notes.md
           github_token: ${{ secrets.GITHUB_TOKEN }}
       - name: Upload release bundle
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: release-bundle
           path: |
@@ -95,11 +95,11 @@ jobs:
       attestations: write
     steps:
       - name: Download release bundle
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@v8.0.1
         with:
           name: release-bundle
       - name: Attest distributions
-        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        uses: actions/attest@v4.2.2
         with:
           subject-path: dist/*
 
@@ -115,11 +115,11 @@ jobs:
       id-token: write
     steps:
       - name: Download release bundle
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@v8.0.1
         with:
           name: release-bundle
       - name: Publish distributions
-        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
+        uses: pypa/gh-action-pypi-publish@v1.14.2
         with:
           packages-dir: dist/
 
@@ -136,31 +136,31 @@ jobs:
       attestations: write
     steps:
       - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: actions/checkout@v7.0.1
         with:
           persist-credentials: false
       - name: Download release bundle
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@v8.0.1
         with:
           name: release-bundle
       - name: Generate Docker metadata
         id: meta
-        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        uses: docker/metadata-action@v6.2.0
         with:
           images: docker.io/sauljabin/kaskade
           tags: |
             type=semver,pattern={{version}}
             type=raw,value=latest
       - name: Log in to Docker Hub
-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        uses: docker/login-action@v4.6.0
         with:
           username: ${{ secrets.DOCKER_HUB_USERNAME }}
           password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+        uses: docker/setup-buildx-action@v4.3.0
       - name: Build and push image
         id: push
-        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        uses: docker/build-push-action@v7.3.0
         with:
           context: .
           file: ./Dockerfile
@@ -169,7 +169,7 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
       - name: Attest image
-        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        uses: actions/attest@v4.2.2
         with:
           subject-name: index.docker.io/sauljabin/kaskade
           subject-digest: ${{ steps.push.outputs.digest }}
@@ -184,7 +184,7 @@ jobs:
       contents: write
     steps:
       - name: Download release bundle
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@v8.0.1
         with:
           name: release-bundle
       - name: Create GitHub release
