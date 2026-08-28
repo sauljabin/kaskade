@@ -1,0 +1,41 @@
+[changelog]
+header = ""
+body = """
+{% for group, commits in commits | group_by(attribute="group") -%}
+### {{ group | striptags | trim }}
+
+{% for commit in commits -%}
+- {% if commit.scope %}**{{ commit.scope }}:** {% endif %}{{ commit.message | upper_first }} ([{{ commit.id | truncate(length=7, end="") }}](https://github.com/sauljabin/kaskade/commit/{{ commit.id }}))
+{% endfor %}
+{% endfor %}
+{%- if previous.version %}
+**Full Changelog:** [{{ previous.version }}...{{ version }}](https://github.com/sauljabin/kaskade/compare/{{ previous.version }}...{{ version }})
+{% endif %}
+"""
+trim = true
+render_always = false
+
+[git]
+conventional_commits = true
+filter_unconventional = true
+require_conventional = true
+split_commits = false
+protect_breaking_commits = true
+filter_commits = true
+fail_on_unmatched_commit = true
+tag_pattern = "^v[0-9]+\\.[0-9]+\\.[0-9]+$"
+sort_commits = "oldest"
+commit_parsers = [
+    { message = "^.*!:", group = "<!-- 0 -->Breaking Changes" },
+    { body = "(?i).*BREAKING[ -]CHANGE", group = "<!-- 0 -->Breaking Changes" },
+    { message = "^fix\\(security\\)", group = "<!-- 1 -->Security" },
+    { message = "^(build|chore)\\(deps?\\)", group = "<!-- 2 -->Dependencies" },
+    { message = "^feat", group = "<!-- 3 -->Features" },
+    { message = "^(fix|revert)", group = "<!-- 4 -->Fixes" },
+    { message = "^perf", group = "<!-- 5 -->Performance" },
+    { message = "^docs", group = "<!-- 6 -->Documentation" },
+    { message = "^(build|chore|ci|refactor|style|test)", skip = true },
+]
+commit_preprocessors = [
+    { pattern = "\\(#([0-9]+)\\)", replace = "([#${1}](https://github.com/sauljabin/kaskade/pull/${1}))" },
+]

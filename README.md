@@ -102,6 +102,10 @@ For configuration and usage examples, see [USAGE.md](USAGE.md).
 
 For development instructions see [DEVELOPMENT.md](https://github.com/sauljabin/kaskade/blob/main/DEVELOPMENT.md).
 
+## Releases
+
+See [GitHub Releases](https://github.com/sauljabin/kaskade/releases) for release notes and downloadable artifacts.
+
 ## Questions
 
 For Q&A go to [GitHub Discussions](https://github.com/sauljabin/kaskade/discussions/categories/q-a).

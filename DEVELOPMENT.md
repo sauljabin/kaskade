@@ -2,46 +2,46 @@
 
 ### Setup
 
-Installing poetry:
+Install uv:
 
 ```bash
-pipx install poetry
-# or
-brew install poetry
+curl -LsSf https://astral.sh/uv/install.sh | sh
+# or on macOS
+brew install uv
 ```
 
-Installing development dependencies:
+Create the project environment and install the locked development dependencies:
 
 ```bash
-poetry install
+uv sync --locked
 ```
 
-Open a terminal within the project's virtual environment:
+Run commands in that environment with `uv run`, for example:
 
 ```bash
-eval $(poetry env activate)
+uv run kaskade
 ```
 
-> See [Poetry's environment-activation documentation](https://python-poetry.org/docs/managing-environments/#activating-the-environment).
+The project is installed in editable mode, so source changes are available immediately.
 
 Installing pre-commit hooks:
 
 ```bash
-pre-commit install
+uv run pre-commit install
 ```
 
 Running kaskade:
 
 ```bash
-kaskade
+uv run kaskade
 ```
 
 Run textual console:
 
 ```bash
-textual console --port 7342
-textual run --port 7342 --dev -c kaskade admin -b localhost:19092
-textual run --port 7342 --dev -c kaskade consumer -b localhost:19092 -t my-topic
+uv run textual console --port 7342
+uv run textual run --port 7342 --dev -c kaskade admin -b localhost:19092
+uv run textual run --port 7342 --dev -c kaskade consumer -b localhost:19092 -t my-topic
 ```
 
 ### Scripts
@@ -49,31 +49,31 @@ textual run --port 7342 --dev -c kaskade consumer -b localhost:19092 -t my-topic
 Unit tests:
 
 ```bash
-python -m scripts.tests
+uv run python -m scripts.tests
 ```
 
 E2E tests:
 
 ```bash
-python -m scripts.tests --e2e
+uv run python -m scripts.tests --e2e
 ```
 
 Applying code styles:
 
 ```bash
-python -m scripts.styles
+uv run python -m scripts.styles
 ```
 
 Running code analysis:
 
 ```bash
-python -m scripts.analyze
+uv run python -m scripts.analyze
 ```
 
 Generate banner:
 
 ```bash
-python -m scripts.banner
+uv run python -m scripts.banner
 ```
 
 ### Docker
@@ -81,7 +81,7 @@ python -m scripts.banner
 Build docker:
 
 ```bash
-python -m scripts.docker
+uv run python -m scripts.docker
 ```
 
 > Image tag `sauljabin/kaskade:latest`.
@@ -94,20 +94,45 @@ docker run --rm -it --network sandbox sauljabin/kaskade:latest admin -b kafka1:9
 
 ### Release
 
-Help:
+Git tags are the only source of release versions. Package metadata is derived from
+the nearest semantic version tag by `hatch-vcs`; never edit a version field or a
+changelog file for a release. GitHub Releases are the canonical release history.
+
+Before releasing, ensure `main` is current, clean, and passing CI:
 
 ```bash
-python -m scripts.bump --help
+git switch main
+git pull --ff-only origin main
+git status --short
+uv lock --check
+uv run --locked python -m scripts.analyze
+uv run --locked python -m scripts.tests
 ```
 
-Upgrade (`major.minor.patch`):
+Choose the next version according to [Semantic Versioning](https://semver.org/),
+then create and push an annotated tag:
 
 ```bash
-python -m scripts.bump patch
+git tag -a v4.1.0 -m "Release v4.1.0"
+git push origin v4.1.0
 ```
 
-> More info at https://python-poetry.org/docs/cli/#version and https://semver.org/.
-> For changelog management check https://github.com/sauljabin/changeloggh.
+The release workflow validates that the tag is exactly `vMAJOR.MINOR.PATCH` and
+points to a commit on `main`. It then tests and builds the distributions, derives
+release notes from Conventional Commits, and waits for approval in the protected
+`release` environment. After approval, PyPI and Docker Hub are published before
+the GitHub release is created.
+
+The GitHub `release` environment must contain `DOCKER_HUB_USERNAME` and
+`DOCKER_HUB_ACCESS_TOKEN`. Configure the PyPI trusted publisher for owner
+`sauljabin`, repository `kaskade`, workflow `release.yml`, and environment
+`release`. GitHub release creation uses the built-in token and needs no personal
+access token.
+
+If publishing fails, do not move the tag or create a replacement version commit.
+Fix the external configuration if necessary and rerun only the failed GitHub
+Actions jobs. PyPI artifacts are immutable; if an incorrect artifact was already
+published, create a new patch version instead of reusing the tag.
 
 ### Manual Tests
 
