@@ -27,6 +27,7 @@ from scripts.svg import normalize_svg
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 IMAGES_DIRECTORY = PROJECT_ROOT / "images"
 SCREENSHOT_SIZE = (100, 30)
+SCREENSHOT_VERSION = "0.0.0.dev"
 KAFKA_CONFIG = {BOOTSTRAP_SERVERS: "kafka.example.com:9092"}
 
 
@@ -102,7 +103,7 @@ class AdminScreenshotApp(KaskadeAdmin):
     CSS_PATH = str(PROJECT_ROOT / "kaskade" / "styles.css")
 
     def compose(self) -> ComposeResult:
-        yield KaskadeHeader(self.kafka_config)
+        yield KaskadeHeader(self.kafka_config, version=SCREENSHOT_VERSION)
         yield ListTopics(MockTopicService())
         yield Footer(compact=True)
 
@@ -175,7 +176,7 @@ class ConsumerScreenshotApp(KaskadeConsumer):
     CSS_PATH = str(PROJECT_ROOT / "kaskade" / "styles.css")
 
     def compose(self) -> ComposeResult:
-        yield KaskadeHeader(self.kafka_config)
+        yield KaskadeHeader(self.kafka_config, version=SCREENSHOT_VERSION)
         yield ScreenshotRecords(
             self.topic,
             self.kafka_config,

@@ -17,15 +17,16 @@ from kaskade.configs import BOOTSTRAP_SERVERS
 class KaskadeHeader(Horizontal):
     """Display the application version and active Kafka bootstrap servers."""
 
-    def __init__(self, kafka_config: Mapping[str, Any]) -> None:
+    def __init__(self, kafka_config: Mapping[str, Any], *, version: str = APP_VERSION) -> None:
         super().__init__(id="kaskade-header")
         bootstrap_servers = kafka_config.get(BOOTSTRAP_SERVERS, "Not configured")
         self.bootstrap_servers = str(bootstrap_servers)
+        self.version = version
 
     def compose(self) -> ComposeResult:
         product = Text()
         product.append(APP_NAME.title(), style="primary")
-        product.append(f" v{APP_VERSION}", style="secondary")
+        product.append(f" v{self.version}", style="secondary")
         yield Static(
             product,
             id="kaskade-product",

@@ -5,6 +5,7 @@ from pathlib import Path
 from unittest.mock import patch
 from xml.etree import ElementTree
 
+from kaskade import APP_VERSION
 from kaskade.themes import EVA01_THEME
 from scripts import banner, screenshots
 
@@ -53,3 +54,6 @@ class TestReadmeVisualScripts(unittest.IsolatedAsyncioTestCase):
                     svg = path.read_text(encoding="utf-8")
                     self.assert_eva01_colors(svg.lower())
                     self.assert_intrinsic_dimensions(svg)
+                    self.assertIn(f"v{screenshots.SCREENSHOT_VERSION}", svg)
+                    if APP_VERSION != screenshots.SCREENSHOT_VERSION:
+                        self.assertNotIn(f"v{APP_VERSION}", svg)
