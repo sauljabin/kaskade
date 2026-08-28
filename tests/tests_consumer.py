@@ -16,6 +16,7 @@ from kaskade.consumer import (
     record_json,
 )
 from kaskade.deserializers import Deserialization, StringDeserializer
+from kaskade.help import HelpScreen
 from kaskade.models import Header, Record
 from kaskade.themes import KaskadeApp
 
@@ -187,6 +188,21 @@ class TestRecordExportActions(unittest.IsolatedAsyncioTestCase):
             self.assertTrue(records.check_action("export_record", ()))
             command_titles = {command.title for command in app.get_system_commands(app.screen)}
             self.assertIn("Export Record", command_titles)
+            self.assertFalse(
+                next(
+                    binding
+                    for binding in ListRecords.BINDINGS
+                    if binding.id == "kaskade.records.export"
+                ).show
+            )
+
+            await pilot.press("?")
+            self.assertIsInstance(app.screen, HelpScreen)
+            self.assertIn(
+                "Export Record",
+                {binding.description for binding in app.screen.help_bindings},
+            )
+            await pilot.press("escape")
 
             await pilot.press("ctrl+e")
             app.deliver_text.assert_called_once()
@@ -194,6 +210,13 @@ class TestRecordExportActions(unittest.IsolatedAsyncioTestCase):
             await pilot.press("enter")
             await pilot.pause()
             self.assertIsInstance(app.screen, TopicScreen)
+            self.assertFalse(
+                next(
+                    binding
+                    for binding in TopicScreen.BINDINGS
+                    if binding.id == "kaskade.records.export"
+                ).show
+            )
             await pilot.press("ctrl+e")
             self.assertEqual(2, app.deliver_text.call_count)
 

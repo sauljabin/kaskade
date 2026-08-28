@@ -134,7 +134,8 @@ Select a record in consumer mode or open its details, then press `Ctrl+E` to exp
 JSON. Kaskade saves the file to the same destination as the Screenshot command: the
 Downloads directory in a local terminal or a browser download when web-hosted. The export
 includes the topic, partition, offset, date, headers, and the deserialized key and value with
-their deserializer names.
+their deserializer names. Export Record is omitted from the Footer; find it in contextual
+Help or Commands.
 
 ### Consume from the beginning
 

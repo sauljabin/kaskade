@@ -135,7 +135,7 @@ class TestThemes(unittest.TestCase):
             CreateTopicScreen: ["Create Topic", "Back", "Help"],
             FilterRecordScreen: ["Apply Filters", "Back", "Help"],
             ChunkSizeScreen: ["Select", "Back", "Help"],
-            TopicScreen: ["Export Record", "Back", "Help"],
+            TopicScreen: ["Back", "Help"],
             HelpScreen: ["Back"],
         }
 

@@ -130,7 +130,8 @@ Help is a dedicated centered `ModalScreen`, not a sidebar. It must:
   root view.
 - Deliver consumed-record JSON exports through Textual's file-delivery API so
   they use the same Downloads or browser destination as screenshots. Keep the
-  export available from both the records table and Record Details.
+  export available from both the records table and Record Details, expose it in
+  Help and Commands, and keep it hidden from the Footer.
 - Use Title Case for screen titles, border titles, table headings, tabs, command
   labels, and field labels.
 - Follow the existing centered-modal vocabulary: one visible outer border,
