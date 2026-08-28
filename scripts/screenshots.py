@@ -22,6 +22,7 @@ from kaskade.models import (
 )
 from kaskade.services import ConsumerService, EnrichmentResult, GroupSnapshot, TopicService
 from kaskade.widgets import KaskadeHeader
+from scripts.svg import normalize_svg
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 IMAGES_DIRECTORY = PROJECT_ROOT / "images"
@@ -192,12 +193,8 @@ async def _export(app: KaskadeAdmin | KaskadeConsumer, filename: str) -> Path:
         svg = app.export_screenshot(title=app.TITLE, simplify=True)
 
     path = IMAGES_DIRECTORY / filename
-    path.write_text(_normalize_svg(svg), encoding="utf-8")
+    path.write_text(normalize_svg(svg), encoding="utf-8")
     return path
-
-
-def _normalize_svg(svg: str) -> str:
-    return "\n".join(line.rstrip() for line in svg.splitlines()) + "\n"
 
 
 async def generate_screenshots() -> tuple[Path, Path]:
