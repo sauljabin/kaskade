@@ -118,15 +118,27 @@ Unknown binding IDs, invalid key names, and malformed configuration produce an i
 
 ### Copy topics and consumed records
 
-Select a topic in Admin mode or a consumed record in Consumer mode, then press `y` to copy
-the topic name or readable record JSON to the clipboard. The same actions are available from
-Topic Details and Record Details. Copy is intentionally omitted from the Footer; open Help
-with `?` or `F1` to see its contextual shortcut, or search for it in Commands.
+Select a topic in Admin mode or a consumed record in Consumer mode, then press `y` to copy the topic name or readable record JSON. Copy is also available in Topic Details, Record Details, contextual Help, and Commands, but is omitted from the Footer.
 
-Kaskade uses Textual's terminal clipboard support. It works in terminals that support OSC 52
-on Linux and macOS, including remote sessions, but not in Apple's Terminal app. Selecting
-screen text remains separate: use `Cmd+C` on macOS or `Ctrl+Shift+C` on Linux. `Ctrl+C`
-always quits Kaskade, even while text is selected.
+Selecting screen text is separate: use `Cmd+C` on macOS or `Ctrl+Shift+C` on Linux. `Ctrl+C` always quits Kaskade, even while text is selected.
+
+#### OSC 52 compatibility
+
+Kaskade uses [Textual's terminal clipboard API](https://textual.textualize.io/api/app/#textual.app.App.copy_to_clipboard), which sends an [OSC 52](https://github.com/tmux/tmux/wiki/Clipboard) request to the terminal emulator. Kaskade cannot detect whether the terminal accepted it, so a confirmation toast means the request was sent, not that the system clipboard was verified.
+
+| Terminal | Compatibility |
+| --- | --- |
+| [iTerm2](https://iterm2.com/documentation-preferences-general.html) | Supported after enabling **Applications in terminal may access clipboard** |
+| [Kitty](https://sw.kovidgoyal.net/kitty/conf/#opt-kitty.clipboard_control) | Supported; clipboard writes are enabled by default |
+| [WezTerm](https://wezterm.org/escape-sequences.html#operating-system-command-sequences) | Supported |
+| [Alacritty](https://alacritty.org/config-alacritty.html) | Supported; `terminal.osc52` defaults to `OnlyCopy` |
+| [Ghostty](https://ghostty.org/docs/config/reference#clipboard-write) | Supported; clipboard writes are enabled by default |
+| [VS Code integrated terminal](https://code.visualstudio.com/updates/v1_91#_support-for-copy-and-paste-escape-sequence-osc-52) | Supported in VS Code 1.91 or later |
+| xterm | Supported when OSC 52 is explicitly enabled |
+| Apple Terminal.app | Not supported |
+| VTE-based terminals: GNOME Terminal (Ubuntu's built-in terminal), GNOME Console/Ptyxis, Terminator, and XFCE Terminal | Not supported |
+
+OSC 52 writes to the clipboard owned by the terminal emulator on the user's computer. It can therefore work when Kaskade runs through SSH or `kubectl exec -it`; the remote machine or pod does not need its own clipboard. Every intermediate layer must preserve the escape sequence. Terminal multiplexers such as tmux may require [additional clipboard configuration](https://github.com/tmux/tmux/wiki/Clipboard#quick-summary), and browser terminals or other relays may filter OSC 52.
 
 ### Export a consumed record
 

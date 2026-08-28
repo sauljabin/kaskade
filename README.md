@@ -38,6 +38,8 @@ It includes features like:
 - Protobuf deserialization support without Schema Registry.
 - Avro deserialization without Schema Registry.
 
+Clipboard copy requires an OSC 52-compatible terminal. See [clipboard compatibility](USAGE.md#osc-52-compatibility) for supported terminals, configuration, and remote-session behavior.
+
 ## Limitations
 
 Kaskade does not include:
