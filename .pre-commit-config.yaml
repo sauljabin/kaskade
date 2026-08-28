@@ -15,6 +15,12 @@ repos:
         always_run: true
         pass_filenames: false
         entry: uv run --locked python -m scripts.styles
+      - id: screenshots
+        name: generating screenshots
+        language: system
+        pass_filenames: false
+        files: ^(kaskade/|scripts/(screenshots|svg)\.py$|pyproject\.toml$|uv\.lock$)
+        entry: uv run --locked python -m scripts.screenshots
       - id: analyze
         name: code analysis
         language: system

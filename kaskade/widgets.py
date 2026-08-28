@@ -23,12 +23,15 @@ class KaskadeHeader(Horizontal):
         self.bootstrap_servers = str(bootstrap_servers)
         self.version = version
 
-    def compose(self) -> ComposeResult:
+    def _product_text(self) -> Text:
         product = Text()
         product.append(APP_NAME.title(), style="primary")
         product.append(f" v{self.version}", style="secondary")
+        return product
+
+    def compose(self) -> ComposeResult:
         yield Static(
-            product,
+            self._product_text(),
             id="kaskade-product",
             markup=False,
         )
@@ -36,6 +39,15 @@ class KaskadeHeader(Horizontal):
             self.bootstrap_servers,
             id="kaskade-kafka",
             markup=False,
+        )
+
+    def on_mount(self) -> None:
+        self.watch(self.app, "theme", self._refresh_product, init=False)
+
+    def _refresh_product(self) -> None:
+        self.query_one("#kaskade-product", Static).update(
+            self._product_text(),
+            layout=False,
         )
 
 
