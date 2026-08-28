@@ -70,6 +70,7 @@ Kaskade supports arrow keys and Vim-style navigation. The defaults follow famili
 | Edit a topic | `e` or `Ctrl+E` |
 | Delete a topic | `Ctrl+D` |
 | Refresh topics | `Ctrl+R` |
+| Export selected record | `Ctrl+E` |
 | Consume more records | `n` |
 | Change record chunk size | `#` |
 
@@ -107,11 +108,19 @@ Common configurable binding IDs are:
 | Application | `app.quit`, `app.command-palette`, `help.toggle`, `kaskade.help.close` |
 | Navigation | `kaskade.navigation.up`, `.down`, `.left`, `.right`, `.first`, `.last`, `.page-up`, `.page-down`, `.select` |
 | Topics | `kaskade.topics.describe`, `.filter`, `.refresh`, `.create`, `.edit`, `.delete`, `.show-all` |
-| Records | `kaskade.records.show`, `.consume`, `.filter`, `.chunk-size`, `.show-all` |
+| Records | `kaskade.records.show`, `.export`, `.consume`, `.filter`, `.chunk-size`, `.show-all` |
 | Dialogs | `kaskade.filter-topics.apply`, `kaskade.delete-topic.confirm`, `kaskade.filter-records.apply`, `kaskade.chunk-size.select` |
 | Editors | `kaskade.create-topic.save`, `kaskade.edit-topic.save` |
 
 Unknown binding IDs, invalid key names, and malformed configuration produce an in-app warning while Kaskade continues with its default bindings.
+
+### Export a consumed record
+
+Select a record in consumer mode or open its details, then press `Ctrl+E` to export it as
+JSON. Kaskade saves the file to the same destination as the Screenshot command: the
+Downloads directory in a local terminal or a browser download when web-hosted. The export
+includes the topic, partition, offset, date, headers, and the deserialized key and value with
+their deserializer names.
 
 ### Consume from the beginning
 

@@ -36,7 +36,7 @@ from kaskade.consumer import (
 )
 from kaskade.deserializers import Deserialization
 from kaskade.help import KASKADE_ISSUES_URL, KASKADE_URL, HelpableModalScreen, HelpScreen
-from kaskade.models import Topic
+from kaskade.models import Record, Topic
 from kaskade.themes import (
     DEFAULT_THEME,
     EVA01_THEME,
@@ -131,7 +131,7 @@ class TestThemes(unittest.TestCase):
             CreateTopicScreen: ["Create Topic", "Back", "Help"],
             FilterRecordScreen: ["Apply Filters", "Back", "Help"],
             ChunkSizeScreen: ["Select", "Back", "Help"],
-            TopicScreen: ["Back", "Help"],
+            TopicScreen: ["Export Record", "Back", "Help"],
             HelpScreen: ["Back"],
         }
 
@@ -518,7 +518,7 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
 
             async with app.run_test() as pilot:
                 records_table = app.query_one("#records-table", DataTable)
-                app.push_screen(TopicScreen("orders", 0, 1, {"value": "record"}))
+                app.push_screen(TopicScreen(Record(topic="orders", partition=0, offset=1)))
                 await pilot.pause()
 
                 details = app.screen.query_one(".record-details", ScrollableContainer)
