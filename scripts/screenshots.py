@@ -1,4 +1,7 @@
 import asyncio
+import os
+from collections.abc import Iterator
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -202,19 +205,30 @@ def _normalize_svg(svg: str) -> str:
 async def generate_screenshots() -> tuple[Path, Path]:
     """Render admin and consumer README screenshots as SVG files."""
     IMAGES_DIRECTORY.mkdir(parents=True, exist_ok=True)
-    admin = AdminScreenshotApp(KAFKA_CONFIG, refresh_interval=0)
-    consumer = ConsumerScreenshotApp(
-        "order-events",
-        KAFKA_CONFIG,
-        {},
-        {},
-        {},
-        Deserialization.STRING,
-        Deserialization.STRING,
-    )
-    admin_path = await _export(admin, "admin.svg")
-    consumer_path = await _export(consumer, "consumer.svg")
+    with _color_enabled():
+        admin = AdminScreenshotApp(KAFKA_CONFIG, refresh_interval=0)
+        consumer = ConsumerScreenshotApp(
+            "order-events",
+            KAFKA_CONFIG,
+            {},
+            {},
+            {},
+            Deserialization.STRING,
+            Deserialization.STRING,
+        )
+        admin_path = await _export(admin, "admin.svg")
+        consumer_path = await _export(consumer, "consumer.svg")
     return admin_path, consumer_path
+
+
+@contextmanager
+def _color_enabled() -> Iterator[None]:
+    no_color = os.environ.pop("NO_COLOR", None)
+    try:
+        yield
+    finally:
+        if no_color is not None:
+            os.environ["NO_COLOR"] = no_color
 
 
 def main() -> None:
