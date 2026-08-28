@@ -137,7 +137,7 @@ class TestTopicCopyActions(unittest.IsolatedAsyncioTestCase):
 
                 self.assertEqual("orders", app.clipboard)
                 app.notify.assert_called_once_with(
-                    "Copied topic name to clipboard.",
+                    "Copied topic name to clipboard",
                     title="Copied",
                 )
 
@@ -150,7 +150,7 @@ class TestTopicCopyActions(unittest.IsolatedAsyncioTestCase):
 
                 self.assertEqual("orders", app.clipboard)
                 app.notify.assert_called_once_with(
-                    "Copied topic name to clipboard.",
+                    "Copied topic name to clipboard",
                     title="Copied",
                 )
 
@@ -353,6 +353,7 @@ class TestAdminRefresh(unittest.IsolatedAsyncioTestCase):
             message = partial_notifications[0].args[0]
             self.assertIn("record metrics", message)
             self.assertIn("consumer-group metrics", message)
+            self.assertFalse(message.endswith("."))
 
     async def test_metadata_failure_keeps_previous_snapshot(self) -> None:
         topic = Topic(

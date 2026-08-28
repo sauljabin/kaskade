@@ -282,7 +282,7 @@ class TestRecordCopyActions(unittest.IsolatedAsyncioTestCase):
             self.assertFalse(app.clipboard.endswith("\n"))
             self.assertEqual("Zoë", json.loads(app.clipboard)["value"]["content"]["customer"])
             app.notify.assert_called_once_with(
-                "Copied record JSON to clipboard.",
+                "Copied record JSON to clipboard",
                 title="Copied",
             )
 
@@ -296,7 +296,7 @@ class TestRecordCopyActions(unittest.IsolatedAsyncioTestCase):
 
             self.assertEqual(expected_json, app.clipboard)
             app.notify.assert_called_once_with(
-                "Copied record JSON to clipboard.",
+                "Copied record JSON to clipboard",
                 title="Copied",
             )
 

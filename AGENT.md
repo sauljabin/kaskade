@@ -150,6 +150,9 @@ Help is a dedicated centered `ModalScreen`, not a sidebar. It must:
   Primary tables retain Kaskade's visible focus-aware border, while detail
   tables embedded inside another bordered component use the borderless
   `details-table` style.
+- Keep toast notification text concise and omit trailing periods. This applies
+  to informational, warning, and error messages authored by Kaskade; binding
+  tooltips and CLI diagnostics remain complete sentences.
 
 ## Themes
 

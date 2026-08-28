@@ -214,7 +214,7 @@ class DeleteTopicScreen(HelpableModalScreen[bool]):
             self.dismiss(True)
         else:
             self.notify(
-                "Type the topic name exactly to confirm deletion.",
+                "Type the topic name exactly to confirm deletion",
                 title="Confirmation Required",
                 severity="warning",
             )
@@ -485,7 +485,7 @@ class CreateTopicScreen(HelpableModalScreen[NewTopic]):
             validators=Function(
                 _valid_topic_name,
                 "Enter a name up to 249 characters using letters, numbers, dots, underscores, "
-                "or hyphens. The name can't be empty or consist only of one or two dots.",
+                "or hyphens. The name can't be empty or consist only of one or two dots",
             ),
             classes="kaskade-input",
         )
@@ -557,13 +557,14 @@ class CreateTopicScreen(HelpableModalScreen[NewTopic]):
         for label, input_widget in inputs.items():
             result = input_widget.validate(input_widget.value)
             if result is not None and not result.is_valid:
-                failures.append(f"{label}: {result.failure_descriptions[0]}")
+                description = result.failure_descriptions[0].removesuffix(".")
+                failures.append(f"{label}: {description}")
 
         replicas = inputs["Replicas"]
         min_insync_replicas = inputs["Min In-Sync Replicas"]
         if not failures and int(min_insync_replicas.value) > int(replicas.value):
             min_insync_replicas.add_class("-invalid")
-            failures.append("Min In-Sync Replicas cannot exceed Replicas.")
+            failures.append("Min In-Sync Replicas cannot exceed Replicas")
 
         if failures:
             first_invalid = next(
@@ -833,7 +834,7 @@ class ListTopics(Container):
             f"{stage} ({error_count} failed request(s))" for stage, error_count in failures
         )
         self.app.notify(
-            f"Could not refresh {failure_summary}.",
+            f"Could not refresh {failure_summary}",
             title="Partial Refresh",
             severity="warning",
         )
@@ -855,7 +856,7 @@ class ListTopics(Container):
         try:
             await make_it_async(self.topic_service.create, [topic])
             self.app.notify(
-                f"Created topic '{topic.topic}'.",
+                f"Created topic '{topic.topic}'",
                 title="Topic Created",
                 severity="information",
             )
@@ -929,7 +930,7 @@ class ListTopics(Container):
                 },
             )
             self.app.notify(
-                f"Updated topic '{topic.name}'.",
+                f"Updated topic '{topic.name}'",
                 title="Topic Updated",
                 severity="information",
             )
@@ -962,7 +963,7 @@ class ListTopics(Container):
         try:
             await make_it_async(self.topic_service.delete, topic.name)
             self.app.notify(
-                f"Deleted topic '{topic.name}'.",
+                f"Deleted topic '{topic.name}'",
                 title="Topic Deleted",
                 severity="information",
             )
