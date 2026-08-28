@@ -1,8 +1,11 @@
-from typing import Any, ClassVar
+import json
+from datetime import datetime, timezone
+from io import StringIO
+from typing import ClassVar
 
 from confluent_kafka import KafkaException
 from textual import work
-from textual.app import ComposeResult
+from textual.app import App, ComposeResult
 from textual.binding import Binding, BindingType
 from textual.containers import Container
 from textual.widgets import DataTable, Footer, Input, OptionList, Pretty
@@ -31,10 +34,37 @@ NEXT_SHORTCUT = "n"
 SUBMIT_SHORTCUT = "enter"
 BACK_SHORTCUT = "escape"
 FILTER_SHORTCUT = "/,ctrl+f"
+EXPORT_SHORTCUT = "ctrl+e"
 CONSUMER_EXCEPTIONS: tuple[type[Exception], ...] = (
     KafkaException,
     *DESERIALIZATION_EXCEPTIONS,
 )
+
+
+def record_json(record: Record) -> str:
+    """Return a readable JSON representation of a consumed record."""
+    return json.dumps(record.dict(), indent=2, ensure_ascii=False, default=str) + "\n"
+
+
+def record_filename(record: Record, exported_at: datetime | None = None) -> str:
+    """Build a screenshot-style, collision-resistant record export filename."""
+    export_time = exported_at or datetime.now(timezone.utc).astimezone()
+    timestamp = export_time.replace(tzinfo=None).isoformat()
+    filename_stem = f"kaskade-record-{record.topic}-{record.partition}-{record.offset}_{timestamp}"
+    for reserved_character in ' <>:"/\\|?*.':
+        filename_stem = filename_stem.replace(reserved_character, "_")
+    return f"{filename_stem}.json"
+
+
+def deliver_record(application: App[object], record: Record) -> None:
+    """Deliver a record to the same destination used by Textual screenshots."""
+    application.deliver_text(
+        StringIO(record_json(record)),
+        save_filename=record_filename(record),
+        encoding="utf-8",
+        mime_type="application/json",
+        name="record",
+    )
 
 
 class FilterRecordScreen(HelpableModalScreen[tuple[str, str, str, str]]):
@@ -178,30 +208,41 @@ class TopicScreen(HelpableModalScreen):
     AUTO_FOCUS = ".record-details"
     BINDINGS: ClassVar[list[BindingType]] = modal_bindings(
         Binding(
+            EXPORT_SHORTCUT,
+            "export_record",
+            "Export Record",
+            tooltip="Export the record as a JSON file.",
+            id="kaskade.records.export",
+        ),
+        Binding(
             BACK_SHORTCUT,
             "close",
             "Back",
             tooltip="Close the record details.",
             id="kaskade.record-details.close",
-        )
+        ),
     )
 
-    def __init__(self, topic: str, partition: int, offset: int, data: dict[str, Any]):
+    def __init__(self, record: Record):
         super().__init__()
-        self.data = data
-        self.topic = topic
-        self.partition = partition
-        self.record_offset = offset
+        self.record = record
+        self.data = record.dict()
 
     def compose(self) -> ComposeResult:
         container = KaskadeScrollableContainer(classes="record-details")
-        container.border_title = rf"[{PRIMARY}]Record[/] \[[{PRIMARY}]{self.topic}[/]]\[[{PRIMARY}]{self.partition}[/]]\[[{PRIMARY}]{self.record_offset}[/]]"
+        container.border_title = rf"[{PRIMARY}]Record[/] \[[{PRIMARY}]{self.record.topic}[/]]\[[{PRIMARY}]{self.record.partition}[/]]\[[{PRIMARY}]{self.record.offset}[/]]"
         with container:
             yield Pretty(self.data)
         yield Footer(compact=True)
 
     def action_close(self) -> None:
         self.dismiss()
+
+    def action_export_record(self) -> None:
+        try:
+            deliver_record(self.app, self.record)
+        except DESERIALIZATION_EXCEPTIONS as ex:
+            notify_error(self.app, "Deserialization Error", ex)
 
 
 class ListRecords(Container):
@@ -214,6 +255,13 @@ class ListRecords(Container):
             priority=True,
             tooltip="Open the complete selected record.",
             id="kaskade.records.show",
+        ),
+        Binding(
+            EXPORT_SHORTCUT,
+            "export_record",
+            "Export Record",
+            tooltip="Export the selected record as a JSON file.",
+            id="kaskade.records.export",
         ),
         Binding(
             NEXT_SHORTCUT,
@@ -365,14 +413,15 @@ class ListRecords(Container):
         if self.current_record is None:
             return
         try:
-            self.app.push_screen(
-                TopicScreen(
-                    self.current_record.topic,
-                    self.current_record.partition,
-                    self.current_record.offset,
-                    self.current_record.dict(),
-                )
-            )
+            self.app.push_screen(TopicScreen(self.current_record))
+        except DESERIALIZATION_EXCEPTIONS as ex:
+            notify_error(self.app, "Deserialization Error", ex)
+
+    def action_export_record(self) -> None:
+        if self.current_record is None:
+            return
+        try:
+            deliver_record(self.app, self.current_record)
         except DESERIALIZATION_EXCEPTIONS as ex:
             notify_error(self.app, "Deserialization Error", ex)
 
@@ -384,7 +433,7 @@ class ListRecords(Container):
 
     def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
         """Disable contextual actions when their required state is unavailable."""
-        if action == "show_message":
+        if action in {"export_record", "show_message"}:
             return self.current_record is not None
         if action == "all":
             return not self._is_consuming and any(

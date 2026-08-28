@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import ClassVar
 
 from rich.theme import Theme as RichTheme
+from textual import events, on
 from textual.app import App, SystemCommand
 from textual.binding import Binding, BindingType
 from textual.screen import Screen
@@ -107,6 +108,29 @@ class KaskadeApp(App, inherit_bindings=False):
         """Open a contextual help window above the current screen."""
         context, bindings = contextual_help(self.screen)
         self.push_screen(HelpScreen(context, bindings))
+
+    @on(events.DeliveryComplete)
+    def on_record_delivery_complete(self, event: events.DeliveryComplete) -> None:
+        """Notify the user after a record export is delivered."""
+        if event.name != "record":
+            return
+        if event.path is None:
+            self.notify("Saved record", title="Record Export")
+        else:
+            self.notify(
+                f"Saved record to [$text-success]{str(event.path)!r}",
+                title="Record Export",
+            )
+
+    @on(events.DeliveryFailed)
+    def on_record_delivery_failed(self, event: events.DeliveryFailed) -> None:
+        """Notify the user when a record export cannot be delivered."""
+        if event.name == "record":
+            self.notify(
+                "Failed to save record",
+                title="Record Export",
+                severity="error",
+            )
 
     def get_system_commands(self, screen: Screen) -> Iterable[SystemCommand]:
         """Add active Kaskade bindings to Textual's command palette."""

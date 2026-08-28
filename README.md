@@ -31,6 +31,7 @@ It includes features like:
 
 - Json, string, integer, long, float, boolean and double deserialization.
 - Filter by key, value, header and/or partition.
+- Export individual consumed records as JSON.
 - Schema Registry support for avro and json.
 - Protobuf deserialization support without Schema Registry.
 - Avro deserialization without Schema Registry.
@@ -44,6 +45,10 @@ Kaskade does not include:
 ## Screenshots
 
 <table>
+  <tr>
+    <th>Admin</th>
+    <th>Consumer</th>
+  </tr>
   <tr>
     <td>
       <img alt="Kaskade admin mode" src="https://raw.githubusercontent.com/sauljabin/kaskade/main/images/admin.svg">

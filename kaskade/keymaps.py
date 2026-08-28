@@ -53,6 +53,7 @@ KNOWN_BINDING_IDS = (
             "kaskade.record-details.close",
             "kaskade.records.chunk-size",
             "kaskade.records.consume",
+            "kaskade.records.export",
             "kaskade.records.filter",
             "kaskade.records.show",
             "kaskade.records.show-all",

@@ -404,10 +404,14 @@ class Record:
                 if self.headers is not None
                 else []
             ),
-            "key deserializer": self.key_deserialization.name,
-            "value deserializer": self.value_deserialization.name,
-            "key": self.key_deserialized(),
-            "value": self.value_deserialized(),
+            "key": {
+                "deserializer": self.key_deserialization.name,
+                "content": self.key_deserialized(),
+            },
+            "value": {
+                "deserializer": self.value_deserialization.name,
+                "content": self.value_deserialized(),
+            },
         }
 
     def key_deserialized(self) -> Any:

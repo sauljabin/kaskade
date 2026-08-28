@@ -37,6 +37,7 @@ keymap:
 
   # Records
   kaskade.records.show: enter
+  kaskade.records.export: ctrl+e
   kaskade.records.consume: n
   kaskade.records.filter: slash,ctrl+f
   kaskade.records.chunk-size: "#"
