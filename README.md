@@ -46,17 +46,17 @@ Kaskade does not include:
 
 ## Screenshots
 
-<table>
+<table width="100%">
   <tr>
-    <th>Admin</th>
-    <th>Consumer</th>
+    <th width="50%">Admin</th>
+    <th width="50%">Consumer</th>
   </tr>
   <tr>
-    <td>
-      <img alt="Kaskade admin mode" src="https://raw.githubusercontent.com/sauljabin/kaskade/main/images/admin.svg">
+    <td width="50%">
+      <img alt="Kaskade admin mode" width="100%" src="https://raw.githubusercontent.com/sauljabin/kaskade/main/images/admin.svg">
     </td>
-    <td>
-      <img alt="Kaskade consumer mode" src="https://raw.githubusercontent.com/sauljabin/kaskade/main/images/consumer.svg">
+    <td width="50%">
+      <img alt="Kaskade consumer mode" width="100%" src="https://raw.githubusercontent.com/sauljabin/kaskade/main/images/consumer.svg">
     </td>
   </tr>
 </table>

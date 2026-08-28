@@ -179,7 +179,9 @@ screenshot exporter. Run `uv run python -m scripts.banner` for the banner and
 `uv run python -m scripts.screenshots` for the mock-data admin and consumer
 views; neither command requires a Kafka broker. README image sources must use
 absolute `raw.githubusercontent.com` URLs targeting the `main` branch so they
-render in published package metadata.
+render in published package metadata. Keep paired screenshots in equal 50%
+table columns with each image at 100% width so GitHub renders them at the same
+size.
 
 For TUI, keymap, layout, or theme changes, run:
 
