@@ -21,7 +21,7 @@ from kaskade.help import HelpableModalScreen, modal_bindings
 from kaskade.models import Record
 from kaskade.services import ConsumerService
 from kaskade.themes import KaskadeApp
-from kaskade.utils import notify_error
+from kaskade.utils import copy_text, notify_error
 from kaskade.widgets import (
     KaskadeHeader,
     KaskadeOptionList,
@@ -35,6 +35,7 @@ SUBMIT_SHORTCUT = "enter"
 BACK_SHORTCUT = "escape"
 FILTER_SHORTCUT = "/,ctrl+f"
 EXPORT_SHORTCUT = "ctrl+e"
+COPY_RECORD_SHORTCUT = "y"
 CONSUMER_EXCEPTIONS: tuple[type[Exception], ...] = (
     KafkaException,
     *DESERIALIZATION_EXCEPTIONS,
@@ -208,9 +209,18 @@ class TopicScreen(HelpableModalScreen):
     AUTO_FOCUS = ".record-details"
     BINDINGS: ClassVar[list[BindingType]] = modal_bindings(
         Binding(
+            COPY_RECORD_SHORTCUT,
+            "copy_record",
+            "Copy Record",
+            show=False,
+            tooltip="Copy the record as JSON to the clipboard.",
+            id="kaskade.records.copy",
+        ),
+        Binding(
             EXPORT_SHORTCUT,
             "export_record",
             "Export Record",
+            show=False,
             tooltip="Export the record as a JSON file.",
             id="kaskade.records.export",
         ),
@@ -244,6 +254,12 @@ class TopicScreen(HelpableModalScreen):
         except DESERIALIZATION_EXCEPTIONS as ex:
             notify_error(self.app, "Deserialization Error", ex)
 
+    def action_copy_record(self) -> None:
+        try:
+            copy_text(self.app, record_json(self.record).removesuffix("\n"), "record JSON")
+        except DESERIALIZATION_EXCEPTIONS as ex:
+            notify_error(self.app, "Deserialization Error", ex)
+
 
 class ListRecords(Container):
     BINDING_GROUP_TITLE = "Records"
@@ -257,9 +273,18 @@ class ListRecords(Container):
             id="kaskade.records.show",
         ),
         Binding(
+            COPY_RECORD_SHORTCUT,
+            "copy_record",
+            "Copy Record",
+            show=False,
+            tooltip="Copy the selected record as JSON to the clipboard.",
+            id="kaskade.records.copy",
+        ),
+        Binding(
             EXPORT_SHORTCUT,
             "export_record",
             "Export Record",
+            show=False,
             tooltip="Export the selected record as a JSON file.",
             id="kaskade.records.export",
         ),
@@ -425,6 +450,18 @@ class ListRecords(Container):
         except DESERIALIZATION_EXCEPTIONS as ex:
             notify_error(self.app, "Deserialization Error", ex)
 
+    def action_copy_record(self) -> None:
+        if self.current_record is None:
+            return
+        try:
+            copy_text(
+                self.app,
+                record_json(self.current_record).removesuffix("\n"),
+                "record JSON",
+            )
+        except DESERIALIZATION_EXCEPTIONS as ex:
+            notify_error(self.app, "Deserialization Error", ex)
+
     def on_data_table_row_highlighted(self, data: DataTable.RowHighlighted) -> None:
         if data.row_key is None or data.row_key.value is None:
             return
@@ -433,7 +470,7 @@ class ListRecords(Container):
 
     def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
         """Disable contextual actions when their required state is unavailable."""
-        if action in {"export_record", "show_message"}:
+        if action in {"copy_record", "export_record", "show_message"}:
             return self.current_record is not None
         if action == "all":
             return not self._is_consuming and any(

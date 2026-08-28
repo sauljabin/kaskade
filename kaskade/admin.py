@@ -40,7 +40,7 @@ from kaskade.services import (
 )
 from kaskade.themes import KaskadeApp
 from kaskade.unicodes import APPROXIMATION
-from kaskade.utils import make_it_async, notify_error
+from kaskade.utils import copy_text, make_it_async, notify_error
 from kaskade.widgets import KaskadeHeader, StretchyDataTable
 
 REFRESH_TABLE_DELAY = 1
@@ -53,6 +53,7 @@ NEW_TOPIC_SHORTCUT = "n,ctrl+n"
 DELETE_TOPIC_SHORTCUT = "ctrl+d"
 EDIT_TOPIC_SHORTCUT = "e,ctrl+e"
 REFRESH_TOPICS_SHORTCUT = "ctrl+r"
+COPY_TOPIC_SHORTCUT = "y"
 LOADING_METRIC = "…"
 UNAVAILABLE_METRIC = "—"
 TOPIC_COLUMN_KEYS = (
@@ -213,7 +214,7 @@ class DeleteTopicScreen(HelpableModalScreen[bool]):
             self.dismiss(True)
         else:
             self.notify(
-                "Type the topic name exactly to confirm deletion.",
+                "Type the topic name exactly to confirm deletion",
                 title="Confirmation Required",
                 severity="warning",
             )
@@ -226,6 +227,14 @@ class DescribeTopicScreen(HelpableModalScreen):
     BINDING_GROUP_TITLE = "Topic Details"
     AUTO_FOCUS = "Tabs"
     BINDINGS: ClassVar[list[BindingType]] = modal_bindings(
+        Binding(
+            COPY_TOPIC_SHORTCUT,
+            "copy_topic",
+            "Copy Topic",
+            show=False,
+            tooltip="Copy the topic name to the clipboard.",
+            id="kaskade.topics.copy",
+        ),
         Binding(
             BACK_SHORTCUT,
             "close",
@@ -340,6 +349,9 @@ class DescribeTopicScreen(HelpableModalScreen):
 
     def action_close(self) -> None:
         self.dismiss()
+
+    def action_copy_topic(self) -> None:
+        copy_text(self.app, self.topic.name, "topic name")
 
     def action_previous_tab(self) -> None:
         self.query_one(Tabs).action_previous_tab()
@@ -473,7 +485,7 @@ class CreateTopicScreen(HelpableModalScreen[NewTopic]):
             validators=Function(
                 _valid_topic_name,
                 "Enter a name up to 249 characters using letters, numbers, dots, underscores, "
-                "or hyphens. The name can't be empty or consist only of one or two dots.",
+                "or hyphens. The name can't be empty or consist only of one or two dots",
             ),
             classes="kaskade-input",
         )
@@ -545,13 +557,14 @@ class CreateTopicScreen(HelpableModalScreen[NewTopic]):
         for label, input_widget in inputs.items():
             result = input_widget.validate(input_widget.value)
             if result is not None and not result.is_valid:
-                failures.append(f"{label}: {result.failure_descriptions[0]}")
+                description = result.failure_descriptions[0].removesuffix(".")
+                failures.append(f"{label}: {description}")
 
         replicas = inputs["Replicas"]
         min_insync_replicas = inputs["Min In-Sync Replicas"]
         if not failures and int(min_insync_replicas.value) > int(replicas.value):
             min_insync_replicas.add_class("-invalid")
-            failures.append("Min In-Sync Replicas cannot exceed Replicas.")
+            failures.append("Min In-Sync Replicas cannot exceed Replicas")
 
         if failures:
             first_invalid = next(
@@ -598,6 +611,14 @@ class ListTopics(Container):
             key_display="d",
             tooltip="Show partitions, groups, and members for the selected topic.",
             id="kaskade.topics.describe",
+        ),
+        Binding(
+            COPY_TOPIC_SHORTCUT,
+            "copy_topic",
+            "Copy Topic",
+            show=False,
+            tooltip="Copy the selected topic name to the clipboard.",
+            id="kaskade.topics.copy",
         ),
         Binding(
             FILTER_TOPICS_SHORTCUT,
@@ -692,6 +713,10 @@ class ListTopics(Container):
 
     def action_refresh(self) -> None:
         self.request_refresh(RefreshReason.MANUAL)
+
+    def action_copy_topic(self) -> None:
+        if self.current_topic is not None:
+            copy_text(self.app, self.current_topic.name, "topic name")
 
     def request_refresh(self, reason: RefreshReason) -> None:
         generation = self.refresh_coordinator.request(reason)
@@ -809,7 +834,7 @@ class ListTopics(Container):
             f"{stage} ({error_count} failed request(s))" for stage, error_count in failures
         )
         self.app.notify(
-            f"Could not refresh {failure_summary}.",
+            f"Could not refresh {failure_summary}",
             title="Partial Refresh",
             severity="warning",
         )
@@ -831,7 +856,7 @@ class ListTopics(Container):
         try:
             await make_it_async(self.topic_service.create, [topic])
             self.app.notify(
-                f"Created topic '{topic.topic}'.",
+                f"Created topic '{topic.topic}'",
                 title="Topic Created",
                 severity="information",
             )
@@ -905,7 +930,7 @@ class ListTopics(Container):
                 },
             )
             self.app.notify(
-                f"Updated topic '{topic.name}'.",
+                f"Updated topic '{topic.name}'",
                 title="Topic Updated",
                 severity="information",
             )
@@ -938,7 +963,7 @@ class ListTopics(Container):
         try:
             await make_it_async(self.topic_service.delete, topic.name)
             self.app.notify(
-                f"Deleted topic '{topic.name}'.",
+                f"Deleted topic '{topic.name}'",
                 title="Topic Deleted",
                 severity="information",
             )
@@ -986,7 +1011,7 @@ class ListTopics(Container):
                     self.current_topic.groups_state,
                 )
             )
-        if action in {"delete", "edit"}:
+        if action in {"copy_topic", "delete", "edit"}:
             return self.current_topic is not None
         if action == "all":
             return self.current_filter is not None

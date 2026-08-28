@@ -76,6 +76,15 @@ Kaskade follows familiar k9s/Vim-style terminal interactions where practical:
 - Plain-character shortcuts must not intercept typing in inputs. In particular,
   `?` opens Help in normal contexts while `f1` remains available from a focused
   text input.
+- Contextual entity copy uses `y`, Textual's OSC 52 clipboard API, and is hidden
+  from the Footer while remaining available in Help and Commands. OSC 52 is a
+  best-effort request to the user's terminal: Textual cannot confirm that the
+  terminal accepted it, unsupported VTE terminals silently ignore it, and
+  remote sessions work only when every layer passes it through. Keep the
+  compatibility matrix in `USAGE.md` authoritative and link to it from README
+  rather than duplicating it. Selected-text copy uses `Cmd+C` on macOS or
+  `Ctrl+Shift+C` on Linux; `Ctrl+C` always quits Kaskade and must never be shown
+  as a copy alias.
 - Keep Textual's command palette on `:` with `ctrl+p` as an alternative. Expose
   contextual Kaskade actions in it, omit duplicate navigation actions, and do
   not expose Textual maximize/minimize commands. Replace Textual's generic Keys
@@ -126,7 +135,8 @@ Help is a dedicated centered `ModalScreen`, not a sidebar. It must:
   root view.
 - Deliver consumed-record JSON exports through Textual's file-delivery API so
   they use the same Downloads or browser destination as screenshots. Keep the
-  export available from both the records table and Record Details.
+  export available from both the records table and Record Details, expose it in
+  Help and Commands, and keep it hidden from the Footer.
 - Use Title Case for screen titles, border titles, table headings, tabs, command
   labels, and field labels.
 - Follow the existing centered-modal vocabulary: one visible outer border,
@@ -145,6 +155,9 @@ Help is a dedicated centered `ModalScreen`, not a sidebar. It must:
   Primary tables retain Kaskade's visible focus-aware border, while detail
   tables embedded inside another bordered component use the borderless
   `details-table` style.
+- Keep toast notification text concise and omit trailing periods. This applies
+  to informational, warning, and error messages authored by Kaskade; binding
+  tooltips and CLI diagnostics remain complete sentences.
 
 ## Themes
 
@@ -174,7 +187,9 @@ screenshot exporter. Run `uv run python -m scripts.banner` for the banner and
 `uv run python -m scripts.screenshots` for the mock-data admin and consumer
 views; neither command requires a Kafka broker. README image sources must use
 absolute `raw.githubusercontent.com` URLs targeting the `main` branch so they
-render in published package metadata.
+render in published package metadata. Keep paired screenshots in equal 50%
+table columns with each image at 100% width so GitHub renders them at the same
+size.
 
 For TUI, keymap, layout, or theme changes, run:
 

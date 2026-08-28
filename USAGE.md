@@ -70,6 +70,8 @@ Kaskade supports arrow keys and Vim-style navigation. The defaults follow famili
 | Edit a topic | `e` or `Ctrl+E` |
 | Delete a topic | `Ctrl+D` |
 | Refresh topics | `Ctrl+R` |
+| Copy selected topic or record | `y` |
+| Copy selected screen text | `Cmd+C` on macOS or `Ctrl+Shift+C` on Linux |
 | Export selected record | `Ctrl+E` |
 | Consume more records | `n` |
 | Change record chunk size | `#` |
@@ -107,12 +109,36 @@ Common configurable binding IDs are:
 | --- | --- |
 | Application | `app.quit`, `app.command-palette`, `help.toggle`, `kaskade.help.close` |
 | Navigation | `kaskade.navigation.up`, `.down`, `.left`, `.right`, `.first`, `.last`, `.page-up`, `.page-down`, `.select` |
-| Topics | `kaskade.topics.describe`, `.filter`, `.refresh`, `.create`, `.edit`, `.delete`, `.show-all` |
-| Records | `kaskade.records.show`, `.export`, `.consume`, `.filter`, `.chunk-size`, `.show-all` |
+| Topics | `kaskade.topics.describe`, `.copy`, `.filter`, `.refresh`, `.create`, `.edit`, `.delete`, `.show-all` |
+| Records | `kaskade.records.show`, `.copy`, `.export`, `.consume`, `.filter`, `.chunk-size`, `.show-all` |
 | Dialogs | `kaskade.filter-topics.apply`, `kaskade.delete-topic.confirm`, `kaskade.filter-records.apply`, `kaskade.chunk-size.select` |
 | Editors | `kaskade.create-topic.save`, `kaskade.edit-topic.save` |
 
 Unknown binding IDs, invalid key names, and malformed configuration produce an in-app warning while Kaskade continues with its default bindings.
+
+### Copy topics and consumed records
+
+Select a topic in Admin mode or a consumed record in Consumer mode, then press `y` to copy the topic name or readable record JSON. Copy is also available in Topic Details, Record Details, contextual Help, and Commands, but is omitted from the Footer.
+
+Selecting screen text is separate: use `Cmd+C` on macOS or `Ctrl+Shift+C` on Linux. `Ctrl+C` always quits Kaskade, even while text is selected.
+
+#### OSC 52 compatibility
+
+Kaskade uses [Textual's terminal clipboard API](https://textual.textualize.io/api/app/#textual.app.App.copy_to_clipboard), which sends an [OSC 52](https://github.com/tmux/tmux/wiki/Clipboard) request to the terminal emulator. Kaskade cannot detect whether the terminal accepted it, so a confirmation toast means the request was sent, not that the system clipboard was verified.
+
+| Terminal | Compatibility |
+| --- | --- |
+| [iTerm2](https://iterm2.com/documentation-preferences-general.html) | Supported after enabling **Applications in terminal may access clipboard** |
+| [Kitty](https://sw.kovidgoyal.net/kitty/conf/#opt-kitty.clipboard_control) | Supported; clipboard writes are enabled by default |
+| [WezTerm](https://wezterm.org/escape-sequences.html#operating-system-command-sequences) | Supported |
+| [Alacritty](https://alacritty.org/config-alacritty.html) | Supported; `terminal.osc52` defaults to `OnlyCopy` |
+| [Ghostty](https://ghostty.org/docs/config/reference#clipboard-write) | Supported; clipboard writes are enabled by default |
+| [VS Code integrated terminal](https://code.visualstudio.com/updates/v1_91#_support-for-copy-and-paste-escape-sequence-osc-52) | Supported in VS Code 1.91 or later |
+| xterm | Supported when OSC 52 is explicitly enabled |
+| Apple Terminal.app | Not supported |
+| VTE-based terminals: GNOME Terminal (Ubuntu's built-in terminal), GNOME Console/Ptyxis, Terminator, and XFCE Terminal | Not supported |
+
+OSC 52 writes to the clipboard owned by the terminal emulator on the user's computer. It can therefore work when Kaskade runs through SSH or `kubectl exec -it`; the remote machine or pod does not need its own clipboard. Every intermediate layer must preserve the escape sequence. Terminal multiplexers such as tmux may require [additional clipboard configuration](https://github.com/tmux/tmux/wiki/Clipboard#quick-summary), and browser terminals or other relays may filter OSC 52.
 
 ### Export a consumed record
 
@@ -120,7 +146,8 @@ Select a record in consumer mode or open its details, then press `Ctrl+E` to exp
 JSON. Kaskade saves the file to the same destination as the Screenshot command: the
 Downloads directory in a local terminal or a browser download when web-hosted. The export
 includes the topic, partition, offset, date, headers, and the deserialized key and value with
-their deserializer names.
+their deserializer names. Export Record is omitted from the Footer; find it in contextual
+Help or Commands.
 
 ### Consume from the beginning
 

@@ -26,15 +26,19 @@ It includes features like:
 - Topic information like lag, replicas and records count.
 - Create, edit and delete topics.
 - Filter topics by name.
+- Copy topic names to the clipboard.
 
 ### Consumer
 
 - Json, string, integer, long, float, boolean and double deserialization.
 - Filter by key, value, header and/or partition.
+- Copy individual consumed records as JSON.
 - Export individual consumed records as JSON.
 - Schema Registry support for avro and json.
 - Protobuf deserialization support without Schema Registry.
 - Avro deserialization without Schema Registry.
+
+Clipboard copy requires an OSC 52-compatible terminal. See [clipboard compatibility](USAGE.md#osc-52-compatibility) for supported terminals, configuration, and remote-session behavior.
 
 ## Limitations
 
@@ -44,17 +48,17 @@ Kaskade does not include:
 
 ## Screenshots
 
-<table>
+<table width="100%">
   <tr>
-    <th>Admin</th>
-    <th>Consumer</th>
+    <th width="50%">Admin</th>
+    <th width="50%">Consumer</th>
   </tr>
   <tr>
-    <td>
-      <img alt="Kaskade admin mode" src="https://raw.githubusercontent.com/sauljabin/kaskade/main/images/admin.svg">
+    <td width="50%">
+      <img alt="Kaskade admin mode" width="100%" src="https://raw.githubusercontent.com/sauljabin/kaskade/main/images/admin.svg">
     </td>
-    <td>
-      <img alt="Kaskade consumer mode" src="https://raw.githubusercontent.com/sauljabin/kaskade/main/images/consumer.svg">
+    <td width="50%">
+      <img alt="Kaskade consumer mode" width="100%" src="https://raw.githubusercontent.com/sauljabin/kaskade/main/images/consumer.svg">
     </td>
   </tr>
 </table>

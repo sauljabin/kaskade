@@ -53,11 +53,13 @@ KNOWN_BINDING_IDS = (
             "kaskade.record-details.close",
             "kaskade.records.chunk-size",
             "kaskade.records.consume",
+            "kaskade.records.copy",
             "kaskade.records.export",
             "kaskade.records.filter",
             "kaskade.records.show",
             "kaskade.records.show-all",
             "kaskade.topics.create",
+            "kaskade.topics.copy",
             "kaskade.topics.delete",
             "kaskade.topics.describe",
             "kaskade.topics.edit",
@@ -135,7 +137,7 @@ def _read_config(config_path: Path) -> tuple[dict[str, Any], tuple[str, ...]]:
     if data is None:
         return {}, ()
     if not isinstance(data, dict):
-        return {}, (f"Ignoring {config_path}: the document must be a mapping.",)
+        return {}, (f"Ignoring {config_path}: the document must be a mapping",)
     return data, ()
 
 
@@ -144,21 +146,21 @@ def _parse_keymap(
 ) -> tuple[dict[str, str], tuple[str, ...]]:
     warning_messages: list[str] = []
     if not isinstance(configured_keymap, dict):
-        warning_messages.append(f"Ignoring {config_path}: 'keymap' must be a mapping.")
+        warning_messages.append(f"Ignoring {config_path}: 'keymap' must be a mapping")
         configured_keymap = {}
 
     keymap: dict[str, str] = {}
     for binding_id, keys in configured_keymap.items():
         if not isinstance(binding_id, str) or binding_id not in KNOWN_BINDING_IDS:
-            warning_messages.append(f"Ignoring unknown binding ID: {binding_id!r}.")
+            warning_messages.append(f"Ignoring unknown binding ID: {binding_id!r}")
             continue
         if not isinstance(keys, str) or not keys.strip():
-            warning_messages.append(f"Ignoring {binding_id!r}: keys must be a non-empty string.")
+            warning_messages.append(f"Ignoring {binding_id!r}: keys must be a non-empty string")
             continue
         invalid_keys = [key for key in keys.split(",") if not _is_valid_key(key.strip())]
         if invalid_keys:
             warning_messages.append(
-                f"Ignoring {binding_id!r}: invalid key name(s) {', '.join(invalid_keys)}."
+                f"Ignoring {binding_id!r}: invalid key name(s) {', '.join(invalid_keys)}"
             )
             continue
         keymap[binding_id] = keys
@@ -169,17 +171,17 @@ def _parse_admin_settings(configured_admin: Any) -> tuple[int, tuple[str, ...]]:
     refresh_interval = DEFAULT_ADMIN_REFRESH_INTERVAL_SECONDS
     warning_messages: list[str] = []
     if not isinstance(configured_admin, dict):
-        warning_messages.append("Ignoring 'admin': it must be a mapping.")
+        warning_messages.append("Ignoring 'admin': it must be a mapping")
     elif "refresh_interval_seconds" in configured_admin:
         configured_interval = configured_admin["refresh_interval_seconds"]
         if not isinstance(configured_interval, int) or isinstance(configured_interval, bool):
             warning_messages.append(
-                "Ignoring 'admin.refresh_interval_seconds': it must be an integer."
+                "Ignoring 'admin.refresh_interval_seconds': it must be an integer"
             )
         elif not is_valid_admin_refresh_interval(configured_interval):
             warning_messages.append(
                 "Ignoring 'admin.refresh_interval_seconds': it must be 0 or at least "
-                f"{MIN_ADMIN_REFRESH_INTERVAL_SECONDS}."
+                f"{MIN_ADMIN_REFRESH_INTERVAL_SECONDS}"
             )
         else:
             refresh_interval = configured_interval

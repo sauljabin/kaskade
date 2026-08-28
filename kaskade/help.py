@@ -66,22 +66,14 @@ def contextual_help(screen: Screen) -> tuple[str, tuple[HelpBinding, ...]]:
 
 def _binding_aliases(screen: Screen, namespace: object, binding: Binding) -> tuple[Binding, ...]:
     """Return every effective alias owned by the binding's namespace."""
-    settings = getattr(screen.app, "keymap_settings", None)
-    configured_keys = getattr(settings, "keymap", {}).get(binding.id)
-    if configured_keys:
-        return tuple(
-            binding.with_key(key.strip(), key_display=None) for key in configured_keys.split(",")
-        )
-
-    bindings_map = getattr(namespace, "_bindings", None)
-    if bindings_map is None:
-        return (binding,)
-
     aliases = tuple(
         candidate
-        for candidates in bindings_map.key_to_bindings.values()
-        for candidate in candidates
-        if candidate.action == binding.action and candidate.id == binding.id
+        for active_namespace, candidate, enabled, _ in screen.active_bindings.values()
+        if enabled
+        and active_namespace is namespace
+        and not candidate.system
+        and candidate.action == binding.action
+        and candidate.id == binding.id
     )
     return aliases or (binding,)
 
