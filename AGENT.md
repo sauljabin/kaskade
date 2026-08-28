@@ -166,6 +166,13 @@ Help is a dedicated centered `ModalScreen`, not a sidebar. It must:
 
 ## Verification
 
+README visual assets are generated as SVG files in `images/` with Textual's
+screenshot exporter. Run `uv run python -m scripts.banner` for the banner and
+`uv run python -m scripts.screenshots` for the mock-data admin and consumer
+views; neither command requires a Kafka broker. README image sources must use
+absolute `raw.githubusercontent.com` URLs targeting the `main` branch so they
+render in published package metadata.
+
 For TUI, keymap, layout, or theme changes, run:
 
 ```text

@@ -76,6 +76,12 @@ Generate banner:
 uv run python -m scripts.banner
 ```
 
+Generate admin and consumer screenshots with mock data (no Kafka broker required):
+
+```bash
+uv run python -m scripts.screenshots
+```
+
 ### Docker
 
 Build docker:

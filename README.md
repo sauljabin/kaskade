@@ -1,5 +1,5 @@
 <p align="center">
-<a href="https://github.com/sauljabin/kaskade"><img alt="kaskade" width="400" src="https://raw.githubusercontent.com/sauljabin/kaskade/main/screenshots/banner.png"></a>
+<a href="https://github.com/sauljabin/kaskade"><img alt="kaskade" width="400" src="https://raw.githubusercontent.com/sauljabin/kaskade/main/images/banner.svg"></a>
 </p>
 
 <p align="center">
@@ -46,18 +46,10 @@ Kaskade does not include:
 <table>
   <tr>
     <td>
-      <img alt="kaskade" src="https://raw.githubusercontent.com/sauljabin/kaskade/main/screenshots/admin.png">
+      <img alt="Kaskade admin mode" src="https://raw.githubusercontent.com/sauljabin/kaskade/main/images/admin.svg">
     </td>
     <td>
-      <img alt="kaskade" src="https://raw.githubusercontent.com/sauljabin/kaskade/main/screenshots/create-topic.png">
-    </td>
-  </tr>
-  <tr>
-    <td>
-      <img alt="kaskade" src="https://raw.githubusercontent.com/sauljabin/kaskade/main/screenshots/consumer.png">
-    </td>
-    <td>
-      <img alt="kaskade" src="https://raw.githubusercontent.com/sauljabin/kaskade/main/screenshots/record.png">
+      <img alt="Kaskade consumer mode" src="https://raw.githubusercontent.com/sauljabin/kaskade/main/images/consumer.svg">
     </td>
   </tr>
 </table>
@@ -113,7 +105,7 @@ For Q&A go to [GitHub Discussions](https://github.com/sauljabin/kaskade/discussi
 ## Acknowledgements & Sponsorship
 
 <p>
-<a href="https://github.com/littlehorse-enterprises/littlehorse"><img alt="Sponsored by LittleHorse" src="images/littlehorse-badge.svg"></a>
-<a href="https://textual.textualize.io/"><img alt="Built with Textual" src="images/textual-badge.svg"></a>
-<a href="https://openai.com/codex/"><img alt="Assisted by Codex" src="images/codex-badge.svg"></a>
+<a href="https://github.com/littlehorse-enterprises/littlehorse"><img alt="Sponsored by LittleHorse" src="https://raw.githubusercontent.com/sauljabin/kaskade/main/images/littlehorse-badge.svg"></a>
+<a href="https://textual.textualize.io/"><img alt="Built with Textual" src="https://raw.githubusercontent.com/sauljabin/kaskade/main/images/textual-badge.svg"></a>
+<a href="https://openai.com/codex/"><img alt="Assisted by Codex" src="https://raw.githubusercontent.com/sauljabin/kaskade/main/images/codex-badge.svg"></a>
 </p>
