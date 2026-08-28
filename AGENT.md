@@ -118,6 +118,12 @@ Help is a dedicated centered `ModalScreen`, not a sidebar. It must:
 
 - Keep all application styling in the shared `kaskade/styles.css`; both admin
   and consumer applications inherit `KaskadeApp.CSS_PATH`.
+- Keep the shared one-line root header on both main applications: show the
+  Kaskade version on the left and only Kafka `bootstrap.servers` on the right.
+  Give the name and version contrasting semantic colors, and truncate the Kafka
+  text before allowing the version to disappear. Pad the header by one row in
+  the shared panel background and leave one column on each side of the complete
+  root view.
 - Use Title Case for screen titles, border titles, table headings, tabs, command
   labels, and field labels.
 - Follow the existing centered-modal vocabulary: one visible outer border,
@@ -132,7 +138,8 @@ Help is a dedicated centered `ModalScreen`, not a sidebar. It must:
   outer `TabbedContent`. Do not add borders or border titles to the tables inside
   the tabs. Put collection counts in tab labels, for example
   `Partitions [50]`.
-- Tables used as primary screens retain Kaskade's focus-aware border. Detail
+- Keep table backgrounds transparent so they inherit each window's background.
+  Primary tables retain Kaskade's visible focus-aware border, while detail
   tables embedded inside another bordered component use the borderless
   `details-table` style.
 

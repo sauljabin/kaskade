@@ -19,7 +19,12 @@ from kaskade.models import Record
 from kaskade.services import ConsumerService
 from kaskade.themes import KaskadeApp
 from kaskade.utils import notify_error
-from kaskade.widgets import KaskadeOptionList, KaskadeScrollableContainer, StretchyDataTable
+from kaskade.widgets import (
+    KaskadeHeader,
+    KaskadeOptionList,
+    KaskadeScrollableContainer,
+    StretchyDataTable,
+)
 
 CHUNKS_SHORTCUT = "#"
 NEXT_SHORTCUT = "n"
@@ -454,6 +459,7 @@ class KaskadeConsumer(KaskadeApp):
         self.value_deserialization = value_deserialization
 
     def compose(self) -> ComposeResult:
+        yield KaskadeHeader(self.kafka_config)
         yield ListRecords(
             self.topic,
             self.kafka_config,

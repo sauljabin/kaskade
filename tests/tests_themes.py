@@ -26,6 +26,7 @@ from kaskade.admin import (
     KaskadeAdmin,
     ListTopics,
 )
+from kaskade.configs import BOOTSTRAP_SERVERS
 from kaskade.consumer import (
     ChunkSizeScreen,
     FilterRecordScreen,
@@ -42,7 +43,12 @@ from kaskade.themes import (
     KaskadeApp,
     available_theme_names,
 )
-from kaskade.widgets import KaskadeOptionList, KaskadeScrollableContainer, StretchyDataTable
+from kaskade.widgets import (
+    KaskadeHeader,
+    KaskadeOptionList,
+    KaskadeScrollableContainer,
+    StretchyDataTable,
+)
 from tests import configure_admin_service
 
 
@@ -152,11 +158,38 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
             async with app.run_test(size=(70, 18)) as pilot:
                 await pilot.pause()
                 table = app.query_one("#topics-table", DataTable)
+                header = app.query_one(KaskadeHeader)
+                product = header.query_one("#kaskade-product", Static)
+                kafka = header.query_one("#kaskade-kafka", Static)
                 active_descriptions = {
                     binding.description for _, binding, _, _ in app.screen.active_bindings.values()
                 }
 
-                self.assertIsInstance(app.query_one(Footer), Footer)
+                product_text = product.render()
+                self.assertEqual(f"Kaskade v{APP_VERSION}", product_text.plain)
+                self.assertEqual(
+                    [app.current_theme.primary, app.current_theme.secondary],
+                    [span.style.foreground.hex for span in product_text.spans],
+                )
+                self.assertEqual("Not configured", kafka.render().plain)
+                self.assertTrue(app.screen.has_class("main-view-screen"))
+                self.assertEqual(1, app.screen.styles.padding.left)
+                self.assertEqual(1, app.screen.styles.padding.right)
+                self.assertEqual(1, header.styles.padding.top)
+                self.assertEqual(1, header.styles.padding.bottom)
+                self.assertEqual(app.current_theme.panel, header.styles.background.hex)
+                self.assertEqual(header.styles.background, app.screen.styles.background)
+                self.assertEqual(0, table.styles.background.a)
+                self.assertNotEqual("", table.styles.border_top[0])
+                self.assertGreater(table.styles.border_top[1].a, 0)
+                footer = app.query_one(Footer)
+                self.assertIsInstance(footer, Footer)
+                for widget in (header, table, footer):
+                    self.assertEqual(1, widget.region.x)
+                    self.assertEqual(app.screen.region.right - 1, widget.region.right)
+                self.assertEqual(0, header.region.y)
+                self.assertEqual(1, header.content_region.y)
+                self.assertEqual(header.region.bottom, table.region.y)
                 self.assertIs(table, app.screen.focused)
                 self.assertTrue(
                     {"Describe", "Filter", "Refresh", "Create", "Quit", "Commands"}
@@ -411,9 +444,10 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
     async def test_consumer_uses_a_stretchy_records_table(self):
         with patch("kaskade.consumer.ConsumerService") as consumer_service:
             consumer_service.return_value.consume = AsyncMock(return_value=[])
+            bootstrap_servers = "kafka1:9092,kafka2:9092"
             app = KaskadeConsumer(
                 "orders",
-                {},
+                {BOOTSTRAP_SERVERS: bootstrap_servers},
                 {},
                 {},
                 {},
@@ -424,8 +458,18 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
             async with app.run_test(size=(80, 24)) as pilot:
                 await pilot.pause()
                 table = app.query_one("#records-table", DataTable)
+                header = app.query_one(KaskadeHeader)
 
+                self.assertEqual(
+                    f"Kaskade v{APP_VERSION}",
+                    header.query_one("#kaskade-product", Static).render().plain,
+                )
+                self.assertEqual(
+                    bootstrap_servers,
+                    header.query_one("#kaskade-kafka", Static).render().plain,
+                )
                 self.assertIsInstance(table, StretchyDataTable)
+                self.assertIs(table, app.screen.focused)
                 self.assertEqual(
                     ["Key", "Value", "Timestamp", "Partition", "Offset", "Headers"],
                     [column.label.plain for column in table.ordered_columns],
@@ -435,6 +479,29 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                     [column.width for column in table.ordered_columns[2:]],
                 )
                 self.assertFalse(table.show_horizontal_scrollbar)
+
+    async def test_header_constrains_kafka_information_on_narrow_terminals(self):
+        bootstrap_servers = "[::1]:9092,kafka2.example.com:9092"
+        with patch("kaskade.admin.TopicService") as topic_service:
+            configure_admin_service(topic_service.return_value, {})
+            app = KaskadeAdmin({BOOTSTRAP_SERVERS: bootstrap_servers})
+
+            async with app.run_test(size=(24, 18)) as pilot:
+                await pilot.pause()
+                header = app.query_one(KaskadeHeader)
+                product = header.query_one("#kaskade-product", Static)
+                kafka = header.query_one("#kaskade-kafka", Static)
+
+                self.assertEqual(f"Kaskade v{APP_VERSION}", product.render().plain)
+                self.assertEqual(bootstrap_servers, kafka.render().plain)
+                self.assertEqual(3, header.region.height)
+                self.assertEqual(app.screen.content_region.width, header.region.width)
+                self.assertEqual(
+                    header.content_region.width,
+                    product.region.width + kafka.region.width,
+                )
+                self.assertLess(kafka.content_region.width, len(kafka.render().plain))
+                self.assertEqual("ellipsis", kafka.styles.text_overflow)
 
     async def test_record_details_focus_the_scrollable_content(self):
         with patch("kaskade.consumer.ConsumerService") as consumer_service:
@@ -488,6 +555,7 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 for table in detail_tables:
                     self.assertIsNone(table.border_title)
                     self.assertEqual("", table.styles.border_top[0])
+                    self.assertEqual(0, table.styles.background.a)
                 self.assertGreater(partitions.content_region.height, 0)
                 self.assertFalse(partitions.show_horizontal_scrollbar)
                 self.assertIsInstance(app.screen.query_one(Footer), Footer)

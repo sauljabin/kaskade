@@ -41,7 +41,7 @@ from kaskade.services import (
 from kaskade.themes import KaskadeApp
 from kaskade.unicodes import APPROXIMATION
 from kaskade.utils import make_it_async, notify_error
-from kaskade.widgets import StretchyDataTable
+from kaskade.widgets import KaskadeHeader, StretchyDataTable
 
 REFRESH_TABLE_DELAY = 1
 FILTER_TOPICS_SHORTCUT = "/,ctrl+f"
@@ -1150,5 +1150,6 @@ class KaskadeAdmin(KaskadeApp):
             self._auto_refresh_timer.reset()
 
     def compose(self) -> ComposeResult:
+        yield KaskadeHeader(self.kafka_config)
         yield ListTopics(TopicService(self.kafka_config))
         yield Footer(compact=True)
