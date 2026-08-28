@@ -1,13 +1,12 @@
 [project]
 name = "kaskade"
-version = "4.0.7"
+dynamic = ["version"]
 description = "kaskade is a text user interface for kafka"
 authors = [{ name = "Saúl Piña", email = "sauljabin@gmail.com" }]
-license = { text = "MIT" }
+license = "MIT"
 readme = "README.md"
 keywords = ["kafka", "kaskade"]
 classifiers = [
-    "License :: OSI Approved :: MIT License",
     "Environment :: Console",
     "Operating System :: MacOS",
     "Operating System :: Unix",
@@ -32,28 +31,40 @@ kaskade = "kaskade.main:cli"
 homepage = "https://github.com/sauljabin/kaskade"
 repository = "https://github.com/sauljabin/kaskade"
 documentation = "https://github.com/sauljabin/kaskade"
-changelog = "https://github.com/sauljabin/kaskade/blob/main/CHANGELOG.md"
+changelog = "https://github.com/sauljabin/kaskade/releases"
 issues = "https://github.com/sauljabin/kaskade/issues"
 funding = "https://github.com/sponsors/sauljabin"
 
-[tool.poetry.group.dev.dependencies]
-black = "*"
-faker = "*"
-pre-commit = "*"
-ruff = "*"
-mypy = "*"
-types-attrs = "*"
-types-pyyaml = "*"
-types-protobuf = "*"
-changeloggh = "*"
-textual-dev = "*"
-typos = "*"
-parameterized = "*"
-testcontainers = "*"
+[dependency-groups]
+dev = [
+    "actionlint-py",
+    "black",
+    "faker",
+    "mypy",
+    "parameterized",
+    "pre-commit",
+    "ruff",
+    "testcontainers",
+    "textual-dev",
+    "types-attrs",
+    "types-protobuf",
+    "types-pyyaml",
+    "typos",
+]
 
 [build-system]
-requires = ["poetry-core>=2.0.0,<3.0.0"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling>=1.27,<2", "hatch-vcs>=0.5,<1"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "vcs"
+tag-pattern = "^v(?P<version>[0-9]+\\.[0-9]+\\.[0-9]+)$"
+
+[tool.hatch.version.raw-options]
+local_scheme = "no-local-version"
+
+[tool.hatch.build.targets.wheel]
+packages = ["kaskade"]
 
 [tool.black]
 line-length = 100
@@ -70,4 +81,4 @@ max-complexity = 10
 [tool.typos]
 type.lock.extend-glob = ["*.lock"]
 type.lock.check-file = true
-files.extend-exclude = ["poetry.lock"]
+files.extend-exclude = ["uv.lock"]

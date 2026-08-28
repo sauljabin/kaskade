@@ -169,12 +169,27 @@ Help is a dedicated centered `ModalScreen`, not a sidebar. It must:
 For TUI, keymap, layout, or theme changes, run:
 
 ```text
-poetry run python -m scripts.analyze
-poetry run python -m scripts.tests
+uv run --locked python -m scripts.analyze
+uv run --locked python -m scripts.tests
 ```
 
 Add focused assertions to `tests/tests_themes.py` and/or
 `tests/tests_keymaps.py` when changing the conventions above.
+
+## Releases and Versions
+
+- Git tags matching `vMAJOR.MINOR.PATCH` are the only release-version source.
+  Hatchling and hatch-vcs derive package metadata from Git; never add or edit a
+  static package version.
+- GitHub Releases are the canonical changelog. Do not add a maintained changelog
+  file or a version-bump commit.
+- Release tags must point to commits on `main`. The protected release workflow
+  builds once, verifies the tag against the artifacts, and publishes those same
+  artifacts to PyPI and GitHub after approval.
+- Release notes are generated from squash commit titles. Keep pull request titles
+  and commits in Conventional Commits format and describe user-visible outcomes
+  with `feat`, `fix`, `perf`, `docs`, `fix(security)`, or dependency-scoped
+  `build(deps)`/`chore(deps)` types where applicable.
 
 ## Commits
 

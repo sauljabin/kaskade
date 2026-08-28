@@ -1,0 +1,95 @@
+name: Bug report
+description: Report a reproducible problem with Kaskade
+title: "bug: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve Kaskade. Search existing issues first and remove secrets, credentials, and private broker details from everything you submit.
+  - type: input
+    id: version
+    attributes:
+      label: Kaskade version
+      description: Run `kaskade --version` to obtain the installed version.
+      placeholder: "4.1.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: installation
+    attributes:
+      label: Installation method
+      options:
+        - Homebrew
+        - pipx or pip
+        - Docker
+        - Source checkout
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: operating-system
+    attributes:
+      label: Operating system
+      placeholder: "macOS 15.6 or Ubuntu 24.04"
+    validations:
+      required: true
+  - type: input
+    id: python-version
+    attributes:
+      label: Python version
+      description: Required for Python installations; enter `not applicable` for Docker.
+      placeholder: "3.13.7"
+    validations:
+      required: true
+  - type: input
+    id: kafka
+    attributes:
+      label: Kafka distribution and version
+      placeholder: "Apache Kafka 4.0, Confluent Platform 8.0, or Redpanda 25.2"
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: Include the smallest command and configuration that reproduces the problem. Redact sensitive values.
+      placeholder: |
+        1. Run ...
+        2. Open ...
+        3. Observe ...
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: Describe what happened and include the complete error message where possible.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: Describe what you expected Kaskade to do.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs and screenshots
+      description: Attach relevant screenshots or sanitized logs. Do not include passwords, tokens, certificates, or private broker addresses.
+      render: shell
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Submission checks
+      options:
+        - label: I searched existing issues for this problem.
+          required: true
+        - label: I removed secrets and private infrastructure details.
+          required: true

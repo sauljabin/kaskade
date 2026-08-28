@@ -8,7 +8,7 @@ from scripts import CommandProcessor
 def main(e2e: bool) -> None:
     module = "tests_e2e" if e2e else "tests"
     commands = {
-        "executing tests": f"poetry run python -m unittest discover -v {module}",
+        "executing tests": f"python -m unittest discover -v {module}",
     }
     command_processor = CommandProcessor(commands)
     command_processor.run()

@@ -3,8 +3,7 @@ from scripts import CommandProcessor
 
 def main() -> None:
     commands = {
-        "removing old packages": "rm -rf dist",
-        "building the project": "poetry build",
+        "building the project": "uv build --clear",
         "creating docker image": "docker build -t sauljabin/kaskade:latest .",
     }
     command_processor = CommandProcessor(commands)
