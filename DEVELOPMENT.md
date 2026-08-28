@@ -142,7 +142,7 @@ published, create a new patch version instead of reusing the tag.
 
 ### Manual Tests
 
-Run local sandbox (chose one of `confluent`, `redpanda` or `apicurio`):
+Run a local sandbox (choose one of `confluent`, `redpanda`, or `apicurio`):
 
 ```bash
 docker compose -f docker-compose.confluent.yml up -d
@@ -160,67 +160,67 @@ docker compose -f docker-compose.apicurio.yml down -v
 
 > Use the docker-compose file you need.
 
-Populate kafka:
+Populate Kafka:
 
 ```bash
-python -m scripts.sandbox
+uv run python -m scripts.sandbox
 ```
 
 Read help messages:
 
 ```bash
-kaskade admin --help
-kaskade consumer --help
+uv run kaskade admin --help
+uv run kaskade consumer --help
 ```
 
 Test admin:
 
 ```bash
-kaskade admin -b localhost:19092
+uv run kaskade admin -b localhost:19092
 ```
 
 Test consumer without deserialization:
 
 ```bash
-kaskade consumer -b localhost:19092 --from-beginning -t string
+uv run kaskade consumer -b localhost:19092 --from-beginning -t string
 ```
 
 Test consumer with nulls:
 
 ```bash
-kaskade consumer -b localhost:19092 --from-beginning -k string -v string -t null
+uv run kaskade consumer -b localhost:19092 --from-beginning -k string -v string -t null
 ```
 
 Test consumer with deserializers:
 
 ```bash
-kaskade consumer -b localhost:19092 --from-beginning -k string -v string -t string
+uv run kaskade consumer -b localhost:19092 --from-beginning -k string -v string -t string
 ```
 
 ```bash
-kaskade consumer -b localhost:19092 --from-beginning -k string -v integer -t integer
+uv run kaskade consumer -b localhost:19092 --from-beginning -k string -v integer -t integer
 ```
 
 ```bash
-kaskade consumer -b localhost:19092 --from-beginning -k string -v long -t long
+uv run kaskade consumer -b localhost:19092 --from-beginning -k string -v long -t long
 ```
 
 ```bash
-kaskade consumer -b localhost:19092 --from-beginning -k string -v float -t float
+uv run kaskade consumer -b localhost:19092 --from-beginning -k string -v float -t float
 ```
 
 ```bash
-kaskade consumer -b localhost:19092 --from-beginning -k string -v double -t double
+uv run kaskade consumer -b localhost:19092 --from-beginning -k string -v double -t double
 ```
 
 ```bash
-kaskade consumer -b localhost:19092 --from-beginning -k string -v boolean -t boolean
+uv run kaskade consumer -b localhost:19092 --from-beginning -k string -v boolean -t boolean
 ```
 
 Test json consumer with Schema Registry (Confluent and Redpanda):
 
 ```bash
-kaskade consumer -b localhost:19092 --from-beginning -t json-schema \
+uv run kaskade consumer -b localhost:19092 --from-beginning -t json-schema \
         -k string -v registry \
         --registry url=http://localhost:18081
 ```
@@ -228,17 +228,17 @@ kaskade consumer -b localhost:19092 --from-beginning -t json-schema \
 Test json consumer without Schema Registry:
 
 ```bash
-kaskade consumer -b localhost:19092 --from-beginning -k string -v json -t json
+uv run kaskade consumer -b localhost:19092 --from-beginning -k string -v json -t json
 ```
 
 ```bash
-kaskade consumer -b localhost:19092 --from-beginning -k string -v json -t json-schema
+uv run kaskade consumer -b localhost:19092 --from-beginning -k string -v json -t json-schema
 ```
 
 Test avro consumer with Schema Registry (Confluent and Redpanda):
 
 ```bash
-kaskade consumer -b localhost:19092 --from-beginning -t avro-schema \
+uv run kaskade consumer -b localhost:19092 --from-beginning -t avro-schema \
         -k string -v registry \
         --registry url=http://localhost:18081
 ```
@@ -246,7 +246,7 @@ kaskade consumer -b localhost:19092 --from-beginning -t avro-schema \
 Test avro consumer with Apicurio Registry:
 
 ```bash
-kaskade consumer -b localhost:19092 --from-beginning -t avro-schema \
+uv run kaskade consumer -b localhost:19092 --from-beginning -t avro-schema \
         -k string -v registry \
         --registry url=http://localhost:18081/apis/ccompat/v7
 ```
@@ -254,13 +254,13 @@ kaskade consumer -b localhost:19092 --from-beginning -t avro-schema \
 Test avro consumer without Schema Registry:
 
 ```bash
-kaskade consumer -b localhost:19092 --from-beginning -t avro \
+uv run kaskade consumer -b localhost:19092 --from-beginning -t avro \
         -k string -v avro \
         --avro value=tests/avro_model/user.avsc
 ```
 
 ```bash
-kaskade consumer -b localhost:19092 --from-beginning -t avro-schema \
+uv run kaskade consumer -b localhost:19092 --from-beginning -t avro-schema \
         -k string -v avro \
         --avro value=tests/avro_model/user.avsc
 ```
@@ -268,17 +268,17 @@ kaskade consumer -b localhost:19092 --from-beginning -t avro-schema \
 Test protobuf consumer:
 
 > Install `protoc` with `brew install protobuf`.\
-> Update descriptor with `python -m scripts.protobuf`.
+> Update the descriptor with `uv run python -m scripts.protobuf`.
 
 ```bash
-kaskade consumer -b localhost:19092 --from-beginning -t protobuf \
+uv run kaskade consumer -b localhost:19092 --from-beginning -t protobuf \
         -k string -v protobuf \
         --protobuf descriptor=tests/protobuf_model/user.desc \
         --protobuf value=User
 ```
 
 ```bash
-kaskade consumer -b localhost:19092 --from-beginning -t protobuf-schema \
+uv run kaskade consumer -b localhost:19092 --from-beginning -t protobuf-schema \
         -k string -v protobuf \
         --protobuf descriptor=tests/protobuf_model/user.desc \
         --protobuf value=User
