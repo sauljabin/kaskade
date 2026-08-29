@@ -29,7 +29,7 @@ Bring Kafka along for the terminal ride. Kaskade gives you a stylish, keyboard-f
 | General | Customize themes and keybindings | Supported |
 | Admin | Browse topics, partitions, groups, and group members | Supported |
 | Admin | View topic lag, replicas, and record counts | Supported |
-| Admin | Create, edit, and delete topics | Supported |
+| Admin | Create, edit, and delete topics | Supported, except changing the replication factor |
 | Admin | Filter topics by name | Supported |
 | Admin | Copy topic names to the clipboard | Supported in [OSC 52-compatible terminals](https://github.com/sauljabin/kaskade/blob/main/USAGE.md#osc-52-compatibility) |
 | Admin | Refresh topic metadata and metrics | Automatic every 30 seconds, configurable, or manual |
