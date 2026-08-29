@@ -20,7 +20,7 @@
 <a href="https://pypi.org/project/kaskade"><img alt="Supported Python versions" src="https://img.shields.io/pypi/pyversions/kaskade?style=flat-square&logo=python&logoColor=white&label=python"></a>
 </p>
 
-Kaskade is a text user interface (TUI) for Apache Kafka.
+Bring Kafka along for the terminal ride. Kaskade gives you a stylish, keyboard-friendly way to explore clusters, manage topics, and consume records.
 
 ## Features
 
