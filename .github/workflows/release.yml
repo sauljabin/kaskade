@@ -183,6 +183,11 @@ jobs:
     permissions:
       contents: write
     steps:
+      - name: Checkout release tag
+        uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
       - name: Download release bundle
         uses: actions/download-artifact@v8.0.1
         with:
