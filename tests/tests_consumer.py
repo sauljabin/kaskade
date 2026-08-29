@@ -14,6 +14,7 @@ from kaskade.consumer import (
     deliver_record,
     record_filename,
     record_json,
+    record_json_renderable,
 )
 from kaskade.deserializers import Deserialization, StringDeserializer
 from kaskade.help import HelpScreen
@@ -80,6 +81,17 @@ class TestRecordExport(unittest.TestCase):
             "b'\\xff'",
             json.loads(exported)["value"]["content"]["binary"],
         )
+
+    def test_record_json_renderable_expands_nested_objects_and_wraps_long_values(self) -> None:
+        renderable = record_json_renderable(exported_record().dict())
+
+        self.assertEqual(record_json(exported_record()).rstrip("\n"), renderable.text.plain)
+        self.assertIn(
+            '  "key": {\n    "deserializer": "STRING",\n    "content": "order-1048"\n  }',
+            renderable.text.plain,
+        )
+        self.assertFalse(renderable.text.no_wrap)
+        self.assertEqual("fold", renderable.text.overflow)
 
     def test_record_dict_preserves_empty_headers_and_null_content(self) -> None:
         data = Record(

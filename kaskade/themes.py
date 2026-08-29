@@ -211,6 +211,12 @@ class KaskadeApp(App, inherit_bindings=False):
             "success": _rich_color(theme.success or theme.primary),
             "accent": _rich_color(theme.accent or theme.primary),
             "repr.str": _rich_color(theme.primary),
+            "json.key": f"bold {_rich_color(theme.primary)}",
+            "json.str": _rich_color(theme.primary),
+            "json.number": _rich_color(theme.secondary or theme.primary),
+            "json.bool_true": _rich_color(theme.success or theme.primary),
+            "json.bool_false": _rich_color(theme.error or theme.primary),
+            "json.null": _rich_color(theme.warning or theme.primary),
         }
         self.console.push_theme(RichTheme(styles))
         self._rich_theme_pushed = True
