@@ -75,6 +75,8 @@ class TestThemes(unittest.TestCase):
 
         self.assertEqual("#bd93f9", app.console.get_style("primary").color.get_truecolor().hex)
         self.assertEqual("#6272a4", app.console.get_style("secondary").color.get_truecolor().hex)
+        self.assertEqual("#bd93f9", app.console.get_style("json.str").color.get_truecolor().hex)
+        self.assertEqual("#6272a4", app.console.get_style("json.number").color.get_truecolor().hex)
 
     def test_updates_rich_semantic_styles_for_ansi_themes(self):
         app = KaskadeApp()
@@ -629,6 +631,7 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
 
                 details = app.screen.query_one(".record-details", ScrollableContainer)
                 self.assertIs(details, app.screen.focused)
+                self.assertEqual(100, details.styles.width.value)
 
                 await pilot.press("escape")
                 self.assertIs(records_table, app.screen.focused)

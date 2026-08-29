@@ -4,11 +4,12 @@ from io import StringIO
 from typing import ClassVar
 
 from confluent_kafka import KafkaException
+from rich.json import JSON
 from textual import work
 from textual.app import App, ComposeResult
 from textual.binding import Binding, BindingType
 from textual.containers import Container
-from textual.widgets import DataTable, Footer, Input, OptionList, Pretty
+from textual.widgets import DataTable, Footer, Input, OptionList, Static
 from textual.widgets.option_list import Option
 
 from kaskade.colors import PRIMARY
@@ -45,6 +46,14 @@ CONSUMER_EXCEPTIONS: tuple[type[Exception], ...] = (
 def record_json(record: Record) -> str:
     """Return a readable JSON representation of a consumed record."""
     return json.dumps(record.dict(), indent=2, ensure_ascii=False, default=str) + "\n"
+
+
+def record_json_renderable(data: object) -> JSON:
+    """Return syntax-highlighted, indented JSON that wraps long values."""
+    renderable = JSON.from_data(data, indent=2, ensure_ascii=False, default=str)
+    renderable.text.no_wrap = False
+    renderable.text.overflow = "fold"
+    return renderable
 
 
 def record_filename(record: Record, exported_at: datetime | None = None) -> str:
@@ -242,7 +251,7 @@ class TopicScreen(HelpableModalScreen):
         container = KaskadeScrollableContainer(classes="record-details")
         container.border_title = rf"[{PRIMARY}]Record[/] \[[{PRIMARY}]{self.record.topic}[/]]\[[{PRIMARY}]{self.record.partition}[/]]\[[{PRIMARY}]{self.record.offset}[/]]"
         with container:
-            yield Pretty(self.data)
+            yield Static(record_json_renderable(self.data), classes="record-json")
         yield Footer(compact=True)
 
     def action_close(self) -> None:

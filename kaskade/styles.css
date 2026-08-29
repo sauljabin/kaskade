@@ -153,10 +153,16 @@ ChunkSizeScreen > OptionList {
 
 TopicScreen > .record-details {
     border: $secondary;
-    width: 90;
+    width: 100;
     max-width: 95%;
     height: 80%;
     background: $surface;
+}
+
+TopicScreen .record-json {
+    width: 100%;
+    height: auto;
+    text-wrap: wrap;
 }
 
 DescribeTopicScreen > TabbedContent {
