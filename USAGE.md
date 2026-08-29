@@ -134,6 +134,7 @@ Kaskade uses [Textual's terminal clipboard API](https://textual.textualize.io/ap
 | [Alacritty](https://alacritty.org/config-alacritty.html) | Supported; `terminal.osc52` defaults to `OnlyCopy` |
 | [Ghostty](https://ghostty.org/docs/config/reference#clipboard-write) | Supported; clipboard writes are enabled by default |
 | [VS Code integrated terminal](https://code.visualstudio.com/updates/v1_91#_support-for-copy-and-paste-escape-sequence-osc-52) | Supported in VS Code 1.91 or later |
+| [Warp](https://github.com/warpdotdev/warp/issues/10516) | Conditionally supported; verify the installed version because of an active OSC 52 regression on macOS |
 | xterm | Supported when OSC 52 is explicitly enabled |
 | Apple Terminal.app | Not supported |
 | VTE-based terminals: GNOME Terminal (Ubuntu's built-in terminal), GNOME Console/Ptyxis, Terminator, and XFCE Terminal | Not supported |
