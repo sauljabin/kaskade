@@ -201,13 +201,6 @@ To use Apicurio instead, populate a fresh sandbox with its compatibility API:
 uv run python -m sandbox --registry http://localhost:18082/apis/ccompat/v7
 ```
 
-Run the simple sandbox consumer when a persistent consumer group is useful for
-manual admin testing:
-
-```bash
-uv run python -m sandbox.consumer
-```
-
 Read help messages:
 
 ```bash

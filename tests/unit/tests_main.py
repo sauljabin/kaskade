@@ -13,7 +13,7 @@ from tests import faker
 
 EXPECTED_TOPIC = "my.topic"
 EXPECTED_SERVER = "localhost:9092"
-KAFKA_CONFIG = str(Path(__file__).resolve().parents[1] / "config" / "kafka.properties")
+KAFKA_CONFIG = str(Path(__file__).resolve().parent / "config" / "kafka.properties")
 
 
 class TestAdminCli(unittest.TestCase):
