@@ -18,7 +18,8 @@ SCHEMA_REGISTRY_CONFIGS = [
 ]
 """https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#schemaregistry-client"""
 PROTOBUF_DESERIALIZER_CONFIGS = ["descriptor", "key", "value"]
-AVRO_DESERIALIZER_CONFIGS = ["key", "value"]
+AVRO_DESERIALIZER_CONFIGS = ["key", "value", "framing"]
+AVRO_FRAMINGS = ["raw", "confluent"]
 SCHEMA_REGISTRY_MAGIC_BYTE = 0
 BOOTSTRAP_SERVERS = "bootstrap.servers"
 AUTO_OFFSET_RESET = "auto.offset.reset"

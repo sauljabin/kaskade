@@ -44,6 +44,15 @@ Missing, empty, malformed, or partially invalid Kaskade configuration must not
 make startup fragile. Ignore invalid entries, retain valid entries, and surface
 warnings in the application.
 
+## Runtime Initialization
+
+- Importing `kaskade` must not create directories, open files, or modify the root
+  logger. Configure the named Kaskade logger lazily from the CLI and tolerate an
+  unavailable log destination.
+- Local-schema Avro payloads use raw framing by default. Confluent's five-byte
+  framing must be selected explicitly with `--avro framing=confluent`; do not
+  infer it from the first byte because valid raw Avro may begin with zero.
+
 ## Admin Data Loading
 
 - Render topic metadata before loading record and consumer-group metrics.
@@ -178,7 +187,7 @@ Help is a dedicated centered `ModalScreen`, not a sidebar. It must:
 - Verify visual/theme work against the custom default, at least one Textual
   light theme, and an ANSI theme. Keep the Rich synchronization, shared CSS,
   responsive breakpoint, modal geometry, borders, and Footer order covered by
-  `tests/tests_themes.py`.
+  `tests/unit/tests_themes.py`.
 
 ## Verification
 
@@ -198,8 +207,12 @@ uv run --locked python -m scripts.analyze
 uv run --locked python -m scripts.tests
 ```
 
-Add focused assertions to `tests/tests_themes.py` and/or
-`tests/tests_keymaps.py` when changing the conventions above.
+Add focused assertions to `tests/unit/tests_themes.py` and/or
+`tests/unit/tests_keymaps.py` when changing the conventions above.
+
+Unit tests live in `tests/unit`, and end-to-end tests live in `tests/e2e` and
+use Confluent Kafka. Keep E2E tests condition-based and use public Textual APIs
+rather than fixed sleeps or private widget state.
 
 ## Releases and Versions
 

@@ -1,4 +1,5 @@
 import asyncio
+import functools
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -19,7 +20,6 @@ from confluent_kafka.admin import (
     ConfigResource,
     ConfigSource,
     ConsumerGroupDescription,
-    DescribeClusterResult,
     OffsetSpec,
     ResourceType,
     TopicMetadata,
@@ -27,10 +27,18 @@ from confluent_kafka.admin import (
 from confluent_kafka.cimpl import NewPartitions, NewTopic
 
 from kaskade import logger
-from kaskade.configs import ENABLE_AUTO_COMMIT, GROUP_ID, MAX_POLL_INTERVAL_MS, MILLISECONDS_24H
+from kaskade.commands import EMPTY_RECORD_FILTERS, CreateTopicCommand, RecordFilters
+from kaskade.configs import (
+    CLEANUP_POLICY_CONFIG,
+    ENABLE_AUTO_COMMIT,
+    GROUP_ID,
+    MAX_POLL_INTERVAL_MS,
+    MILLISECONDS_24H,
+    MIN_INSYNC_REPLICAS_CONFIG,
+    RETENTION_MS_CONFIG,
+)
 from kaskade.deserializers import Deserialization, DeserializerPool
 from kaskade.models import (
-    Cluster,
     Group,
     GroupMember,
     GroupPartition,
@@ -89,6 +97,7 @@ class ConsumerService:
         self.key_deserializer = deserializer_factory.get(key_deserialization)
         self.value_deserializer = deserializer_factory.get(value_deserialization)
         self.header_deserializer = deserializer_factory.get(Deserialization.STRING)
+        self._operation_lock = asyncio.Lock()
 
     def on_assign(self, consumer: Consumer, partitions: list[TopicPartition]) -> None:
         self.stable = True
@@ -104,14 +113,19 @@ class ConsumerService:
         self.consumer.unsubscribe()
         self.consumer.close()
 
+    async def aclose(self) -> None:
+        async with self._operation_lock:
+            await make_it_async(self.close)
+
     async def consume(
         self,
         *,
-        partition_filter: int | None = None,
-        key_filter: str | None = None,
-        value_filter: str | None = None,
-        header_filter: str | None = None,
+        filters: RecordFilters = EMPTY_RECORD_FILTERS,
     ) -> list[Record]:
+        async with self._operation_lock:
+            return await self._consume(filters)
+
+    async def _consume(self, filters: RecordFilters) -> list[Record]:
         chunk_started_at = perf_counter()
         records: list[Record] = []
         poll_retries = 0
@@ -124,7 +138,7 @@ class ConsumerService:
             and poll_retries < self.poll_retries
             and stabilization_retries < self.stabilization_retries
         ):
-            record_batch = await make_it_async(
+            record_batch = await self._consume_batch(
                 self.consumer.consume,
                 self.page_size - len(records),
                 timeout=self.timeout,
@@ -145,13 +159,7 @@ class ConsumerService:
                 if first_record_at is None:
                     first_record_at = perf_counter()
                 record = self._record_from_message(record_metadata)
-                if self._matches(
-                    record,
-                    partition_filter=partition_filter,
-                    key_filter=key_filter,
-                    value_filter=value_filter,
-                    header_filter=header_filter,
-                ):
+                if self._matches(record, filters):
                     records.append(record)
                 if len(records) >= self.page_size:
                     break
@@ -167,6 +175,16 @@ class ConsumerService:
         )
 
         return records
+
+    @staticmethod
+    async def _consume_batch(func: Any, *args: Any, **kwargs: Any) -> Any:
+        loop = asyncio.get_running_loop()
+        future = loop.run_in_executor(None, functools.partial(func, *args, **kwargs))
+        try:
+            return await asyncio.shield(future)
+        except asyncio.CancelledError:
+            await future
+            raise
 
     def _record_from_message(self, message: Any) -> Record:
         if message.error():
@@ -202,56 +220,16 @@ class ConsumerService:
     @staticmethod
     def _matches(
         record: Record,
-        *,
-        partition_filter: int | None,
-        key_filter: str | None,
-        value_filter: str | None,
-        header_filter: str | None,
+        filters: RecordFilters,
     ) -> bool:
-        if partition_filter is not None and record.partition != partition_filter:
+        if filters.partition is not None and record.partition != filters.partition:
             return False
-        if key_filter and key_filter not in record.key_str():
+        if filters.key and filters.key not in record.key_str():
             return False
-        if value_filter and value_filter not in record.value_str():
+        if filters.value and filters.value not in record.value_str():
             return False
-        return not header_filter or any(
-            header_filter in header.value_str() for header in record.headers
-        )
-
-
-class ClusterService:
-    def __init__(
-        self, config: dict[str, str | int | float | bool], *, timeout: float = 2.0
-    ) -> None:
-        self.timeout = timeout
-        self.admin_client = AdminClient(config, logger=logger)
-
-    def get(self) -> Cluster:
-        cluster_metadata: DescribeClusterResult = self.admin_client.describe_cluster(
-            request_timeout=self.timeout
-        ).result()
-
-        controller = Node(
-            id=cluster_metadata.controller.id,
-            host=cluster_metadata.controller.host,
-            port=cluster_metadata.controller.port,
-            rack=cluster_metadata.controller.rack,
-        )
-
-        nodes = [
-            Node(
-                id=node_metadata.id,
-                host=node_metadata.host,
-                port=node_metadata.port,
-                rack=node_metadata.rack,
-            )
-            for node_metadata in cluster_metadata.nodes
-        ]
-
-        return Cluster(
-            id=cluster_metadata.cluster_id,
-            controller=controller,
-            nodes=nodes,
+        return not filters.header or any(
+            filters.header in header.value_str() for header in record.headers
         )
 
 
@@ -284,8 +262,18 @@ class TopicService:
         self.config = config.copy()
         self.admin_client = AdminClient(self.config, logger=logger)
 
-    def create(self, new_topics: list[NewTopic]) -> None:
-        futures = self.admin_client.create_topics(new_topics)
+    def create(self, command: CreateTopicCommand) -> None:
+        new_topic = NewTopic(
+            topic=command.name,
+            num_partitions=command.partitions,
+            replication_factor=command.replicas,
+            config={
+                CLEANUP_POLICY_CONFIG: command.cleanup_policy,
+                RETENTION_MS_CONFIG: str(command.retention_ms),
+                MIN_INSYNC_REPLICAS_CONFIG: str(command.min_insync_replicas),
+            },
+        )
+        futures = self.admin_client.create_topics([new_topic])
         for future in futures.values():
             future.result()
 
@@ -325,14 +313,6 @@ class TopicService:
         futures = self.admin_client.delete_topics([name])
         for future in futures.values():
             future.result()
-
-    async def all(self) -> dict[str, Topic]:
-        topics = await self.metadata()
-        offsets_task = asyncio.create_task(self.enrich_offsets(topics))
-        groups_task = asyncio.create_task(self.load_groups())
-        await offsets_task
-        self.apply_groups(topics, await groups_task)
-        return topics
 
     async def metadata(self) -> dict[str, Topic]:
         started_at = perf_counter()

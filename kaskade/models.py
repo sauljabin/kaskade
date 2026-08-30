@@ -1,3 +1,4 @@
+from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import Any
 
@@ -8,18 +9,12 @@ from kaskade.deserializers import DESERIALIZATION_EXCEPTIONS, Deserialization, D
 _NOT_DESERIALIZED = object()
 
 
+@dataclass(eq=False)
 class Node:
-    def __init__(
-        self,
-        id: int = -1,
-        host: str = "",
-        port: int = -1,
-        rack: str | None = "",
-    ) -> None:
-        self.id = id
-        self.host = host
-        self.port = port
-        self.rack = rack
+    id: int = -1
+    host: str = ""
+    port: int = -1
+    rack: str | None = ""
 
     def __repr__(self) -> str:
         return str(self)
@@ -33,25 +28,14 @@ class Node:
         return False
 
 
+@dataclass(eq=False)
 class GroupMember:
-    def __init__(
-        self,
-        id: str = "",
-        client_id: str = "",
-        group: str = "",
-        host: str = "",
-        instance_id: str | None = "",
-        assignment: list[int] | None = None,
-    ) -> None:
-        self.id = id
-        self.client_id = client_id
-        self.group = group
-        self.host = host
-        self.instance_id = instance_id
-
-        if assignment is None:
-            assignment = []
-        self.assignment = assignment
+    id: str = ""
+    client_id: str = ""
+    group: str = ""
+    host: str = ""
+    instance_id: str | None = ""
+    assignment: list[int] = field(default_factory=list)
 
     def __repr__(self) -> str:
         return str(self)
@@ -61,26 +45,18 @@ class GroupMember:
 
     def __eq__(self, other: object) -> bool:
         if isinstance(other, GroupMember):
-            return self.id == other.id
+            return (self.group, self.id) == (other.group, other.id)
         return False
 
 
+@dataclass(eq=False)
 class GroupPartition:
-    def __init__(
-        self,
-        id: int = -1,
-        topic: str = "",
-        group: str = "",
-        offset: int = 0,
-        low: int = 0,
-        high: int = 0,
-    ) -> None:
-        self.id = id
-        self.topic = topic
-        self.group = group
-        self.offset = offset
-        self.low = low
-        self.high = high
+    id: int = -1
+    topic: str = ""
+    group: str = ""
+    offset: int = 0
+    low: int = 0
+    high: int = 0
 
     def __repr__(self) -> str:
         return str(self)
@@ -92,36 +68,24 @@ class GroupPartition:
         if self.high <= 0:
             return 0
         elif self.offset < 0:
-            return self.high - self.low
+            return max(0, self.high - self.low)
         else:
-            return self.high - self.offset
+            return max(0, self.high - self.offset)
 
     def __eq__(self, other: object) -> bool:
         if isinstance(other, GroupPartition):
-            return self.id == other.id
+            return (self.group, self.topic, self.id) == (other.group, other.topic, other.id)
         return False
 
 
+@dataclass(eq=False)
 class Group:
-    def __init__(
-        self,
-        id: str = "",
-        coordinator: None | Node = None,
-        state: str = "",
-        partition_assignor: str = "",
-        members: None | list[GroupMember] = None,
-        partitions: None | list[GroupPartition] = None,
-    ) -> None:
-        if partitions is None:
-            partitions = []
-        if members is None:
-            members = []
-        self.coordinator = coordinator
-        self.id = id
-        self.state = state
-        self.partition_assignor = partition_assignor
-        self.members = members
-        self.partitions = partitions
+    id: str = ""
+    coordinator: Node | None = None
+    state: str = ""
+    partition_assignor: str = ""
+    members: list[GroupMember] = field(default_factory=list)
+    partitions: list[GroupPartition] = field(default_factory=list)
 
     def __repr__(self) -> str:
         return str(self)
@@ -130,17 +94,13 @@ class Group:
         return self.id
 
     def lag_count(self) -> int:
-        return (
-            sum([partition.lag_count() for partition in self.partitions])
-            if self.partitions is not None
-            else 0
-        )
+        return sum(partition.lag_count() for partition in self.partitions)
 
     def members_count(self) -> int:
-        return len(self.members) if self.members is not None else 0
+        return len(self.members)
 
     def partitions_count(self) -> int:
-        return len(self.partitions) if self.partitions is not None else 0
+        return len(self.partitions)
 
     def __eq__(self, other: object) -> bool:
         if isinstance(other, Group):
@@ -148,28 +108,15 @@ class Group:
         return False
 
 
+@dataclass(eq=False)
 class Partition:
-    def __init__(
-        self,
-        id: int = -1,
-        leader: int = -1,
-        replicas: None | list[int] = None,
-        isrs: None | list[int] = None,
-        low: int = 0,
-        high: int = 0,
-        topic: str = "",
-    ) -> None:
-        if isrs is None:
-            isrs = []
-        if replicas is None:
-            replicas = []
-        self.id = id
-        self.leader = leader
-        self.replicas = replicas
-        self.isrs = isrs
-        self.low = low
-        self.high = high
-        self.topic = topic
+    id: int = -1
+    leader: int = -1
+    replicas: list[int] = field(default_factory=list)
+    isrs: list[int] = field(default_factory=list)
+    low: int = 0
+    high: int = 0
+    topic: str = ""
 
     def __repr__(self) -> str:
         return str(self)
@@ -178,67 +125,42 @@ class Partition:
         return str(self.id)
 
     def records_count(self) -> int:
-        return self.high - self.low
+        return max(0, self.high - self.low)
 
     def __eq__(self, other: object) -> bool:
         if isinstance(other, Partition):
-            return self.id == other.id
+            return (self.topic, self.id) == (other.topic, other.id)
         return False
 
 
+@dataclass(eq=False)
 class Topic:
-    def __init__(
-        self,
-        name: str = "",
-        partitions: None | list[Partition] = None,
-        groups: None | list[Group] = None,
-        records_state: "MetricState | None" = None,
-        groups_state: "MetricState | None" = None,
-    ) -> None:
-        if groups is None:
-            groups = []
-        if partitions is None:
-            partitions = []
-        self.name = name
-        self.partitions = partitions
-        self.groups = groups
-        self.records_state = records_state or MetricState.LOADING
-        self.groups_state = groups_state or MetricState.LOADING
+    name: str = ""
+    partitions: list[Partition] = field(default_factory=list)
+    groups: list[Group] = field(default_factory=list)
+    records_state: "MetricState" = field(default_factory=lambda: MetricState.LOADING)
+    groups_state: "MetricState" = field(default_factory=lambda: MetricState.LOADING)
 
     def partitions_count(self) -> int:
-        return len(self.partitions) if self.partitions is not None else 0
+        return len(self.partitions)
 
     def groups_count(self) -> int:
-        return len(self.groups) if self.groups is not None else 0
+        return len(self.groups)
 
     def group_members_count(self) -> int:
-        return (
-            sum([group.members_count() for group in self.groups]) if self.groups is not None else 0
-        )
+        return sum(group.members_count() for group in self.groups)
 
     def replicas_count(self) -> int:
-        return (
-            max([len(partition.replicas) for partition in self.partitions], default=0)
-            if self.partitions is not None
-            else 0
-        )
+        return max((len(partition.replicas) for partition in self.partitions), default=0)
 
     def isrs_count(self) -> int:
-        return (
-            min([len(partition.isrs) for partition in self.partitions], default=0)
-            if self.partitions is not None
-            else 0
-        )
+        return min((len(partition.isrs) for partition in self.partitions), default=0)
 
     def lag(self) -> int:
-        return sum([group.lag_count() for group in self.groups]) if self.groups is not None else 0
+        return sum(group.lag_count() for group in self.groups)
 
     def records_count(self) -> int:
-        return (
-            sum([partition.records_count() for partition in self.partitions])
-            if self.partitions is not None
-            else 0
-        )
+        return sum(partition.records_count() for partition in self.partitions)
 
     def __repr__(self) -> str:
         return str(self)
@@ -249,31 +171,6 @@ class Topic:
     def __eq__(self, other: object) -> bool:
         if isinstance(other, Topic):
             return self.name == other.name
-        return False
-
-
-class Cluster:
-    def __init__(
-        self,
-        id: str | None = "",
-        controller: None | Node = None,
-        nodes: None | list[Node] = None,
-    ) -> None:
-        if nodes is None:
-            nodes = []
-        self.id = id
-        self.controller = controller
-        self.nodes = nodes
-
-    def __str__(self) -> str:
-        return str(self.id)
-
-    def __repr__(self) -> str:
-        return str(self)
-
-    def __eq__(self, other: object) -> bool:
-        if isinstance(other, Cluster):
-            return self.id == other.id
         return False
 
 
@@ -302,17 +199,12 @@ class MetricState(Enum):
     UNAVAILABLE = auto()
 
 
+@dataclass(eq=False)
 class Header:
-    def __init__(
-        self,
-        key: str = "",
-        value: bytes | None = None,
-        value_deserializer: Deserializer | None = None,
-    ):
-        self.key = key
-        self.value = value
-        self.value_deserializer = value_deserializer
-        self._deserialized: Any = _NOT_DESERIALIZED
+    key: str = ""
+    value: bytes | None = None
+    value_deserializer: Deserializer | None = None
+    _deserialized: Any = field(default=_NOT_DESERIALIZED, init=False, repr=False)
 
     def __repr__(self) -> str:
         return str(self)
@@ -322,7 +214,7 @@ class Header:
 
     def __eq__(self, other: object) -> bool:
         if isinstance(other, Header):
-            return self.key == other.key
+            return (self.key, self.value) == (other.key, other.value)
         return False
 
     def value_deserialized(self) -> Any:
@@ -348,36 +240,21 @@ class Header:
         return str(self.value_deserialized())
 
 
+@dataclass(eq=False)
 class Record:
-    def __init__(
-        self,
-        topic: str = "",
-        partition: int = -1,
-        offset: int = -1,
-        date: str = "",
-        key: bytes | None = None,
-        value: bytes | None = None,
-        headers: list[Header] | None = None,
-        key_deserialization: Deserialization = Deserialization.BYTES,
-        value_deserialization: Deserialization = Deserialization.BYTES,
-        key_deserializer: Deserializer | None = None,
-        value_deserializer: Deserializer | None = None,
-    ) -> None:
-        self.topic = topic
-        self.partition = partition
-        self.offset = offset
-        self.date = date
-        self.key = key
-        self.value = value
-        if headers is None:
-            headers = []
-        self.headers = headers
-        self.key_deserialization = key_deserialization
-        self.value_deserialization = value_deserialization
-        self.key_deserializer = key_deserializer
-        self.value_deserializer = value_deserializer
-        self._key_deserialized: Any = _NOT_DESERIALIZED
-        self._value_deserialized: Any = _NOT_DESERIALIZED
+    topic: str = ""
+    partition: int = -1
+    offset: int = -1
+    date: str = ""
+    key: bytes | None = None
+    value: bytes | None = None
+    headers: list[Header] = field(default_factory=list)
+    key_deserialization: Deserialization = Deserialization.BYTES
+    value_deserialization: Deserialization = Deserialization.BYTES
+    key_deserializer: Deserializer | None = None
+    value_deserializer: Deserializer | None = None
+    _key_deserialized: Any = field(default=_NOT_DESERIALIZED, init=False, repr=False)
+    _value_deserialized: Any = field(default=_NOT_DESERIALIZED, init=False, repr=False)
 
     def __repr__(self) -> str:
         return str(self)
@@ -387,11 +264,15 @@ class Record:
 
     def __eq__(self, other: object) -> bool:
         if isinstance(other, Record):
-            return self.partition == other.partition and self.offset == other.offset
+            return (self.topic, self.partition, self.offset) == (
+                other.topic,
+                other.partition,
+                other.offset,
+            )
         return False
 
     def headers_count(self) -> int:
-        return len(self.headers) if self.headers is not None else 0
+        return len(self.headers)
 
     def dict(self) -> dict[str, Any]:
         return {
@@ -399,11 +280,7 @@ class Record:
             "partition": self.partition,
             "offset": self.offset,
             "date": self.date,
-            "headers": (
-                [(header.key, header.value_deserialized()) for header in self.headers]
-                if self.headers is not None
-                else []
-            ),
+            "headers": [(header.key, header.value_deserialized()) for header in self.headers],
             "key": {
                 "deserializer": self.key_deserialization.name,
                 "content": self.key_deserialized(),

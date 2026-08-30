@@ -28,6 +28,7 @@ from kaskade.admin import (
     KaskadeAdmin,
     ListTopics,
 )
+from kaskade.commands import RecordFilters
 from kaskade.configs import BOOTSTRAP_SERVERS
 from kaskade.consumer import (
     ChunkSizeScreen,
@@ -442,7 +443,7 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 )
                 app.screen.query_one("#key", Input).value = "customer"
                 await pilot.press("enter")
-                self.assertEqual(("customer", "", "", ""), results.pop())
+                self.assertEqual(RecordFilters(key="customer"), results.pop())
 
                 app.push_screen(ChunkSizeScreen(100), results.append)
                 await pilot.pause()

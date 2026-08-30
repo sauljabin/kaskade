@@ -1,12 +1,9 @@
 import asyncio
-from dataclasses import dataclass
 from datetime import datetime
-from enum import Enum, auto
 from time import perf_counter
 from typing import Any, ClassVar
 
 from confluent_kafka import KafkaException
-from confluent_kafka.cimpl import NewTopic
 from textual import work
 from textual.app import ComposeResult
 from textual.binding import Binding, BindingType
@@ -26,6 +23,7 @@ from textual.widgets import (
 
 from kaskade import logger
 from kaskade.colors import PRIMARY
+from kaskade.commands import CreateTopicCommand, UpdateTopicCommand
 from kaskade.configs import (
     CLEANUP_POLICY_CONFIG,
     MILLISECONDS_1W,
@@ -34,6 +32,7 @@ from kaskade.configs import (
 )
 from kaskade.help import HelpableModalScreen, modal_bindings
 from kaskade.models import CleanupPolicy, MetricState, Topic
+from kaskade.refresh import RefreshCoordinator, RefreshReason
 from kaskade.services import (
     ADMIN_EXCEPTIONS,
     TopicService,
@@ -68,56 +67,6 @@ TOPIC_COLUMN_KEYS = (
 )
 
 
-class RefreshReason(Enum):
-    INITIAL = auto()
-    MANUAL = auto()
-    PERIODIC = auto()
-    RESUME = auto()
-    MUTATION = auto()
-    PENDING = auto()
-
-
-@dataclass
-class RefreshCoordinator:
-    generation: int = 0
-    active: bool = False
-    pending: bool = False
-    mutation_active: bool = False
-
-    def request(self, reason: RefreshReason) -> int | None:
-        if self.active or self.mutation_active:
-            if reason is not RefreshReason.PERIODIC:
-                self.pending = True
-            return None
-        self.generation += 1
-        self.active = True
-        return self.generation
-
-    def is_current(self, generation: int) -> bool:
-        return self.active and generation == self.generation
-
-    def complete(self, generation: int) -> bool:
-        if not self.is_current(generation):
-            return False
-        self.active = False
-        return True
-
-    def take_pending(self) -> bool:
-        if not self.pending or self.active or self.mutation_active:
-            return False
-        self.pending = False
-        return True
-
-    def begin_mutation(self) -> None:
-        self.mutation_active = True
-
-    def end_mutation(self) -> None:
-        self.mutation_active = False
-
-    def discard_pending(self) -> None:
-        self.pending = False
-
-
 def _valid_topic_name(name: str) -> bool:
     return (
         0 < len(name) <= 249
@@ -127,6 +76,23 @@ def _valid_topic_name(name: str) -> bool:
             for character in name
         )
     )
+
+
+def _input_failures(inputs: dict[str, Input]) -> list[str]:
+    failures: list[str] = []
+    for label, input_widget in inputs.items():
+        result = input_widget.validate(input_widget.value)
+        if result is not None and not result.is_valid:
+            description = result.failure_descriptions[0].removesuffix(".")
+            failures.append(f"{label}: {description}")
+    return failures
+
+
+def _focus_first_invalid(inputs: dict[str, Input]) -> None:
+    first_invalid = next(
+        input_widget for input_widget in inputs.values() if input_widget.has_class("-invalid")
+    )
+    first_invalid.focus()
 
 
 class FilterTopicsScreen(HelpableModalScreen[str]):
@@ -360,7 +326,7 @@ class DescribeTopicScreen(HelpableModalScreen):
         self.query_one(Tabs).action_next_tab()
 
 
-class EditTopicScreen(HelpableModalScreen[bool]):
+class EditTopicScreen(HelpableModalScreen[UpdateTopicCommand]):
     BINDING_GROUP_TITLE = "Edit Topic"
     AUTO_FOCUS = "#partitions"
     BINDINGS: ClassVar[list[BindingType]] = modal_bindings(
@@ -397,7 +363,11 @@ class EditTopicScreen(HelpableModalScreen[bool]):
 
     def compose(self) -> ComposeResult:
         input_partitions = Input(
-            id="partitions", type="integer", value=self.partitions, classes="kaskade-input"
+            id="partitions",
+            type="integer",
+            value=self.partitions,
+            validators=Integer(minimum=int(self.partitions)),
+            classes="kaskade-input",
         )
         input_partitions.border_title = "Partitions"
 
@@ -405,12 +375,17 @@ class EditTopicScreen(HelpableModalScreen[bool]):
             id="min_insync_replicas",
             type="integer",
             value=self.min_insync_replicas,
+            validators=Integer(minimum=1),
             classes="kaskade-input",
         )
         input_min_insync.border_title = "Min In-Sync Replicas"
 
         input_retention = Input(
-            id="retention", type="integer", value=self.retention, classes="kaskade-input"
+            id="retention",
+            type="integer",
+            value=self.retention,
+            validators=Integer(minimum=-1),
+            classes="kaskade-input",
         )
         input_retention.border_title = "Retention (ms)"
 
@@ -436,29 +411,37 @@ class EditTopicScreen(HelpableModalScreen[bool]):
         yield Footer(compact=True)
 
     def action_edit(self) -> None:
-        partitions_input = self.query_one("#partitions", Input)
-        self.partitions = partitions_input.value
-
-        retention_input = self.query_one("#retention", Input)
-        self.retention = retention_input.value
-
-        min_insync_replicas_input = self.query_one("#min_insync_replicas", Input)
-        self.min_insync_replicas = min_insync_replicas_input.value
+        inputs = {
+            "Partitions": self.query_one("#partitions", Input),
+            "Min In-Sync Replicas": self.query_one("#min_insync_replicas", Input),
+            "Retention": self.query_one("#retention", Input),
+        }
+        failures = _input_failures(inputs)
+        if failures:
+            _focus_first_invalid(inputs)
+            self.notify("\n".join(failures), title="Invalid Topic", severity="warning")
+            return
 
         cleanup_input = self.query_one("#cleanup", RadioSet)
-        self.cleanup_policy = (
+        cleanup_policy = (
             str(cleanup_input.pressed_button.label)
             if cleanup_input.pressed_button is not None
             else str(CleanupPolicy.DELETE)
         )
-
-        self.dismiss(True)
+        self.dismiss(
+            UpdateTopicCommand(
+                partitions=int(inputs["Partitions"].value),
+                min_insync_replicas=int(inputs["Min In-Sync Replicas"].value),
+                cleanup_policy=cleanup_policy,
+                retention_ms=int(inputs["Retention"].value),
+            )
+        )
 
     def action_back(self) -> None:
-        self.dismiss(False)
+        self.dismiss()
 
 
-class CreateTopicScreen(HelpableModalScreen[NewTopic]):
+class CreateTopicScreen(HelpableModalScreen[CreateTopicCommand]):
     BINDING_GROUP_TITLE = "Create Topic"
     AUTO_FOCUS = "#name"
     BINDINGS: ClassVar[list[BindingType]] = modal_bindings(
@@ -552,13 +535,7 @@ class CreateTopicScreen(HelpableModalScreen[NewTopic]):
             "Min In-Sync Replicas": self.query_one("#min_insync_replicas", Input),
             "Retention": self.query_one("#retention", Input),
         }
-        failures: list[str] = []
-
-        for label, input_widget in inputs.items():
-            result = input_widget.validate(input_widget.value)
-            if result is not None and not result.is_valid:
-                description = result.failure_descriptions[0].removesuffix(".")
-                failures.append(f"{label}: {description}")
+        failures = _input_failures(inputs)
 
         replicas = inputs["Replicas"]
         min_insync_replicas = inputs["Min In-Sync Replicas"]
@@ -567,12 +544,7 @@ class CreateTopicScreen(HelpableModalScreen[NewTopic]):
             failures.append("Min In-Sync Replicas cannot exceed Replicas")
 
         if failures:
-            first_invalid = next(
-                input_widget
-                for input_widget in inputs.values()
-                if input_widget.has_class("-invalid")
-            )
-            first_invalid.focus()
+            _focus_first_invalid(inputs)
             self.notify("\n".join(failures), title="Invalid Topic", severity="warning")
             return
 
@@ -583,18 +555,15 @@ class CreateTopicScreen(HelpableModalScreen[NewTopic]):
             else str(CleanupPolicy.DELETE)
         )
 
-        new_topic = NewTopic(
-            topic=inputs["Name"].value,
-            num_partitions=int(inputs["Partitions"].value),
-            replication_factor=int(replicas.value),
-            config={
-                CLEANUP_POLICY_CONFIG: cleanup,
-                RETENTION_MS_CONFIG: inputs["Retention"].value,
-                MIN_INSYNC_REPLICAS_CONFIG: min_insync_replicas.value,
-            },
+        command = CreateTopicCommand(
+            name=inputs["Name"].value,
+            partitions=int(inputs["Partitions"].value),
+            replicas=int(replicas.value),
+            min_insync_replicas=int(min_insync_replicas.value),
+            cleanup_policy=cleanup,
+            retention_ms=int(inputs["Retention"].value),
         )
-
-        self.dismiss(new_topic)
+        self.dismiss(command)
 
     def action_back(self) -> None:
         self.dismiss()
@@ -840,7 +809,7 @@ class ListTopics(Container):
         )
 
     def action_new(self) -> None:
-        def on_dismiss(result: NewTopic | None) -> None:
+        def on_dismiss(result: CreateTopicCommand | None) -> None:
             if result is None:
                 return
             self.refresh_coordinator.begin_mutation()
@@ -849,14 +818,14 @@ class ListTopics(Container):
         self.app.push_screen(CreateTopicScreen(), on_dismiss)
 
     @work(exclusive=True, group="topic-mutation")
-    async def create_topic(self, topic: NewTopic) -> None:
+    async def create_topic(self, command: CreateTopicCommand) -> None:
         """Create a topic without blocking Textual's message loop."""
         self.start_loading_table()
         refresh_after = False
         try:
-            await make_it_async(self.topic_service.create, [topic])
+            await make_it_async(self.topic_service.create, command)
             self.app.notify(
-                f"Created topic '{topic.topic}'",
+                f"Created topic '{command.name}'",
                 title="Topic Created",
                 severity="information",
             )
@@ -902,31 +871,37 @@ class ListTopics(Container):
             retention if retention else "",
         )
 
-        def on_dismiss(result: bool | None) -> None:
-            if not result:
+        def on_dismiss(result: UpdateTopicCommand | None) -> None:
+            if result is None:
                 return
             self.refresh_coordinator.begin_mutation()
-            self.update_topic(topic, edit_topic_screen)
+            self.update_topic(topic, result)
 
         self.app.push_screen(edit_topic_screen, on_dismiss)
 
     @work(exclusive=True, group="topic-mutation")
-    async def update_topic(self, topic: Topic, editor: EditTopicScreen) -> None:
+    async def update_topic(self, topic: Topic, command: UpdateTopicCommand) -> None:
         """Update a topic without blocking Textual's message loop."""
         self.start_loading_table()
         refresh_after = False
+        partitions_added = False
         try:
-            partition_count = int(editor.partitions)
-            if partition_count > topic.partitions_count():
-                await make_it_async(self.topic_service.add_partitions, topic.name, partition_count)
+            if command.partitions > topic.partitions_count():
+                await make_it_async(
+                    self.topic_service.add_partitions,
+                    topic.name,
+                    command.partitions,
+                )
+                partitions_added = True
+                refresh_after = True
 
             await make_it_async(
                 self.topic_service.edit,
                 topic.name,
                 {
-                    MIN_INSYNC_REPLICAS_CONFIG: editor.min_insync_replicas,
-                    CLEANUP_POLICY_CONFIG: editor.cleanup_policy,
-                    RETENTION_MS_CONFIG: editor.retention,
+                    MIN_INSYNC_REPLICAS_CONFIG: str(command.min_insync_replicas),
+                    CLEANUP_POLICY_CONFIG: command.cleanup_policy,
+                    RETENTION_MS_CONFIG: str(command.retention_ms),
                 },
             )
             self.app.notify(
@@ -936,7 +911,8 @@ class ListTopics(Container):
             )
             refresh_after = True
         except (KafkaException, ValueError) as ex:
-            notify_error(self.app, "Kafka Error", ex)
+            title = "Topic Partially Updated" if partitions_added else "Kafka Error"
+            notify_error(self.app, title, ex)
         finally:
             self.finish_loading_table()
             self._finish_mutation(refresh_after)

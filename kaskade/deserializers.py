@@ -173,7 +173,7 @@ class AvroDeserializer(Deserializer):
     def __init__(self, avro_config: dict[str, str]):
         self.key_path = avro_config.get("key")
         self.value_path = avro_config.get("value")
-        self.descriptor_classes: dict[str, type[Message]] | None = None
+        self.framing = avro_config.get("framing", "raw")
 
     def deserialize(
         self, data: bytes, topic: str | None = None, context: MessageField = MessageField.NONE
@@ -196,7 +196,17 @@ class AvroDeserializer(Deserializer):
         if schema_path is None:
             raise DeserializationError("Avro schema file not found")
 
-        return avro_to_py(schema_path, _without_confluent_header(data))
+        payload = self._payload(data)
+        return avro_to_py(schema_path, payload)
+
+    def _payload(self, data: bytes) -> bytes:
+        if self.framing == "raw":
+            return data
+        if self.framing == "confluent" and _has_confluent_header(data):
+            return data[5:]
+        if self.framing == "confluent":
+            raise DeserializationError("Confluent Avro framing header not found")
+        raise DeserializationError(f"Unsupported Avro framing: {self.framing}")
 
 
 class ProtobufDeserializer(Deserializer):
@@ -284,6 +294,7 @@ class DeserializerPool:
         self.long_deserializer = LongDeserializer()
         self.default_deserializer = DefaultDeserializer()
         self._deserializers: dict[Deserialization, Deserializer | None] = {
+            Deserialization.BYTES: self.default_deserializer,
             Deserialization.STRING: self.string_deserializer,
             Deserialization.JSON: self.json_deserializer,
             Deserialization.INTEGER: self.integer_deserializer,
@@ -297,7 +308,12 @@ class DeserializerPool:
         }
 
     def get(self, deserialization_format: Deserialization) -> Deserializer:
-        deserializer = self._deserializers.get(deserialization_format, self.default_deserializer)
+        try:
+            deserializer = self._deserializers[deserialization_format]
+        except KeyError as ex:
+            raise DeserializationError(
+                f"Deserializer not registered: {deserialization_format}"
+            ) from ex
         if deserializer is None:
             configured_name = {
                 Deserialization.REGISTRY: "Schema Registry",

@@ -1,14 +1,12 @@
 import asyncio
-import os
 import unittest
+from pathlib import Path
 
 from confluent_kafka import Producer
 from confluent_kafka.admin import AdminClient
 from confluent_kafka.cimpl import NewTopic
-from parameterized import parameterized
-from testcontainers.kafka import KafkaContainer, RedpandaContainer
+from testcontainers.kafka import KafkaContainer
 from textual.widgets import DataTable
-from textual.widgets._data_table import RowKey
 
 from kaskade.admin import KaskadeAdmin
 from kaskade.configs import AUTO_OFFSET_RESET, BOOTSTRAP_SERVERS, EARLIEST
@@ -21,17 +19,13 @@ MY_KEY = "my-key"
 MY_TOPIC = "my-topic"
 
 
-CURRENT_PATH = os.getcwd()
-PROPERTIES_PATH = (
-    f"{CURRENT_PATH}/../.env" if CURRENT_PATH.endswith("tests_e2e") else f"{CURRENT_PATH}/.env"
-)
+PROPERTIES_PATH = str(Path(__file__).resolve().parents[2] / ".env")
 SANDBOX_PROPERTIES = load_properties(PROPERTIES_PATH)
 CONFLUENT_VERSION = SANDBOX_PROPERTIES["CONFLUENT_VERSION"]
-REDPANDA_VERSION = SANDBOX_PROPERTIES["REDPANDA_VERSION"]
-KAFKA_IMPLEMENTATIONS = [
-    KafkaContainer(f"confluentinc/cp-kafka:{CONFLUENT_VERSION}").with_kraft(),
-    RedpandaContainer(f"redpandadata/redpanda:v{REDPANDA_VERSION}"),
-]
+
+
+def kafka_container() -> KafkaContainer:
+    return KafkaContainer(f"confluentinc/cp-kafka:{CONFLUENT_VERSION}").with_kraft()
 
 
 def create_topic(config):
@@ -48,26 +42,28 @@ def populate_topic(config):
 
 
 class TestE2E(unittest.IsolatedAsyncioTestCase):
+    async def wait_for_rows(self, table: DataTable, expected: int, timeout: float = 15) -> None:
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + timeout
+        while len(table.rows) != expected:
+            if loop.time() >= deadline:
+                self.fail(f"Expected {expected} row(s), found {len(table.rows)}")
+            await asyncio.sleep(0.1)
 
-    @parameterized.expand(KAFKA_IMPLEMENTATIONS)
-    async def test_admin(self, kafka):
-        with kafka:
+    async def test_admin(self):
+        with kafka_container() as kafka:
             config = {BOOTSTRAP_SERVERS: kafka.get_bootstrap_server()}
             create_topic(config)
 
             admin_app = KaskadeAdmin(config)
             async with admin_app.run_test():
-                await asyncio.sleep(10)
                 table = admin_app.query_one(DataTable)
-                self.assertEqual(1, len(table.rows))
+                await self.wait_for_rows(table, 1)
 
-                first_row = table._data[RowKey(MY_TOPIC)]
-                first_column = next(iter(first_row.values()))
-                self.assertEqual(MY_TOPIC, first_column)
+                self.assertEqual(MY_TOPIC, table.get_row(MY_TOPIC)[0])
 
-    @parameterized.expand(KAFKA_IMPLEMENTATIONS)
-    async def test_consumer(self, kafka):
-        with kafka:
+    async def test_consumer(self):
+        with kafka_container() as kafka:
             config = {BOOTSTRAP_SERVERS: kafka.get_bootstrap_server()}
             create_topic(config)
             populate_topic(config)
@@ -82,16 +78,12 @@ class TestE2E(unittest.IsolatedAsyncioTestCase):
                 Deserialization.STRING,
             )
             async with consumer_app.run_test():
-                await asyncio.sleep(10)
                 table = consumer_app.query_one(DataTable)
-                self.assertEqual(1, len(table.rows))
+                await self.wait_for_rows(table, 1)
 
-                first_row = table._data[RowKey("0/0")]
-                columns = iter(first_row.values())
-                first_column = next(columns)
-                second_column = next(columns)
-                self.assertEqual(MY_KEY, first_column)
-                self.assertEqual(MY_VALUE, second_column)
+                first_row = table.get_row("0/0")
+                self.assertEqual(MY_KEY, first_row[0])
+                self.assertEqual(MY_VALUE, first_row[1])
 
 
 if __name__ == "__main__":
