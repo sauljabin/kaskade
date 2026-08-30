@@ -22,24 +22,6 @@
 
 Bring Kafka along for the terminal ride. Kaskade gives you a stylish, keyboard-friendly way to explore clusters, manage topics, and consume records.
 
-## Features
-
-| Area | Capability | Availability |
-| --- | --- | --- |
-| General | Customize themes and keybindings | Supported |
-| Admin | Browse topics, partitions, groups, and group members | Supported |
-| Admin | View topic lag, replicas, and record counts | Supported |
-| Admin | Create, edit, and delete topics | Supported, except changing the replication factor |
-| Admin | Filter topics by name | Supported |
-| Admin | Copy topic names to the clipboard | Supported in [OSC 52-compatible terminals](https://github.com/sauljabin/kaskade/blob/main/USAGE.md#osc-52-compatibility) |
-| Admin | Refresh topic metadata and metrics | Automatic every 30 seconds, configurable, or manual |
-| Consumer | Deserialize keys and values as bytes, JSON, string, integer, long, float, boolean, or double | Supported |
-| Consumer | Filter records by key, value, header, and/or partition | Supported |
-| Consumer | Copy individual records as JSON | Supported in [OSC 52-compatible terminals](https://github.com/sauljabin/kaskade/blob/main/USAGE.md#osc-52-compatibility) |
-| Consumer | Export individual records as JSON | Supported |
-| Consumer | Deserialize with Schema Registry | Avro and JSON are supported; Protobuf is not supported |
-| Consumer | Deserialize without Schema Registry | Avro and Protobuf are supported |
-
 ## Screenshots
 
 <table width="100%">
@@ -56,6 +38,36 @@ Bring Kafka along for the terminal ride. Kaskade gives you a stylish, keyboard-f
     </td>
   </tr>
 </table>
+
+## Features
+
+### Kafka administration
+
+- Browse topics, partitions, consumer groups, and group members
+- Inspect topic lag, replicas, and record counts
+- Create, edit, delete, and filter topics
+- Refresh topic metadata and metrics automatically or manually
+- Copy topic names to the clipboard
+
+### Record consumption
+
+- Deserialize keys and values as bytes, JSON, string, integer, long, float,
+  boolean, or double
+- Filter records by key, value, header, or partition
+- Copy or export individual records as JSON
+- Deserialize Avro and JSON data with Schema Registry
+- Deserialize Avro and Protobuf data without Schema Registry
+
+### Terminal experience
+
+- Customize themes and keybindings
+- Copy data through an [OSC 52-compatible terminal](https://github.com/sauljabin/kaskade/blob/main/USAGE.md#osc-52-compatibility)
+
+## Current limitations
+
+- Topic replication factors cannot be changed
+- Schema Registry does not support Protobuf
+- Clipboard integration requires an OSC 52-compatible terminal
 
 ## Quick start
 
@@ -115,4 +127,5 @@ reviewed and tested by the maintainer before they are included.
 
 <p>
 <a href="https://github.com/littlehorse-enterprises/littlehorse"><img alt="Sponsored by LittleHorse" src="https://raw.githubusercontent.com/sauljabin/kaskade/main/images/littlehorse-badge.svg"></a>
+<a href="https://textual.textualize.io/"><img alt="Built with Textual" src="https://raw.githubusercontent.com/sauljabin/kaskade/main/images/textual-badge.svg"></a>
 </p>
