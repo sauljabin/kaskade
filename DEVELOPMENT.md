@@ -52,7 +52,8 @@ Unit test modules live in `tests/unit`:
 uv run python -m scripts.tests
 ```
 
-E2E test modules live in `tests/e2e` and run against Confluent Kafka:
+E2E test modules live in `tests/e2e` and run against Confluent Kafka through
+Testcontainers:
 
 ```bash
 uv run python -m scripts.tests --e2e
@@ -82,12 +83,35 @@ Generate admin and consumer screenshots with mock data (no Kafka broker required
 uv run python -m scripts.screenshots
 ```
 
+### Build Artifacts
+
+Build the Python wheel and source distribution:
+
+```bash
+uv build --clear
+```
+
+Both artifacts are written to `dist/`. Their version is derived from Git by
+`hatch-vcs`: an exact `vMAJOR.MINOR.PATCH` tag produces a release version, while
+an untagged commit produces a development version.
+
+Verify that the artifacts contain matching versions and all required files:
+
+```bash
+uv run --locked python -m scripts.verify_release dist
+```
+
+The verification checks the wheel metadata, console entry point, packaged CSS,
+required source-distribution files, and consistency between the wheel and source
+distribution versions. Use `--expected-version VERSION` when the version must
+also match a release tag.
+
 ### Docker
 
 Build docker:
 
 ```bash
-uv run python -m scripts.docker
+docker build -t sauljabin/kaskade:latest .
 ```
 
 > Image tag `sauljabin/kaskade:latest`.
@@ -142,28 +166,46 @@ published, create a new patch version instead of reusing the tag.
 
 ### Manual Tests
 
-Run a local sandbox (choose one of `confluent`, `redpanda`, or `apicurio`):
+The standalone `sandbox` package owns its Compose environment, population tools,
+and Avro, JSON Schema, and Protobuf models. These models are intentionally
+separate from the fixtures under `tests/unit`.
+
+Start the sandbox's three-node Confluent Kafka cluster, Apicurio Registry, and
+Confluent Schema Registry:
 
 ```bash
-docker compose -f docker-compose.confluent.yml up -d
-docker compose -f docker-compose.redpanda.yml up -d
-docker compose -f docker-compose.apicurio.yml up -d
+docker compose --project-directory sandbox up -d
 ```
 
 Stop sandbox:
 
 ```bash
-docker compose -f docker-compose.confluent.yml down -v
-docker compose -f docker-compose.redpanda.yml down -v
-docker compose -f docker-compose.apicurio.yml down -v
+docker compose --project-directory sandbox down -v
 ```
 
-> Use the docker-compose file you need.
+Kafka is available at `localhost:19092`, `localhost:29092`, and
+`localhost:39092`. Confluent Schema Registry is available at
+`http://localhost:18081`; Apicurio's compatibility API is available at
+`http://localhost:18082/apis/ccompat/v7`. Image versions and the Kafka cluster
+ID are defined in `sandbox/.env`.
 
-Populate Kafka:
+Populate Kafka using Confluent Schema Registry:
 
 ```bash
-uv run python -m scripts.sandbox
+uv run python -m sandbox
+```
+
+To use Apicurio instead, populate a fresh sandbox with its compatibility API:
+
+```bash
+uv run python -m sandbox --registry http://localhost:18082/apis/ccompat/v7
+```
+
+Run the simple sandbox consumer when a persistent consumer group is useful for
+manual admin testing:
+
+```bash
+uv run python -m sandbox.consumer
 ```
 
 Read help messages:
@@ -217,7 +259,7 @@ uv run kaskade consumer -b localhost:19092 --from-beginning -k string -v double 
 uv run kaskade consumer -b localhost:19092 --from-beginning -k string -v boolean -t boolean
 ```
 
-Test json consumer with Schema Registry (Confluent and Redpanda):
+Test json consumer with Schema Registry:
 
 ```bash
 uv run kaskade consumer -b localhost:19092 --from-beginning -t json-schema \
@@ -235,7 +277,7 @@ uv run kaskade consumer -b localhost:19092 --from-beginning -k string -v json -t
 uv run kaskade consumer -b localhost:19092 --from-beginning -k string -v json -t json-schema
 ```
 
-Test avro consumer with Schema Registry (Confluent and Redpanda):
+Test avro consumer with Schema Registry:
 
 ```bash
 uv run kaskade consumer -b localhost:19092 --from-beginning -t avro-schema \
@@ -248,7 +290,7 @@ Test avro consumer with Apicurio Registry:
 ```bash
 uv run kaskade consumer -b localhost:19092 --from-beginning -t avro-schema \
         -k string -v registry \
-        --registry url=http://localhost:18081/apis/ccompat/v7
+        --registry url=http://localhost:18082/apis/ccompat/v7
 ```
 
 Test avro consumer without Schema Registry:
@@ -256,31 +298,40 @@ Test avro consumer without Schema Registry:
 ```bash
 uv run kaskade consumer -b localhost:19092 --from-beginning -t avro \
         -k string -v avro \
-        --avro value=tests/avro_model/user.avsc
+        --avro value=sandbox/avro_model/user.avsc
 ```
 
 ```bash
 uv run kaskade consumer -b localhost:19092 --from-beginning -t avro-schema \
         -k string -v avro \
-        --avro value=tests/avro_model/user.avsc \
+        --avro value=sandbox/avro_model/user.avsc \
         --avro framing=confluent
 ```
 
 Test protobuf consumer:
 
-> Install `protoc` with `brew install protobuf`.\
-> Update the descriptor with `uv run python -m scripts.protobuf`.
+The checked-in descriptor is generated from `sandbox/protobuf_model/user.proto`.
+After changing the schema, regenerate the sandbox artifacts with `protoc`:
+
+```bash
+protoc --include_imports \
+       --proto_path=sandbox/protobuf_model \
+       --python_out=sandbox/protobuf_model \
+       --pyi_out=sandbox/protobuf_model \
+       --descriptor_set_out=sandbox/protobuf_model/user.desc \
+       sandbox/protobuf_model/user.proto
+```
 
 ```bash
 uv run kaskade consumer -b localhost:19092 --from-beginning -t protobuf \
         -k string -v protobuf \
-        --protobuf descriptor=tests/protobuf_model/user.desc \
+        --protobuf descriptor=sandbox/protobuf_model/user.desc \
         --protobuf value=User
 ```
 
 ```bash
 uv run kaskade consumer -b localhost:19092 --from-beginning -t protobuf-schema \
         -k string -v protobuf \
-        --protobuf descriptor=tests/protobuf_model/user.desc \
+        --protobuf descriptor=sandbox/protobuf_model/user.desc \
         --protobuf value=User
 ```

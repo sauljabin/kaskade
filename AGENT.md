@@ -210,9 +210,19 @@ uv run --locked python -m scripts.tests
 Add focused assertions to `tests/unit/tests_themes.py` and/or
 `tests/unit/tests_keymaps.py` when changing the conventions above.
 
-Unit tests live in `tests/unit`, and end-to-end tests live in `tests/e2e` and
-use Confluent Kafka. Keep E2E tests condition-based and use public Textual APIs
-rather than fixed sleeps or private widget state.
+Unit tests and their Avro, JSON Schema, and Protobuf fixtures live in
+`tests/unit`. End-to-end tests live in `tests/e2e` and use Confluent Kafka
+through Testcontainers. Keep E2E tests condition-based and use public Textual
+APIs rather than fixed sleeps or private widget state.
+
+The manual Kafka environment lives entirely in `sandbox`, including its own
+schema models, generated Protobuf artifacts, Compose file, and environment
+versions. Never import test fixtures from sandbox utilities or sandbox models
+from tests. Keep one Compose topology: three Confluent Kafka brokers, Apicurio
+Registry, and Confluent Schema Registry, with no web UI.
+
+Reusable script classes and functions belong in `scripts/__init__.py`; keep
+individual script modules focused on executable workflows.
 
 ## Releases and Versions
 

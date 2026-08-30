@@ -23,7 +23,7 @@ from kaskade.models import (
 )
 from kaskade.services import ConsumerService, EnrichmentResult, GroupSnapshot, TopicService
 from kaskade.widgets import KaskadeHeader
-from scripts.svg import normalize_svg
+from scripts import normalize_svg
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 IMAGES_DIRECTORY = PROJECT_ROOT / "images"

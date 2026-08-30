@@ -6,7 +6,7 @@ from textual.app import ComposeResult
 
 from kaskade.banner import KaskadeBanner
 from kaskade.themes import KaskadeApp
-from scripts.svg import normalize_svg
+from scripts import normalize_svg
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 IMAGES_DIRECTORY = PROJECT_ROOT / "images"

@@ -108,6 +108,7 @@ celerybeat.pid
 
 # Environments
 .env
+!sandbox/.env
 .venv
 .release-venv/
 env/

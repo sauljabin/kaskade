@@ -1,31 +1,27 @@
 import asyncio
 import unittest
-from pathlib import Path
 
 from confluent_kafka import Producer
 from confluent_kafka.admin import AdminClient
 from confluent_kafka.cimpl import NewTopic
-from testcontainers.kafka import KafkaContainer
+from testcontainers.community.kafka import KafkaContainer
 from textual.widgets import DataTable
 
 from kaskade.admin import KaskadeAdmin
 from kaskade.configs import AUTO_OFFSET_RESET, BOOTSTRAP_SERVERS, EARLIEST
 from kaskade.consumer import KaskadeConsumer
 from kaskade.deserializers import Deserialization
-from kaskade.utils import load_properties
 
 MY_VALUE = "my-value"
 MY_KEY = "my-key"
 MY_TOPIC = "my-topic"
 
 
-PROPERTIES_PATH = str(Path(__file__).resolve().parents[2] / ".env")
-SANDBOX_PROPERTIES = load_properties(PROPERTIES_PATH)
-CONFLUENT_VERSION = SANDBOX_PROPERTIES["CONFLUENT_VERSION"]
+KAFKA_IMAGE = "confluentinc/cp-kafka:8.1.0"
 
 
 def kafka_container() -> KafkaContainer:
-    return KafkaContainer(f"confluentinc/cp-kafka:{CONFLUENT_VERSION}").with_kraft()
+    return KafkaContainer(KAFKA_IMAGE).with_kraft()
 
 
 def create_topic(config):

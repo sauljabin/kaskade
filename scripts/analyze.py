@@ -3,7 +3,7 @@ from scripts import CommandProcessor
 
 def main() -> None:
     commands = {
-        "checking types": "mypy kaskade/ scripts/",
+        "checking types": "mypy kaskade/ sandbox/ scripts/",
         "black": "black --check .",
         "ruff": "ruff check .",
         "typos": "typos --format brief",
