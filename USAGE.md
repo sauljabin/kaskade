@@ -274,6 +274,10 @@ kaskade consumer -b my-kafka:9092 --from-beginning \
         --avro value=my-schema.avsc
 ```
 
+Local-schema Avro deserialization treats payloads as raw Avro by default. For records
+produced with Confluent's five-byte framing, add `--avro framing=confluent`. Framing is
+explicit because a valid raw Avro payload may also begin with a zero byte.
+
 ### Protobuf consumer
 
 Install `protoc`:

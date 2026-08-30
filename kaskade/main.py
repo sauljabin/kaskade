@@ -9,6 +9,7 @@ from kaskade.admin import KaskadeAdmin
 from kaskade.configs import (
     AUTO_OFFSET_RESET,
     AVRO_DESERIALIZER_CONFIGS,
+    AVRO_FRAMINGS,
     BOOTSTRAP_SERVERS,
     EARLIEST,
     PROTOBUF_DESERIALIZER_CONFIGS,
@@ -20,6 +21,7 @@ from kaskade.keymaps import (
     MIN_ADMIN_REFRESH_INTERVAL_SECONDS,
     is_valid_admin_refresh_interval,
 )
+from kaskade.logs import configure_logging
 from kaskade.themes import DEFAULT_THEME, available_theme_names
 from kaskade.utils import load_properties
 
@@ -63,6 +65,7 @@ def validate_admin_refresh_interval(ctx: Any, param: Any, value: int | None) -> 
 @cloup.version_option(APP_VERSION)
 def cli() -> None:
     """kaskade is a terminal user interface for kafka."""
+    configure_logging()
 
 
 @cli.command(epilog=EPILOG_HELP)
@@ -213,7 +216,8 @@ def admin(
         "--avro",
         "avro_config",
         help="Avro property. Configure the avro deserializer. Multiple '--avro' are allowed. Needed if '-k avro' "
-        "or '-v avro' were passed. Valid properties: [key: avsc file path, value: avsc file path].",
+        "or '-v avro' were passed. Valid properties: [key: avsc file path, value: avsc file path, "
+        "framing: raw or confluent].",
         metavar="property=value",
         multiple=True,
         callback=tuple_properties_to_dict,
@@ -334,6 +338,10 @@ def validate_avro(
 
     if [config for config in avro_config if config not in AVRO_DESERIALIZER_CONFIGS]:
         raise BadParameter(message=f"Valid properties: {AVRO_DESERIALIZER_CONFIGS}.")
+
+    framing = avro_config.get("framing", "raw")
+    if framing not in AVRO_FRAMINGS:
+        raise BadParameter(message=f"Avro framing should be one of {AVRO_FRAMINGS}.")
 
     if (
         key_deserialization != Deserialization.AVRO

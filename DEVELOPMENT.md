@@ -52,7 +52,7 @@ Unit tests:
 uv run python -m scripts.tests
 ```
 
-E2E tests:
+E2E tests against Confluent Kafka:
 
 ```bash
 uv run python -m scripts.tests --e2e
@@ -262,7 +262,8 @@ uv run kaskade consumer -b localhost:19092 --from-beginning -t avro \
 ```bash
 uv run kaskade consumer -b localhost:19092 --from-beginning -t avro-schema \
         -k string -v avro \
-        --avro value=tests/avro_model/user.avsc
+        --avro value=tests/avro_model/user.avsc \
+        --avro framing=confluent
 ```
 
 Test protobuf consumer:

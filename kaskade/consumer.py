@@ -1,18 +1,16 @@
-import json
-from datetime import datetime, timezone
-from io import StringIO
+from inspect import isawaitable
 from typing import ClassVar
 
 from confluent_kafka import KafkaException
-from rich.json import JSON
 from textual import work
-from textual.app import App, ComposeResult
+from textual.app import ComposeResult
 from textual.binding import Binding, BindingType
 from textual.containers import Container
 from textual.widgets import DataTable, Footer, Input, OptionList, Static
 from textual.widgets.option_list import Option
 
 from kaskade.colors import PRIMARY
+from kaskade.commands import RecordFilters
 from kaskade.deserializers import (
     DESERIALIZATION_EXCEPTIONS,
     Deserialization,
@@ -20,6 +18,11 @@ from kaskade.deserializers import (
 )
 from kaskade.help import HelpableModalScreen, modal_bindings
 from kaskade.models import Record
+from kaskade.record_export import (
+    deliver_record,
+    record_json,
+    record_json_renderable,
+)
 from kaskade.services import ConsumerService
 from kaskade.themes import KaskadeApp
 from kaskade.utils import copy_text, notify_error
@@ -43,41 +46,7 @@ CONSUMER_EXCEPTIONS: tuple[type[Exception], ...] = (
 )
 
 
-def record_json(record: Record) -> str:
-    """Return a readable JSON representation of a consumed record."""
-    return json.dumps(record.dict(), indent=2, ensure_ascii=False, default=str) + "\n"
-
-
-def record_json_renderable(data: object) -> JSON:
-    """Return syntax-highlighted, indented JSON that wraps long values."""
-    renderable = JSON.from_data(data, indent=2, ensure_ascii=False, default=str)
-    renderable.text.no_wrap = False
-    renderable.text.overflow = "fold"
-    return renderable
-
-
-def record_filename(record: Record, exported_at: datetime | None = None) -> str:
-    """Build a screenshot-style, collision-resistant record export filename."""
-    export_time = exported_at or datetime.now(timezone.utc).astimezone()
-    timestamp = export_time.replace(tzinfo=None).isoformat()
-    filename_stem = f"kaskade-record-{record.topic}-{record.partition}-{record.offset}_{timestamp}"
-    for reserved_character in ' <>:"/\\|?*.':
-        filename_stem = filename_stem.replace(reserved_character, "_")
-    return f"{filename_stem}.json"
-
-
-def deliver_record(application: App[object], record: Record) -> None:
-    """Deliver a record to the same destination used by Textual screenshots."""
-    application.deliver_text(
-        StringIO(record_json(record)),
-        save_filename=record_filename(record),
-        encoding="utf-8",
-        mime_type="application/json",
-        name="record",
-    )
-
-
-class FilterRecordScreen(HelpableModalScreen[tuple[str, str, str, str]]):
+class FilterRecordScreen(HelpableModalScreen[RecordFilters]):
     BINDING_GROUP_TITLE = "Filter Records"
     AUTO_FOCUS = "#key"
     BINDINGS: ClassVar[list[BindingType]] = modal_bindings(
@@ -100,10 +69,6 @@ class FilterRecordScreen(HelpableModalScreen[tuple[str, str, str, str]]):
 
     def __init__(self) -> None:
         super().__init__()
-        self.key_filter = ""
-        self.value_filter = ""
-        self.partition_filter = ""
-        self.header_filter = ""
 
     def compose(self) -> ComposeResult:
         input_key = Input(id="key", placeholder="Key contains…", classes="kaskade-input")
@@ -139,20 +104,14 @@ class FilterRecordScreen(HelpableModalScreen[tuple[str, str, str, str]]):
         self.action_apply_filters()
 
     def action_apply_filters(self) -> None:
-        input_key = self.query_one("#key", Input)
-        self.key_filter = input_key.value
-
-        input_value = self.query_one("#value", Input)
-        self.value_filter = input_value.value
-
-        input_partition = self.query_one("#partition", Input)
-        self.partition_filter = input_partition.value
-
-        input_header = self.query_one("#header", Input)
-        self.header_filter = input_header.value
-
+        partition_value = self.query_one("#partition", Input).value
         self.dismiss(
-            (self.key_filter, self.value_filter, self.partition_filter, self.header_filter)
+            RecordFilters(
+                key=self.query_one("#key", Input).value,
+                value=self.query_one("#value", Input).value,
+                partition=int(partition_value) if partition_value else None,
+                header=self.query_one("#header", Input).value,
+            )
         )
 
     def action_back(self) -> None:
@@ -346,10 +305,7 @@ class ListRecords(Container):
         self.consumer = self._new_consumer()
         self.records: dict[str, Record] = {}
         self.current_record: Record | None = None
-        self.key_filter = ""
-        self.value_filter = ""
-        self.partition_filter = ""
-        self.header_filter = ""
+        self.filters = RecordFilters()
         self._is_consuming = False
 
     def _new_consumer(self) -> ConsumerService:
@@ -367,17 +323,17 @@ class ListRecords(Container):
 
         title_filter = ""
 
-        if self.key_filter:
-            title_filter += style(f"k:*{self.key_filter}*")
+        if self.filters.key:
+            title_filter += style(f"k:*{self.filters.key}*")
 
-        if self.value_filter:
-            title_filter += style(f"v:*{self.value_filter}*")
+        if self.filters.value:
+            title_filter += style(f"v:*{self.filters.value}*")
 
-        if self.partition_filter:
-            title_filter += style(f"p:{self.partition_filter}")
+        if self.filters.partition is not None:
+            title_filter += style(f"p:{self.filters.partition}")
 
-        if self.header_filter:
-            title_filter += style(f"h:*{self.header_filter}*")
+        if self.filters.header:
+            title_filter += style(f"h:*{self.filters.header}*")
 
         return rf"[{PRIMARY}]Records[/] \[[{PRIMARY}]{self.topic}[/]]{title_filter}\[[{PRIMARY}]{len(self.records)}[/]]"
 
@@ -399,27 +355,24 @@ class ListRecords(Container):
 
         yield table
 
-    def on_unmount(self) -> None:
-        self.consumer.close()
+    async def on_unmount(self) -> None:
+        result = self.consumer.aclose()
+        if isawaitable(result):
+            await result
 
     def on_mount(self) -> None:
         self.query_one("#records-table", DataTable).focus()
         self.action_consume()
 
     def action_all(self) -> None:
-        self.key_filter, self.value_filter, self.partition_filter, self.header_filter = (
-            "",
-            "",
-            "",
-            "",
-        )
+        self.filters = RecordFilters()
         self._filter()
 
     def action_filter(self) -> None:
-        def dismiss(result: tuple[str, str, str, str] | None) -> None:
+        def dismiss(result: RecordFilters | None) -> None:
             if result is None:
                 return
-            self.key_filter, self.value_filter, self.partition_filter, self.header_filter = result
+            self.filters = result
             self._filter()
 
         self.app.push_screen(FilterRecordScreen(), dismiss)
@@ -482,32 +435,25 @@ class ListRecords(Container):
         if action in {"copy_record", "export_record", "show_message"}:
             return self.current_record is not None
         if action == "all":
-            return not self._is_consuming and any(
-                (self.key_filter, self.value_filter, self.partition_filter, self.header_filter)
-            )
+            return not self._is_consuming and self.filters.active
         if action in {"change_chunk", "consume", "filter"}:
             return not self._is_consuming
         return True
 
     def action_consume(self) -> None:
         """Start consuming unless a request is already running."""
-        if not self._is_consuming:
-            self.consume_records()
+        if self._is_consuming:
+            return
+        self._is_consuming = True
+        self.refresh_bindings()
+        self.query_one(DataTable).loading = True
+        self.consume_records()
 
     @work(group="records-consume")
     async def consume_records(self) -> None:
         table = self.query_one(DataTable)
-        self._is_consuming = True
-        self.refresh_bindings()
-        table.loading = True
-
         try:
-            records = await self.consumer.consume(
-                partition_filter=int(self.partition_filter) if self.partition_filter else None,
-                key_filter=self.key_filter if self.key_filter else None,
-                value_filter=self.value_filter if self.value_filter else None,
-                header_filter=self.header_filter if self.header_filter else None,
-            )
+            records = await self.consumer.consume(filters=self.filters)
 
             for record in records:
                 record_id = str(record)

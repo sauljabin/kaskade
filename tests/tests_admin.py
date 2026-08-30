@@ -6,18 +6,19 @@ from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from confluent_kafka import KafkaException
-from confluent_kafka.cimpl import NewTopic
 from textual.widgets import DataTable, Input
 
 from kaskade.admin import (
     CreateTopicScreen,
     DescribeTopicScreen,
+    EditTopicScreen,
     FilterTopicsScreen,
     KaskadeAdmin,
     ListTopics,
     RefreshCoordinator,
     RefreshReason,
 )
+from kaskade.commands import CreateTopicCommand, UpdateTopicCommand
 from kaskade.keymaps import CONFIG_ENV_VAR
 from kaskade.models import MetricState, Partition, Topic
 from kaskade.services import EnrichmentResult, GroupSnapshot
@@ -67,7 +68,7 @@ class TestCreateTopic(unittest.IsolatedAsyncioTestCase):
         with patch("kaskade.admin.TopicService") as topic_service:
             configure_admin_service(topic_service.return_value, {})
             app = KaskadeAdmin({})
-            results: list[NewTopic | None] = []
+            results: list[CreateTopicCommand | None] = []
 
             async with app.run_test() as pilot:
                 app.push_screen(CreateTopicScreen(), results.append)
@@ -94,7 +95,7 @@ class TestCreateTopic(unittest.IsolatedAsyncioTestCase):
                 await pilot.press("ctrl+s")
 
                 self.assertEqual(1, len(results))
-                self.assertEqual("orders", results[0].topic)
+                self.assertEqual("orders", results[0].name)
 
     async def test_stops_loading_when_kafka_rejects_topic(self) -> None:
         with patch("kaskade.admin.TopicService") as topic_service:
@@ -107,11 +108,62 @@ class TestCreateTopic(unittest.IsolatedAsyncioTestCase):
                 topics = app.query_one(ListTopics)
                 table = app.query_one("#topics-table", DataTable)
 
-                worker = topics.create_topic(NewTopic("orders", 1, 1))
+                worker = topics.create_topic(
+                    CreateTopicCommand("orders", 1, 1, 1, "delete", 604800000)
+                )
                 await worker.wait()
                 await pilot.pause()
 
                 self.assertFalse(table.loading)
+
+
+class TestUpdateTopic(unittest.IsolatedAsyncioTestCase):
+    async def test_rejects_partition_decreases_before_mutating(self) -> None:
+        app = KaskadeAdmin({})
+        results: list[UpdateTopicCommand | None] = []
+
+        with patch("kaskade.admin.TopicService") as topic_service:
+            configure_admin_service(topic_service.return_value, {})
+            async with app.run_test() as pilot:
+                app.push_screen(
+                    EditTopicScreen("orders", "3", "1", "delete", "1000"), results.append
+                )
+                await pilot.pause()
+                app.screen.query_one("#partitions", Input).value = "2"
+
+                await pilot.press("ctrl+s")
+
+                self.assertIsInstance(app.screen, EditTopicScreen)
+                self.assertEqual([], results)
+
+    async def test_refreshes_after_partial_topic_update(self) -> None:
+        topic = Topic(name="orders", partitions=[Partition(id=0, topic="orders")])
+        service = MagicMock()
+        configure_admin_service(service, {topic.name: topic})
+        service.edit.side_effect = KafkaException("config rejected")
+
+        with patch("kaskade.admin.TopicService", return_value=service):
+            app = KaskadeAdmin({})
+            app.notify = MagicMock()
+            async with app.run_test() as pilot:
+                await app.workers.wait_for_complete()
+                topics = app.query_one(ListTopics)
+                with patch.object(topics, "set_timer") as set_timer:
+                    worker = topics.update_topic(
+                        topic,
+                        UpdateTopicCommand(2, 1, "delete", 1000),
+                    )
+                    await worker.wait()
+                    await pilot.pause()
+
+                service.add_partitions.assert_called_once_with("orders", 2)
+                set_timer.assert_called_once()
+                self.assertTrue(
+                    any(
+                        call.kwargs.get("title") == "Topic Partially Updated"
+                        for call in app.notify.call_args_list
+                    )
+                )
 
 
 class TestTopicCopyActions(unittest.IsolatedAsyncioTestCase):

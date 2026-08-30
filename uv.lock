@@ -1087,6 +1087,7 @@ source = { editable = "." }
 dependencies = [
     { name = "cloup" },
     { name = "confluent-kafka", extra = ["avro", "json", "protobuf"] },
+    { name = "fastavro" },
     { name = "pyyaml" },
     { name = "textual" },
 ]
@@ -1097,7 +1098,6 @@ dev = [
     { name = "black" },
     { name = "faker" },
     { name = "mypy" },
-    { name = "parameterized" },
     { name = "pre-commit" },
     { name = "ruff" },
     { name = "testcontainers" },
@@ -1112,6 +1112,7 @@ dev = [
 requires-dist = [
     { name = "cloup", specifier = ">=3.1" },
     { name = "confluent-kafka", extras = ["avro", "json", "protobuf"], specifier = ">=2.15" },
+    { name = "fastavro", specifier = ">=1.12" },
     { name = "pyyaml", specifier = ">=6.0" },
     { name = "textual", specifier = ">=8.2" },
 ]
@@ -1122,7 +1123,6 @@ dev = [
     { name = "black" },
     { name = "faker" },
     { name = "mypy" },
-    { name = "parameterized" },
     { name = "pre-commit" },
     { name = "ruff" },
     { name = "testcontainers" },
@@ -1657,15 +1657,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/7d/fa/3944b40b07da9ce895c0e6303a5ab7d53da063554f534556b134a54d6093/packaging-26.3.tar.gz", hash = "sha256:94edc256424af38762eb31306eed28beb9f0efc50a8837492c9d6fd6004aed79", size = 313412, upload-time = "2026-08-04T18:15:28.737Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/63/34/ba1c580383c9eada3711951fef0795c80b829a078d72188184bcab9dd527/packaging-26.3-py3-none-any.whl", hash = "sha256:d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c", size = 129956, upload-time = "2026-08-04T18:15:27.159Z" },
-]
-
-[[package]]
-name = "parameterized"
-version = "0.9.0"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/ea/49/00c0c0cc24ff4266025a53e41336b79adaa5a4ebfad214f433d623f9865e/parameterized-0.9.0.tar.gz", hash = "sha256:7fc905272cefa4f364c1a3429cbbe9c0f98b793988efb5bf90aac80f08db09b1", size = 24351, upload-time = "2023-03-27T02:01:11.592Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/00/2f/804f58f0b856ab3bf21617cccf5b39206e6c4c94c2cd227bde125ea6105f/parameterized-0.9.0-py2.py3-none-any.whl", hash = "sha256:4e0758e3d41bea3bbd05ec14fc2c24736723f243b28d702081aef438c9372b1b", size = 20475, upload-time = "2023-03-27T02:01:09.31Z" },
 ]
 
 [[package]]

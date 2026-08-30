@@ -1,7 +1,9 @@
 import json
 import os
 import struct
+import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from confluent_kafka.serialization import MessageField
@@ -235,16 +237,39 @@ class TestDeserializer(unittest.TestCase):
         encoded = py_to_avro(AVRO_PATH, expected_value)
 
         result = deserializer.deserialize(encoded, "", MessageField.VALUE)
-        print(encoded)
-
         self.assertEqual(expected_value, result)
 
     def test_avro_deserialization_with_magic_byte(self):
         expected_value = {"name": "Pedro Pascal"}
-        deserializer = AvroDeserializer({"value": AVRO_PATH})
+        deserializer = AvroDeserializer({"value": AVRO_PATH, "framing": "confluent"})
         encoded = py_to_avro(AVRO_PATH, expected_value)
 
         result = deserializer.deserialize(b"\x00\x00\x00\x00\x00" + encoded, "", MessageField.VALUE)
+
+        self.assertEqual(expected_value, result)
+
+    def test_raw_avro_starting_with_zero_is_not_mistaken_for_framing(self):
+        schema = {
+            "name": "Sample",
+            "type": "record",
+            "fields": [
+                {"name": "count", "type": "int"},
+                {"name": "description", "type": "string"},
+            ],
+        }
+        expected_value = {"count": 0, "description": "long enough payload"}
+        with tempfile.TemporaryDirectory() as directory:
+            schema_path = Path(directory) / "sample.avsc"
+            schema_path.write_text(json.dumps(schema), encoding="utf-8")
+            encoded = py_to_avro(str(schema_path), expected_value)
+
+            self.assertEqual(0, encoded[0])
+            self.assertGreater(len(encoded), 5)
+            result = AvroDeserializer({"value": str(schema_path)}).deserialize(
+                encoded,
+                "",
+                MessageField.VALUE,
+            )
 
         self.assertEqual(expected_value, result)
 

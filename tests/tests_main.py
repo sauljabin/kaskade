@@ -202,6 +202,8 @@ class TestConsumerCli(unittest.TestCase):
         self.addCleanup(self.temp_directory.cleanup)
         self.temp_descriptor_path = Path(self.temp_directory.name) / "descriptor"
         self.temp_descriptor_path.touch()
+        self.temp_avro_path = Path(self.temp_directory.name) / "schema.avsc"
+        self.temp_avro_path.touch()
 
     def test_bootstrap_server_required(self):
         result = self.runner.invoke(cli, [self.command])
@@ -774,7 +776,28 @@ class TestConsumerCli(unittest.TestCase):
         )
 
         self.assertGreater(result.exit_code, 0)
-        self.assertIn("Valid properties: ['key', 'value'].", result.output)
+        self.assertIn("Valid properties: ['key', 'value', 'framing'].", result.output)
+
+    def test_validate_avro_invalid_framing(self):
+        result = self.runner.invoke(
+            cli,
+            [
+                self.command,
+                "-b",
+                EXPECTED_SERVER,
+                "-t",
+                EXPECTED_TOPIC,
+                "-v",
+                "avro",
+                "--avro",
+                f"value={self.temp_avro_path}",
+                "--avro",
+                "framing=automatic",
+            ],
+        )
+
+        self.assertGreater(result.exit_code, 0)
+        self.assertIn("Avro framing should be one of ['raw', 'confluent']", result.output)
 
     def test_validate_protobuf_descriptor_config(self):
         result = self.runner.invoke(

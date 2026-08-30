@@ -1,3 +1,4 @@
+import asyncio
 import json
 import unittest
 from datetime import datetime, timezone
@@ -12,13 +13,13 @@ from kaskade.consumer import (
     ListRecords,
     TopicScreen,
     deliver_record,
-    record_filename,
     record_json,
     record_json_renderable,
 )
 from kaskade.deserializers import Deserialization, StringDeserializer
 from kaskade.help import HelpScreen
 from kaskade.models import Header, Record
+from kaskade.record_export import record_filename
 from kaskade.themes import KaskadeApp
 
 
@@ -365,6 +366,43 @@ class TestRecordCopyActions(unittest.IsolatedAsyncioTestCase):
                 severity="error",
                 title="Deserialization Error",
             )
+
+
+class TestConsumptionCoordination(unittest.IsolatedAsyncioTestCase):
+    @patch("kaskade.consumer.ConsumerService")
+    async def test_duplicate_requests_do_not_schedule_overlapping_consumers(
+        self, consumer_service: MagicMock
+    ) -> None:
+        started = asyncio.Event()
+        release = asyncio.Event()
+
+        async def consume(*, filters: object) -> list[Record]:
+            started.set()
+            await release.wait()
+            return []
+
+        consumer_service.return_value.consume = AsyncMock(side_effect=consume)
+        consumer_service.return_value.aclose = AsyncMock()
+        app = KaskadeConsumer(
+            "orders",
+            {},
+            {},
+            {},
+            {},
+            Deserialization.STRING,
+            Deserialization.JSON,
+        )
+
+        async with app.run_test():
+            await started.wait()
+            records = app.query_one(ListRecords)
+
+            records.action_consume()
+            records.action_consume()
+
+            self.assertEqual(1, consumer_service.return_value.consume.call_count)
+            release.set()
+            await app.workers.wait_for_complete()
 
 
 if __name__ == "__main__":

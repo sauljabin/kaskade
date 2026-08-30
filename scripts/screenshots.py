@@ -7,6 +7,7 @@ from textual.app import ComposeResult
 from textual.widgets import Footer
 
 from kaskade.admin import KaskadeAdmin, ListTopics
+from kaskade.commands import EMPTY_RECORD_FILTERS, RecordFilters
 from kaskade.configs import BOOTSTRAP_SERVERS
 from kaskade.consumer import KaskadeConsumer, ListRecords
 from kaskade.deserializers import Deserialization, DeserializerPool, StringDeserializer
@@ -155,16 +156,16 @@ class MockConsumerService(ConsumerService):
     async def consume(
         self,
         *,
-        partition_filter: int | None = None,
-        key_filter: str | None = None,
-        value_filter: str | None = None,
-        header_filter: str | None = None,
+        filters: RecordFilters = EMPTY_RECORD_FILTERS,
     ) -> list[Record]:
         records, self._records = self._records, []
         return records
 
     def close(self) -> None:
         pass
+
+    async def aclose(self) -> None:
+        self.close()
 
 
 class ScreenshotRecords(ListRecords):
