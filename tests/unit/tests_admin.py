@@ -237,6 +237,25 @@ class TestAdminRefresh(unittest.IsolatedAsyncioTestCase):
 
         self.assertTrue(all(task.done() and task.cancelled() for task in tasks))
 
+    async def test_shutdown_cancels_active_refresh_without_updating_detached_widgets(self) -> None:
+        enrichment_gate = asyncio.Event()
+        topic = Topic(name="orders", partitions=[Partition(id=0)])
+        service = MagicMock()
+        service.metadata = AsyncMock(return_value={"orders": topic})
+
+        async def wait_for_enrichment() -> EnrichmentResult:
+            await enrichment_gate.wait()
+            return EnrichmentResult()
+
+        service.enrich_offsets.side_effect = lambda topics: wait_for_enrichment()
+        service.load_groups.side_effect = wait_for_enrichment
+
+        with patch("kaskade.admin.TopicService", return_value=service):
+            app = KaskadeAdmin({})
+            async with app.run_test() as pilot:
+                await pilot.pause()
+                self.assertEqual(1, len(app.query_one(DataTable).rows))
+
     async def test_command_line_interval_overrides_config(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             config_path = Path(temporary_directory) / "config.yaml"

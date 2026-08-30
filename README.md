@@ -113,6 +113,10 @@ See [GitHub Releases](https://github.com/sauljabin/kaskade/releases) for release
 
 For Q&A go to [GitHub Discussions](https://github.com/sauljabin/kaskade/discussions/categories/q-a).
 
+## Security
+
+Report suspected vulnerabilities privately by following the [Kaskade security policy](https://github.com/sauljabin/kaskade/blob/main/SECURITY.md).
+
 ## Donations
 
 If Kaskade is useful to you, consider [supporting its development on GitHub Sponsors](https://github.com/sponsors/sauljabin).
