@@ -14,12 +14,6 @@
 <a href="https://hub.docker.com/r/sauljabin/kaskade/tags"><img alt="Docker version" src="https://img.shields.io/docker/v/sauljabin/kaskade?style=flat-square&logo=docker&logoColor=white&label=docker"></a>
 </p>
 
-<p align="center">
-<a href="https://pypi.org/project/kaskade"><img alt="Linux support" src="https://img.shields.io/badge/os-Linux-blue?style=flat-square&logo=linux&logoColor=white"></a>
-<a href="https://pypi.org/project/kaskade"><img alt="macOS support" src="https://img.shields.io/badge/os-macOS-blue?style=flat-square&logo=apple&logoColor=white"></a>
-<a href="https://pypi.org/project/kaskade"><img alt="Supported Python versions" src="https://img.shields.io/pypi/pyversions/kaskade?style=flat-square&logo=python&logoColor=white&label=python"></a>
-</p>
-
 Bring Kafka along for the terminal ride. Kaskade gives you a stylish, keyboard-friendly way to explore clusters, manage topics, and consume records.
 
 ## Screenshots
