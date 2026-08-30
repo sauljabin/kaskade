@@ -60,7 +60,9 @@ jobs:
       - name: Verify distributions
         env:
           RELEASE_VERSION: ${{ steps.release.outputs.version }}
-        run: uv run --locked python -m scripts.verify_release "$RELEASE_VERSION" dist
+        run: >-
+          uv run --locked python -m scripts.verify_release dist
+          --expected-version "$RELEASE_VERSION"
       - name: Install and verify wheel
         env:
           RELEASE_VERSION: ${{ steps.release.outputs.version }}

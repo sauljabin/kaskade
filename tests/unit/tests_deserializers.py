@@ -27,11 +27,11 @@ from kaskade.deserializers import (
 from kaskade.models import Header, Record
 from kaskade.utils import file_to_str, py_to_avro
 from tests import faker
-from tests.protobuf_model.user_pb2 import User
+from tests.unit.protobuf_model.user_pb2 import User
 
-TESTS_PATH = Path(__file__).resolve().parents[1]
-DESCRIPTOR_PATH = str(TESTS_PATH / "protobuf_model" / "user.desc")
-AVRO_PATH = str(TESTS_PATH / "avro_model" / "user.avsc")
+UNIT_TESTS_PATH = Path(__file__).resolve().parent
+DESCRIPTOR_PATH = str(UNIT_TESTS_PATH / "protobuf_model" / "user.desc")
+AVRO_PATH = str(UNIT_TESTS_PATH / "avro_model" / "user.avsc")
 
 
 class TestDeserializer(unittest.TestCase):

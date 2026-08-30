@@ -1,6 +1,7 @@
 import time
 import uuid
 from collections.abc import Callable
+from pathlib import Path
 from time import sleep
 from typing import Any
 
@@ -18,12 +19,13 @@ from rich.console import Console
 
 from kaskade.configs import BOOTSTRAP_SERVERS, MIN_INSYNC_REPLICAS_CONFIG
 from kaskade.utils import file_to_str, pack_bytes, py_to_avro
-from tests.avro_model.user import User as AvroUser
-from tests.json_model.user import User as JsonUser
-from tests.protobuf_model.user_pb2 import User as ProtobufUser
+from sandbox.avro_model.user import User as AvroUser
+from sandbox.json_model.user import User as JsonUser
+from sandbox.protobuf_model.user_pb2 import User as ProtobufUser
 
-JSON_USER_SCHEMA = "tests/json_model/user.schema.json"
-AVRO_USER_SCHEMA = "tests/avro_model/user.avsc"
+SANDBOX_PATH = Path(__file__).resolve().parent
+JSON_USER_SCHEMA = str(SANDBOX_PATH / "json_model" / "user.schema.json")
+AVRO_USER_SCHEMA = str(SANDBOX_PATH / "avro_model" / "user.avsc")
 
 
 class Populator:
@@ -79,7 +81,7 @@ class Populator:
 @click.option(
     "--registry",
     default="http://localhost:18081",
-    help="Schema registry. For Apicurio registry use 'http://localhost:18081/apis/ccompat/v7'",
+    help="Schema registry. For Apicurio use 'http://localhost:18082/apis/ccompat/v7'",
     show_default=True,
 )
 def main(messages: int, bootstrap_servers: str, registry: str) -> None:
