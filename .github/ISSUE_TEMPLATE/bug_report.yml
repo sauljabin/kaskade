@@ -12,7 +12,7 @@ body:
     attributes:
       label: Kaskade version
       description: Run `kaskade --version` to obtain the installed version.
-      placeholder: "4.1.0"
+      placeholder: "Paste the command output"
     validations:
       required: true
   - type: dropdown

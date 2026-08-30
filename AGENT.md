@@ -231,6 +231,10 @@ individual script modules focused on executable workflows.
   static package version.
 - GitHub Releases are the canonical changelog. Do not add a maintained changelog
   file or a version-bump commit.
+- Never hard-code Kaskade's current release version in documentation, issue
+  templates, examples, or release commands. Refer to `kaskade --version`, use a
+  `MAJOR.MINOR.PATCH` placeholder, or derive the version from Git metadata so a
+  release does not require follow-up file edits.
 - Release tags must point to commits on `main`. The protected release workflow
   builds once, verifies the tag against the artifacts, and publishes those same
   artifacts to PyPI and GitHub after approval.

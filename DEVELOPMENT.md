@@ -143,8 +143,9 @@ Choose the next version according to [Semantic Versioning](https://semver.org/),
 then create and push an annotated tag:
 
 ```bash
-git tag -a v4.1.0 -m "Release v4.1.0"
-git push origin v4.1.0
+release_version="MAJOR.MINOR.PATCH"
+git tag -a "v${release_version}" -m "Release v${release_version}"
+git push origin "v${release_version}"
 ```
 
 The release workflow validates that the tag is exactly `vMAJOR.MINOR.PATCH` and
