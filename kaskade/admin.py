@@ -766,6 +766,8 @@ class ListTopics(Container):
     def _complete_refresh(self, generation: int, table: DataTable[Any]) -> None:
         if not self.refresh_coordinator.complete(generation):
             return
+        if not self.is_attached:
+            return
         table.loading = False
         self._update_status(refreshing=False)
         refresh_completed = getattr(self.app, "admin_refresh_completed", None)
