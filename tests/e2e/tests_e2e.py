@@ -1,6 +1,6 @@
 import asyncio
-import os
 import unittest
+from pathlib import Path
 
 from confluent_kafka import Producer
 from confluent_kafka.admin import AdminClient
@@ -19,10 +19,7 @@ MY_KEY = "my-key"
 MY_TOPIC = "my-topic"
 
 
-CURRENT_PATH = os.getcwd()
-PROPERTIES_PATH = (
-    f"{CURRENT_PATH}/../.env" if CURRENT_PATH.endswith("tests_e2e") else f"{CURRENT_PATH}/.env"
-)
+PROPERTIES_PATH = str(Path(__file__).resolve().parents[2] / ".env")
 SANDBOX_PROPERTIES = load_properties(PROPERTIES_PATH)
 CONFLUENT_VERSION = SANDBOX_PROPERTIES["CONFLUENT_VERSION"]
 

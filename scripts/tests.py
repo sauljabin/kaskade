@@ -6,9 +6,9 @@ from scripts import CommandProcessor
 @click.command()
 @click.option("--e2e", "e2e", is_flag=True, help="Run e2e tests.")
 def main(e2e: bool) -> None:
-    module = "tests_e2e" if e2e else "tests"
+    module = "tests/e2e" if e2e else "tests/unit"
     commands = {
-        "executing tests": f"python -m unittest discover -v {module}",
+        "executing tests": f"python -m unittest discover -v -s {module} -t .",
     }
     command_processor = CommandProcessor(commands)
     command_processor.run()

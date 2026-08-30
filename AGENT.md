@@ -187,7 +187,7 @@ Help is a dedicated centered `ModalScreen`, not a sidebar. It must:
 - Verify visual/theme work against the custom default, at least one Textual
   light theme, and an ANSI theme. Keep the Rich synchronization, shared CSS,
   responsive breakpoint, modal geometry, borders, and Footer order covered by
-  `tests/tests_themes.py`.
+  `tests/unit/tests_themes.py`.
 
 ## Verification
 
@@ -207,11 +207,12 @@ uv run --locked python -m scripts.analyze
 uv run --locked python -m scripts.tests
 ```
 
-Add focused assertions to `tests/tests_themes.py` and/or
-`tests/tests_keymaps.py` when changing the conventions above.
+Add focused assertions to `tests/unit/tests_themes.py` and/or
+`tests/unit/tests_keymaps.py` when changing the conventions above.
 
-End-to-end tests use Confluent Kafka. Keep them condition-based and use public
-Textual APIs rather than fixed sleeps or private widget state.
+Unit tests live in `tests/unit`, and end-to-end tests live in `tests/e2e` and
+use Confluent Kafka. Keep E2E tests condition-based and use public Textual APIs
+rather than fixed sleeps or private widget state.
 
 ## Releases and Versions
 

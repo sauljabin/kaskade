@@ -46,13 +46,13 @@ uv run textual run --port 7342 --dev -c kaskade consumer -b localhost:19092 -t m
 
 ### Scripts
 
-Unit tests:
+Unit test modules live in `tests/unit`:
 
 ```bash
 uv run python -m scripts.tests
 ```
 
-E2E tests against Confluent Kafka:
+E2E test modules live in `tests/e2e` and run against Confluent Kafka:
 
 ```bash
 uv run python -m scripts.tests --e2e

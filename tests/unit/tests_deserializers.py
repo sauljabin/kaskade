@@ -29,20 +29,9 @@ from kaskade.utils import file_to_str, py_to_avro
 from tests import faker
 from tests.protobuf_model.user_pb2 import User
 
-CURRENT_PATH = os.getcwd()
-DESCRIPTOR_NAME = "protobuf_model/user.desc"
-DESCRIPTOR_PATH = (
-    f"{CURRENT_PATH}/{DESCRIPTOR_NAME}"
-    if CURRENT_PATH.endswith("tests")
-    else f"{CURRENT_PATH}/tests/{DESCRIPTOR_NAME}"
-)
-
-AVRO_SCHEMA_NAME = "avro_model/user.avsc"
-AVRO_PATH = (
-    f"{CURRENT_PATH}/{AVRO_SCHEMA_NAME}"
-    if CURRENT_PATH.endswith("tests")
-    else f"{CURRENT_PATH}/tests/{AVRO_SCHEMA_NAME}"
-)
+TESTS_PATH = Path(__file__).resolve().parents[1]
+DESCRIPTOR_PATH = str(TESTS_PATH / "protobuf_model" / "user.desc")
+AVRO_PATH = str(TESTS_PATH / "avro_model" / "user.avsc")
 
 
 class TestDeserializer(unittest.TestCase):

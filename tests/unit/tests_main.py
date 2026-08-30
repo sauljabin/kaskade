@@ -1,4 +1,3 @@
-import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -14,13 +13,7 @@ from tests import faker
 
 EXPECTED_TOPIC = "my.topic"
 EXPECTED_SERVER = "localhost:9092"
-CURRENT_PATH = os.getcwd()
-RELATIVE_KAFKA_CONFIG = "config/kafka.properties"
-KAFKA_CONFIG = (
-    f"{CURRENT_PATH}/{RELATIVE_KAFKA_CONFIG}"
-    if CURRENT_PATH.endswith("tests")
-    else f"{CURRENT_PATH}/tests/{RELATIVE_KAFKA_CONFIG}"
-)
+KAFKA_CONFIG = str(Path(__file__).resolve().parents[1] / "config" / "kafka.properties")
 
 
 class TestAdminCli(unittest.TestCase):
