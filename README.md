@@ -105,10 +105,14 @@ For Q&A go to [GitHub Discussions](https://github.com/sauljabin/kaskade/discussi
 
 If Kaskade is useful to you, consider [supporting its development on GitHub Sponsors](https://github.com/sponsors/sauljabin).
 
-## Acknowledgements & Sponsorship
+## AI Assistance
+
+This project uses AI-assisted development tools. Some code and documentation
+may be generated or revised with AI assistance. All AI-assisted changes are
+reviewed and tested by the maintainer before they are included.
+
+## Acknowledgements
 
 <p>
 <a href="https://github.com/littlehorse-enterprises/littlehorse"><img alt="Sponsored by LittleHorse" src="https://raw.githubusercontent.com/sauljabin/kaskade/main/images/littlehorse-badge.svg"></a>
-<a href="https://textual.textualize.io/"><img alt="Built with Textual" src="https://raw.githubusercontent.com/sauljabin/kaskade/main/images/textual-badge.svg"></a>
-<a href="https://openai.com/codex/"><img alt="Assisted by Codex" src="https://raw.githubusercontent.com/sauljabin/kaskade/main/images/codex-badge.svg"></a>
 </p>
