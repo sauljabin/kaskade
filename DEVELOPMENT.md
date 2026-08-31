@@ -202,6 +202,18 @@ To use Apicurio instead, populate a fresh sandbox with its compatibility API:
 uv run python -m sandbox --registry http://localhost:18082/apis/ccompat/v7
 ```
 
+To populate an Amazon MSK cluster that uses IAM authentication, run the tool from
+a network with access to the brokers and pass the IAM bootstrap servers and AWS
+region. AWS credentials use the standard provider chain:
+
+```bash
+uv run python -m sandbox \
+    --bootstrap-servers "${AWS_MSK_BOOTSTRAP_SERVERS}" \
+    --aws region=us-east-1
+```
+
+The Schema Registry URL remains independently configurable with `--registry`.
+
 Read help messages:
 
 ```bash

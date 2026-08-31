@@ -10,6 +10,7 @@ from confluent_kafka import KafkaException
 from kaskade import APP_VERSION
 from kaskade.admin import KaskadeAdmin
 from kaskade.authentication import configure_aws_msk_iam
+from kaskade.cli_utils import tuple_properties_to_dict, validate_aws_config
 from kaskade.configs import (
     AUTO_OFFSET_RESET,
     AVRO_DESERIALIZER_CONFIGS,
@@ -55,13 +56,6 @@ AWS_CONFIG_HELP = (
     f"Valid properties: {AWS_CONFIGS}."
 )
 CliDecoratorTarget = TypeVar("CliDecoratorTarget", bound=Callable[..., Any])
-
-
-def tuple_properties_to_dict(ctx: Any, param: Any, value: Any) -> Any:
-    if [pair for pair in value if "=" not in pair]:
-        raise BadParameter(message="Should be property=value.", ctx=ctx, param=param)
-
-    return {k: v for (k, v) in [pair.split("=", 1) for pair in value]}
 
 
 def aws_options() -> Callable[[CliDecoratorTarget], CliDecoratorTarget]:
@@ -209,7 +203,7 @@ def admin(
         kafka_config = load_properties(kafka_config_file) | kafka_config
 
     kafka_config[BOOTSTRAP_SERVERS] = bootstrap_servers
-    validate_aws(aws_config)
+    validate_aws_config(aws_config)
     kafka_config = configure_aws_msk_iam(kafka_config, aws_config)
 
     kaskade_app = KaskadeAdmin(kafka_config, refresh_interval=refresh_interval)
@@ -371,7 +365,7 @@ def consumer(
         kafka_config = load_properties(kafka_config_file) | kafka_config
 
     kafka_config[BOOTSTRAP_SERVERS] = bootstrap_servers
-    validate_aws(aws_config)
+    validate_aws_config(aws_config)
     kafka_config = configure_aws_msk_iam(kafka_config, aws_config)
 
     if earliest and partitions:
@@ -435,17 +429,6 @@ def validate_deserializer(
         or value_deserialization == Deserialization.PROTOBUF
     ):
         raise MissingParameter(param_hint="'--protobuf'", param_type="option")
-
-
-def validate_aws(aws_config: dict[str, str]) -> None:
-    if not aws_config:
-        return
-
-    if [config for config in aws_config if config not in AWS_CONFIGS]:
-        raise BadParameter(message=f"Valid properties: {AWS_CONFIGS}.")
-
-    if not aws_config.get("region"):
-        raise MissingParameter(param_hint="'--aws region=my-region'", param_type="option")
 
 
 def validate_avro(

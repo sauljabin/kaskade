@@ -20,7 +20,9 @@ from faker import Faker
 from rich.console import Console
 from rich.status import Status
 
-from kaskade.configs import BOOTSTRAP_SERVERS, MIN_INSYNC_REPLICAS_CONFIG
+from kaskade.authentication import configure_aws_msk_iam
+from kaskade.cli_utils import tuple_properties_to_dict, validate_aws_config
+from kaskade.configs import AWS_CONFIGS, BOOTSTRAP_SERVERS, MIN_INSYNC_REPLICAS_CONFIG
 from kaskade.utils import file_to_str, pack_bytes, py_to_avro
 from sandbox.avro_model.user import User as AvroUser
 from sandbox.json_model.user import User as JsonUser
@@ -37,7 +39,7 @@ MALFORMED_PAYLOAD_BYTES = 32
 
 
 class Populator:
-    def __init__(self, kafka_config: dict[str, str | int | float | bool]) -> None:
+    def __init__(self, kafka_config: dict[str, Any]) -> None:
         self.producer = Producer(
             kafka_config
             | {
@@ -127,6 +129,11 @@ def run_population(
     console.print(f":white_check_mark: {topic} [green]{time.time() - start:.1f} secs[/]")
 
 
+def sandbox_kafka_config(bootstrap_servers: str, aws_config: dict[str, str]) -> dict[str, Any]:
+    validate_aws_config(aws_config)
+    return configure_aws_msk_iam({BOOTSTRAP_SERVERS: bootstrap_servers}, aws_config)
+
+
 @click.command()
 @click.option("--messages", default=1000, help="Number of messages to send.")
 @click.option(
@@ -138,7 +145,21 @@ def run_population(
     help="Schema registry. For Apicurio use 'http://localhost:18082/apis/ccompat/v7'",
     show_default=True,
 )
-def main(messages: int, bootstrap_servers: str, registry: str) -> None:
+@click.option(
+    "--aws",
+    "aws_config",
+    help=f"Amazon MSK IAM property. Multiple are allowed. Valid properties: {AWS_CONFIGS}.",
+    metavar="property=value",
+    multiple=True,
+    callback=tuple_properties_to_dict,
+)
+def main(
+    messages: int,
+    bootstrap_servers: str,
+    registry: str,
+    aws_config: dict[str, str],
+) -> None:
+    kafka_config = sandbox_kafka_config(bootstrap_servers, aws_config)
     registry_client = SchemaRegistryClient({"url": registry})
     avro_serializer = AvroSerializer(
         registry_client,
@@ -227,7 +248,7 @@ def main(messages: int, bootstrap_servers: str, registry: str) -> None:
             ),
         ),
     ]
-    populator = Populator({BOOTSTRAP_SERVERS: bootstrap_servers})
+    populator = Populator(kafka_config)
     console = Console()
     with console.status("", spinner="dots") as status:
         for topic, generator, serializer in topics:
