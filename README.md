@@ -6,9 +6,7 @@
 <a href="https://github.com/sauljabin/kaskade/actions/workflows/main.yml"><img alt="CI status" src="https://img.shields.io/github/actions/workflow/status/sauljabin/kaskade/main.yml?branch=main&style=flat-square&logo=githubactions&logoColor=white&label=ci"></a>
 <a href="https://github.com/sauljabin/kaskade/blob/main/LICENSE"><img alt="MIT License" src="https://img.shields.io/github/license/sauljabin/kaskade?style=flat-square&logo=opensourceinitiative&logoColor=white&label=license"></a>
 <a href="https://github.com/sponsors/sauljabin"><img alt="Sponsor on GitHub" src="https://img.shields.io/badge/sponsor-GitHub-EA4AAA?style=flat-square&logo=githubsponsors&logoColor=white"></a>
-</p>
-
-<p align="center">
+<br>
 <a href="https://pypi.org/project/kaskade"><img alt="PyPI version" src="https://img.shields.io/pypi/v/kaskade?style=flat-square&logo=pypi&logoColor=white&label=pypi"></a>
 <a href="https://formulae.brew.sh/formula/kaskade"><img alt="Homebrew version" src="https://img.shields.io/homebrew/v/kaskade?style=flat-square&logo=homebrew&logoColor=white&label=homebrew"></a>
 <a href="https://hub.docker.com/r/sauljabin/kaskade/tags"><img alt="Docker version" src="https://img.shields.io/docker/v/sauljabin/kaskade?style=flat-square&logo=docker&logoColor=white&label=docker"></a>
