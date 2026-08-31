@@ -199,6 +199,16 @@ class MetricState(Enum):
     UNAVAILABLE = auto()
 
 
+class PartitionOffset(Enum):
+    EARLIEST = auto()
+
+
+@dataclass(frozen=True)
+class PartitionSelection:
+    partition: int
+    offset: int | PartitionOffset | None = None
+
+
 @dataclass(eq=False)
 class Header:
     key: str = ""
@@ -240,6 +250,29 @@ class Header:
         return str(self.value_deserialized())
 
 
+@dataclass(frozen=True)
+class DeserializationOutcome:
+    requested: Deserialization
+    content: Any
+    error: Exception | None = None
+
+    @property
+    def used_fallback(self) -> bool:
+        return self.error is not None
+
+    def dict(self) -> dict[str, Any]:
+        result: dict[str, Any] = {
+            "deserializer": self.requested.name,
+            "content": self.content,
+        }
+        if self.error is not None:
+            result |= {
+                "fallback": Deserialization.BYTES.name,
+                "error": str(self.error),
+            }
+        return result
+
+
 @dataclass(eq=False)
 class Record:
     topic: str = ""
@@ -253,8 +286,12 @@ class Record:
     value_deserialization: Deserialization = Deserialization.BYTES
     key_deserializer: Deserializer | None = None
     value_deserializer: Deserializer | None = None
-    _key_deserialized: Any = field(default=_NOT_DESERIALIZED, init=False, repr=False)
-    _value_deserialized: Any = field(default=_NOT_DESERIALIZED, init=False, repr=False)
+    _key_outcome: DeserializationOutcome | object = field(
+        default=_NOT_DESERIALIZED, init=False, repr=False
+    )
+    _value_outcome: DeserializationOutcome | object = field(
+        default=_NOT_DESERIALIZED, init=False, repr=False
+    )
 
     def __repr__(self) -> str:
         return str(self)
@@ -281,49 +318,63 @@ class Record:
             "offset": self.offset,
             "date": self.date,
             "headers": [(header.key, header.value_deserialized()) for header in self.headers],
-            "key": {
-                "deserializer": self.key_deserialization.name,
-                "content": self.key_deserialized(),
-            },
-            "value": {
-                "deserializer": self.value_deserialization.name,
-                "content": self.value_deserialized(),
-            },
+            "key": self.key_outcome().dict(),
+            "value": self.value_outcome().dict(),
         }
 
+    def key_outcome(self) -> DeserializationOutcome:
+        if self._key_outcome is _NOT_DESERIALIZED:
+            self._key_outcome = self._deserialize(
+                self.key,
+                self.key_deserialization,
+                self.key_deserializer,
+                MessageField.KEY,
+            )
+        assert isinstance(self._key_outcome, DeserializationOutcome)
+        return self._key_outcome
+
+    def value_outcome(self) -> DeserializationOutcome:
+        if self._value_outcome is _NOT_DESERIALIZED:
+            self._value_outcome = self._deserialize(
+                self.value,
+                self.value_deserialization,
+                self.value_deserializer,
+                MessageField.VALUE,
+            )
+        assert isinstance(self._value_outcome, DeserializationOutcome)
+        return self._value_outcome
+
+    def _deserialize(
+        self,
+        raw: bytes | None,
+        requested: Deserialization,
+        deserializer: Deserializer | None,
+        field: MessageField,
+    ) -> DeserializationOutcome:
+        if raw is None:
+            return DeserializationOutcome(requested, None)
+        if deserializer is None:
+            return DeserializationOutcome(requested, str(raw))
+        try:
+            return DeserializationOutcome(
+                requested,
+                deserializer.deserialize(raw, self.topic, field),
+            )
+        except DESERIALIZATION_EXCEPTIONS as ex:
+            return DeserializationOutcome(requested, str(raw), ex)
+
+    def resolve_deserializations(self) -> None:
+        self.key_outcome()
+        self.value_outcome()
+
+    def has_deserialization_errors(self) -> bool:
+        return self.key_outcome().used_fallback or self.value_outcome().used_fallback
+
     def key_deserialized(self) -> Any:
-        if self._key_deserialized is not _NOT_DESERIALIZED:
-            return self._key_deserialized
-
-        if self.key is None:
-            self._key_deserialized = None
-            return self._key_deserialized
-
-        if self.key_deserializer is None:
-            self._key_deserialized = str(self.key)
-            return self._key_deserialized
-
-        self._key_deserialized = self.key_deserializer.deserialize(
-            self.key, self.topic, MessageField.KEY
-        )
-        return self._key_deserialized
+        return self.key_outcome().content
 
     def value_deserialized(self) -> Any:
-        if self._value_deserialized is not _NOT_DESERIALIZED:
-            return self._value_deserialized
-
-        if self.value is None:
-            self._value_deserialized = None
-            return self._value_deserialized
-
-        if self.value_deserializer is None:
-            self._value_deserialized = str(self.value)
-            return self._value_deserialized
-
-        self._value_deserialized = self.value_deserializer.deserialize(
-            self.value, self.topic, MessageField.VALUE
-        )
-        return self._value_deserialized
+        return self.value_outcome().content
 
     def key_str(self) -> str:
         return str(self.key_deserialized())

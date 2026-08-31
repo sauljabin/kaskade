@@ -1,15 +1,18 @@
 from inspect import isawaitable
-from typing import ClassVar
+from typing import Any, ClassVar
 
 from confluent_kafka import KafkaException
+from rich.text import Text
 from textual import work
 from textual.app import ComposeResult
 from textual.binding import Binding, BindingType
 from textual.containers import Container
+from textual.coordinate import Coordinate
 from textual.widgets import DataTable, Footer, Input, OptionList, Static
 from textual.widgets.option_list import Option
 
 from kaskade.colors import PRIMARY
+from kaskade.colors import WARNING as WARNING_STYLE
 from kaskade.commands import RecordFilters
 from kaskade.deserializers import (
     DESERIALIZATION_EXCEPTIONS,
@@ -17,7 +20,7 @@ from kaskade.deserializers import (
     DeserializerPool,
 )
 from kaskade.help import HelpableModalScreen, modal_bindings
-from kaskade.models import Record
+from kaskade.models import DeserializationOutcome, PartitionSelection, Record
 from kaskade.record_export import (
     deliver_record,
     record_json,
@@ -25,6 +28,7 @@ from kaskade.record_export import (
 )
 from kaskade.services import ConsumerService
 from kaskade.themes import KaskadeApp
+from kaskade.unicodes import WARNING as WARNING_INDICATOR
 from kaskade.utils import copy_text, notify_error
 from kaskade.widgets import (
     KaskadeHeader,
@@ -40,10 +44,28 @@ BACK_SHORTCUT = "escape"
 FILTER_SHORTCUT = "/,ctrl+f"
 EXPORT_SHORTCUT = "ctrl+e"
 COPY_RECORD_SHORTCUT = "y"
-CONSUMER_EXCEPTIONS: tuple[type[Exception], ...] = (
-    KafkaException,
-    *DESERIALIZATION_EXCEPTIONS,
-)
+CONSUMER_EXCEPTIONS: tuple[type[Exception], ...] = (KafkaException,)
+KEY_COLUMN_INDEX = 0
+VALUE_COLUMN_INDEX = 1
+
+
+class RecordDataTable(StretchyDataTable[str | Text]):
+    """A records table with diagnostic tooltips for individual cells."""
+
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        self._cell_tooltips: dict[Coordinate, Text] = {}
+
+    def set_cell_tooltip(self, coordinate: Coordinate, tooltip: Text) -> None:
+        self._cell_tooltips[coordinate] = tooltip
+
+    def clear_cell_tooltips(self) -> None:
+        self._cell_tooltips.clear()
+        self.tooltip = None
+
+    def watch_hover_coordinate(self, old: Coordinate, value: Coordinate) -> None:
+        super().watch_hover_coordinate(old, value)
+        self.tooltip = self._cell_tooltips.get(value)
 
 
 class FilterRecordScreen(HelpableModalScreen[RecordFilters]):
@@ -295,6 +317,9 @@ class ListRecords(Container):
         deserializer_factory: DeserializerPool,
         key_deserialization: Deserialization,
         value_deserialization: Deserialization,
+        *,
+        partitions: tuple[PartitionSelection, ...] = (),
+        consumer: ConsumerService | None = None,
     ):
         super().__init__()
         self.topic = topic
@@ -302,7 +327,8 @@ class ListRecords(Container):
         self.deserializer_factory = deserializer_factory
         self.key_deserialization = key_deserialization
         self.value_deserialization = value_deserialization
-        self.consumer = self._new_consumer()
+        self.partitions = partitions
+        self.consumer = consumer or self._new_consumer()
         self.records: dict[str, Record] = {}
         self.current_record: Record | None = None
         self.filters = RecordFilters()
@@ -315,6 +341,7 @@ class ListRecords(Container):
             self.deserializer_factory,
             self.key_deserialization,
             self.value_deserialization,
+            partitions=self.partitions,
         )
 
     def _get_title(self) -> str:
@@ -338,9 +365,7 @@ class ListRecords(Container):
         return rf"[{PRIMARY}]Records[/] \[[{PRIMARY}]{self.topic}[/]]{title_filter}\[[{PRIMARY}]{len(self.records)}[/]]"
 
     def compose(self) -> ComposeResult:
-        table: StretchyDataTable[str] = StretchyDataTable(
-            id="records-table", classes="kaskade-table main-table"
-        )
+        table = RecordDataTable(id="records-table", classes="kaskade-table main-table")
         table.cursor_type = "row"
         table.border_subtitle = rf"\[[{PRIMARY}]Consumer Mode[/]]"
         table.zebra_stripes = True
@@ -378,7 +403,8 @@ class ListRecords(Container):
         self.app.push_screen(FilterRecordScreen(), dismiss)
 
     def _filter(self) -> None:
-        table = self.query_one(DataTable)
+        table = self.query_one(RecordDataTable)
+        table.clear_cell_tooltips()
         table.clear()
         self.consumer.close()
         self.consumer = self._new_consumer()
@@ -449,24 +475,80 @@ class ListRecords(Container):
         self.query_one(DataTable).loading = True
         self.consume_records()
 
+    @staticmethod
+    def _content_cell(content: str, *, warning: bool) -> str | Text:
+        content = content.strip()
+        if warning:
+            return Text(
+                f"{WARNING_INDICATOR} {content}",
+                style=WARNING_STYLE,
+            )
+        return content
+
+    @classmethod
+    def _record_row(cls, record: Record) -> list[str | Text]:
+        record.resolve_deserializations()
+        return [
+            cls._content_cell(
+                record.key_str(),
+                warning=record.key_outcome().used_fallback,
+            ),
+            cls._content_cell(
+                record.value_str(),
+                warning=record.value_outcome().used_fallback,
+            ),
+            record.date,
+            str(record.partition),
+            str(record.offset),
+            str(record.headers_count()),
+        ]
+
+    @staticmethod
+    def _warning_tooltip(
+        record: Record,
+        field_name: str,
+        outcome: DeserializationOutcome,
+    ) -> Text:
+        tooltip = Text()
+        tooltip.append(
+            f"{WARNING_INDICATOR} {field_name.title()} Deserialization Warning",
+            style=WARNING_STYLE,
+        )
+        tooltip.append(f"\nRecord: {record.topic}[{record.partition}][{record.offset}]")
+        tooltip.append(f"\nRequested: {outcome.requested.name}")
+        tooltip.append(f"\nFallback: {Deserialization.BYTES.name}")
+        tooltip.append(f"\nError: {outcome.error}")
+        return tooltip
+
+    @classmethod
+    def _add_warning_tooltips(
+        cls,
+        table: RecordDataTable,
+        row_index: int,
+        record: Record,
+    ) -> None:
+        for column_index, field_name, outcome in (
+            (KEY_COLUMN_INDEX, "key", record.key_outcome()),
+            (VALUE_COLUMN_INDEX, "value", record.value_outcome()),
+        ):
+            if outcome.error is not None:
+                table.set_cell_tooltip(
+                    Coordinate(row_index, column_index),
+                    cls._warning_tooltip(record, field_name, outcome),
+                )
+
     @work(group="records-consume")
     async def consume_records(self) -> None:
-        table = self.query_one(DataTable)
+        table = self.query_one(RecordDataTable)
         try:
             records = await self.consumer.consume(filters=self.filters)
 
             for record in records:
                 record_id = str(record)
                 self.records[record_id] = record
-                row = [
-                    record.key_str().strip(),
-                    record.value_str().strip(),
-                    record.date,
-                    str(record.partition),
-                    str(record.offset),
-                    str(record.headers_count()),
-                ]
-                table.add_row(*row, key=record_id)
+                row_index = len(table.rows)
+                table.add_row(*self._record_row(record), key=record_id)
+                self._add_warning_tooltips(table, row_index, record)
             table.border_title = self._get_title()
         except CONSUMER_EXCEPTIONS as ex:
             notify_error(self.app, "Consumption Error", ex)
@@ -489,6 +571,8 @@ class KaskadeConsumer(KaskadeApp):
         avro_config: dict[str, str],
         key_deserialization: Deserialization,
         value_deserialization: Deserialization,
+        *,
+        partitions: tuple[PartitionSelection, ...] = (),
     ):
         super().__init__()
         self.topic = topic
@@ -498,14 +582,30 @@ class KaskadeConsumer(KaskadeApp):
         self.avro_config = avro_config
         self.key_deserialization = key_deserialization
         self.value_deserialization = value_deserialization
+        self.partitions = partitions
+        self.deserializer_factory = DeserializerPool(
+            self.registry_config,
+            self.protobuf_config,
+            self.avro_config,
+        )
+        self.consumer = ConsumerService(
+            self.topic,
+            self.kafka_config,
+            self.deserializer_factory,
+            self.key_deserialization,
+            self.value_deserialization,
+            partitions=self.partitions,
+        )
 
     def compose(self) -> ComposeResult:
         yield KaskadeHeader(self.kafka_config)
         yield ListRecords(
             self.topic,
             self.kafka_config,
-            DeserializerPool(self.registry_config, self.protobuf_config, self.avro_config),
+            self.deserializer_factory,
             self.key_deserialization,
             self.value_deserialization,
+            partitions=self.partitions,
+            consumer=self.consumer,
         )
         yield Footer(compact=True)

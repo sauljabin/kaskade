@@ -150,11 +150,32 @@ includes the topic, partition, offset, date, headers, and the deserialized key a
 their deserializer names. Export Record is omitted from the Footer; find it in contextual
 Help or Commands.
 
-### Consume from the beginning
+### Choose the starting position
 
 ```bash
-kaskade consumer -b my-kafka:9092 -t my-topic --from-beginning
+kaskade consumer -b my-kafka:9092 -t my-topic --earliest
 ```
+
+`--earliest` consumes all topic partitions from their earliest currently available
+offsets. To consume only selected partitions, repeat `--partition`:
+
+```bash
+kaskade consumer -b my-kafka:9092 -t my-topic \
+        --partition 1:10 \
+        --partition 2:earliest \
+        --partition 3
+```
+
+The format is `partition[:offset|earliest]`. A numeric offset, including `0`, is an
+absolute Kafka offset. `earliest` resolves to the partition's current low watermark, and
+an omitted offset starts at the normal latest position. `--earliest` and `--partition`
+cannot be combined.
+
+If a configured key or value deserializer cannot decode an individual record, Kaskade
+shows `⚠`, displays that field with its BYTES fallback, and keeps consuming. Record
+details, copy, and export include the requested deserializer, fallback, and error. Hover
+the warning cell to see the field, requested deserializer, fallback, and error in a
+tooltip. The other field remains decoded normally.
 
 ### Schema Registry
 
@@ -218,7 +239,7 @@ Configuration precedence, from lowest to highest, is:
 1. Properties loaded from `--config-file`.
 2. Repeated `-c/--config property=value` options.
 3. `-b/--bootstrap-servers` for `bootstrap.servers`.
-4. In consumer mode, `--from-beginning` for `auto.offset.reset=earliest`.
+4. In consumer mode, `--earliest` for `auto.offset.reset=earliest`.
 
 ### Confluent Cloud
 
@@ -268,7 +289,7 @@ docker run --rm -it --network my-network sauljabin/kaskade:latest \
 Consume using a `my-schema.avsc` schema file:
 
 ```bash
-kaskade consumer -b my-kafka:9092 --from-beginning \
+kaskade consumer -b my-kafka:9092 --earliest \
         -k string -v avro \
         -t my-avro-topic \
         --avro value=my-schema.avsc
@@ -298,7 +319,7 @@ protoc --include_imports \
 Consume using `my-descriptor.desc`:
 
 ```bash
-kaskade consumer -b my-kafka:9092 --from-beginning \
+kaskade consumer -b my-kafka:9092 --earliest \
         -k string -v protobuf \
         -t my-protobuf-topic \
         --protobuf descriptor=my-descriptor.desc \

@@ -5,6 +5,10 @@
 - Keep cyclomatic complexity at or below 10. The repository-wide Ruff `C901`
   check is part of `scripts.analyze`; prefer focused named helpers over lint
   suppressions.
+- Before considering implementation complete, perform a final refactor review
+  of the entire diff for readability and maintainability. Remove duplicated
+  literals and branches, extract focused helpers where they clarify intent, and
+  rerun the relevant analysis and tests after any cleanup.
 
 ## Living Knowledge and Documentation
 
@@ -68,6 +72,18 @@ warnings in the application.
   open, and is configured with `admin.refresh_interval_seconds` in Kaskade's
   YAML configuration or overridden per session with `admin --refresh-interval`.
   A value of `0` disables it.
+
+## Consumer Positioning and Deserialization
+
+- `consumer --earliest` subscribes to every topic partition with
+  `auto.offset.reset=earliest`. Repeatable `--partition
+  PARTITION[:OFFSET|earliest]` selections instead use manual assignment and must
+  never fetch unlisted partitions. Numeric offsets are absolute, including `0`.
+- Treat recognized key and value deserialization failures independently per
+  record. Cache a BYTES fallback with warning metadata, keep the configured
+  deserializer for subsequent records, and preserve the diagnostics in details,
+  cell tooltips, copy, and export. Broker failures and unexpected exceptions
+  remain fatal.
 
 ## TUI Interaction Conventions
 
@@ -218,8 +234,10 @@ APIs rather than fixed sleeps or private widget state.
 The manual Kafka environment lives entirely in `sandbox`, including its own
 schema models, generated Protobuf artifacts, Compose file, and environment
 versions. Never import test fixtures from sandbox utilities or sandbox models
-from tests. Keep one Compose topology: three Confluent Kafka brokers, Apicurio
-Registry, and Confluent Schema Registry, with no web UI.
+from tests. Its `errors` topic cycles through valid and deliberately malformed
+Schema Registry key/value payloads for consumer fallback testing. Keep one
+Compose topology: three Confluent Kafka brokers, Apicurio Registry, and
+Confluent Schema Registry, with no web UI.
 
 Reusable script classes and functions belong in `scripts/__init__.py`; keep
 individual script modules focused on executable workflows.

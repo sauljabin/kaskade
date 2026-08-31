@@ -86,6 +86,14 @@ class TestDeserializer(unittest.TestCase):
         key_deserializer.deserialize.assert_called_once()
         value_deserializer.deserialize.assert_called_once()
 
+    def test_record_propagates_unexpected_deserialization_errors(self):
+        deserializer = MagicMock()
+        deserializer.deserialize.side_effect = RuntimeError("unexpected")
+        record = Record(key=b"payload", key_deserializer=deserializer)
+
+        with self.assertRaisesRegex(RuntimeError, "unexpected"):
+            record.key_str()
+
     def test_header_propagates_unexpected_errors(self):
         deserializer = MagicMock()
         deserializer.deserialize.side_effect = RuntimeError("unexpected")

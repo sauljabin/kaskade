@@ -7,6 +7,8 @@ from time import perf_counter
 from typing import Any
 
 from confluent_kafka import (
+    OFFSET_BEGINNING,
+    OFFSET_END,
     OFFSET_INVALID,
     Consumer,
     ConsumerGroupTopicPartitions,
@@ -46,6 +48,8 @@ from kaskade.models import (
     MetricState,
     Node,
     Partition,
+    PartitionOffset,
+    PartitionSelection,
     Record,
     Topic,
 )
@@ -59,6 +63,10 @@ ADMIN_EXCEPTIONS: tuple[type[Exception], ...] = (
 )
 
 
+class PartitionSelectionError(ValueError):
+    """Raised when an explicit partition or offset cannot be assigned."""
+
+
 class ConsumerService:
     def __init__(
         self,
@@ -68,6 +76,7 @@ class ConsumerService:
         key_deserialization: Deserialization,
         value_deserialization: Deserialization,
         *,
+        partitions: tuple[PartitionSelection, ...] = (),
         page_size: int = 25,
         poll_retries: int = 5,
         timeout: float = 0.5,
@@ -80,6 +89,7 @@ class ConsumerService:
         self.timeout = timeout
         self.key_deserialization = key_deserialization
         self.value_deserialization = value_deserialization
+        self.partitions = partitions
         self.stable = False
         self.started_at = perf_counter()
         self.assigned_at: float | None = None
@@ -92,12 +102,69 @@ class ConsumerService:
             },
             logger=logger,
         )
-        self.consumer.subscribe([topic], on_assign=self.on_assign)
-        self.deserializer_factory = deserializer_factory
-        self.key_deserializer = deserializer_factory.get(key_deserialization)
-        self.value_deserializer = deserializer_factory.get(value_deserialization)
-        self.header_deserializer = deserializer_factory.get(Deserialization.STRING)
+        try:
+            self._start_consuming()
+            self.deserializer_factory = deserializer_factory
+            self.key_deserializer = deserializer_factory.get(key_deserialization)
+            self.value_deserializer = deserializer_factory.get(value_deserialization)
+            self.header_deserializer = deserializer_factory.get(Deserialization.STRING)
+        except Exception:
+            self.consumer.close()
+            raise
         self._operation_lock = asyncio.Lock()
+
+    def _start_consuming(self) -> None:
+        if not self.partitions:
+            self.consumer.subscribe([self.topic], on_assign=self.on_assign)
+            return
+
+        available_partitions = self._available_partitions()
+        assignments = [
+            self._assignment(selection, available_partitions) for selection in self.partitions
+        ]
+        self.consumer.assign(assignments)
+        self.on_assign(self.consumer, assignments)
+
+    def _available_partitions(self) -> set[int]:
+        metadata = self.consumer.list_topics(self.topic, timeout=self.timeout)
+        topic_metadata = metadata.topics.get(self.topic)
+        if topic_metadata is None:
+            raise PartitionSelectionError(f"Topic {self.topic!r} does not exist")
+        if topic_metadata.error is not None:
+            raise KafkaException(topic_metadata.error)
+        return set(topic_metadata.partitions)
+
+    def _assignment(
+        self,
+        selection: PartitionSelection,
+        available_partitions: set[int],
+    ) -> TopicPartition:
+        if selection.partition not in available_partitions:
+            raise PartitionSelectionError(
+                f"Partition {selection.partition} does not exist in topic {self.topic!r}"
+            )
+
+        offset = self._assignment_offset(selection)
+        if isinstance(selection.offset, int):
+            low, high = self.consumer.get_watermark_offsets(
+                TopicPartition(self.topic, selection.partition),
+                timeout=self.timeout,
+                cached=False,
+            )
+            if not low <= selection.offset <= high:
+                raise PartitionSelectionError(
+                    f"Offset {selection.offset} is out of range for partition "
+                    f"{selection.partition}; available offsets are {low} through {high}"
+                )
+        return TopicPartition(self.topic, selection.partition, offset)
+
+    @staticmethod
+    def _assignment_offset(selection: PartitionSelection) -> int:
+        if selection.offset is PartitionOffset.EARLIEST:
+            return OFFSET_BEGINNING
+        if selection.offset is None:
+            return OFFSET_END
+        return selection.offset
 
     def on_assign(self, consumer: Consumer, partitions: list[TopicPartition]) -> None:
         self.stable = True
@@ -110,7 +177,10 @@ class ConsumerService:
         )
 
     def close(self) -> None:
-        self.consumer.unsubscribe()
+        if self.partitions:
+            self.consumer.unassign()
+        else:
+            self.consumer.unsubscribe()
         self.consumer.close()
 
     async def aclose(self) -> None:
@@ -189,7 +259,7 @@ class ConsumerService:
     def _record_from_message(self, message: Any) -> Record:
         if message.error():
             raise KafkaException(message.error())
-        return Record(
+        record = Record(
             topic=self.topic,
             partition=message.partition(),
             offset=message.offset(),
@@ -205,6 +275,28 @@ class ConsumerService:
             key_deserializer=self.key_deserializer,
             value_deserializer=self.value_deserializer,
         )
+        record.resolve_deserializations()
+        self._log_deserialization_fallbacks(record)
+        return record
+
+    def _log_deserialization_fallbacks(self, record: Record) -> None:
+        for field_name, outcome in (
+            ("key", record.key_outcome()),
+            ("value", record.value_outcome()),
+        ):
+            if outcome.error is None:
+                continue
+            logger.warning(
+                "record deserialization fallback topic=%s partition=%d offset=%d "
+                "field=%s requested=%s fallback=%s error=%s",
+                record.topic,
+                record.partition,
+                record.offset,
+                field_name,
+                outcome.requested.name,
+                Deserialization.BYTES.name,
+                outcome.error,
+            )
 
     @staticmethod
     def _message_date(message: Any) -> str:

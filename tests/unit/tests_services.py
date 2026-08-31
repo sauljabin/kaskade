@@ -4,7 +4,13 @@ import unittest
 from concurrent.futures import Future
 from unittest.mock import MagicMock, patch
 
-from confluent_kafka import ConsumerGroupTopicPartitions, KafkaException, Node
+from confluent_kafka import (
+    OFFSET_BEGINNING,
+    OFFSET_END,
+    ConsumerGroupTopicPartitions,
+    KafkaException,
+    Node,
+)
 from confluent_kafka.admin import (
     ConsumerGroupDescription,
     ConsumerGroupListing,
@@ -19,7 +25,7 @@ from confluent_kafka.cimpl import CONSUMER_GROUP_STATE_STABLE, TopicPartition
 
 from kaskade.commands import CreateTopicCommand, RecordFilters
 from kaskade.deserializers import Deserialization, DeserializerPool, StringDeserializer
-from kaskade.models import MetricState
+from kaskade.models import MetricState, PartitionOffset, PartitionSelection
 from kaskade.services import ConsumerService, TopicService
 from tests import faker
 
@@ -255,6 +261,82 @@ class TestTopicService(unittest.IsolatedAsyncioTestCase):
 
 class TestConsumerService(unittest.IsolatedAsyncioTestCase):
     @patch("kaskade.services.Consumer")
+    async def test_assigns_only_explicit_partitions_at_selected_offsets(
+        self, mock_class_consumer: MagicMock
+    ) -> None:
+        consumer = mock_class_consumer.return_value
+        topic = MagicMock(error=None, partitions={0: object(), 1: object(), 2: object()})
+        consumer.list_topics.return_value.topics = {"orders": topic}
+        consumer.get_watermark_offsets.return_value = (0, 100)
+        service = ConsumerService(
+            "orders",
+            {"bootstrap.servers": "localhost:9092"},
+            DeserializerPool(),
+            Deserialization.STRING,
+            Deserialization.STRING,
+            partitions=(
+                PartitionSelection(0),
+                PartitionSelection(1, 0),
+                PartitionSelection(2, PartitionOffset.EARLIEST),
+            ),
+        )
+
+        assignments = consumer.assign.call_args.args[0]
+        self.assertEqual(
+            [(0, OFFSET_END), (1, 0), (2, OFFSET_BEGINNING)],
+            [(assignment.partition, assignment.offset) for assignment in assignments],
+        )
+        consumer.subscribe.assert_not_called()
+        consumer.get_watermark_offsets.assert_called_once()
+        self.assertTrue(service.stable)
+
+        service.close()
+        consumer.unassign.assert_called_once_with()
+        consumer.unsubscribe.assert_not_called()
+
+    @patch("kaskade.services.Consumer")
+    async def test_rejects_nonexistent_explicit_partition(
+        self, mock_class_consumer: MagicMock
+    ) -> None:
+        consumer = mock_class_consumer.return_value
+        topic = MagicMock(error=None, partitions={0: object()})
+        consumer.list_topics.return_value.topics = {"orders": topic}
+
+        with self.assertRaisesRegex(ValueError, "Partition 2 does not exist"):
+            ConsumerService(
+                "orders",
+                {"bootstrap.servers": "localhost:9092"},
+                DeserializerPool(),
+                Deserialization.STRING,
+                Deserialization.STRING,
+                partitions=(PartitionSelection(2),),
+            )
+
+        consumer.assign.assert_not_called()
+        consumer.close.assert_called_once_with()
+
+    @patch("kaskade.services.Consumer")
+    async def test_rejects_explicit_offset_outside_watermarks(
+        self, mock_class_consumer: MagicMock
+    ) -> None:
+        consumer = mock_class_consumer.return_value
+        topic = MagicMock(error=None, partitions={0: object()})
+        consumer.list_topics.return_value.topics = {"orders": topic}
+        consumer.get_watermark_offsets.return_value = (10, 20)
+
+        with self.assertRaisesRegex(ValueError, "Offset 0 is out of range"):
+            ConsumerService(
+                "orders",
+                {"bootstrap.servers": "localhost:9092"},
+                DeserializerPool(),
+                Deserialization.STRING,
+                Deserialization.STRING,
+                partitions=(PartitionSelection(0, 0),),
+            )
+
+        consumer.assign.assert_not_called()
+
+    @patch("kaskade.services.Consumer")
     async def test_consumes_records_in_batches(self, mock_class_consumer: MagicMock) -> None:
         message = MagicMock()
         message.error.return_value = None
@@ -281,6 +363,36 @@ class TestConsumerService(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(1, len(records))
         self.assertEqual("key", records[0].key_str())
         consumer.consume.assert_called_once_with(1, timeout=service.timeout)
+
+    @patch("kaskade.services.Consumer")
+    async def test_deserialization_fallback_is_per_field_and_per_record(
+        self, mock_class_consumer: MagicMock
+    ) -> None:
+        consumer = mock_class_consumer.return_value
+        consumer.consume.return_value = [
+            consumer_message(key=b"valid-1", value=b"value-1"),
+            consumer_message(key=b"\xff", value=b"value-2"),
+            consumer_message(key=b"valid-3", value=b"value-3"),
+        ]
+        service = ConsumerService(
+            "orders",
+            {"bootstrap.servers": "localhost:9092"},
+            DeserializerPool(),
+            Deserialization.STRING,
+            Deserialization.STRING,
+            page_size=3,
+        )
+        service.on_assign(consumer, [TopicPartition("orders", 0)])
+
+        records = await service.consume()
+
+        self.assertEqual(["valid-1", "b'\\xff'", "valid-3"], [r.key_str() for r in records])
+        self.assertEqual(["value-1", "value-2", "value-3"], [r.value_str() for r in records])
+        self.assertFalse(records[0].has_deserialization_errors())
+        self.assertTrue(records[1].key_outcome().used_fallback)
+        self.assertFalse(records[1].value_outcome().used_fallback)
+        self.assertFalse(records[2].has_deserialization_errors())
+        self.assertEqual("BYTES", records[1].dict()["key"]["fallback"])
 
     @patch("kaskade.services.Consumer")
     async def test_filters_batches_until_a_record_matches(
