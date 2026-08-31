@@ -8,12 +8,13 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from rich.text import Text
 from textual import events
-from textual.widgets import DataTable
+from textual.coordinate import Coordinate
 
 from kaskade.colors import WARNING as WARNING_STYLE
 from kaskade.consumer import (
     KaskadeConsumer,
     ListRecords,
+    RecordDataTable,
     TopicScreen,
     deliver_record,
     record_json,
@@ -437,7 +438,8 @@ class TestConsumptionCoordination(unittest.IsolatedAsyncioTestCase):
         async with app.run_test() as pilot:
             await app.workers.wait_for_complete()
             await pilot.pause()
-            row = app.query_one(DataTable).get_row_at(0)
+            table = app.query_one(RecordDataTable)
+            row = table.get_row_at(0)
 
             self.assertIsInstance(row[0], Text)
             self.assertEqual(
@@ -446,6 +448,21 @@ class TestConsumptionCoordination(unittest.IsolatedAsyncioTestCase):
             )
             self.assertEqual(WARNING_STYLE, row[0].style)
             self.assertEqual("paid", row[1])
+
+            table.hover_coordinate = Coordinate(0, 0)
+            await pilot.pause()
+
+            self.assertIsInstance(table.tooltip, Text)
+            self.assertIn("Key Deserialization Warning", table.tooltip.plain)
+            self.assertIn("Record: orders[1][10]", table.tooltip.plain)
+            self.assertIn("Requested: JSON", table.tooltip.plain)
+            self.assertIn("Fallback: BYTES", table.tooltip.plain)
+            self.assertIn("Error: malformed key", table.tooltip.plain)
+
+            table.hover_coordinate = Coordinate(0, 1)
+            await pilot.pause()
+
+            self.assertIsNone(table.tooltip)
 
     @patch("kaskade.consumer.ConsumerService")
     async def test_duplicate_requests_do_not_schedule_overlapping_consumers(

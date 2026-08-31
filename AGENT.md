@@ -82,7 +82,8 @@ warnings in the application.
 - Treat recognized key and value deserialization failures independently per
   record. Cache a BYTES fallback with warning metadata, keep the configured
   deserializer for subsequent records, and preserve the diagnostics in details,
-  copy, and export. Broker failures and unexpected exceptions remain fatal.
+  cell tooltips, copy, and export. Broker failures and unexpected exceptions
+  remain fatal.
 
 ## TUI Interaction Conventions
 

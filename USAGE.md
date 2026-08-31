@@ -173,8 +173,9 @@ cannot be combined.
 
 If a configured key or value deserializer cannot decode an individual record, Kaskade
 shows `⚠`, displays that field with its BYTES fallback, and keeps consuming. Record
-details, copy, and export include the requested deserializer, fallback, and error. The
-other field remains decoded normally.
+details, copy, and export include the requested deserializer, fallback, and error. Hover
+the warning cell to see the field, requested deserializer, fallback, and error in a
+tooltip. The other field remains decoded normally.
 
 ### Schema Registry
 
