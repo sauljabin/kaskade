@@ -218,45 +218,45 @@ uv run kaskade admin -b localhost:19092
 Test consumer without deserialization:
 
 ```bash
-uv run kaskade consumer -b localhost:19092 --from-beginning -t string
+uv run kaskade consumer -b localhost:19092 --earliest -t string
 ```
 
 Test consumer with nulls:
 
 ```bash
-uv run kaskade consumer -b localhost:19092 --from-beginning -k string -v string -t null
+uv run kaskade consumer -b localhost:19092 --earliest -k string -v string -t null
 ```
 
 Test consumer with deserializers:
 
 ```bash
-uv run kaskade consumer -b localhost:19092 --from-beginning -k string -v string -t string
+uv run kaskade consumer -b localhost:19092 --earliest -k string -v string -t string
 ```
 
 ```bash
-uv run kaskade consumer -b localhost:19092 --from-beginning -k string -v integer -t integer
+uv run kaskade consumer -b localhost:19092 --earliest -k string -v integer -t integer
 ```
 
 ```bash
-uv run kaskade consumer -b localhost:19092 --from-beginning -k string -v long -t long
+uv run kaskade consumer -b localhost:19092 --earliest -k string -v long -t long
 ```
 
 ```bash
-uv run kaskade consumer -b localhost:19092 --from-beginning -k string -v float -t float
+uv run kaskade consumer -b localhost:19092 --earliest -k string -v float -t float
 ```
 
 ```bash
-uv run kaskade consumer -b localhost:19092 --from-beginning -k string -v double -t double
+uv run kaskade consumer -b localhost:19092 --earliest -k string -v double -t double
 ```
 
 ```bash
-uv run kaskade consumer -b localhost:19092 --from-beginning -k string -v boolean -t boolean
+uv run kaskade consumer -b localhost:19092 --earliest -k string -v boolean -t boolean
 ```
 
 Test json consumer with Schema Registry:
 
 ```bash
-uv run kaskade consumer -b localhost:19092 --from-beginning -t json-schema \
+uv run kaskade consumer -b localhost:19092 --earliest -t json-schema \
         -k string -v registry \
         --registry url=http://localhost:18081
 ```
@@ -264,17 +264,17 @@ uv run kaskade consumer -b localhost:19092 --from-beginning -t json-schema \
 Test json consumer without Schema Registry:
 
 ```bash
-uv run kaskade consumer -b localhost:19092 --from-beginning -k string -v json -t json
+uv run kaskade consumer -b localhost:19092 --earliest -k string -v json -t json
 ```
 
 ```bash
-uv run kaskade consumer -b localhost:19092 --from-beginning -k string -v json -t json-schema
+uv run kaskade consumer -b localhost:19092 --earliest -k string -v json -t json-schema
 ```
 
 Test avro consumer with Schema Registry:
 
 ```bash
-uv run kaskade consumer -b localhost:19092 --from-beginning -t avro-schema \
+uv run kaskade consumer -b localhost:19092 --earliest -t avro-schema \
         -k string -v registry \
         --registry url=http://localhost:18081
 ```
@@ -282,7 +282,7 @@ uv run kaskade consumer -b localhost:19092 --from-beginning -t avro-schema \
 Test avro consumer with Apicurio Registry:
 
 ```bash
-uv run kaskade consumer -b localhost:19092 --from-beginning -t avro-schema \
+uv run kaskade consumer -b localhost:19092 --earliest -t avro-schema \
         -k string -v registry \
         --registry url=http://localhost:18082/apis/ccompat/v7
 ```
@@ -290,13 +290,13 @@ uv run kaskade consumer -b localhost:19092 --from-beginning -t avro-schema \
 Test avro consumer without Schema Registry:
 
 ```bash
-uv run kaskade consumer -b localhost:19092 --from-beginning -t avro \
+uv run kaskade consumer -b localhost:19092 --earliest -t avro \
         -k string -v avro \
         --avro value=sandbox/avro_model/user.avsc
 ```
 
 ```bash
-uv run kaskade consumer -b localhost:19092 --from-beginning -t avro-schema \
+uv run kaskade consumer -b localhost:19092 --earliest -t avro-schema \
         -k string -v avro \
         --avro value=sandbox/avro_model/user.avsc \
         --avro framing=confluent
@@ -317,14 +317,14 @@ protoc --include_imports \
 ```
 
 ```bash
-uv run kaskade consumer -b localhost:19092 --from-beginning -t protobuf \
+uv run kaskade consumer -b localhost:19092 --earliest -t protobuf \
         -k string -v protobuf \
         --protobuf descriptor=sandbox/protobuf_model/user.desc \
         --protobuf value=User
 ```
 
 ```bash
-uv run kaskade consumer -b localhost:19092 --from-beginning -t protobuf-schema \
+uv run kaskade consumer -b localhost:19092 --earliest -t protobuf-schema \
         -k string -v protobuf \
         --protobuf descriptor=sandbox/protobuf_model/user.desc \
         --protobuf value=User

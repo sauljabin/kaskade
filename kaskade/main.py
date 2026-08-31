@@ -6,6 +6,7 @@ from click import BadParameter, MissingParameter
 
 from kaskade import APP_VERSION
 from kaskade.admin import KaskadeAdmin
+from kaskade.commands import PartitionSelection
 from kaskade.configs import (
     AUTO_OFFSET_RESET,
     AVRO_DESERIALIZER_CONFIGS,
@@ -32,6 +33,12 @@ KAFKA_CONFIG_FILE_HELP = (
     "Property file (property=value format) containing configs to be passed to Kafka Client."
 )
 BOOTSTRAP_SERVERS_HELP = "Bootstrap server(s). Comma-separated list of host and port pairs. Example: '-b localhost:9091,localhost:9092'."
+PARTITION_HELP = (
+    "Consume only this partition. Repeatable to select several partitions; once used, "
+    "unlisted partitions are not consumed. Format: 'partition[:offset]', where offset is a "
+    f"non-negative absolute offset or '{EARLIEST}'. A partition without an offset starts at "
+    "the normal/default position. Mutually exclusive with '--earliest'."
+)
 EPILOG_HELP = "More information at https://github.com/sauljabin/kaskade."
 
 
@@ -49,6 +56,50 @@ def string_to_deserializer_type(ctx: Any, param: Any, value: Any) -> Any:
         )
 
     return Deserialization.from_str(value)
+
+
+def parse_partition_value(value: str) -> PartitionSelection:
+    partition_part, sep, offset_part = value.partition(":")
+
+    if not partition_part.isdigit():
+        raise ValueError(f"Invalid partition '{value}'. Should be partition[:offset|{EARLIEST}].")
+
+    offset: int | str | None = None
+    if sep:
+        if not offset_part:
+            raise ValueError(
+                f"Invalid partition '{value}'. Should be partition[:offset|{EARLIEST}]."
+            )
+        if offset_part == EARLIEST:
+            offset = EARLIEST
+        elif offset_part.isdigit():
+            offset = int(offset_part)
+        else:
+            raise ValueError(
+                f"Invalid offset '{offset_part}'. Should be a non-negative integer or '{EARLIEST}'."
+            )
+
+    return PartitionSelection(partition=int(partition_part), offset=offset)
+
+
+def tuple_strings_to_partitions(ctx: Any, param: Any, value: Any) -> Any:
+    selections: list[PartitionSelection] = []
+    seen_partitions: set[int] = set()
+
+    for raw_value in value:
+        try:
+            selection = parse_partition_value(raw_value)
+        except ValueError as ex:
+            raise BadParameter(message=str(ex), ctx=ctx, param=param) from ex
+
+        if selection.partition in seen_partitions:
+            raise BadParameter(
+                message=f"Duplicate partition: {selection.partition}.", ctx=ctx, param=param
+            )
+        seen_partitions.add(selection.partition)
+        selections.append(selection)
+
+    return tuple(selections)
 
 
 def validate_admin_refresh_interval(ctx: Any, param: Any, value: int | None) -> int | None:
@@ -166,9 +217,10 @@ def admin(
         callback=tuple_properties_to_dict,
     ),
     cloup.option(
-        "--from-beginning",
-        "from_beginning",
-        help="Read from beginning. Equivalent to: '-c auto.offset.reset=earliest'.",
+        "--earliest",
+        "earliest",
+        help="Read all partitions from their earliest available offset. Equivalent to: "
+        "'-c auto.offset.reset=earliest'. Mutually exclusive with '--partition'.",
         is_flag=True,
     ),
     cloup.option(
@@ -188,6 +240,14 @@ def admin(
         help="Topic name.",
         metavar="name",
         required=True,
+    ),
+    cloup.option(
+        "--partition",
+        "partitions",
+        help=PARTITION_HELP,
+        metavar="partition[:offset]",
+        multiple=True,
+        callback=tuple_strings_to_partitions,
     ),
     cloup.option(
         "-k",
@@ -254,9 +314,10 @@ def consumer(
     protobuf_config: dict[str, str],
     avro_config: dict[str, str],
     topic: str,
+    partitions: tuple[PartitionSelection, ...],
     key_deserialization: Deserialization,
     value_deserialization: Deserialization,
-    from_beginning: bool,
+    earliest: bool,
     kafka_config_file: str | None,
     theme: str,
 ) -> None:
@@ -266,7 +327,9 @@ def consumer(
     \b
     Examples:
       kaskade consumer -b localhost:9092 -t my-topic
-      kaskade consumer -b localhost:9092 -t my-topic --from-beginning
+      kaskade consumer -b localhost:9092 -t my-topic --earliest
+      kaskade consumer -b localhost:9092 -t my-topic --partition 1
+      kaskade consumer -b localhost:9092 -t my-topic --partition 1:10 --partition 2:earliest
       kaskade consumer -b localhost:9092 -t my-topic --config security.protocol=SSL
       kaskade consumer -b localhost:9092 -t my-topic --config-file kafka.properties
       kaskade consumer -b localhost:9092 -t my-topic -v json
@@ -275,12 +338,18 @@ def consumer(
       kaskade consumer -b localhost:9092 -t my-topic -v protobuf --protobuf descriptor=my-descriptor.desc --protobuf value=MyMessage
     """
 
+    if earliest and partitions:
+        raise BadParameter(
+            message="'--earliest' and '--partition' are mutually exclusive.",
+            param_hint="'--earliest' / '--partition'",
+        )
+
     if kafka_config_file is not None:
         kafka_config = load_properties(kafka_config_file) | kafka_config
 
     kafka_config[BOOTSTRAP_SERVERS] = bootstrap_servers
 
-    if from_beginning:
+    if earliest:
         kafka_config[AUTO_OFFSET_RESET] = EARLIEST
 
     validate_deserializer(
@@ -298,6 +367,7 @@ def consumer(
         avro_config,
         key_deserialization,
         value_deserialization,
+        partitions,
     )
     kaskade_app.theme = theme
     kaskade_app.run()

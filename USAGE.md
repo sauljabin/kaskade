@@ -153,7 +153,26 @@ Help or Commands.
 ### Consume from the beginning
 
 ```bash
-kaskade consumer -b my-kafka:9092 -t my-topic --from-beginning
+kaskade consumer -b my-kafka:9092 -t my-topic --earliest
+```
+
+### Consume specific partitions
+
+Use the repeatable `--partition` option to consume only the listed partitions instead of the
+whole topic. Format: `partition[:offset]`, where `offset` is a non-negative absolute offset or
+`earliest`. A partition without an offset starts at the normal/default position. `--partition`
+is mutually exclusive with `--earliest`; per-partition earliest positioning is expressed as
+`--partition N:earliest`.
+
+```bash
+# Consume only partition 2, from its normal/default position
+kaskade consumer -b my-kafka:9092 -t my-topic --partition 2
+
+# Consume partitions 1 and 2, from absolute offsets 10 and 0
+kaskade consumer -b my-kafka:9092 -t my-topic --partition 1:10 --partition 2:0
+
+# Consume partition 2 from its earliest available offset
+kaskade consumer -b my-kafka:9092 -t my-topic --partition 2:earliest
 ```
 
 ### Schema Registry
@@ -218,7 +237,7 @@ Configuration precedence, from lowest to highest, is:
 1. Properties loaded from `--config-file`.
 2. Repeated `-c/--config property=value` options.
 3. `-b/--bootstrap-servers` for `bootstrap.servers`.
-4. In consumer mode, `--from-beginning` for `auto.offset.reset=earliest`.
+4. In consumer mode, `--earliest` for `auto.offset.reset=earliest`.
 
 ### Confluent Cloud
 
@@ -268,7 +287,7 @@ docker run --rm -it --network my-network sauljabin/kaskade:latest \
 Consume using a `my-schema.avsc` schema file:
 
 ```bash
-kaskade consumer -b my-kafka:9092 --from-beginning \
+kaskade consumer -b my-kafka:9092 --earliest \
         -k string -v avro \
         -t my-avro-topic \
         --avro value=my-schema.avsc
@@ -298,7 +317,7 @@ protoc --include_imports \
 Consume using `my-descriptor.desc`:
 
 ```bash
-kaskade consumer -b my-kafka:9092 --from-beginning \
+kaskade consumer -b my-kafka:9092 --earliest \
         -k string -v protobuf \
         -t my-protobuf-topic \
         --protobuf descriptor=my-descriptor.desc \

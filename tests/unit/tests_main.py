@@ -5,7 +5,8 @@ from unittest.mock import patch
 
 from click.testing import CliRunner
 
-from kaskade.configs import BOOTSTRAP_SERVERS
+from kaskade.commands import PartitionSelection
+from kaskade.configs import BOOTSTRAP_SERVERS, EARLIEST
 from kaskade.deserializers import Deserialization
 from kaskade.main import cli
 from kaskade.themes import DEFAULT_THEME
@@ -210,6 +211,171 @@ class TestConsumerCli(unittest.TestCase):
         self.assertGreater(result.exit_code, 0)
         self.assertIn("Missing option '-t'", result.output)
 
+    @patch("kaskade.main.KaskadeConsumer")
+    def test_earliest_sets_auto_offset_reset(self, mock_class_kaskade_consumer):
+        result = self.runner.invoke(
+            cli,
+            [self.command, "-b", EXPECTED_SERVER, "-t", EXPECTED_TOPIC, "--earliest"],
+        )
+
+        mock_class_kaskade_consumer.assert_called_with(
+            EXPECTED_TOPIC,
+            {BOOTSTRAP_SERVERS: EXPECTED_SERVER, "auto.offset.reset": EARLIEST},
+            {},
+            {},
+            {},
+            Deserialization.BYTES,
+            Deserialization.BYTES,
+            (),
+        )
+        self.assertEqual(0, result.exit_code)
+
+    @patch("kaskade.main.KaskadeConsumer")
+    def test_single_partition_without_offset(self, mock_class_kaskade_consumer):
+        result = self.runner.invoke(
+            cli,
+            [
+                self.command,
+                "-b",
+                EXPECTED_SERVER,
+                "-t",
+                EXPECTED_TOPIC,
+                "--partition",
+                "2",
+            ],
+        )
+
+        mock_class_kaskade_consumer.assert_called_with(
+            EXPECTED_TOPIC,
+            {BOOTSTRAP_SERVERS: EXPECTED_SERVER},
+            {},
+            {},
+            {},
+            Deserialization.BYTES,
+            Deserialization.BYTES,
+            (PartitionSelection(partition=2),),
+        )
+        self.assertEqual(0, result.exit_code)
+
+    @patch("kaskade.main.KaskadeConsumer")
+    def test_multiple_partitions_with_absolute_and_earliest_offsets(
+        self, mock_class_kaskade_consumer
+    ):
+        result = self.runner.invoke(
+            cli,
+            [
+                self.command,
+                "-b",
+                EXPECTED_SERVER,
+                "-t",
+                EXPECTED_TOPIC,
+                "--partition",
+                "1:10",
+                "--partition",
+                "2:earliest",
+                "--partition",
+                "0:0",
+            ],
+        )
+
+        mock_class_kaskade_consumer.assert_called_with(
+            EXPECTED_TOPIC,
+            {BOOTSTRAP_SERVERS: EXPECTED_SERVER},
+            {},
+            {},
+            {},
+            Deserialization.BYTES,
+            Deserialization.BYTES,
+            (
+                PartitionSelection(partition=1, offset=10),
+                PartitionSelection(partition=2, offset=EARLIEST),
+                PartitionSelection(partition=0, offset=0),
+            ),
+        )
+        self.assertEqual(0, result.exit_code)
+
+    def test_earliest_and_partition_are_mutually_exclusive(self):
+        result = self.runner.invoke(
+            cli,
+            [
+                self.command,
+                "-b",
+                EXPECTED_SERVER,
+                "-t",
+                EXPECTED_TOPIC,
+                "--earliest",
+                "--partition",
+                "1",
+            ],
+        )
+
+        self.assertGreater(result.exit_code, 0)
+        self.assertIn("mutually exclusive", result.output)
+
+    def test_invalid_partition_format(self):
+        result = self.runner.invoke(
+            cli,
+            [self.command, "-b", EXPECTED_SERVER, "-t", EXPECTED_TOPIC, "--partition", "abc"],
+        )
+
+        self.assertGreater(result.exit_code, 0)
+        self.assertIn("Invalid partition 'abc'", result.output)
+
+    def test_negative_partition_is_rejected(self):
+        result = self.runner.invoke(
+            cli,
+            [self.command, "-b", EXPECTED_SERVER, "-t", EXPECTED_TOPIC, "--partition", "-1"],
+        )
+
+        self.assertGreater(result.exit_code, 0)
+        self.assertIn("Invalid partition '-1'", result.output)
+
+    def test_negative_offset_is_rejected(self):
+        result = self.runner.invoke(
+            cli,
+            [self.command, "-b", EXPECTED_SERVER, "-t", EXPECTED_TOPIC, "--partition", "1:-5"],
+        )
+
+        self.assertGreater(result.exit_code, 0)
+        self.assertIn("Invalid offset '-5'", result.output)
+
+    def test_missing_offset_after_colon_is_rejected(self):
+        result = self.runner.invoke(
+            cli,
+            [self.command, "-b", EXPECTED_SERVER, "-t", EXPECTED_TOPIC, "--partition", "1:"],
+        )
+
+        self.assertGreater(result.exit_code, 0)
+        self.assertIn("Invalid partition '1:'", result.output)
+
+    def test_malformed_offset_word_is_rejected(self):
+        result = self.runner.invoke(
+            cli,
+            [self.command, "-b", EXPECTED_SERVER, "-t", EXPECTED_TOPIC, "--partition", "1:soon"],
+        )
+
+        self.assertGreater(result.exit_code, 0)
+        self.assertIn("Invalid offset 'soon'", result.output)
+
+    def test_duplicate_partition_is_rejected(self):
+        result = self.runner.invoke(
+            cli,
+            [
+                self.command,
+                "-b",
+                EXPECTED_SERVER,
+                "-t",
+                EXPECTED_TOPIC,
+                "--partition",
+                "1",
+                "--partition",
+                "1:earliest",
+            ],
+        )
+
+        self.assertGreater(result.exit_code, 0)
+        self.assertIn("Duplicate partition: 1", result.output)
+
     def test_invalid_extra_kafka_config(self):
         result = self.runner.invoke(cli, [self.command, "-c", "property.name"])
 
@@ -400,6 +566,7 @@ class TestConsumerCli(unittest.TestCase):
             {},
             Deserialization.BYTES,
             Deserialization.BYTES,
+            (),
         )
         self.assertEqual(0, result.exit_code)
 
@@ -428,6 +595,7 @@ class TestConsumerCli(unittest.TestCase):
             {},
             Deserialization.BYTES,
             Deserialization.BYTES,
+            (),
         )
         self.assertEqual(0, result.exit_code)
 
@@ -445,6 +613,7 @@ class TestConsumerCli(unittest.TestCase):
             {},
             Deserialization.BYTES,
             Deserialization.BYTES,
+            (),
         )
         self.assertEqual(0, result.exit_code)
 
@@ -496,6 +665,7 @@ class TestConsumerCli(unittest.TestCase):
             {},
             Deserialization.from_str(expected_key_deserialization),
             Deserialization.from_str(expected_value_deserialization),
+            (),
         )
         self.assertEqual(0, result.exit_code)
 
@@ -525,6 +695,7 @@ class TestConsumerCli(unittest.TestCase):
             {},
             Deserialization.BYTES,
             Deserialization.BYTES,
+            (),
         )
         self.assertEqual(0, result.exit_code)
 
@@ -562,6 +733,7 @@ class TestConsumerCli(unittest.TestCase):
             {},
             Deserialization.BYTES,
             Deserialization.BYTES,
+            (),
         )
         self.assertEqual(0, result.exit_code)
 
@@ -604,6 +776,7 @@ class TestConsumerCli(unittest.TestCase):
             {},
             Deserialization.REGISTRY,
             Deserialization.REGISTRY,
+            (),
         )
         self.assertEqual(0, result.exit_code)
 
@@ -864,6 +1037,7 @@ class TestConsumerCli(unittest.TestCase):
             {},
             Deserialization.BYTES,
             Deserialization.PROTOBUF,
+            (),
         )
         self.assertEqual(0, result.exit_code)
 

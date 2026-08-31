@@ -2,6 +2,7 @@ from inspect import isawaitable
 from typing import ClassVar
 
 from confluent_kafka import KafkaException
+from rich.text import Text
 from textual import work
 from textual.app import ComposeResult
 from textual.binding import Binding, BindingType
@@ -9,8 +10,8 @@ from textual.containers import Container
 from textual.widgets import DataTable, Footer, Input, OptionList, Static
 from textual.widgets.option_list import Option
 
-from kaskade.colors import PRIMARY
-from kaskade.commands import RecordFilters
+from kaskade.colors import PRIMARY, WARNING
+from kaskade.commands import PartitionSelection, RecordFilters
 from kaskade.deserializers import (
     DESERIALIZATION_EXCEPTIONS,
     Deserialization,
@@ -295,6 +296,7 @@ class ListRecords(Container):
         deserializer_factory: DeserializerPool,
         key_deserialization: Deserialization,
         value_deserialization: Deserialization,
+        partitions: tuple[PartitionSelection, ...] = (),
     ):
         super().__init__()
         self.topic = topic
@@ -302,6 +304,7 @@ class ListRecords(Container):
         self.deserializer_factory = deserializer_factory
         self.key_deserialization = key_deserialization
         self.value_deserialization = value_deserialization
+        self.partitions = partitions
         self.consumer = self._new_consumer()
         self.records: dict[str, Record] = {}
         self.current_record: Record | None = None
@@ -315,6 +318,7 @@ class ListRecords(Container):
             self.deserializer_factory,
             self.key_deserialization,
             self.value_deserialization,
+            partitions=self.partitions,
         )
 
     def _get_title(self) -> str:
@@ -459,8 +463,8 @@ class ListRecords(Container):
                 record_id = str(record)
                 self.records[record_id] = record
                 row = [
-                    record.key_str().strip(),
-                    record.value_str().strip(),
+                    self._cell_text(record.key_str().strip(), record.key_error()),
+                    self._cell_text(record.value_str().strip(), record.value_error()),
                     record.date,
                     str(record.partition),
                     str(record.offset),
@@ -474,6 +478,13 @@ class ListRecords(Container):
             table.loading = False
             self._is_consuming = False
             self.refresh_bindings()
+
+    @staticmethod
+    def _cell_text(value: str, error: str | None) -> str | Text:
+        """Mark a cell with a warning indicator when its field fell back to bytes."""
+        if error is None:
+            return value
+        return Text(f"⚠ {value}", style=WARNING)
 
 
 class KaskadeConsumer(KaskadeApp):
@@ -489,6 +500,7 @@ class KaskadeConsumer(KaskadeApp):
         avro_config: dict[str, str],
         key_deserialization: Deserialization,
         value_deserialization: Deserialization,
+        partitions: tuple[PartitionSelection, ...] = (),
     ):
         super().__init__()
         self.topic = topic
@@ -498,6 +510,7 @@ class KaskadeConsumer(KaskadeApp):
         self.avro_config = avro_config
         self.key_deserialization = key_deserialization
         self.value_deserialization = value_deserialization
+        self.partitions = partitions
 
     def compose(self) -> ComposeResult:
         yield KaskadeHeader(self.kafka_config)
@@ -507,5 +520,6 @@ class KaskadeConsumer(KaskadeApp):
             DeserializerPool(self.registry_config, self.protobuf_config, self.avro_config),
             self.key_deserialization,
             self.value_deserialization,
+            self.partitions,
         )
         yield Footer(compact=True)

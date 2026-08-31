@@ -7,6 +7,7 @@ from time import perf_counter
 from typing import Any
 
 from confluent_kafka import (
+    OFFSET_BEGINNING,
     OFFSET_INVALID,
     Consumer,
     ConsumerGroupTopicPartitions,
@@ -27,9 +28,15 @@ from confluent_kafka.admin import (
 from confluent_kafka.cimpl import NewPartitions, NewTopic
 
 from kaskade import logger
-from kaskade.commands import EMPTY_RECORD_FILTERS, CreateTopicCommand, RecordFilters
+from kaskade.commands import (
+    EMPTY_RECORD_FILTERS,
+    CreateTopicCommand,
+    PartitionSelection,
+    RecordFilters,
+)
 from kaskade.configs import (
     CLEANUP_POLICY_CONFIG,
+    EARLIEST,
     ENABLE_AUTO_COMMIT,
     GROUP_ID,
     MAX_POLL_INTERVAL_MS,
@@ -68,12 +75,14 @@ class ConsumerService:
         key_deserialization: Deserialization,
         value_deserialization: Deserialization,
         *,
+        partitions: tuple[PartitionSelection, ...] = (),
         page_size: int = 25,
         poll_retries: int = 5,
         timeout: float = 0.5,
         stabilization_retries: int = 30,
     ) -> None:
         self.topic = topic
+        self.partitions = partitions
         self.page_size = page_size
         self.poll_retries = poll_retries
         self.stabilization_retries = stabilization_retries
@@ -92,12 +101,39 @@ class ConsumerService:
             },
             logger=logger,
         )
-        self.consumer.subscribe([topic], on_assign=self.on_assign)
+        if self.partitions:
+            self.consumer.assign(self._topic_partitions(topic, self.partitions))
+            self.stable = True
+            self.assigned_at = perf_counter()
+            logger.info(
+                "consumer manually assigned topic=%s partitions=%d elapsed=%.3fs",
+                topic,
+                len(self.partitions),
+                self.assigned_at - self.started_at,
+            )
+        else:
+            self.consumer.subscribe([topic], on_assign=self.on_assign)
         self.deserializer_factory = deserializer_factory
         self.key_deserializer = deserializer_factory.get(key_deserialization)
         self.value_deserializer = deserializer_factory.get(value_deserialization)
         self.header_deserializer = deserializer_factory.get(Deserialization.STRING)
         self._operation_lock = asyncio.Lock()
+
+    @staticmethod
+    def _topic_partitions(
+        topic: str, partitions: tuple[PartitionSelection, ...]
+    ) -> list[TopicPartition]:
+        def offset_for(selection: PartitionSelection) -> int:
+            if isinstance(selection.offset, int):
+                return selection.offset
+            if selection.offset == EARLIEST:
+                return OFFSET_BEGINNING
+            return OFFSET_INVALID
+
+        return [
+            TopicPartition(topic, selection.partition, offset_for(selection))
+            for selection in partitions
+        ]
 
     def on_assign(self, consumer: Consumer, partitions: list[TopicPartition]) -> None:
         self.stable = True
@@ -110,7 +146,10 @@ class ConsumerService:
         )
 
     def close(self) -> None:
-        self.consumer.unsubscribe()
+        if self.partitions:
+            self.consumer.unassign()
+        else:
+            self.consumer.unsubscribe()
         self.consumer.close()
 
     async def aclose(self) -> None:

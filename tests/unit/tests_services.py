@@ -4,7 +4,13 @@ import unittest
 from concurrent.futures import Future
 from unittest.mock import MagicMock, patch
 
-from confluent_kafka import ConsumerGroupTopicPartitions, KafkaException, Node
+from confluent_kafka import (
+    OFFSET_BEGINNING,
+    OFFSET_INVALID,
+    ConsumerGroupTopicPartitions,
+    KafkaException,
+    Node,
+)
 from confluent_kafka.admin import (
     ConsumerGroupDescription,
     ConsumerGroupListing,
@@ -17,7 +23,8 @@ from confluent_kafka.admin import (
 )
 from confluent_kafka.cimpl import CONSUMER_GROUP_STATE_STABLE, TopicPartition
 
-from kaskade.commands import CreateTopicCommand, RecordFilters
+from kaskade.commands import CreateTopicCommand, PartitionSelection, RecordFilters
+from kaskade.configs import EARLIEST
 from kaskade.deserializers import Deserialization, DeserializerPool, StringDeserializer
 from kaskade.models import MetricState
 from kaskade.services import ConsumerService, TopicService
@@ -378,6 +385,77 @@ class TestConsumerService(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(3, deserializer_factory.get.call_count)
         consumer.unsubscribe.assert_called_once_with()
+        consumer.close.assert_called_once_with()
+
+    @patch("kaskade.services.Consumer")
+    async def test_manual_assignment_maps_offsets_and_marks_stable(
+        self, mock_class_consumer: MagicMock
+    ) -> None:
+        consumer = mock_class_consumer.return_value
+
+        service = ConsumerService(
+            "orders",
+            {"bootstrap.servers": "localhost:9092"},
+            DeserializerPool(),
+            Deserialization.STRING,
+            Deserialization.STRING,
+            partitions=(
+                PartitionSelection(partition=0),
+                PartitionSelection(partition=1, offset=EARLIEST),
+                PartitionSelection(partition=2, offset=10),
+            ),
+        )
+
+        self.assertTrue(service.stable)
+        self.assertIsNotNone(service.assigned_at)
+        consumer.subscribe.assert_not_called()
+        consumer.assign.assert_called_once_with(
+            [
+                TopicPartition("orders", 0, OFFSET_INVALID),
+                TopicPartition("orders", 1, OFFSET_BEGINNING),
+                TopicPartition("orders", 2, 10),
+            ]
+        )
+
+    @patch("kaskade.services.Consumer")
+    async def test_manual_assignment_consumes_without_on_assign_callback(
+        self, mock_class_consumer: MagicMock
+    ) -> None:
+        consumer = mock_class_consumer.return_value
+        consumer.consume.return_value = [consumer_message(partition=2)]
+
+        service = ConsumerService(
+            "orders",
+            {"bootstrap.servers": "localhost:9092"},
+            DeserializerPool(),
+            Deserialization.STRING,
+            Deserialization.STRING,
+            partitions=(PartitionSelection(partition=2),),
+            page_size=1,
+        )
+
+        records = await service.consume()
+
+        self.assertEqual(1, len(records))
+        self.assertEqual(2, records[0].partition)
+
+    @patch("kaskade.services.Consumer")
+    async def test_close_unassigns_manual_partitions(self, mock_class_consumer: MagicMock) -> None:
+        consumer = mock_class_consumer.return_value
+
+        service = ConsumerService(
+            "orders",
+            {"bootstrap.servers": "localhost:9092"},
+            DeserializerPool(),
+            Deserialization.STRING,
+            Deserialization.STRING,
+            partitions=(PartitionSelection(partition=0),),
+        )
+
+        service.close()
+
+        consumer.unassign.assert_called_once_with()
+        consumer.unsubscribe.assert_not_called()
         consumer.close.assert_called_once_with()
 
     @patch("kaskade.services.Consumer")

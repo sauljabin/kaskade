@@ -2,6 +2,19 @@ from dataclasses import dataclass
 
 
 @dataclass(frozen=True)
+class PartitionSelection:
+    """A single partition and its starting offset, as requested through the CLI.
+
+    ``offset`` is ``None`` for the default/latest position, the string
+    ``kaskade.configs.EARLIEST`` for Kafka's earliest sentinel, or a
+    non-negative absolute offset.
+    """
+
+    partition: int
+    offset: int | str | None = None
+
+
+@dataclass(frozen=True)
 class CreateTopicCommand:
     name: str
     partitions: int

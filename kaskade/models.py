@@ -4,6 +4,7 @@ from typing import Any
 
 from confluent_kafka.serialization import MessageField
 
+from kaskade import logger
 from kaskade.deserializers import DESERIALIZATION_EXCEPTIONS, Deserialization, Deserializer
 
 _NOT_DESERIALIZED = object()
@@ -255,6 +256,8 @@ class Record:
     value_deserializer: Deserializer | None = None
     _key_deserialized: Any = field(default=_NOT_DESERIALIZED, init=False, repr=False)
     _value_deserialized: Any = field(default=_NOT_DESERIALIZED, init=False, repr=False)
+    _key_error: str | None = field(default=None, init=False, repr=False)
+    _value_error: str | None = field(default=None, init=False, repr=False)
 
     def __repr__(self) -> str:
         return str(self)
@@ -274,6 +277,14 @@ class Record:
     def headers_count(self) -> int:
         return len(self.headers)
 
+    @staticmethod
+    def _field_dict(requested: Deserialization, content: Any, error: str | None) -> dict[str, Any]:
+        field_dict: dict[str, Any] = {"deserializer": requested.name, "content": content}
+        if error is not None:
+            field_dict["fallback"] = Deserialization.BYTES.name
+            field_dict["error"] = error
+        return field_dict
+
     def dict(self) -> dict[str, Any]:
         return {
             "topic": self.topic,
@@ -281,49 +292,73 @@ class Record:
             "offset": self.offset,
             "date": self.date,
             "headers": [(header.key, header.value_deserialized()) for header in self.headers],
-            "key": {
-                "deserializer": self.key_deserialization.name,
-                "content": self.key_deserialized(),
-            },
-            "value": {
-                "deserializer": self.value_deserialization.name,
-                "content": self.value_deserialized(),
-            },
+            "key": self._field_dict(
+                self.key_deserialization, self.key_deserialized(), self.key_error()
+            ),
+            "value": self._field_dict(
+                self.value_deserialization, self.value_deserialized(), self.value_error()
+            ),
         }
 
     def key_deserialized(self) -> Any:
         if self._key_deserialized is not _NOT_DESERIALIZED:
             return self._key_deserialized
-
-        if self.key is None:
-            self._key_deserialized = None
-            return self._key_deserialized
-
-        if self.key_deserializer is None:
-            self._key_deserialized = str(self.key)
-            return self._key_deserialized
-
-        self._key_deserialized = self.key_deserializer.deserialize(
-            self.key, self.topic, MessageField.KEY
+        self._key_deserialized, self._key_error = self._deserialize_field(
+            self.key, self.key_deserializer, self.key_deserialization, "key", MessageField.KEY
         )
         return self._key_deserialized
 
     def value_deserialized(self) -> Any:
         if self._value_deserialized is not _NOT_DESERIALIZED:
             return self._value_deserialized
-
-        if self.value is None:
-            self._value_deserialized = None
-            return self._value_deserialized
-
-        if self.value_deserializer is None:
-            self._value_deserialized = str(self.value)
-            return self._value_deserialized
-
-        self._value_deserialized = self.value_deserializer.deserialize(
-            self.value, self.topic, MessageField.VALUE
+        self._value_deserialized, self._value_error = self._deserialize_field(
+            self.value,
+            self.value_deserializer,
+            self.value_deserialization,
+            "value",
+            MessageField.VALUE,
         )
         return self._value_deserialized
+
+    def _deserialize_field(
+        self,
+        data: bytes | None,
+        deserializer: Deserializer | None,
+        requested: Deserialization,
+        field_name: str,
+        context: MessageField,
+    ) -> tuple[Any, str | None]:
+        if data is None:
+            return None, None
+
+        if deserializer is None:
+            return str(data), None
+
+        try:
+            return deserializer.deserialize(data, self.topic, context), None
+        except DESERIALIZATION_EXCEPTIONS as ex:
+            logger.warning(
+                "deserialization fallback topic=%s partition=%d offset=%d field=%s "
+                "deserializer=%s error=%s",
+                self.topic,
+                self.partition,
+                self.offset,
+                field_name,
+                requested,
+                ex,
+            )
+            return str(data), str(ex)
+
+    def key_error(self) -> str | None:
+        self.key_deserialized()
+        return self._key_error
+
+    def value_error(self) -> str | None:
+        self.value_deserialized()
+        return self._value_error
+
+    def has_deserialization_errors(self) -> bool:
+        return self.key_error() is not None or self.value_error() is not None
 
     def key_str(self) -> str:
         return str(self.key_deserialized())

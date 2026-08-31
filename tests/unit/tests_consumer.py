@@ -6,7 +6,9 @@ from io import StringIO
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
+from rich.text import Text
 from textual import events
+from textual.widgets import DataTable
 
 from kaskade.consumer import (
     KaskadeConsumer,
@@ -366,6 +368,82 @@ class TestRecordCopyActions(unittest.IsolatedAsyncioTestCase):
                 severity="error",
                 title="Deserialization Error",
             )
+
+
+class TestRecordTableWarnings(unittest.IsolatedAsyncioTestCase):
+    @patch("kaskade.consumer.ConsumerService")
+    async def test_key_deserialization_error_marks_only_the_key_cell(
+        self, consumer_service: MagicMock
+    ) -> None:
+        value_deserializer = MagicMock()
+        value_deserializer.deserialize.return_value = "paid"
+        key_deserializer = MagicMock()
+        key_deserializer.deserialize.side_effect = ValueError("malformed payload")
+        record = Record(
+            topic="orders",
+            partition=0,
+            offset=1,
+            key=b"bad-key",
+            value=b"paid",
+            key_deserializer=key_deserializer,
+            value_deserializer=value_deserializer,
+        )
+        consumer_service.return_value.consume = AsyncMock(return_value=[record])
+        app = KaskadeConsumer(
+            "orders",
+            {},
+            {},
+            {},
+            {},
+            Deserialization.STRING,
+            Deserialization.JSON,
+        )
+
+        async with app.run_test() as pilot:
+            await app.workers.wait_for_complete()
+            await pilot.pause()
+            table = app.query_one(DataTable)
+            key_cell, value_cell, *_ = table.get_row(str(record))
+
+            self.assertIsInstance(key_cell, Text)
+            self.assertIn("⚠", key_cell.plain)
+            self.assertEqual("warning", key_cell.style)
+            self.assertEqual("paid", value_cell)
+
+    @patch("kaskade.consumer.ConsumerService")
+    async def test_records_without_errors_are_not_marked(self, consumer_service: MagicMock) -> None:
+        key_deserializer = MagicMock()
+        key_deserializer.deserialize.return_value = "order-1"
+        value_deserializer = MagicMock()
+        value_deserializer.deserialize.return_value = "paid"
+        record = Record(
+            topic="orders",
+            partition=0,
+            offset=1,
+            key=b"order-1",
+            value=b"paid",
+            key_deserializer=key_deserializer,
+            value_deserializer=value_deserializer,
+        )
+        consumer_service.return_value.consume = AsyncMock(return_value=[record])
+        app = KaskadeConsumer(
+            "orders",
+            {},
+            {},
+            {},
+            {},
+            Deserialization.STRING,
+            Deserialization.JSON,
+        )
+
+        async with app.run_test() as pilot:
+            await app.workers.wait_for_complete()
+            await pilot.pause()
+            table = app.query_one(DataTable)
+            key_cell, value_cell, *_ = table.get_row(str(record))
+
+            self.assertEqual("order-1", key_cell)
+            self.assertEqual("paid", value_cell)
 
 
 class TestConsumptionCoordination(unittest.IsolatedAsyncioTestCase):
