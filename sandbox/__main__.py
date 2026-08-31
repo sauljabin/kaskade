@@ -1,6 +1,8 @@
+import os
 import time
 import uuid
 from collections.abc import Callable
+from functools import partial
 from pathlib import Path
 from time import sleep
 from typing import Any
@@ -16,6 +18,7 @@ from confluent_kafka.schema_registry.protobuf import ProtobufSerializer
 from confluent_kafka.serialization import MessageField, SerializationContext
 from faker import Faker
 from rich.console import Console
+from rich.status import Status
 
 from kaskade.configs import BOOTSTRAP_SERVERS, MIN_INSYNC_REPLICAS_CONFIG
 from kaskade.utils import file_to_str, pack_bytes, py_to_avro
@@ -26,6 +29,11 @@ from sandbox.protobuf_model.user_pb2 import User as ProtobufUser
 SANDBOX_PATH = Path(__file__).resolve().parent
 JSON_USER_SCHEMA = str(SANDBOX_PATH / "json_model" / "user.schema.json")
 AVRO_USER_SCHEMA = str(SANDBOX_PATH / "avro_model" / "user.avsc")
+ERRORS_TOPIC = "errors"
+ERROR_CASES = ("key", "value", "both", "valid")
+MALFORMED_KEY_CASES = frozenset({"key", "both"})
+MALFORMED_VALUE_CASES = frozenset({"value", "both"})
+MALFORMED_PAYLOAD_BYTES = 32
 
 
 class Populator:
@@ -71,6 +79,52 @@ class Populator:
             value = generator()
             self.producer.produce(topic, value=serializer(value), key=f"{value}")
         self.producer.flush(5)
+
+    def populate_registry_errors(
+        self,
+        serializer: JSONSerializer,
+        faker: Faker,
+        total_messages: int,
+    ) -> None:
+        for n in range(total_messages):
+            error_case = ERROR_CASES[n % len(ERROR_CASES)]
+            key = serializer(
+                JsonUser(name=faker.name()),
+                SerializationContext(ERRORS_TOPIC, MessageField.KEY),
+            )
+            value = serializer(
+                JsonUser(name=faker.name()),
+                SerializationContext(ERRORS_TOPIC, MessageField.VALUE),
+            )
+            if error_case in MALFORMED_KEY_CASES:
+                key = self._malformed_payload()
+            if error_case in MALFORMED_VALUE_CASES:
+                value = self._malformed_payload()
+            self.producer.produce(
+                ERRORS_TOPIC,
+                key=key,
+                value=value,
+                headers=[("sandbox-error-case", error_case.encode("utf-8"))],
+            )
+        self.producer.flush(5)
+
+    @staticmethod
+    def _malformed_payload() -> bytes:
+        return b"\xff" + os.urandom(MALFORMED_PAYLOAD_BYTES - 1)
+
+
+def run_population(
+    console: Console,
+    status: Status,
+    populator: Populator,
+    topic: str,
+    action: Callable[[], None],
+) -> None:
+    start = time.time()
+    status.update(f" [yellow]populating topic:[/] {topic}")
+    populator.create_topic(topic)
+    action()
+    console.print(f":white_check_mark: {topic} [green]{time.time() - start:.1f} secs[/]")
 
 
 @click.command()
@@ -177,11 +231,21 @@ def main(messages: int, bootstrap_servers: str, registry: str) -> None:
     console = Console()
     with console.status("", spinner="dots") as status:
         for topic, generator, serializer in topics:
-            start = time.time()
-            status.update(f" [yellow]populating topic:[/] {topic}")
-            populator.create_topic(topic)
-            populator.populate(topic, generator, serializer, messages)
-            console.print(f":white_check_mark: {topic} [green]{time.time() - start:.1f} secs[/]")
+            run_population(
+                console,
+                status,
+                populator,
+                topic,
+                partial(populator.populate, topic, generator, serializer, messages),
+            )
+
+        run_population(
+            console,
+            status,
+            populator,
+            ERRORS_TOPIC,
+            partial(populator.populate_registry_errors, json_serializer, faker, messages),
+        )
 
 
 if __name__ == "__main__":

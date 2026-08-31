@@ -2,6 +2,7 @@ from inspect import isawaitable
 from typing import ClassVar
 
 from confluent_kafka import KafkaException
+from rich.text import Text
 from textual import work
 from textual.app import ComposeResult
 from textual.binding import Binding, BindingType
@@ -10,6 +11,7 @@ from textual.widgets import DataTable, Footer, Input, OptionList, Static
 from textual.widgets.option_list import Option
 
 from kaskade.colors import PRIMARY
+from kaskade.colors import WARNING as WARNING_STYLE
 from kaskade.commands import RecordFilters
 from kaskade.deserializers import (
     DESERIALIZATION_EXCEPTIONS,
@@ -17,7 +19,7 @@ from kaskade.deserializers import (
     DeserializerPool,
 )
 from kaskade.help import HelpableModalScreen, modal_bindings
-from kaskade.models import Record
+from kaskade.models import PartitionSelection, Record
 from kaskade.record_export import (
     deliver_record,
     record_json,
@@ -25,6 +27,7 @@ from kaskade.record_export import (
 )
 from kaskade.services import ConsumerService
 from kaskade.themes import KaskadeApp
+from kaskade.unicodes import WARNING as WARNING_INDICATOR
 from kaskade.utils import copy_text, notify_error
 from kaskade.widgets import (
     KaskadeHeader,
@@ -40,10 +43,7 @@ BACK_SHORTCUT = "escape"
 FILTER_SHORTCUT = "/,ctrl+f"
 EXPORT_SHORTCUT = "ctrl+e"
 COPY_RECORD_SHORTCUT = "y"
-CONSUMER_EXCEPTIONS: tuple[type[Exception], ...] = (
-    KafkaException,
-    *DESERIALIZATION_EXCEPTIONS,
-)
+CONSUMER_EXCEPTIONS: tuple[type[Exception], ...] = (KafkaException,)
 
 
 class FilterRecordScreen(HelpableModalScreen[RecordFilters]):
@@ -295,6 +295,9 @@ class ListRecords(Container):
         deserializer_factory: DeserializerPool,
         key_deserialization: Deserialization,
         value_deserialization: Deserialization,
+        *,
+        partitions: tuple[PartitionSelection, ...] = (),
+        consumer: ConsumerService | None = None,
     ):
         super().__init__()
         self.topic = topic
@@ -302,7 +305,8 @@ class ListRecords(Container):
         self.deserializer_factory = deserializer_factory
         self.key_deserialization = key_deserialization
         self.value_deserialization = value_deserialization
-        self.consumer = self._new_consumer()
+        self.partitions = partitions
+        self.consumer = consumer or self._new_consumer()
         self.records: dict[str, Record] = {}
         self.current_record: Record | None = None
         self.filters = RecordFilters()
@@ -315,6 +319,7 @@ class ListRecords(Container):
             self.deserializer_factory,
             self.key_deserialization,
             self.value_deserialization,
+            partitions=self.partitions,
         )
 
     def _get_title(self) -> str:
@@ -449,6 +454,34 @@ class ListRecords(Container):
         self.query_one(DataTable).loading = True
         self.consume_records()
 
+    @staticmethod
+    def _content_cell(content: str, *, warning: bool) -> str | Text:
+        content = content.strip()
+        if warning:
+            return Text(
+                f"{WARNING_INDICATOR} {content}",
+                style=WARNING_STYLE,
+            )
+        return content
+
+    @classmethod
+    def _record_row(cls, record: Record) -> list[str | Text]:
+        record.resolve_deserializations()
+        return [
+            cls._content_cell(
+                record.key_str(),
+                warning=record.key_outcome().used_fallback,
+            ),
+            cls._content_cell(
+                record.value_str(),
+                warning=record.value_outcome().used_fallback,
+            ),
+            record.date,
+            str(record.partition),
+            str(record.offset),
+            str(record.headers_count()),
+        ]
+
     @work(group="records-consume")
     async def consume_records(self) -> None:
         table = self.query_one(DataTable)
@@ -458,15 +491,7 @@ class ListRecords(Container):
             for record in records:
                 record_id = str(record)
                 self.records[record_id] = record
-                row = [
-                    record.key_str().strip(),
-                    record.value_str().strip(),
-                    record.date,
-                    str(record.partition),
-                    str(record.offset),
-                    str(record.headers_count()),
-                ]
-                table.add_row(*row, key=record_id)
+                table.add_row(*self._record_row(record), key=record_id)
             table.border_title = self._get_title()
         except CONSUMER_EXCEPTIONS as ex:
             notify_error(self.app, "Consumption Error", ex)
@@ -489,6 +514,8 @@ class KaskadeConsumer(KaskadeApp):
         avro_config: dict[str, str],
         key_deserialization: Deserialization,
         value_deserialization: Deserialization,
+        *,
+        partitions: tuple[PartitionSelection, ...] = (),
     ):
         super().__init__()
         self.topic = topic
@@ -498,14 +525,30 @@ class KaskadeConsumer(KaskadeApp):
         self.avro_config = avro_config
         self.key_deserialization = key_deserialization
         self.value_deserialization = value_deserialization
+        self.partitions = partitions
+        self.deserializer_factory = DeserializerPool(
+            self.registry_config,
+            self.protobuf_config,
+            self.avro_config,
+        )
+        self.consumer = ConsumerService(
+            self.topic,
+            self.kafka_config,
+            self.deserializer_factory,
+            self.key_deserialization,
+            self.value_deserialization,
+            partitions=self.partitions,
+        )
 
     def compose(self) -> ComposeResult:
         yield KaskadeHeader(self.kafka_config)
         yield ListRecords(
             self.topic,
             self.kafka_config,
-            DeserializerPool(self.registry_config, self.protobuf_config, self.avro_config),
+            self.deserializer_factory,
             self.key_deserialization,
             self.value_deserialization,
+            partitions=self.partitions,
+            consumer=self.consumer,
         )
         yield Footer(compact=True)

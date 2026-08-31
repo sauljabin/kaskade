@@ -6,8 +6,11 @@ from io import StringIO
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
+from rich.text import Text
 from textual import events
+from textual.widgets import DataTable
 
+from kaskade.colors import WARNING as WARNING_STYLE
 from kaskade.consumer import (
     KaskadeConsumer,
     ListRecords,
@@ -16,11 +19,12 @@ from kaskade.consumer import (
     record_json,
     record_json_renderable,
 )
-from kaskade.deserializers import Deserialization, StringDeserializer
+from kaskade.deserializers import Deserialization, DeserializationError, StringDeserializer
 from kaskade.help import HelpScreen
 from kaskade.models import Header, Record
 from kaskade.record_export import record_filename
 from kaskade.themes import KaskadeApp
+from kaskade.unicodes import WARNING as WARNING_INDICATOR
 
 
 def exported_record() -> Record:
@@ -106,6 +110,39 @@ class TestRecordExport(unittest.TestCase):
         self.assertEqual([], data["headers"])
         self.assertIsNone(data["key"]["content"])
         self.assertIsNone(data["value"]["content"])
+
+    def test_record_dict_preserves_deserialization_warning_metadata(self) -> None:
+        key_deserializer = MagicMock()
+        key_deserializer.deserialize.side_effect = DeserializationError("malformed key")
+        record = Record(
+            topic="orders",
+            partition=1,
+            offset=10,
+            key=b"\xff",
+            value=b"paid",
+            key_deserialization=Deserialization.JSON,
+            value_deserialization=Deserialization.STRING,
+            key_deserializer=key_deserializer,
+            value_deserializer=StringDeserializer(),
+        )
+
+        data = record.dict()
+
+        self.assertEqual(
+            {
+                "deserializer": "JSON",
+                "fallback": "BYTES",
+                "content": "b'\\xff'",
+                "error": "malformed key",
+            },
+            data["key"],
+        )
+        self.assertEqual(
+            {"deserializer": "STRING", "content": "paid"},
+            data["value"],
+        )
+        self.assertTrue(record.has_deserialization_errors())
+        key_deserializer.deserialize.assert_called_once()
 
     def test_record_filename_contains_identity_and_sanitized_export_time(self) -> None:
         record = Record(topic="orders.v1:archive", partition=2, offset=42)
@@ -369,6 +406,47 @@ class TestRecordCopyActions(unittest.IsolatedAsyncioTestCase):
 
 
 class TestConsumptionCoordination(unittest.IsolatedAsyncioTestCase):
+    @patch("kaskade.consumer.ConsumerService")
+    async def test_warning_record_has_visible_indicator_and_warning_cells(
+        self, consumer_service: MagicMock
+    ) -> None:
+        key_deserializer = MagicMock()
+        key_deserializer.deserialize.side_effect = DeserializationError("malformed key")
+        record = Record(
+            topic="orders",
+            partition=1,
+            offset=10,
+            key=b"\xff",
+            value=b"paid",
+            key_deserialization=Deserialization.JSON,
+            value_deserialization=Deserialization.STRING,
+            key_deserializer=key_deserializer,
+            value_deserializer=StringDeserializer(),
+        )
+        consumer_service.return_value.consume = AsyncMock(return_value=[record])
+        app = KaskadeConsumer(
+            "orders",
+            {},
+            {},
+            {},
+            {},
+            Deserialization.JSON,
+            Deserialization.STRING,
+        )
+
+        async with app.run_test() as pilot:
+            await app.workers.wait_for_complete()
+            await pilot.pause()
+            row = app.query_one(DataTable).get_row_at(0)
+
+            self.assertIsInstance(row[0], Text)
+            self.assertEqual(
+                f"{WARNING_INDICATOR} b'\\xff'",
+                row[0].plain,
+            )
+            self.assertEqual(WARNING_STYLE, row[0].style)
+            self.assertEqual("paid", row[1])
+
     @patch("kaskade.consumer.ConsumerService")
     async def test_duplicate_requests_do_not_schedule_overlapping_consumers(
         self, consumer_service: MagicMock

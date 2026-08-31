@@ -11,6 +11,7 @@ from kaskade.admin import KaskadeAdmin
 from kaskade.configs import AUTO_OFFSET_RESET, BOOTSTRAP_SERVERS, EARLIEST
 from kaskade.consumer import KaskadeConsumer
 from kaskade.deserializers import Deserialization
+from kaskade.models import PartitionOffset, PartitionSelection
 
 MY_VALUE = "my-value"
 MY_KEY = "my-key"
@@ -24,9 +25,11 @@ def kafka_container() -> KafkaContainer:
     return KafkaContainer(KAFKA_IMAGE).with_kraft()
 
 
-def create_topic(config):
+def create_topic(config, partitions: int = 1):
     admin_client = AdminClient(config)
-    futures = admin_client.create_topics([NewTopic(MY_TOPIC)]).values()
+    futures = admin_client.create_topics(
+        [NewTopic(MY_TOPIC, num_partitions=partitions, replication_factor=1)]
+    ).values()
     for future in futures:
         future.result()
 
@@ -80,6 +83,33 @@ class TestE2E(unittest.IsolatedAsyncioTestCase):
                 first_row = table.get_row("0/0")
                 self.assertEqual(MY_KEY, first_row[0])
                 self.assertEqual(MY_VALUE, first_row[1])
+
+    async def test_consumer_assigns_only_explicit_partition(self):
+        with kafka_container() as kafka:
+            config = {BOOTSTRAP_SERVERS: kafka.get_bootstrap_server()}
+            create_topic(config, partitions=2)
+            producer = Producer(config)
+            producer.produce(MY_TOPIC, key="ignored", value="partition-0", partition=0)
+            producer.produce(MY_TOPIC, key="selected", value="partition-1", partition=1)
+            producer.flush()
+
+            consumer_app = KaskadeConsumer(
+                MY_TOPIC,
+                config,
+                {},
+                {},
+                {},
+                Deserialization.STRING,
+                Deserialization.STRING,
+                partitions=(PartitionSelection(1, PartitionOffset.EARLIEST),),
+            )
+            async with consumer_app.run_test():
+                table = consumer_app.query_one(DataTable)
+                await self.wait_for_rows(table, 1)
+
+                selected_row = table.get_row("1/0")
+                self.assertEqual("selected", selected_row[0])
+                self.assertEqual("partition-1", selected_row[1])
 
 
 if __name__ == "__main__":

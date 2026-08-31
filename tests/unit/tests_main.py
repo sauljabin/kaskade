@@ -5,9 +5,11 @@ from unittest.mock import patch
 
 from click.testing import CliRunner
 
-from kaskade.configs import BOOTSTRAP_SERVERS
+from kaskade.configs import AUTO_OFFSET_RESET, BOOTSTRAP_SERVERS, EARLIEST
 from kaskade.deserializers import Deserialization
-from kaskade.main import cli
+from kaskade.main import PARTITION_SELECTION_METAVAR, cli
+from kaskade.models import PartitionOffset, PartitionSelection
+from kaskade.services import PartitionSelectionError
 from kaskade.themes import DEFAULT_THEME
 from tests import faker
 
@@ -209,6 +211,152 @@ class TestConsumerCli(unittest.TestCase):
 
         self.assertGreater(result.exit_code, 0)
         self.assertIn("Missing option '-t'", result.output)
+
+    def test_partition_help_documents_selection_format(self):
+        result = self.runner.invoke(cli, [self.command, "--help"])
+
+        self.assertEqual(0, result.exit_code)
+        self.assertIn(f"--partition {PARTITION_SELECTION_METAVAR}", result.output)
+
+    @patch("kaskade.main.KaskadeConsumer")
+    def test_earliest_configures_all_partition_offset_reset(self, mock_class_kaskade_consumer):
+        result = self.runner.invoke(
+            cli,
+            [self.command, "-b", EXPECTED_SERVER, "-t", EXPECTED_TOPIC, "--earliest"],
+        )
+
+        self.assertEqual(
+            EARLIEST,
+            mock_class_kaskade_consumer.call_args.args[1][AUTO_OFFSET_RESET],
+        )
+        self.assertEqual(0, result.exit_code)
+
+    def test_from_beginning_is_no_longer_supported(self):
+        result = self.runner.invoke(
+            cli,
+            [
+                self.command,
+                "-b",
+                EXPECTED_SERVER,
+                "-t",
+                EXPECTED_TOPIC,
+                "--from-beginning",
+            ],
+        )
+
+        self.assertGreater(result.exit_code, 0)
+        self.assertIn("No such option '--from-beginning'", result.output)
+
+    @patch("kaskade.main.KaskadeConsumer")
+    def test_parses_repeatable_partition_selections(self, mock_class_kaskade_consumer):
+        result = self.runner.invoke(
+            cli,
+            [
+                self.command,
+                "-b",
+                EXPECTED_SERVER,
+                "-t",
+                EXPECTED_TOPIC,
+                "--partition",
+                "1:10",
+                "--partition",
+                "2:earliest",
+                "--partition",
+                "3",
+                "--partition",
+                "4:0",
+            ],
+        )
+
+        self.assertEqual(
+            (
+                PartitionSelection(1, 10),
+                PartitionSelection(2, PartitionOffset.EARLIEST),
+                PartitionSelection(3),
+                PartitionSelection(4, 0),
+            ),
+            mock_class_kaskade_consumer.call_args.kwargs["partitions"],
+        )
+        self.assertEqual(0, result.exit_code)
+
+    def test_rejects_malformed_negative_and_duplicate_partitions(self):
+        invalid_values = ("-1", "1:-1", "1:", "1:latest", "1:2:3")
+        for value in invalid_values:
+            with self.subTest(value=value):
+                result = self.runner.invoke(
+                    cli,
+                    [
+                        self.command,
+                        "-b",
+                        EXPECTED_SERVER,
+                        "-t",
+                        EXPECTED_TOPIC,
+                        "--partition",
+                        value,
+                    ],
+                )
+                self.assertGreater(result.exit_code, 0)
+                self.assertIn("non-negative numbers", result.output)
+
+        duplicate_result = self.runner.invoke(
+            cli,
+            [
+                self.command,
+                "-b",
+                EXPECTED_SERVER,
+                "-t",
+                EXPECTED_TOPIC,
+                "--partition",
+                "1",
+                "--partition",
+                "1:10",
+            ],
+        )
+        self.assertGreater(duplicate_result.exit_code, 0)
+        self.assertIn("Partition 1 was specified more than once", duplicate_result.output)
+
+    def test_rejects_earliest_with_explicit_partitions(self):
+        result = self.runner.invoke(
+            cli,
+            [
+                self.command,
+                "-b",
+                EXPECTED_SERVER,
+                "-t",
+                EXPECTED_TOPIC,
+                "--earliest",
+                "--partition",
+                "1",
+            ],
+        )
+
+        self.assertGreater(result.exit_code, 0)
+        self.assertIn("Cannot be used with --partition", result.output)
+
+    @patch("kaskade.main.KaskadeConsumer")
+    def test_reports_partition_metadata_validation_before_running_tui(
+        self, mock_class_kaskade_consumer
+    ):
+        mock_class_kaskade_consumer.side_effect = PartitionSelectionError(
+            "Partition 9 does not exist in topic 'my.topic'"
+        )
+
+        result = self.runner.invoke(
+            cli,
+            [
+                self.command,
+                "-b",
+                EXPECTED_SERVER,
+                "-t",
+                EXPECTED_TOPIC,
+                "--partition",
+                "9",
+            ],
+        )
+
+        self.assertGreater(result.exit_code, 0)
+        self.assertIn("Invalid value for '--partition'", result.output)
+        self.assertIn("Partition 9 does not exist", result.output)
 
     def test_invalid_extra_kafka_config(self):
         result = self.runner.invoke(cli, [self.command, "-c", "property.name"])
