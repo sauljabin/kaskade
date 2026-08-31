@@ -5,6 +5,14 @@ from unittest.mock import patch
 
 from click.testing import CliRunner
 
+from kaskade.authentication import (
+    OAUTH_CALLBACK,
+    OAUTHBEARER,
+    SASL_MECHANISM,
+    SASL_SSL,
+    SECURITY_PROTOCOL,
+    AwsMskOAuthCallback,
+)
 from kaskade.configs import AUTO_OFFSET_RESET, BOOTSTRAP_SERVERS, EARLIEST
 from kaskade.deserializers import Deserialization
 from kaskade.main import PARTITION_SELECTION_METAVAR, cli
@@ -36,6 +44,38 @@ class TestAdminCli(unittest.TestCase):
         self.assertIn(
             "Invalid value for '-c' / '--config': Should be property=value", result.output
         )
+
+    def test_invalid_aws_config(self):
+        result = self.runner.invoke(cli, [self.command, "--aws", "region"])
+
+        self.assertGreater(result.exit_code, 0)
+        self.assertIn("Invalid value for '--aws': Should be property=value", result.output)
+
+    def test_rejects_unknown_aws_config(self):
+        result = self.runner.invoke(
+            cli,
+            [
+                self.command,
+                "-b",
+                EXPECTED_SERVER,
+                "--aws",
+                "profile=example",
+                "--aws",
+                "region=us-east-1",
+            ],
+        )
+
+        self.assertGreater(result.exit_code, 0)
+        self.assertIn("Invalid value: Valid properties: ['region']", result.output)
+
+    def test_requires_aws_region_value(self):
+        result = self.runner.invoke(
+            cli,
+            [self.command, "-b", EXPECTED_SERVER, "--aws", "region="],
+        )
+
+        self.assertGreater(result.exit_code, 0)
+        self.assertIn("Missing option '--aws region=my-region'", result.output)
 
     @patch("kaskade.main.KaskadeAdmin")
     def test_update_kafka_config(self, mock_class_kaskade_admin):
@@ -186,6 +226,27 @@ class TestAdminCli(unittest.TestCase):
             },
             refresh_interval=None,
         )
+        self.assertEqual(0, result.exit_code)
+
+    @patch("kaskade.main.KaskadeAdmin")
+    def test_configures_aws_msk_iam_authentication(self, mock_class_kaskade_admin):
+        result = self.runner.invoke(
+            cli,
+            [
+                self.command,
+                "-b",
+                EXPECTED_SERVER,
+                "-c",
+                f"{SECURITY_PROTOCOL}=PLAINTEXT",
+                "--aws",
+                "region=us-east-1",
+            ],
+        )
+
+        config = mock_class_kaskade_admin.call_args.args[0]
+        self.assertEqual(SASL_SSL, config[SECURITY_PROTOCOL])
+        self.assertEqual(OAUTHBEARER, config[SASL_MECHANISM])
+        self.assertEqual(AwsMskOAuthCallback("us-east-1"), config[OAUTH_CALLBACK])
         self.assertEqual(0, result.exit_code)
 
 
@@ -711,6 +772,27 @@ class TestConsumerCli(unittest.TestCase):
             Deserialization.BYTES,
             Deserialization.BYTES,
         )
+        self.assertEqual(0, result.exit_code)
+
+    @patch("kaskade.main.KaskadeConsumer")
+    def test_configures_aws_msk_iam_authentication(self, mock_class_kaskade_consumer):
+        result = self.runner.invoke(
+            cli,
+            [
+                self.command,
+                "-b",
+                EXPECTED_SERVER,
+                "-t",
+                EXPECTED_TOPIC,
+                "--aws",
+                "region=us-west-2",
+            ],
+        )
+
+        config = mock_class_kaskade_consumer.call_args.args[1]
+        self.assertEqual(SASL_SSL, config[SECURITY_PROTOCOL])
+        self.assertEqual(OAUTHBEARER, config[SASL_MECHANISM])
+        self.assertEqual(AwsMskOAuthCallback("us-west-2"), config[OAUTH_CALLBACK])
         self.assertEqual(0, result.exit_code)
 
     @patch("kaskade.main.KaskadeConsumer")

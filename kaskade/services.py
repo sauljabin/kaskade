@@ -71,7 +71,7 @@ class ConsumerService:
     def __init__(
         self,
         topic: str,
-        kafka_config: dict[str, str],
+        kafka_config: dict[str, Any],
         deserializer_factory: DeserializerPool,
         key_deserialization: Deserialization,
         value_deserialization: Deserialization,
@@ -347,9 +347,7 @@ class GroupSnapshot:
 class TopicService:
     GROUP_OFFSET_CONCURRENCY = 16
 
-    def __init__(
-        self, config: dict[str, str | int | float | bool], *, timeout: float = 2.0
-    ) -> None:
+    def __init__(self, config: dict[str, Any], *, timeout: float = 2.0) -> None:
         self.timeout = timeout
         self.config = config.copy()
         self.admin_client = AdminClient(self.config, logger=logger)

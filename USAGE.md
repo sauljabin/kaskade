@@ -239,7 +239,28 @@ Configuration precedence, from lowest to highest, is:
 1. Properties loaded from `--config-file`.
 2. Repeated `-c/--config property=value` options.
 3. `-b/--bootstrap-servers` for `bootstrap.servers`.
-4. In consumer mode, `--earliest` for `auto.offset.reset=earliest`.
+4. `--aws property=value` for the Amazon MSK IAM authentication properties.
+5. In consumer mode, `--earliest` for `auto.offset.reset=earliest`.
+
+### Amazon MSK with IAM authentication
+
+Pass the AWS region to enable IAM authentication in either mode:
+
+```bash
+kaskade admin -b ${AWS_MSK_BOOTSTRAP_SERVERS} --aws region=us-east-1
+
+kaskade consumer -b ${AWS_MSK_BOOTSTRAP_SERVERS} -t my-topic \
+        --aws region=us-east-1
+```
+
+Kaskade configures `security.protocol=SASL_SSL`, `sasl.mechanism=OAUTHBEARER`,
+and automatic token refresh. Credentials are discovered through the standard AWS
+credential provider chain, so environment variables, shared AWS profiles (including
+`AWS_PROFILE`), and IAM roles attached to AWS workloads are supported without passing
+credentials to Kaskade.
+
+See [Configure clients for IAM access control](https://docs.aws.amazon.com/msk/latest/developerguide/configure-clients-for-iam-access-control.html)
+for the Amazon MSK broker and IAM policy requirements.
 
 ### Confluent Cloud
 

@@ -48,6 +48,12 @@ Missing, empty, malformed, or partially invalid Kaskade configuration must not
 make startup fragile. Ignore invalid entries, retain valid entries, and surface
 warnings in the application.
 
+Amazon MSK IAM authentication is enabled with `--aws region=<region>` in both
+admin and consumer modes. Keep AWS-specific CLI settings in the repeatable
+`--aws property=value` form and validate them before constructing Kafka clients.
+The signer dependency baseline is `aws-msk-iam-sasl-signer-python>=1.0`; do not
+raise its minimum version without requiring newer functionality.
+
 ## Runtime Initialization
 
 - Importing `kaskade` must not create directories, open files, or modify the root

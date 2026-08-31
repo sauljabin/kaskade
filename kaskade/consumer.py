@@ -313,7 +313,7 @@ class ListRecords(Container):
     def __init__(
         self,
         topic: str,
-        kafka_config: dict[str, str],
+        kafka_config: dict[str, Any],
         deserializer_factory: DeserializerPool,
         key_deserialization: Deserialization,
         value_deserialization: Deserialization,
@@ -565,7 +565,7 @@ class KaskadeConsumer(KaskadeApp):
     def __init__(
         self,
         topic: str,
-        kafka_config: dict[str, str],
+        kafka_config: dict[str, Any],
         registry_config: dict[str, str],
         protobuf_config: dict[str, str],
         avro_config: dict[str, str],
