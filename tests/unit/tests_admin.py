@@ -21,7 +21,7 @@ from kaskade.admin import (
 from kaskade.commands import CreateTopicCommand, UpdateTopicCommand
 from kaskade.configs import MIN_INSYNC_REPLICAS_CONFIG
 from kaskade.keymaps import CONFIG_ENV_VAR
-from kaskade.models import MetricState, Partition, Topic
+from kaskade.models import MetricState, Partition, Topic, TopicConfiguration
 from kaskade.services import EnrichmentResult, GroupSnapshot
 from tests import configure_admin_service
 
@@ -365,6 +365,56 @@ class TestUpdateTopic(unittest.IsolatedAsyncioTestCase):
                 )
 
 
+class TestDescribeTopic(unittest.IsolatedAsyncioTestCase):
+    async def test_loads_configurations_before_opening_topic_details(self) -> None:
+        topic = Topic(name="orders")
+        configurations = (TopicConfiguration("cleanup.policy", "compact", False),)
+        service = MagicMock()
+        configure_admin_service(service, {topic.name: topic})
+        service.describe_configs.return_value = configurations
+
+        with patch("kaskade.admin.TopicService", return_value=service):
+            app = KaskadeAdmin({})
+            async with app.run_test() as pilot:
+                await app.workers.wait_for_complete()
+                await pilot.pause()
+
+                await pilot.press("d")
+                await app.workers.wait_for_complete()
+                await pilot.pause()
+
+                self.assertIsInstance(app.screen, DescribeTopicScreen)
+                self.assertEqual(configurations, app.screen.configurations)
+                service.describe_configs.assert_called_once_with("orders")
+                self.assertFalse(app.query_one("#topics-table", DataTable).loading)
+
+    async def test_reports_configuration_failure_without_opening_topic_details(self) -> None:
+        topic = Topic(name="orders")
+        service = MagicMock()
+        configure_admin_service(service, {topic.name: topic})
+        service.describe_configs.side_effect = KafkaException("configs unavailable")
+
+        with patch("kaskade.admin.TopicService", return_value=service):
+            app = KaskadeAdmin({})
+            app.notify = MagicMock()
+            async with app.run_test() as pilot:
+                await app.workers.wait_for_complete()
+                await pilot.pause()
+
+                await pilot.press("d")
+                await app.workers.wait_for_complete()
+                await pilot.pause()
+
+                self.assertNotIsInstance(app.screen, DescribeTopicScreen)
+                self.assertFalse(app.query_one("#topics-table", DataTable).loading)
+                self.assertTrue(
+                    any(
+                        call.kwargs.get("title") == "Kafka Error"
+                        for call in app.notify.call_args_list
+                    )
+                )
+
+
 class TestTopicCopyActions(unittest.IsolatedAsyncioTestCase):
     async def test_y_copies_topic_from_table_and_details(self) -> None:
         topic = Topic(name="orders")
@@ -392,7 +442,15 @@ class TestTopicCopyActions(unittest.IsolatedAsyncioTestCase):
                     title="Copied",
                 )
 
-                app.push_screen(DescribeTopicScreen(topic))
+                app.push_screen(
+                    DescribeTopicScreen(
+                        topic,
+                        (
+                            TopicConfiguration("retention.ms", "604800000", False),
+                            TopicConfiguration("cleanup.policy", "compact", False),
+                        ),
+                    )
+                )
                 await pilot.pause()
                 app.copy_to_clipboard("")
                 app.notify.reset_mock()
@@ -402,6 +460,20 @@ class TestTopicCopyActions(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual("orders", app.clipboard)
                 app.notify.assert_called_once_with(
                     "Copied topic name to clipboard",
+                    title="Copied",
+                )
+
+                await pilot.press("l")
+                configurations = app.screen.query_one("#configurations-table", DataTable)
+                configurations.move_cursor(row=1)
+                app.copy_to_clipboard("")
+                app.notify.reset_mock()
+
+                await pilot.press("y")
+
+                self.assertEqual("retention.ms=604800000", app.clipboard)
+                app.notify.assert_called_once_with(
+                    "Copied configuration to clipboard",
                     title="Copied",
                 )
 

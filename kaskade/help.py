@@ -1,4 +1,5 @@
 import re
+import sys
 from collections import OrderedDict
 from dataclasses import dataclass
 from typing import ClassVar, Generic, TypeVar
@@ -17,6 +18,9 @@ from kaskade.widgets import StretchyDataTable
 ScreenResult = TypeVar("ScreenResult")
 KASKADE_URL = "https://github.com/sauljabin/kaskade"
 KASKADE_ISSUES_URL = f"{KASKADE_URL}/issues"
+SELECTED_TEXT_COPY_ACTION = "screen.copy_text"
+SELECTED_TEXT_COPY_SHORTCUT = "super+c" if sys.platform == "darwin" else "ctrl+shift+c"
+SELECTED_TEXT_COPY_KEY_DISPLAY = "cmd+c" if sys.platform == "darwin" else "ctrl+shift+c"
 
 
 @dataclass(frozen=True)
@@ -45,14 +49,20 @@ def contextual_help(screen: Screen) -> tuple[str, tuple[HelpBinding, ...]]:
                     else _binding_context(namespace)
                 ),
                 [],
-                binding.description,
+                (
+                    "Copy Selected Text"
+                    if binding.action == SELECTED_TEXT_COPY_ACTION
+                    else binding.description
+                ),
             )
         keys = groups[group_key][1]
-        for alias in _binding_aliases(screen, namespace, binding):
-            key_display = screen.app.get_key_display(alias)
+        for alias in _help_binding_aliases(screen, namespace, binding):
+            key_display = _explicit_control_display(screen.app.get_key_display(alias))
             if key_display in keys:
-                key_display = screen.app.get_key_display(
-                    alias.with_key(alias.key, key_display=None)
+                if binding.action == SELECTED_TEXT_COPY_ACTION:
+                    continue
+                key_display = _explicit_control_display(
+                    screen.app.get_key_display(alias.with_key(alias.key, key_display=None))
                 )
             if key_display not in keys:
                 keys.append(key_display)
@@ -62,6 +72,25 @@ def contextual_help(screen: Screen) -> tuple[str, tuple[HelpBinding, ...]]:
         for context, keys, description in groups.values()
     )
     return _focused_context(screen), bindings
+
+
+def _help_binding_aliases(
+    screen: Screen, namespace: object, binding: Binding
+) -> tuple[Binding, ...]:
+    """Return aliases normalized for Kaskade's supported Help shortcuts."""
+    if binding.action == SELECTED_TEXT_COPY_ACTION:
+        return (
+            binding.with_key(
+                SELECTED_TEXT_COPY_SHORTCUT,
+                key_display=SELECTED_TEXT_COPY_KEY_DISPLAY,
+            ),
+        )
+    return _binding_aliases(screen, namespace, binding)
+
+
+def _explicit_control_display(key_display: str) -> str:
+    """Render caret-style control chords with an explicit ctrl+ prefix."""
+    return f"ctrl+{key_display[1:]}" if key_display.startswith("^") else key_display
 
 
 def _binding_aliases(screen: Screen, namespace: object, binding: Binding) -> tuple[Binding, ...]:

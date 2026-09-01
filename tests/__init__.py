@@ -16,3 +16,4 @@ def configure_admin_service(service: MagicMock, topics: dict[str, Topic]) -> Non
     service.enrich_offsets = AsyncMock(return_value=EnrichmentResult())
     service.load_groups = AsyncMock(return_value=GroupSnapshot())
     service.apply_groups.return_value = EnrichmentResult()
+    service.describe_configs.return_value = ()

@@ -1,8 +1,10 @@
 import unittest
 from unittest.mock import AsyncMock, MagicMock, patch
 
+from rich.text import Text
 from textual.command import CommandList, CommandPalette
 from textual.containers import ScrollableContainer
+from textual.coordinate import Coordinate
 from textual.geometry import Offset
 from textual.selection import Selection
 from textual.theme import BUILTIN_THEMES, ThemeProvider
@@ -28,6 +30,7 @@ from kaskade.admin import (
     KaskadeAdmin,
     ListTopics,
 )
+from kaskade.colors import WARNING as WARNING_STYLE
 from kaskade.commands import RecordFilters
 from kaskade.configs import BOOTSTRAP_SERVERS
 from kaskade.consumer import (
@@ -39,7 +42,7 @@ from kaskade.consumer import (
 )
 from kaskade.deserializers import Deserialization
 from kaskade.help import KASKADE_ISSUES_URL, KASKADE_URL, HelpableModalScreen, HelpScreen
-from kaskade.models import Record, Topic
+from kaskade.models import Record, Topic, TopicConfiguration
 from kaskade.themes import (
     DEFAULT_THEME,
     EVA01_THEME,
@@ -48,6 +51,7 @@ from kaskade.themes import (
     KaskadeApp,
     available_theme_names,
 )
+from kaskade.unicodes import LOCK
 from kaskade.widgets import (
     KaskadeHeader,
     KaskadeOptionList,
@@ -305,7 +309,7 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                     binding.description: binding.keys for binding in help_screen.help_bindings
                 }
                 self.assertEqual(("?", "f1"), binding_keys["Help"])
-                self.assertEqual((":", "^p"), binding_keys["Commands"])
+                self.assertEqual((":", "ctrl+p"), binding_keys["Commands"])
                 self.assertEqual(("d", "⏎"), binding_keys["Describe"])
                 self.assertEqual(("y",), binding_keys["Copy Topic"])
                 self.assertEqual(
@@ -641,17 +645,28 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
         with patch("kaskade.admin.TopicService") as topic_service:
             configure_admin_service(topic_service.return_value, {})
             app = KaskadeAdmin({})
+            configurations = (
+                TopicConfiguration("retention.ms", "604800000", False),
+                TopicConfiguration("cleanup.policy", "compact", False),
+                TopicConfiguration("ssl.keystore.password", "", True),
+            )
 
             async with app.run_test() as pilot:
-                app.push_screen(DescribeTopicScreen(Topic(name="orders")))
+                app.push_screen(DescribeTopicScreen(Topic(name="orders"), configurations))
                 await pilot.pause()
 
                 tabs = app.screen.query_one(TabbedContent)
                 partitions = app.screen.query_one("#partitions-table", DataTable)
+                configuration_table = app.screen.query_one("#configurations-table", DataTable)
                 detail_tables = list(app.screen.query(StretchyDataTable))
                 self.assertEqual("partitions", tabs.active)
                 self.assertEqual(
-                    ["Partitions [0]", "Groups [0]", "Group Members [0]"],
+                    [
+                        "Partitions [0]",
+                        "Configurations [3]",
+                        "Groups [0]",
+                        "Group Members [0]",
+                    ],
                     [tab.label_text for tab in app.screen.query(Tab)],
                 )
                 self.assertEqual(
@@ -659,9 +674,33 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                     tabs.border_title,
                 )
                 self.assertNotEqual("none", tabs.styles.border_top[0])
-                self.assertEqual(3, len(app.screen.query(TabPane)))
-                self.assertEqual(3, len(app.screen.query(DataTable)))
-                self.assertEqual(3, len(detail_tables))
+                self.assertEqual(4, len(app.screen.query(TabPane)))
+                self.assertEqual(4, len(app.screen.query(DataTable)))
+                self.assertEqual(4, len(detail_tables))
+                self.assertEqual(
+                    ["Name", "Value"],
+                    [column.label.plain for column in configuration_table.ordered_columns],
+                )
+                self.assertEqual(
+                    [
+                        ["cleanup.policy", "compact"],
+                        ["retention.ms", "604800000"],
+                        ["ssl.keystore.password", LOCK],
+                    ],
+                    [
+                        [
+                            str(configuration_table.get_cell_at(Coordinate(row, column)))
+                            for column in range(2)
+                        ]
+                        for row in range(3)
+                    ],
+                )
+                sensitive_name = configuration_table.get_cell_at(Coordinate(2, 0))
+                sensitive_value = configuration_table.get_cell_at(Coordinate(2, 1))
+                self.assertIsInstance(sensitive_name, Text)
+                self.assertIsInstance(sensitive_value, Text)
+                self.assertEqual(WARNING_STYLE, sensitive_name.style)
+                self.assertEqual(WARNING_STYLE, sensitive_value.style)
                 for table in detail_tables:
                     self.assertIsNone(table.border_title)
                     self.assertEqual("", table.styles.border_top[0])
@@ -671,9 +710,48 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 self.assertIsInstance(app.screen.query_one(Footer), Footer)
 
                 await pilot.press("l")
+                await pilot.pause()
+                self.assertEqual("configurations", tabs.active)
+                self.assertGreater(
+                    configuration_table.ordered_columns[0].width,
+                    configuration_table.ordered_columns[1].width,
+                )
+                configuration_table.hover_coordinate = Coordinate(2, 1)
+                await pilot.pause()
+                self.assertIsInstance(configuration_table.tooltip, Text)
+                self.assertIn("Sensitive Configuration", configuration_table.tooltip.plain)
+                self.assertIn("ssl.keystore.password", configuration_table.tooltip.plain)
+                await pilot.press("l")
                 self.assertEqual("groups", tabs.active)
                 await pilot.press("h")
-                self.assertEqual("partitions", tabs.active)
+                self.assertEqual("configurations", tabs.active)
+
+    async def test_topic_details_help_excludes_ctrl_c_from_selected_text_copy(self):
+        with patch("kaskade.admin.TopicService") as topic_service:
+            configure_admin_service(topic_service.return_value, {})
+            app = KaskadeAdmin({})
+
+            async with app.run_test() as pilot:
+                app.push_screen(DescribeTopicScreen(Topic(name="orders"), ()))
+                await pilot.pause()
+
+                await pilot.press("?")
+
+                self.assertIsInstance(app.screen, HelpScreen)
+                copy_bindings = {
+                    binding.description: binding.keys
+                    for binding in app.screen.help_bindings
+                    if binding.description.startswith("Copy")
+                }
+                self.assertEqual(
+                    (SELECTED_TEXT_COPY_KEY_DISPLAY,),
+                    copy_bindings["Copy Selected Text"],
+                )
+                self.assertEqual(("y",), copy_bindings["Copy Selection"])
+                self.assertNotIn(
+                    "ctrl+c",
+                    {key for keys in copy_bindings.values() for key in keys},
+                )
 
     async def test_chunk_size_uses_an_option_list_with_the_current_value_selected(self):
         with patch("kaskade.admin.TopicService") as topic_service:

@@ -174,6 +174,13 @@ class Topic:
         return False
 
 
+@dataclass(frozen=True)
+class TopicConfiguration:
+    name: str
+    value: str
+    sensitive: bool
+
+
 class CleanupPolicy(Enum):
     DELETE = auto()
     COMPACT = auto()

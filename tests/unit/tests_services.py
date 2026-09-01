@@ -12,6 +12,7 @@ from confluent_kafka import (
     Node,
 )
 from confluent_kafka.admin import (
+    ConfigEntry,
     ConsumerGroupDescription,
     ConsumerGroupListing,
     ListConsumerGroupsResult,
@@ -120,6 +121,41 @@ class TestTopicService(unittest.IsolatedAsyncioTestCase):
         new_topic = admin.create_topics.call_args.args[0][0]
         self.assertEqual(-1, new_topic.replication_factor)
         self.assertEqual({"cleanup.policy": "delete", "retention.ms": "1000"}, new_topic.config)
+
+    @patch("kaskade.services.AdminClient")
+    async def test_describes_effective_topic_configurations_and_marks_sensitive_values(
+        self, mock_class_admin: MagicMock
+    ) -> None:
+        admin = mock_class_admin.return_value
+        entries = {
+            "visible.setting": ConfigEntry(
+                "visible.setting",
+                "visible",
+            ),
+            "sensitive.setting": ConfigEntry(
+                "sensitive.setting",
+                "secret",
+                is_sensitive=True,
+            ),
+            "unavailable.setting": ConfigEntry("unavailable.setting", None),
+        }
+        admin.describe_configs.return_value = {"orders": completed(entries)}
+
+        configurations = TopicService({"bootstrap.servers": "localhost:9092"}).describe_configs(
+            "orders"
+        )
+
+        self.assertEqual(
+            {
+                "visible.setting": ("visible", False),
+                "sensitive.setting": ("", True),
+                "unavailable.setting": ("", False),
+            },
+            {
+                configuration.name: (configuration.value, configuration.sensitive)
+                for configuration in configurations
+            },
+        )
 
     @patch("kaskade.services.Consumer")
     @patch("kaskade.services.AdminClient")

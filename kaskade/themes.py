@@ -11,14 +11,17 @@ from textual.binding import Binding, BindingType
 from textual.screen import Screen
 from textual.theme import BUILTIN_THEMES, Theme
 
-from kaskade.help import HELP_BINDING, HelpScreen, contextual_help
+from kaskade.help import (
+    HELP_BINDING,
+    SELECTED_TEXT_COPY_KEY_DISPLAY,
+    SELECTED_TEXT_COPY_SHORTCUT,
+    HelpScreen,
+    contextual_help,
+)
 from kaskade.keymaps import NAVIGATION_BINDING_IDS, load_settings
 
 DEFAULT_THEME = "eva01"
 KASKADE_COMMAND_ID_PREFIX = "kaskade."
-SELECTED_TEXT_COPY_SHORTCUT = "super+c" if sys.platform == "darwin" else "ctrl+shift+c"
-SELECTED_TEXT_COPY_KEY_DISPLAY = "cmd+c" if sys.platform == "darwin" else "ctrl+shift+c"
-
 EVA01_THEME = Theme(
     name=DEFAULT_THEME,
     primary="#9B4DCA",

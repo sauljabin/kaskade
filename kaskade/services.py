@@ -4,7 +4,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from time import perf_counter
-from typing import Any
+from typing import Any, cast
 
 from confluent_kafka import (
     OFFSET_BEGINNING,
@@ -52,6 +52,7 @@ from kaskade.models import (
     PartitionSelection,
     Record,
     Topic,
+    TopicConfiguration,
 )
 from kaskade.utils import make_it_async
 
@@ -371,12 +372,26 @@ class TopicService:
             future.result()
 
     def get_configs(self, name: str) -> dict[str, str]:
+        return {config.name: cast(str, config.value) for config in self._config_entries(name)}
+
+    def describe_configs(self, name: str) -> tuple[TopicConfiguration, ...]:
+        configurations = (
+            TopicConfiguration(
+                name=config.name,
+                value="" if config.is_sensitive or config.value is None else config.value,
+                sensitive=config.is_sensitive,
+            )
+            for config in self._config_entries(name)
+        )
+        return tuple(configurations)
+
+    def _config_entries(self, name: str) -> list[ConfigEntry]:
         resource = ConfigResource(ResourceType.TOPIC, name)
         futures = self.admin_client.describe_configs([resource])
         for future in futures.values():
             configs = future.result()
-            return {config.name: config.value for config in configs.values()}
-        return {}
+            return list(configs.values())
+        return []
 
     def edit(self, name: str, config: dict[str, str]) -> None:
         entries = [
