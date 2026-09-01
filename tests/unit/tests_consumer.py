@@ -1,5 +1,6 @@
 import asyncio
 import json
+import struct
 import unittest
 from datetime import datetime, timezone
 from io import StringIO
@@ -24,6 +25,7 @@ from kaskade.consumer import (
     record_json_renderable,
 )
 from kaskade.deserializers import (
+    BooleanDeserializer,
     Deserialization,
     DeserializationError,
     DeserializationResult,
@@ -617,6 +619,36 @@ class TestConsumptionCoordination(unittest.IsolatedAsyncioTestCase):
             finally:
                 release.set()
             await app.workers.wait_for_complete()
+
+    @patch("kaskade.consumer.ConsumerService")
+    async def test_boolean_cells_use_json_literals(self, consumer_service: MagicMock) -> None:
+        deserializer = BooleanDeserializer()
+        record = Record(
+            topic="boolean",
+            key=struct.pack(">?", False),
+            value=struct.pack(">?", True),
+            key_deserialization=Deserialization.BOOLEAN,
+            value_deserialization=Deserialization.BOOLEAN,
+            key_deserializer=deserializer,
+            value_deserializer=deserializer,
+        )
+        consumer_service.return_value.consume = AsyncMock(return_value=[record])
+        app = KaskadeConsumer(
+            "boolean",
+            {},
+            {},
+            {},
+            {},
+            Deserialization.BOOLEAN,
+            Deserialization.BOOLEAN,
+        )
+
+        async with app.run_test() as pilot:
+            await app.workers.wait_for_complete()
+            await pilot.pause()
+            row = app.query_one(RecordDataTable).get_row_at(0)
+
+            self.assertEqual(["false", "true"], row[:2])
 
     @patch("kaskade.consumer.ConsumerService")
     async def test_warning_record_has_visible_indicator_and_warning_cells(

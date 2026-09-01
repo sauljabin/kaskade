@@ -484,7 +484,7 @@ class ListRecords(Container):
     def _content_cell(outcome: DeserializationOutcome) -> str | Text:
         if outcome.content is None:
             return Text("null", style=NULL)
-        content = str(outcome.content).strip()
+        content = outcome.content_str().strip()
         if outcome.used_fallback:
             return Text(
                 f"{WARNING_INDICATOR} {content}",

@@ -289,6 +289,11 @@ class DeserializationOutcome:
             }
         return {"content": self.content, "deserializer": deserializer}
 
+    def content_str(self) -> str:
+        if isinstance(self.content, bool):
+            return str(self.content).lower()
+        return str(self.content)
+
 
 @dataclass(eq=False)
 class Record:
@@ -402,10 +407,10 @@ class Record:
         return self.value_outcome().content
 
     def key_str(self) -> str:
-        return str(self.key_deserialized())
+        return self.key_outcome().content_str()
 
     def value_str(self) -> str:
-        return str(self.value_deserialized())
+        return self.value_outcome().content_str()
 
     def timestamp_json(self) -> str | None:
         timestamp = self._timestamp_utc()

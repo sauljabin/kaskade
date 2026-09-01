@@ -93,6 +93,20 @@ class TestDeserializer(unittest.TestCase):
         key_deserializer.deserialize.assert_called_once()
         value_deserializer.deserialize.assert_called_once()
 
+    def test_record_boolean_strings_use_json_literals(self):
+        deserializer = BooleanDeserializer()
+        record = Record(
+            key=struct.pack(">?", False),
+            value=struct.pack(">?", True),
+            key_deserializer=deserializer,
+            value_deserializer=deserializer,
+        )
+
+        self.assertEqual("false", record.key_str())
+        self.assertEqual("true", record.value_str())
+        self.assertIs(record.dict()["key"]["content"], False)
+        self.assertIs(record.dict()["value"]["content"], True)
+
     def test_record_propagates_unexpected_deserialization_errors(self):
         for exception in (RuntimeError("unexpected"), IndexError("unexpected")):
             deserializer = MagicMock()
