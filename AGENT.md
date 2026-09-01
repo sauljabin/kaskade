@@ -12,16 +12,9 @@
 
 ## Living Knowledge and Documentation
 
-- Treat this file as the project's living operational knowledge. Update it when
-  work establishes a durable convention, architectural decision, workflow, or
-  constraint that future agents need to follow.
-- Review existing guidance while updating it. Remove or rewrite knowledge that
-  is obsolete, redundant, contradicted by the implementation, or no longer
-  useful; do not only append new sections.
-- Apply the same rule to all repository documentation and examples. Whenever a
-  change affects documented behavior, commands, configuration, screenshots, or
-  workflows, update every relevant document in the same change and remove stale
-  information.
+- Treat this file as living operational knowledge. Record durable conventions,
+  and remove obsolete, redundant, or contradicted guidance instead of only
+  appending. Apply the same rule to all affected documentation and examples.
 - Keep guidance concise and factual. Document stable project knowledge rather
   than temporary implementation details or a chronological history of changes.
 
@@ -30,23 +23,31 @@
 - Kaskade must work consistently on Linux and macOS. Keep paths, terminal key
   handling, and shell-facing documentation portable across both platforms.
 
-## Configuration Files
+## CLI and Configuration
+
+- Keep the admin and consumer Kafka connection declarations shared. Their help
+  uses `Kafka connection options`, `AWS options`, and `Application options`;
+  consumer additionally separates `Consumption options` from
+  `Deserialization options`. Keep `--earliest` and `--partition` declaratively
+  mutually exclusive and render the theme argument as `name` without weakening
+  choice validation.
 
 Kaskade has two intentionally separate configuration formats:
 
 - `--config-file kafka.properties` loads Kafka client properties in
-  `property=value` format. The CLI `-b/--bootstrap-servers` value supplies
-  `bootstrap.servers`, and individual `--config property=value` options override
-  values loaded from the properties file. Keep `examples/kafka.properties`
-  current when Kafka configuration behavior changes.
+  `property=value` format. Merge precedence is file properties, repeatable
+  `--config property=value` entries, then an optional
+  `-b/--bootstrap-servers` override. Require a non-empty resolved
+  `bootstrap.servers` before constructing either application. Keep
+  `examples/kafka.properties` current when this behavior changes.
 - `~/.config/kaskade/config.yaml` configures Kaskade itself. Respect
   `KASKADE_CONFIG` first, then `XDG_CONFIG_HOME`, and finally fall back to
   `~/.config/kaskade/config.yaml` on Linux and macOS. Keep
   `examples/config.yaml` current when configurable bindings change.
 
-Missing, empty, malformed, or partially invalid Kaskade configuration must not
-make startup fragile. Ignore invalid entries, retain valid entries, and surface
-warnings in the application.
+Missing, empty, malformed, or partially invalid Kaskade YAML configuration must
+not make startup fragile. Ignore invalid entries, retain valid entries, and
+surface warnings in the application.
 
 Amazon MSK IAM authentication is enabled with `--aws region=<region>` in admin,
 consumer, and the sandbox population tool. Keep AWS-specific CLI settings in
@@ -108,15 +109,11 @@ Kaskade follows familiar k9s/Vim-style terminal interactions where practical:
 - Plain-character shortcuts must not intercept typing in inputs. In particular,
   `?` opens Help in normal contexts while `f1` remains available from a focused
   text input.
-- Contextual entity copy uses `y`, Textual's OSC 52 clipboard API, and is hidden
-  from the Footer while remaining available in Help and Commands. OSC 52 is a
-  best-effort request to the user's terminal: Textual cannot confirm that the
-  terminal accepted it, unsupported VTE terminals silently ignore it, and
-  remote sessions work only when every layer passes it through. Keep the
-  compatibility matrix in `USAGE.md` authoritative and link to it from README
-  rather than duplicating it. Selected-text copy uses `Cmd+C` on macOS or
-  `Ctrl+Shift+C` on Linux; `Ctrl+C` always quits Kaskade and must never be shown
-  as a copy alias.
+- Contextual entity copy uses `y` and Textual's best-effort OSC 52 clipboard
+  API. Keep it hidden from the Footer but available in Help and Commands. Keep
+  the compatibility matrix in `USAGE.md` authoritative and link to it rather
+  than duplicating it. Selected-text copy uses `Cmd+C` on macOS or
+  `Ctrl+Shift+C` on Linux; `Ctrl+C` always quits and is never a copy alias.
 - Keep Textual's command palette on `:` with `ctrl+p` as an alternative. Expose
   contextual Kaskade actions in it, omit duplicate navigation actions, and do
   not expose Textual maximize/minimize commands. Replace Textual's generic Keys
@@ -268,24 +265,11 @@ individual script modules focused on executable workflows.
   with `feat`, `fix`, `perf`, `docs`, `fix(security)`, or dependency-scoped
   `build(deps)`/`chore(deps)` types where applicable.
 
-## Commits
+## Commits and Pull Requests
 
-Use the [Conventional Commits](https://www.conventionalcommits.org/) format for every commit message:
-
-```text
-<type>(<optional scope>): <description>
-```
-
-The description must be a short, imperative summary of the feature or fix. Do not use it as a list of changes.
-
-End every commit message with an `Assisted-by` trailer, separated from the body by a blank line:
-
-```text
-Assisted-by: <AI model> <version>
-```
-
-Use the actual AI model and version that generated the commit.
-
-## Pull Requests
-
-Pull request titles and descriptions must follow the same rules as commit messages: use the Conventional Commits format, provide a short imperative summary of the feature or fix rather than a list of changes, and end with the `Assisted-by: <AI model> <version>` trailer.
+- Use [Conventional Commits](https://www.conventionalcommits.org/) for commit
+  messages and pull request titles. Use a short, imperative description rather
+  than a list of changes.
+- End commit messages and pull request descriptions with
+  `Assisted-by: <AI model> <version>`, separated from the body by a blank line.
+  Use the actual model and version that generated the change.

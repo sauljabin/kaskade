@@ -5,6 +5,7 @@ from typing import Any, TypeVar
 
 import cloup
 from click import BadParameter, ClickException, MissingParameter
+from cloup.constraints import mutually_exclusive
 from confluent_kafka import KafkaException
 
 from kaskade import APP_VERSION
@@ -34,12 +35,19 @@ from kaskade.themes import DEFAULT_THEME, available_theme_names
 from kaskade.utils import load_properties
 
 KAFKA_CONFIG_HELP = (
-    "Kafka property. Set a librdkafka configuration property. Multiple '-c' are allowed."
+    "Kafka client property. Repeatable; overrides matching properties from --config-file."
 )
 KAFKA_CONFIG_FILE_HELP = (
-    "Property file (property=value format) containing configs to be passed to Kafka Client."
+    "Kafka client property file in property=value format. May provide bootstrap.servers."
 )
-BOOTSTRAP_SERVERS_HELP = "Bootstrap server(s). Comma-separated list of host and port pairs. Example: '-b localhost:9091,localhost:9092'."
+BOOTSTRAP_SERVERS_HELP = (
+    "Bootstrap servers. Comma-separated host:port pairs; overrides bootstrap.servers "
+    "from Kafka client configuration."
+)
+BOOTSTRAP_SERVERS_REQUIRED = (
+    "Bootstrap servers are required. Use -b/--bootstrap-servers or set "
+    "bootstrap.servers with --config or --config-file."
+)
 EPILOG_HELP = "More information at https://github.com/sauljabin/kaskade."
 EARLIEST_HELP = "Read all partitions from their earliest available offsets."
 PARTITION_SELECTION_METAVAR = "partition[:offset|earliest]"
@@ -51,11 +59,50 @@ PARTITION_SELECTION_HELP = (
 PARTITION_SELECTION_PATTERN = re.compile(
     rf"(?P<partition>[0-9]+)(?::(?P<offset>[0-9]+|{re.escape(EARLIEST)}))?"
 )
-AWS_CONFIG_HELP = (
-    "AWS property. Configure Amazon MSK IAM authentication. Multiple '--aws' are allowed. "
-    f"Valid properties: {AWS_CONFIGS}."
+AWS_CONFIG_HELP = f"Amazon MSK IAM property. Repeatable. Properties: {', '.join(AWS_CONFIGS)}."
+THEME_HELP = "Textual theme name. See USAGE.md or use the in-application Commands window."
+AVRO_CONFIG_HELP = (
+    "Avro deserializer property. Repeatable; required when the key or value format is "
+    "avro. Properties: key, value, framing."
+)
+PROTOBUF_CONFIG_HELP = (
+    "Protobuf deserializer property. Repeatable; required when the key or value format "
+    "is protobuf. Properties: descriptor, key, value."
+)
+REGISTRY_CONFIG_HELP = (
+    "Schema Registry client property. Repeatable; required when the key or value format "
+    "is registry."
 )
 CliDecoratorTarget = TypeVar("CliDecoratorTarget", bound=Callable[..., Any])
+
+
+def kafka_connection_options() -> Callable[[CliDecoratorTarget], CliDecoratorTarget]:
+    return cloup.option_group(
+        "Kafka connection options",
+        cloup.option(
+            "-b",
+            "--bootstrap-servers",
+            "bootstrap_servers",
+            help=BOOTSTRAP_SERVERS_HELP,
+            metavar="host:port",
+        ),
+        cloup.option(
+            "-c",
+            "--config",
+            "kafka_config",
+            help=KAFKA_CONFIG_HELP,
+            metavar="property=value",
+            multiple=True,
+            callback=tuple_properties_to_dict,
+        ),
+        cloup.option(
+            "--config-file",
+            "kafka_config_file",
+            help=KAFKA_CONFIG_FILE_HELP,
+            type=cloup.Path(exists=True),
+            metavar="filename",
+        ),
+    )
 
 
 def aws_options() -> Callable[[CliDecoratorTarget], CliDecoratorTarget]:
@@ -70,6 +117,35 @@ def aws_options() -> Callable[[CliDecoratorTarget], CliDecoratorTarget]:
             callback=tuple_properties_to_dict,
         ),
     )
+
+
+def theme_option() -> Callable[[CliDecoratorTarget], CliDecoratorTarget]:
+    return cloup.option(
+        "--theme",
+        type=cloup.Choice(available_theme_names(), case_sensitive=False),
+        default=DEFAULT_THEME,
+        show_default=True,
+        help=THEME_HELP,
+        metavar="name",
+    )
+
+
+def admin_application_options() -> Callable[[CliDecoratorTarget], CliDecoratorTarget]:
+    return cloup.option_group(
+        "Application options",
+        theme_option(),
+        cloup.option(
+            "--refresh-interval",
+            type=int,
+            callback=validate_admin_refresh_interval,
+            metavar="seconds",
+            help="Admin auto-refresh interval. Use 0 to disable; overrides config.yaml.",
+        ),
+    )
+
+
+def consumer_application_options() -> Callable[[CliDecoratorTarget], CliDecoratorTarget]:
+    return cloup.option_group("Application options", theme_option())
 
 
 def string_to_deserializer_type(ctx: Any, param: Any, value: Any) -> Any:
@@ -129,6 +205,25 @@ def parse_partition_selections(
     return tuple(selections)
 
 
+def resolve_kafka_config(
+    bootstrap_servers: str | None,
+    kafka_config_file: str | None,
+    kafka_config: dict[str, Any],
+) -> dict[str, Any]:
+    resolved_config = dict(kafka_config)
+    if kafka_config_file is not None:
+        resolved_config = load_properties(kafka_config_file) | resolved_config
+
+    if bootstrap_servers is not None:
+        resolved_config[BOOTSTRAP_SERVERS] = bootstrap_servers
+
+    resolved_bootstrap_servers = resolved_config.get(BOOTSTRAP_SERVERS)
+    if not isinstance(resolved_bootstrap_servers, str) or not resolved_bootstrap_servers.strip():
+        raise ClickException(BOOTSTRAP_SERVERS_REQUIRED)
+
+    return resolved_config
+
+
 @cloup.group(epilog=EPILOG_HELP)
 @cloup.version_option(APP_VERSION)
 def cli() -> None:
@@ -137,50 +232,11 @@ def cli() -> None:
 
 
 @cli.command(epilog=EPILOG_HELP)
-@cloup.option(
-    "--theme",
-    type=cloup.Choice(available_theme_names(), case_sensitive=False),
-    default=DEFAULT_THEME,
-    show_default=True,
-    help="Textual theme to use.",
-)
-@cloup.option(
-    "--refresh-interval",
-    type=int,
-    callback=validate_admin_refresh_interval,
-    metavar="seconds",
-    help="Admin auto-refresh interval. Use 0 to disable; overrides config.yaml.",
-)
-@cloup.option_group(
-    "Kafka options",
-    cloup.option(
-        "-b",
-        "--bootstrap-servers",
-        "bootstrap_servers",
-        help=BOOTSTRAP_SERVERS_HELP,
-        metavar="host:port",
-        required=True,
-    ),
-    cloup.option(
-        "-c",
-        "--config",
-        "kafka_config",
-        help=KAFKA_CONFIG_HELP,
-        metavar="property=value",
-        multiple=True,
-        callback=tuple_properties_to_dict,
-    ),
-    cloup.option(
-        "--config-file",
-        "kafka_config_file",
-        help=KAFKA_CONFIG_FILE_HELP,
-        type=cloup.Path(exists=True),
-        metavar="filename",
-    ),
-)
+@kafka_connection_options()
 @aws_options()
+@admin_application_options()
 def admin(
-    bootstrap_servers: str,
+    bootstrap_servers: str | None,
     kafka_config_file: str | None,
     kafka_config: dict[str, Any],
     aws_config: dict[str, str],
@@ -195,14 +251,12 @@ def admin(
       kaskade admin -b localhost:9092
       kaskade admin -b localhost:9092 --refresh-interval 10
       kaskade admin -b localhost:9092 --config security.protocol=SSL
-      kaskade admin -b localhost:9092 --config-file kafka.properties
+      kaskade admin --config bootstrap.servers=localhost:9092
+      kaskade admin --config-file kafka.properties
       kaskade admin -b localhost:9092 --aws region=us-east-1
     """
 
-    if kafka_config_file is not None:
-        kafka_config = load_properties(kafka_config_file) | kafka_config
-
-    kafka_config[BOOTSTRAP_SERVERS] = bootstrap_servers
+    kafka_config = resolve_kafka_config(bootstrap_servers, kafka_config_file, kafka_config)
     validate_aws_config(aws_config)
     kafka_config = configure_aws_msk_iam(kafka_config, aws_config)
 
@@ -211,50 +265,11 @@ def admin(
     kaskade_app.run()
 
 
-@cli.command(epilog=EPILOG_HELP)
-@cloup.option(
-    "--theme",
-    type=cloup.Choice(available_theme_names(), case_sensitive=False),
-    default=DEFAULT_THEME,
-    show_default=True,
-    help="Textual theme to use.",
-)
-@cloup.option_group(
-    "Kafka options",
-    cloup.option(
-        "-b",
-        "--bootstrap-servers",
-        "bootstrap_servers",
-        help=BOOTSTRAP_SERVERS_HELP,
-        metavar="host:port",
-        required=True,
-    ),
-    cloup.option(
-        "-c",
-        "--config",
-        "kafka_config",
-        help=KAFKA_CONFIG_HELP,
-        metavar="property=value",
-        multiple=True,
-        callback=tuple_properties_to_dict,
-    ),
-    cloup.option(
-        "--earliest",
-        "earliest",
-        help=EARLIEST_HELP,
-        is_flag=True,
-    ),
-    cloup.option(
-        "--config-file",
-        "kafka_config_file",
-        help=KAFKA_CONFIG_FILE_HELP,
-        type=cloup.Path(exists=True),
-        metavar="filename",
-    ),
-)
+@cli.command(epilog=EPILOG_HELP, show_constraints=True)
+@kafka_connection_options()
 @aws_options()
 @cloup.option_group(
-    "Topic options",
+    "Consumption options",
     cloup.option(
         "-t",
         "--topic",
@@ -263,14 +278,25 @@ def admin(
         metavar="name",
         required=True,
     ),
-    cloup.option(
-        "--partition",
-        "partitions",
-        help=PARTITION_SELECTION_HELP,
-        metavar=PARTITION_SELECTION_METAVAR,
-        multiple=True,
-        callback=parse_partition_selections,
+    mutually_exclusive(
+        cloup.option(
+            "--earliest",
+            "earliest",
+            help=EARLIEST_HELP,
+            is_flag=True,
+        ),
+        cloup.option(
+            "--partition",
+            "partitions",
+            help=PARTITION_SELECTION_HELP,
+            metavar=PARTITION_SELECTION_METAVAR,
+            multiple=True,
+            callback=parse_partition_selections,
+        ),
     ),
+)
+@cloup.option_group(
+    "Deserialization options",
     cloup.option(
         "-k",
         "--key",
@@ -297,9 +323,7 @@ def admin(
     cloup.option(
         "--avro",
         "avro_config",
-        help="Avro property. Configure the avro deserializer. Multiple '--avro' are allowed. Needed if '-k avro' "
-        "or '-v avro' were passed. Valid properties: [key: avsc file path, value: avsc file path, "
-        "framing: raw or confluent].",
+        help=AVRO_CONFIG_HELP,
         metavar="property=value",
         multiple=True,
         callback=tuple_properties_to_dict,
@@ -310,8 +334,7 @@ def admin(
     cloup.option(
         "--protobuf",
         "protobuf_config",
-        help="Protobuf property. Configure the protobuf deserializer. Multiple '--protobuf' are allowed. Needed if '-k protobuf' "
-        "or '-v protobuf' were passed. Valid properties: [descriptor: file path, key: protobuf message, value: protobuf message].",
+        help=PROTOBUF_CONFIG_HELP,
         metavar="property=value",
         multiple=True,
         callback=tuple_properties_to_dict,
@@ -322,15 +345,15 @@ def admin(
     cloup.option(
         "--registry",
         "registry_config",
-        help="Schema Registry property. Set a SchemaRegistryClient property. Multiple '--registry' are allowed. Needed if '-k registry' "
-        "or '-v registry' were passed.",
+        help=REGISTRY_CONFIG_HELP,
         metavar="property=value",
         multiple=True,
         callback=tuple_properties_to_dict,
     ),
 )
+@consumer_application_options()
 def consumer(
-    bootstrap_servers: str,
+    bootstrap_servers: str | None,
     kafka_config: dict[str, Any],
     registry_config: dict[str, str],
     protobuf_config: dict[str, str],
@@ -353,7 +376,8 @@ def consumer(
       kaskade consumer -b localhost:9092 -t my-topic --earliest
       kaskade consumer -b localhost:9092 -t my-topic --partition 1:10 --partition 2:earliest
       kaskade consumer -b localhost:9092 -t my-topic --config security.protocol=SSL
-      kaskade consumer -b localhost:9092 -t my-topic --config-file kafka.properties
+      kaskade consumer -t my-topic --config bootstrap.servers=localhost:9092
+      kaskade consumer -t my-topic --config-file kafka.properties
       kaskade consumer -b localhost:9092 -t my-topic --aws region=us-east-1
       kaskade consumer -b localhost:9092 -t my-topic -v json
       kaskade consumer -b localhost:9092 -t my-topic -v registry --registry url=http://localhost:8081
@@ -361,18 +385,9 @@ def consumer(
       kaskade consumer -b localhost:9092 -t my-topic -v protobuf --protobuf descriptor=my-descriptor.desc --protobuf value=MyMessage
     """
 
-    if kafka_config_file is not None:
-        kafka_config = load_properties(kafka_config_file) | kafka_config
-
-    kafka_config[BOOTSTRAP_SERVERS] = bootstrap_servers
+    kafka_config = resolve_kafka_config(bootstrap_servers, kafka_config_file, kafka_config)
     validate_aws_config(aws_config)
     kafka_config = configure_aws_msk_iam(kafka_config, aws_config)
-
-    if earliest and partitions:
-        raise BadParameter(
-            message="Cannot be used with --partition.",
-            param_hint="'--earliest'",
-        )
 
     if earliest:
         kafka_config[AUTO_OFFSET_RESET] = EARLIEST

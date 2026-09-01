@@ -23,19 +23,39 @@ from tests import faker
 
 EXPECTED_TOPIC = "my.topic"
 EXPECTED_SERVER = "localhost:9092"
+CONFIGURED_SERVER = "configured:9092"
 KAFKA_CONFIG = str(Path(__file__).resolve().parent / "config" / "kafka.properties")
+
+
+def write_kafka_properties(directory: str, properties: dict[str, str]) -> str:
+    config_path = Path(directory) / "kafka-with-bootstrap.properties"
+    config_path.write_text("\n".join(f"{key}={value}" for key, value in properties.items()))
+    return str(config_path)
 
 
 class TestAdminCli(unittest.TestCase):
     def setUp(self):
         self.runner = CliRunner()
         self.command = "admin"
+        self.temp_directory = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp_directory.cleanup)
 
-    def test_bootstrap_server_required(self):
+    def test_bootstrap_servers_are_required_from_any_source(self):
         result = self.runner.invoke(cli, [self.command])
 
         self.assertGreater(result.exit_code, 0)
-        self.assertIn("Missing option '-b'", result.output)
+        self.assertIn("Bootstrap servers are required", result.output)
+        self.assertIn("-b/--bootstrap-servers", result.output)
+        self.assertIn("--config or --config-file", result.output)
+
+    def test_help_uses_connection_and_application_groups_with_compact_theme(self):
+        result = self.runner.invoke(cli, [self.command, "--help"])
+
+        self.assertEqual(0, result.exit_code)
+        self.assertIn("Kafka connection options:", result.output)
+        self.assertIn("Application options:", result.output)
+        self.assertIn("--theme name", result.output)
+        self.assertNotIn("--theme [ansi-dark|", result.output)
 
     def test_invalid_extra_kafka_config(self):
         result = self.runner.invoke(cli, [self.command, "-c", "property.name"])
@@ -99,6 +119,42 @@ class TestAdminCli(unittest.TestCase):
         self.assertEqual(0, result.exit_code)
 
     @patch("kaskade.main.KaskadeAdmin")
+    def test_infers_bootstrap_servers_from_config_file(self, mock_class_kaskade_admin):
+        config_path = write_kafka_properties(
+            self.temp_directory.name,
+            {BOOTSTRAP_SERVERS: CONFIGURED_SERVER, "security.protocol": "SSL"},
+        )
+
+        result = self.runner.invoke(cli, [self.command, "--config-file", config_path])
+
+        mock_class_kaskade_admin.assert_called_with(
+            {BOOTSTRAP_SERVERS: CONFIGURED_SERVER, "security.protocol": "SSL"},
+            refresh_interval=None,
+        )
+        self.assertEqual(0, result.exit_code)
+
+    @patch("kaskade.main.KaskadeAdmin")
+    def test_infers_bootstrap_servers_from_inline_config(self, mock_class_kaskade_admin):
+        result = self.runner.invoke(
+            cli,
+            [self.command, "--config", f"{BOOTSTRAP_SERVERS}={CONFIGURED_SERVER}"],
+        )
+
+        mock_class_kaskade_admin.assert_called_with(
+            {BOOTSTRAP_SERVERS: CONFIGURED_SERVER}, refresh_interval=None
+        )
+        self.assertEqual(0, result.exit_code)
+
+    def test_rejects_empty_configured_bootstrap_servers(self):
+        result = self.runner.invoke(
+            cli,
+            [self.command, "--config", f"{BOOTSTRAP_SERVERS}="],
+        )
+
+        self.assertGreater(result.exit_code, 0)
+        self.assertIn("Bootstrap servers are required", result.output)
+
+    @patch("kaskade.main.KaskadeAdmin")
     def test_kafka_config_file_overlap(self, mock_class_kaskade_admin):
         result = self.runner.invoke(
             cli,
@@ -115,6 +171,60 @@ class TestAdminCli(unittest.TestCase):
 
         mock_class_kaskade_admin.assert_called_with(
             {BOOTSTRAP_SERVERS: EXPECTED_SERVER, "security.protocol": "SASL_SSL"},
+            refresh_interval=None,
+        )
+        self.assertEqual(0, result.exit_code)
+
+    @patch("kaskade.main.KaskadeAdmin")
+    def test_explicit_bootstrap_servers_override_kafka_configuration(
+        self, mock_class_kaskade_admin
+    ):
+        config_path = write_kafka_properties(
+            self.temp_directory.name,
+            {BOOTSTRAP_SERVERS: "file:9092", "security.protocol": "SSL"},
+        )
+
+        result = self.runner.invoke(
+            cli,
+            [
+                self.command,
+                "--config-file",
+                config_path,
+                "--config",
+                f"{BOOTSTRAP_SERVERS}=inline:9092",
+                "--config",
+                "security.protocol=SASL_SSL",
+                "-b",
+                EXPECTED_SERVER,
+            ],
+        )
+
+        mock_class_kaskade_admin.assert_called_with(
+            {BOOTSTRAP_SERVERS: EXPECTED_SERVER, "security.protocol": "SASL_SSL"},
+            refresh_interval=None,
+        )
+        self.assertEqual(0, result.exit_code)
+
+    @patch("kaskade.main.KaskadeAdmin")
+    def test_inline_bootstrap_servers_override_config_file(self, mock_class_kaskade_admin):
+        config_path = write_kafka_properties(
+            self.temp_directory.name,
+            {BOOTSTRAP_SERVERS: "file:9092", "security.protocol": "SSL"},
+        )
+
+        result = self.runner.invoke(
+            cli,
+            [
+                self.command,
+                "--config-file",
+                config_path,
+                "--config",
+                f"{BOOTSTRAP_SERVERS}={CONFIGURED_SERVER}",
+            ],
+        )
+
+        mock_class_kaskade_admin.assert_called_with(
+            {BOOTSTRAP_SERVERS: CONFIGURED_SERVER, "security.protocol": "SSL"},
             refresh_interval=None,
         )
         self.assertEqual(0, result.exit_code)
@@ -261,11 +371,13 @@ class TestConsumerCli(unittest.TestCase):
         self.temp_avro_path = Path(self.temp_directory.name) / "schema.avsc"
         self.temp_avro_path.touch()
 
-    def test_bootstrap_server_required(self):
-        result = self.runner.invoke(cli, [self.command])
+    def test_bootstrap_servers_are_required_from_any_source(self):
+        result = self.runner.invoke(cli, [self.command, "-t", EXPECTED_TOPIC])
 
         self.assertGreater(result.exit_code, 0)
-        self.assertIn("Missing option '-b'", result.output)
+        self.assertIn("Bootstrap servers are required", result.output)
+        self.assertIn("-b/--bootstrap-servers", result.output)
+        self.assertIn("--config or --config-file", result.output)
 
     def test_topic_required(self):
         result = self.runner.invoke(cli, [self.command, "-b", EXPECTED_SERVER])
@@ -278,6 +390,29 @@ class TestConsumerCli(unittest.TestCase):
 
         self.assertEqual(0, result.exit_code)
         self.assertIn(f"--partition {PARTITION_SELECTION_METAVAR}", result.output)
+
+    def test_help_separates_consumer_option_groups_and_documents_constraint(self):
+        result = self.runner.invoke(cli, [self.command, "--help"])
+
+        self.assertEqual(0, result.exit_code)
+        connection_help = result.output.split("Kafka connection options:", 1)[1].split(
+            "AWS options:", 1
+        )[0]
+        consumption_help = result.output.split("Consumption options:", 1)[1].split(
+            "Deserialization options:", 1
+        )[0]
+        deserialization_help = result.output.split("Deserialization options:", 1)[1].split(
+            "Avro options:", 1
+        )[0]
+        self.assertNotIn("--earliest", connection_help)
+        self.assertIn("--earliest", consumption_help)
+        self.assertIn("--partition", consumption_help)
+        self.assertIn("-k, --key", deserialization_help)
+        self.assertIn("-v, --value", deserialization_help)
+        self.assertIn("Constraints:", result.output)
+        self.assertIn("mutually exclusive", result.output)
+        self.assertIn("--theme name", result.output)
+        self.assertNotIn("--theme [ansi-dark|", result.output)
 
     @patch("kaskade.main.KaskadeConsumer")
     def test_earliest_configures_all_partition_offset_reset(self, mock_class_kaskade_consumer):
@@ -392,7 +527,9 @@ class TestConsumerCli(unittest.TestCase):
         )
 
         self.assertGreater(result.exit_code, 0)
-        self.assertIn("Cannot be used with --partition", result.output)
+        self.assertIn("mutually exclusive", result.output)
+        self.assertIn("--earliest", result.output)
+        self.assertIn("--partition", result.output)
 
     @patch("kaskade.main.KaskadeConsumer")
     def test_reports_partition_metadata_validation_before_running_tui(
@@ -604,6 +741,53 @@ class TestConsumerCli(unittest.TestCase):
         mock_class_kaskade_consumer.assert_called_with(
             EXPECTED_TOPIC,
             {BOOTSTRAP_SERVERS: EXPECTED_SERVER, "security.protocol": "SSL"},
+            {},
+            {},
+            {},
+            Deserialization.BYTES,
+            Deserialization.BYTES,
+        )
+        self.assertEqual(0, result.exit_code)
+
+    @patch("kaskade.main.KaskadeConsumer")
+    def test_infers_bootstrap_servers_from_config_file(self, mock_class_kaskade_consumer):
+        config_path = write_kafka_properties(
+            self.temp_directory.name,
+            {BOOTSTRAP_SERVERS: CONFIGURED_SERVER, "security.protocol": "SSL"},
+        )
+
+        result = self.runner.invoke(
+            cli,
+            [self.command, "-t", EXPECTED_TOPIC, "--config-file", config_path],
+        )
+
+        mock_class_kaskade_consumer.assert_called_with(
+            EXPECTED_TOPIC,
+            {BOOTSTRAP_SERVERS: CONFIGURED_SERVER, "security.protocol": "SSL"},
+            {},
+            {},
+            {},
+            Deserialization.BYTES,
+            Deserialization.BYTES,
+        )
+        self.assertEqual(0, result.exit_code)
+
+    @patch("kaskade.main.KaskadeConsumer")
+    def test_infers_bootstrap_servers_from_inline_config(self, mock_class_kaskade_consumer):
+        result = self.runner.invoke(
+            cli,
+            [
+                self.command,
+                "-t",
+                EXPECTED_TOPIC,
+                "--config",
+                f"{BOOTSTRAP_SERVERS}={CONFIGURED_SERVER}",
+            ],
+        )
+
+        mock_class_kaskade_consumer.assert_called_with(
+            EXPECTED_TOPIC,
+            {BOOTSTRAP_SERVERS: CONFIGURED_SERVER},
             {},
             {},
             {},
