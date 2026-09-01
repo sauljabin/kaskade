@@ -213,6 +213,9 @@ uv run python -m sandbox \
 ```
 
 The Schema Registry URL remains independently configurable with `--registry`.
+Use the sandbox population policy in the
+[Amazon MSK IAM authorization documentation](USAGE.md#required-iam-authorization-policy)
+for the required cluster and topic permissions.
 
 Read help messages:
 

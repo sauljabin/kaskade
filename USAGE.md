@@ -262,6 +262,105 @@ credentials to Kaskade.
 See [Configure clients for IAM access control](https://docs.aws.amazon.com/msk/latest/developerguide/configure-clients-for-iam-access-control.html)
 for the Amazon MSK broker and IAM policy requirements.
 
+#### Required IAM authorization policy
+
+Amazon MSK IAM authentication does not use Apache Kafka ACLs for authorization.
+Kafka ACLs have no effect on IAM identities; attach an IAM policy to the user or
+role whose credentials Kaskade discovers.
+
+Kaskade operations require these `kafka-cluster` actions:
+
+| Mode | Required actions |
+| --- | --- |
+| Admin browsing | `Connect`, `DescribeTopic`, `DescribeTopicDynamicConfiguration`, `DescribeGroup` |
+| Admin topic changes | Admin browsing plus `CreateTopic`, `AlterTopic`, `DeleteTopic`, `AlterTopicDynamicConfiguration` |
+| Consumer | `Connect`, `DescribeTopic`, `ReadData`, `DescribeGroup`, `AlterGroup` |
+| Sandbox population | `Connect`, `CreateTopic`, `DescribeTopic`, `WriteData` |
+
+The following policy enables all Kaskade admin and consumer features. Replace the
+region, account, cluster name, and cluster UUID placeholders. Narrow the topic
+wildcard when Kaskade should only access selected topics.
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ConnectToCluster",
+      "Effect": "Allow",
+      "Action": "kafka-cluster:Connect",
+      "Resource": "arn:aws:kafka:<region>:<account-id>:cluster/<cluster-name>/<cluster-uuid>"
+    },
+    {
+      "Sid": "ManageAndReadTopics",
+      "Effect": "Allow",
+      "Action": [
+        "kafka-cluster:CreateTopic",
+        "kafka-cluster:DescribeTopic",
+        "kafka-cluster:AlterTopic",
+        "kafka-cluster:DeleteTopic",
+        "kafka-cluster:DescribeTopicDynamicConfiguration",
+        "kafka-cluster:AlterTopicDynamicConfiguration",
+        "kafka-cluster:ReadData"
+      ],
+      "Resource": "arn:aws:kafka:<region>:<account-id>:topic/<cluster-name>/<cluster-uuid>/*"
+    },
+    {
+      "Sid": "InspectConsumerGroups",
+      "Effect": "Allow",
+      "Action": "kafka-cluster:DescribeGroup",
+      "Resource": "arn:aws:kafka:<region>:<account-id>:group/<cluster-name>/<cluster-uuid>/*"
+    },
+    {
+      "Sid": "UseKaskadeConsumerGroups",
+      "Effect": "Allow",
+      "Action": "kafka-cluster:AlterGroup",
+      "Resource": "arn:aws:kafka:<region>:<account-id>:group/<cluster-name>/<cluster-uuid>/kaskade-*"
+    }
+  ]
+}
+```
+
+Consumer mode creates an ephemeral group named `kaskade-<uuid>`, which is why
+`AlterGroup` can be limited to the `kaskade-*` group ARN. Admin mode needs
+`DescribeGroup` on every group it should display. For read-only admin access,
+remove `CreateTopic`, `AlterTopic`, `DeleteTopic`, and
+`AlterTopicDynamicConfiguration`. For consumer-only access, retain `Connect`,
+`DescribeTopic`, `ReadData`, `DescribeGroup`, and `AlterGroup` on the corresponding
+cluster, topic, and `kaskade-*` group resources.
+
+The sandbox population command creates topics and writes records, so use this
+separate policy when populating MSK:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ConnectToCluster",
+      "Effect": "Allow",
+      "Action": "kafka-cluster:Connect",
+      "Resource": "arn:aws:kafka:<region>:<account-id>:cluster/<cluster-name>/<cluster-uuid>"
+    },
+    {
+      "Sid": "CreateAndPopulateTopics",
+      "Effect": "Allow",
+      "Action": [
+        "kafka-cluster:CreateTopic",
+        "kafka-cluster:DescribeTopic",
+        "kafka-cluster:WriteData"
+      ],
+      "Resource": "arn:aws:kafka:<region>:<account-id>:topic/<cluster-name>/<cluster-uuid>/*"
+    }
+  ]
+}
+```
+
+Schema Registry authorization is separate from Amazon MSK IAM authorization.
+See AWS's [authorization action semantics](https://docs.aws.amazon.com/msk/latest/developerguide/kafka-actions.html)
+and [common client policy use cases](https://docs.aws.amazon.com/msk/latest/developerguide/iam-access-control-use-cases.html)
+for action dependencies and resource formats.
+
 ### Confluent Cloud
 
 Admin:
