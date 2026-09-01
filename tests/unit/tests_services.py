@@ -433,8 +433,8 @@ class TestConsumerService(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(records[1].value_outcome().used_fallback)
         self.assertFalse(records[2].has_deserialization_errors())
         self.assertEqual(
-            "BYTES",
-            records[1].dict()["key"]["deserializer"]["error"]["fallback"],
+            {"type": "BYTES", "format": "BASE64"},
+            records[1].dict()["key"]["deserializer"]["error"]["deserializer"],
         )
 
     @patch("kaskade.services.Consumer")
@@ -466,19 +466,87 @@ class TestConsumerService(unittest.IsolatedAsyncioTestCase):
         record = (await service.consume())[0]
 
         self.assertEqual(
-            {"format": "HEX", "data": "48656c6c6f20776f726c64"},
+            "48656c6c6f20776f726c64",
             record.dict()["key"]["content"],
         )
         self.assertEqual(
-            {
-                "format": "BYTE_ARRAY",
-                "data": [72, 101, 108, 108, 111, 32, 119, 111, 114, 108, 100],
-            },
+            {"type": "BYTES", "format": "HEX"},
+            record.dict()["key"]["deserializer"],
+        )
+        self.assertEqual(
+            [72, 101, 108, 108, 111, 32, 119, 111, 114, 108, 100],
             record.dict()["value"]["content"],
         )
         self.assertEqual(
-            {"format": "PYTHON", "data": "b'\\xff'"},
-            record.dict()["headers"][0]["value"],
+            {"type": "BYTES", "format": "BYTE_ARRAY"},
+            record.dict()["value"]["deserializer"],
+        )
+        self.assertEqual(
+            {
+                "key": "binary",
+                "value": "b'\\xff'",
+                "deserializer": {
+                    "type": "STRING",
+                    "error": {
+                        "message": (
+                            "'utf-8' codec can't decode byte 0xff in position 0: "
+                            "invalid start byte"
+                        ),
+                        "deserializer": {"type": "BYTES", "format": "PYTHON"},
+                    },
+                },
+            },
+            record.dict()["headers"][0],
+        )
+
+    @patch("kaskade.services.Consumer")
+    async def test_byte_formats_use_field_scope_for_deserialization_errors(
+        self, mock_class_consumer: MagicMock
+    ) -> None:
+        consumer = mock_class_consumer.return_value
+        consumer.consume.return_value = [
+            consumer_message(
+                key=b"\xff",
+                value=b"\xfe",
+                headers=[("binary", b"\xfd")],
+            )
+        ]
+        service = ConsumerService(
+            "orders",
+            {"bootstrap.servers": "localhost:9092"},
+            DeserializerPool(),
+            Deserialization.STRING,
+            Deserialization.STRING,
+            bytes_config={
+                "format": "python",
+                "key.format": "hex",
+                "value.format": "byte-array",
+            },
+        )
+        service.on_assign(consumer, [TopicPartition("orders", 0)])
+
+        with self.assertLogs("kaskade", level="WARNING") as logs:
+            record = (await service.consume())[0]
+
+        data = record.dict()
+        self.assertEqual("ff", data["key"]["content"])
+        self.assertEqual(
+            {"type": "BYTES", "format": "HEX"},
+            data["key"]["deserializer"]["error"]["deserializer"],
+        )
+        self.assertEqual([254], data["value"]["content"])
+        self.assertEqual(
+            {"type": "BYTES", "format": "BYTE_ARRAY"},
+            data["value"]["deserializer"]["error"]["deserializer"],
+        )
+        self.assertEqual("b'\\xfd'", data["headers"][0]["value"])
+        self.assertEqual(
+            {"type": "BYTES", "format": "PYTHON"},
+            data["headers"][0]["deserializer"]["error"]["deserializer"],
+        )
+        self.assertTrue(any("error_deserializer=BYTES format=HEX" in log for log in logs.output))
+        self.assertTrue(
+            any("error_deserializer=BYTES format=BYTE_ARRAY" in log for log in logs.output)
         )
 
     @patch("kaskade.services.Consumer")

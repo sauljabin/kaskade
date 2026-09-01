@@ -520,7 +520,7 @@ class ListRecords(Container):
         )
         tooltip.append(f"\nRecord: {record.topic}[{record.partition}][{record.offset}]")
         tooltip.append(f"\nRequested: {outcome.requested.name}")
-        tooltip.append(f"\nFallback: {Deserialization.BYTES.name}")
+        tooltip.append(f"\nError Deserializer: {Deserialization.BYTES.name}")
         tooltip.append(f"\nFormat: {outcome.bytes_format.name}")
         tooltip.append(f"\nError: {outcome.error}")
         return tooltip

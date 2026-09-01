@@ -93,12 +93,13 @@ requiring newer functionality.
   cell tooltips, copy, and export. Broker failures and unexpected exceptions
   remain fatal.
 - Keep consumed-record JSON consistent across details, copy, and export. Represent
-  headers as ordered `key`/`value` objects, nest `type`, nullable Registry `schema`,
-  and optional fallback `error` under `deserializer`, and keep Registry metadata
+  headers as ordered `key`/`value` objects, nest `type`, optional Registry `schema`,
+  and error-deserializer metadata under `deserializer`, and keep Registry metadata
   resolution best-effort and cached per schema, topic, and field.
-- Represent byte content as a self-describing `format`/`data` object. Apply the
-  configured global byte format to keys, values, header fallbacks, and
-  deserialization fallbacks, with field-scoped key/value overrides.
+- Represent encoded bytes directly in `content` and put `format` on the BYTES
+  deserializer that produced them. Apply the configured global byte format to
+  keys, values, header errors, and deserialization errors, with field-scoped
+  key/value overrides. Omit `format` for null content.
 
 ## TUI Interaction Conventions
 

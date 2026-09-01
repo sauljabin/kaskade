@@ -30,13 +30,6 @@ def bytes_data(data: bytes, bytes_format: BytesFormat) -> str | list[int]:
             return str(data)
 
 
-def bytes_content(data: bytes, bytes_format: BytesFormat) -> dict[str, Any]:
-    return {
-        "format": bytes_format.name,
-        "data": bytes_data(data, bytes_format),
-    }
-
-
 def content_str(content: Any, bytes_format: BytesFormat) -> str:
     if isinstance(content, bytes):
         return str(bytes_data(content, bytes_format))
@@ -47,8 +40,15 @@ def content_str(content: Any, bytes_format: BytesFormat) -> str:
 
 def json_content(content: Any, bytes_format: BytesFormat) -> Any:
     if isinstance(content, bytes):
-        return bytes_content(content, bytes_format)
+        return bytes_data(content, bytes_format)
     return content
+
+
+def bytes_deserializer(bytes_format: BytesFormat) -> dict[str, str]:
+    return {
+        "type": Deserialization.BYTES.name,
+        "format": bytes_format.name,
+    }
 
 
 @dataclass(eq=False)
@@ -264,6 +264,7 @@ class Header:
     value_deserializer: Deserializer | None = None
     bytes_format: BytesFormat = BytesFormat.BASE64
     _deserialized: Any = field(default=_NOT_DESERIALIZED, init=False, repr=False)
+    _error: Exception | None = field(default=None, init=False, repr=False)
 
     def __repr__(self) -> str:
         return str(self)
@@ -290,18 +291,29 @@ class Header:
 
         try:
             self._deserialized = self.value_deserializer.deserialize(self.value)
-        except DESERIALIZATION_EXCEPTIONS:
+        except DESERIALIZATION_EXCEPTIONS as ex:
             self._deserialized = self.value
+            self._error = ex
         return self._deserialized
 
     def value_str(self) -> str:
         return content_str(self.value_deserialized(), self.bytes_format)
 
     def dict(self) -> dict[str, Any]:
-        return {
+        value = self.value_deserialized()
+        result: dict[str, Any] = {
             "key": self.key,
-            "value": json_content(self.value_deserialized(), self.bytes_format),
+            "value": json_content(value, self.bytes_format),
         }
+        if self._error is not None:
+            result["deserializer"] = {
+                "type": Deserialization.STRING.name,
+                "error": {
+                    "message": str(self._error),
+                    "deserializer": bytes_deserializer(self.bytes_format),
+                },
+            }
+        return result
 
 
 @dataclass(frozen=True)
@@ -317,14 +329,19 @@ class DeserializationOutcome:
         return self.error is not None
 
     def dict(self) -> dict[str, Any]:
-        deserializer: dict[str, Any] = {
-            "type": self.requested.name,
-            "schema": self.schema.dict() if self.schema is not None else None,
-        }
+        deserializer: dict[str, Any] = {"type": self.requested.name}
+        if self.schema is not None:
+            deserializer["schema"] = self.schema.dict()
+        if (
+            self.error is None
+            and self.requested == Deserialization.BYTES
+            and isinstance(self.content, bytes)
+        ):
+            deserializer["format"] = self.bytes_format.name
         if self.error is not None:
             deserializer["error"] = {
                 "message": str(self.error),
-                "fallback": Deserialization.BYTES.name,
+                "deserializer": bytes_deserializer(self.bytes_format),
             }
         return {
             "content": json_content(self.content, self.bytes_format),

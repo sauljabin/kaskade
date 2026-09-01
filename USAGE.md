@@ -193,7 +193,7 @@ their deserializer types. Export Record is omitted from the Footer; find it in c
 Help or Commands.
 
 Record details, clipboard copies, and exports share the same JSON structure. Primitive and
-plain JSON deserializers have no Registry schema metadata:
+plain JSON deserializers omit Registry schema metadata:
 
 ```json
 {
@@ -206,11 +206,11 @@ plain JSON deserializers have no Registry schema metadata:
   ],
   "key": {
     "content": "order-1048",
-    "deserializer": {"type": "STRING", "schema": null}
+    "deserializer": {"type": "STRING"}
   },
   "value": {
     "content": {"status": "paid"},
-    "deserializer": {"type": "JSON", "schema": null}
+    "deserializer": {"type": "JSON"}
   }
 }
 ```
@@ -250,21 +250,20 @@ the schema ID resolves to an unambiguous subject and version:
 Headers remain an ordered array of `key` and `value` objects because Kafka permits repeated
 header names. JSON timestamps use UTC ISO 8601 with millisecond precision, or `null` when
 Kafka supplies no timestamp. Tombstone keys and values use `content: null`. Local Avro,
-local Protobuf, and non-schema deserializers use `schema: null`.
+local Protobuf, and non-schema deserializers omit `schema`. A Registry deserializer also
+omits `schema` when its metadata cannot be resolved unambiguously.
 In the records table, absent keys and values appear as a colored `null`; hover the cell
 to distinguish an absent key from a tombstone value.
 
-Byte content is self-describing. Base64 is the default portable format:
+Byte content stays directly in `content`, and its BYTES deserializer carries the
+presentation format. Base64 is the default portable format:
 
 ```json
 {
-  "content": {
-    "format": "BASE64",
-    "data": "SGVsbG8gd29ybGQ="
-  },
+  "content": "SGVsbG8gd29ybGQ=",
   "deserializer": {
     "type": "BYTES",
-    "schema": null
+    "format": "BASE64"
   }
 }
 ```
@@ -277,9 +276,12 @@ Configure byte presentation globally or override it for one field:
 --bytes value.format=byte-array
 ```
 
-Supported formats are `base64`, `hex`, `byte-array`, and `python`. A scoped
-property overrides `format`; header fallbacks use the global format. The same
-formatting applies to explicitly selected BYTES fields and BYTES fallbacks.
+Supported formats are `base64`, `hex`, `byte-array`, and `python`. Values are
+case-insensitive, and underscores such as `BYTE_ARRAY` normalize to `byte-array`.
+For a key or value, its scoped property overrides `format`; header fallbacks use
+only the global format. The same resolved format applies to explicitly selected
+BYTES fields and error BYTES deserializers. Null BYTES fields omit `format` because
+they contain no bytes to interpret.
 
 ## Consumer behavior
 
@@ -307,22 +309,42 @@ cannot be combined.
 ### Deserialization failures
 
 If a configured key or value deserializer cannot decode an individual record,
-Kaskade shows `⚠`, displays that field with its BYTES fallback, and keeps
-consuming. The recovered content uses the configured self-describing byte
-format, while the diagnostic is nested inside the requested deserializer:
+Kaskade shows `⚠`, displays that field using a BYTES error deserializer, and keeps
+consuming. The recovered content uses the configured byte format, while the
+diagnostic is nested inside the requested deserializer:
 
 ```json
 {
-  "content": {
-    "format": "BASE64",
-    "data": "/w=="
-  },
+  "content": "/w==",
   "deserializer": {
     "type": "REGISTRY",
-    "schema": null,
     "error": {
       "message": "Unexpected magic byte -1",
-      "fallback": "BYTES"
+      "deserializer": {
+        "type": "BYTES",
+        "format": "BASE64"
+      }
+    }
+  }
+}
+```
+
+Valid headers remain `{key, value}` objects. If a header is not valid UTF-8,
+its raw value uses the global byte format and the header includes the same
+nested error-deserializer metadata:
+
+```json
+{
+  "key": "binary",
+  "value": "/w==",
+  "deserializer": {
+    "type": "STRING",
+    "error": {
+      "message": "Invalid UTF-8 payload",
+      "deserializer": {
+        "type": "BYTES",
+        "format": "BASE64"
+      }
     }
   }
 }
@@ -331,7 +353,7 @@ format, while the diagnostic is nested inside the requested deserializer:
 Record details, copy, and export preserve this structure. Hover the warning cell
 to see the same diagnostic in a tooltip. The other field remains decoded normally.
 Registry subject/version lookup is best-effort and cached; missing or ambiguous
-metadata produces `schema: null` without turning successful content into a fallback.
+metadata omits `schema` without turning successful content into an error fallback.
 
 ## Connections and security
 

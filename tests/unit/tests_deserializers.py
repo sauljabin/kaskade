@@ -28,6 +28,7 @@ from kaskade.deserializers import (
     StringDeserializer,
 )
 from kaskade.models import Header, Record
+from kaskade.record_export import record_json
 from kaskade.utils import file_to_str, py_to_avro
 from tests import faker
 from tests.unit.protobuf_model.user_pb2 import User
@@ -68,6 +69,20 @@ class TestDeserializer(unittest.TestCase):
         self.assertEqual(value, header.value_deserialized())
         self.assertEqual(value, header.value_deserialized())
         self.assertEqual("aW52YWxpZA==", header.value_str())
+        self.assertEqual(
+            {
+                "key": "",
+                "value": "aW52YWxpZA==",
+                "deserializer": {
+                    "type": "STRING",
+                    "error": {
+                        "message": "invalid data",
+                        "deserializer": {"type": "BYTES", "format": "BASE64"},
+                    },
+                },
+            },
+            header.dict(),
+        )
         deserializer.deserialize.assert_called_once_with(value)
 
     def test_header_falls_back_for_malformed_integer(self):
@@ -75,6 +90,18 @@ class TestDeserializer(unittest.TestCase):
         header = Header(value=value, value_deserializer=IntegerDeserializer())
 
         self.assertEqual(value, header.value_deserialized())
+
+    def test_header_keeps_valid_and_null_values_minimal(self):
+        deserializer = StringDeserializer()
+
+        self.assertEqual(
+            {"key": "source", "value": "storefront"},
+            Header("source", b"storefront", deserializer).dict(),
+        )
+        self.assertEqual(
+            {"key": "nullable", "value": None},
+            Header("nullable", None, deserializer).dict(),
+        )
 
     def test_record_caches_successful_deserialization(self):
         key_deserializer = MagicMock()
@@ -127,10 +154,31 @@ class TestDeserializer(unittest.TestCase):
 
             with self.subTest(bytes_format=bytes_format):
                 self.assertEqual(
-                    {"format": bytes_format.name, "data": json_data},
+                    json_data,
                     record.dict()["key"]["content"],
                 )
+                self.assertEqual(
+                    {"type": "BYTES", "format": bytes_format.name},
+                    record.dict()["key"]["deserializer"],
+                )
+                self.assertEqual(
+                    record.dict(),
+                    json.loads(record_json(record)),
+                )
                 self.assertEqual(display, record.key_str())
+
+    def test_null_content_omits_schema_and_bytes_format_for_every_deserializer(self):
+        for deserialization in Deserialization:
+            with self.subTest(deserialization=deserialization):
+                field = Record(key_deserialization=deserialization).dict()["key"]
+
+                self.assertEqual(
+                    {
+                        "content": None,
+                        "deserializer": {"type": deserialization.name},
+                    },
+                    field,
+                )
 
     def test_record_propagates_unexpected_deserialization_errors(self):
         for exception in (RuntimeError("unexpected"), IndexError("unexpected")):
@@ -154,13 +202,12 @@ class TestDeserializer(unittest.TestCase):
 
         self.assertEqual(
             {
-                "content": {"format": "BASE64", "data": "NTg2"},
+                "content": "NTg2",
                 "deserializer": {
                     "type": "INTEGER",
-                    "schema": None,
                     "error": {
                         "message": "unpack requires a buffer of 4 bytes",
-                        "fallback": "BYTES",
+                        "deserializer": {"type": "BYTES", "format": "BASE64"},
                     },
                 },
             },

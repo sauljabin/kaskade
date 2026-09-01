@@ -302,13 +302,14 @@ class ConsumerService:
                 continue
             logger.warning(
                 "record deserialization fallback topic=%s partition=%d offset=%d "
-                "field=%s requested=%s fallback=%s error=%s",
+                "field=%s requested=%s error_deserializer=%s format=%s error=%s",
                 record.topic,
                 record.partition,
                 record.offset,
                 field_name,
                 outcome.requested.name,
                 Deserialization.BYTES.name,
+                outcome.bytes_format.name,
                 outcome.error,
             )
 
