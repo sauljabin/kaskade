@@ -27,6 +27,7 @@ from confluent_kafka.admin import (
     TopicMetadata,
 )
 from confluent_kafka.cimpl import NewPartitions, NewTopic
+from confluent_kafka.serialization import MessageField
 
 from kaskade import logger
 from kaskade.commands import EMPTY_RECORD_FILTERS, CreateTopicCommand, RecordFilters
@@ -39,7 +40,7 @@ from kaskade.configs import (
     MIN_INSYNC_REPLICAS_CONFIG,
     RETENTION_MS_CONFIG,
 )
-from kaskade.deserializers import Deserialization, DeserializerPool
+from kaskade.deserializers import BytesFormat, Deserialization, DeserializerPool
 from kaskade.models import (
     Group,
     GroupMember,
@@ -77,6 +78,7 @@ class ConsumerService:
         key_deserialization: Deserialization,
         value_deserialization: Deserialization,
         *,
+        bytes_config: dict[str, str] | None = None,
         partitions: tuple[PartitionSelection, ...] = (),
         page_size: int = 25,
         poll_retries: int = 5,
@@ -90,6 +92,10 @@ class ConsumerService:
         self.timeout = timeout
         self.key_deserialization = key_deserialization
         self.value_deserialization = value_deserialization
+        self.bytes_config = bytes_config or {}
+        self.key_bytes_format = BytesFormat.from_config(self.bytes_config, MessageField.KEY)
+        self.value_bytes_format = BytesFormat.from_config(self.bytes_config, MessageField.VALUE)
+        self.header_bytes_format = BytesFormat.from_config(self.bytes_config)
         self.partitions = partitions
         self.stable = False
         self.started_at = perf_counter()
@@ -268,13 +274,20 @@ class ConsumerService:
             value=message.value(),
             timestamp=self._message_timestamp(message),
             headers=[
-                Header(key=key, value=value, value_deserializer=self.header_deserializer)
+                Header(
+                    key=key,
+                    value=value,
+                    value_deserializer=self.header_deserializer,
+                    bytes_format=self.header_bytes_format,
+                )
                 for key, value in message.headers() or []
             ],
             key_deserialization=self.key_deserialization,
             value_deserialization=self.value_deserialization,
             key_deserializer=self.key_deserializer,
             value_deserializer=self.value_deserializer,
+            key_bytes_format=self.key_bytes_format,
+            value_bytes_format=self.value_bytes_format,
         )
         record.resolve_deserializations()
         self._log_deserialization_fallbacks(record)

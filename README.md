@@ -49,9 +49,11 @@ Bring Kafka along for the terminal ride. Kaskade gives you a stylish, keyboard-f
 - Filter records by key, value, header, or partition
 - Start from the earliest offsets or explicit partition/offset selections
 - Keep malformed keys or values inspectable with visible BYTES fallback warnings
+- Export bytes as self-describing Base64, hex, byte-array, or Python representations
 - Copy or export individual records as JSON
 - Deserialize Avro and JSON data with Schema Registry
-- Deserialize Avro and Protobuf data without Schema Registry
+- Deserialize explicitly raw- or Confluent-framed JSON, Avro, and Protobuf data
+  without Schema Registry
 
 ### Terminal experience
 

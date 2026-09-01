@@ -17,9 +17,13 @@ SCHEMA_REGISTRY_CONFIGS = [
     "retries.wait.ms",
 ]
 """https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#schemaregistry-client"""
-PROTOBUF_DESERIALIZER_CONFIGS = ["descriptor", "key", "value"]
-AVRO_DESERIALIZER_CONFIGS = ["key", "value", "framing"]
-AVRO_FRAMINGS = ["raw", "confluent"]
+FRAMING_CONFIGS = ["framing", "key.framing", "value.framing"]
+PROTOBUF_DESERIALIZER_CONFIGS = ["descriptor", "key", "value", *FRAMING_CONFIGS]
+AVRO_DESERIALIZER_CONFIGS = ["key", "value", *FRAMING_CONFIGS]
+JSON_DESERIALIZER_CONFIGS = FRAMING_CONFIGS
+DESERIALIZER_FRAMINGS = ["raw", "confluent"]
+BYTES_DESERIALIZER_CONFIGS = ["format", "key.format", "value.format"]
+BYTES_FORMATS = ["base64", "hex", "byte-array", "python"]
 AWS_CONFIGS = ["region"]
 SCHEMA_REGISTRY_MAGIC_BYTE = 0
 BOOTSTRAP_SERVERS = "bootstrap.servers"

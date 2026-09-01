@@ -1,3 +1,4 @@
+import base64
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum, auto
@@ -7,6 +8,7 @@ from confluent_kafka.serialization import MessageField
 
 from kaskade.deserializers import (
     DESERIALIZATION_EXCEPTIONS,
+    BytesFormat,
     Deserialization,
     DeserializationResult,
     Deserializer,
@@ -14,6 +16,39 @@ from kaskade.deserializers import (
 )
 
 _NOT_DESERIALIZED = object()
+
+
+def bytes_data(data: bytes, bytes_format: BytesFormat) -> str | list[int]:
+    match bytes_format:
+        case BytesFormat.BASE64:
+            return base64.b64encode(data).decode("ascii")
+        case BytesFormat.HEX:
+            return data.hex()
+        case BytesFormat.BYTE_ARRAY:
+            return list(data)
+        case BytesFormat.PYTHON:
+            return str(data)
+
+
+def bytes_content(data: bytes, bytes_format: BytesFormat) -> dict[str, Any]:
+    return {
+        "format": bytes_format.name,
+        "data": bytes_data(data, bytes_format),
+    }
+
+
+def content_str(content: Any, bytes_format: BytesFormat) -> str:
+    if isinstance(content, bytes):
+        return str(bytes_data(content, bytes_format))
+    if isinstance(content, bool):
+        return str(content).lower()
+    return str(content)
+
+
+def json_content(content: Any, bytes_format: BytesFormat) -> Any:
+    if isinstance(content, bytes):
+        return bytes_content(content, bytes_format)
+    return content
 
 
 @dataclass(eq=False)
@@ -227,6 +262,7 @@ class Header:
     key: str = ""
     value: bytes | None = None
     value_deserializer: Deserializer | None = None
+    bytes_format: BytesFormat = BytesFormat.BASE64
     _deserialized: Any = field(default=_NOT_DESERIALIZED, init=False, repr=False)
 
     def __repr__(self) -> str:
@@ -249,21 +285,23 @@ class Header:
             return self._deserialized
 
         if self.value_deserializer is None:
-            self._deserialized = str(self.value)
+            self._deserialized = self.value
             return self._deserialized
 
         try:
             self._deserialized = self.value_deserializer.deserialize(self.value)
         except DESERIALIZATION_EXCEPTIONS:
-            # it doesn't matter to show the binaries
-            self._deserialized = str(self.value)
+            self._deserialized = self.value
         return self._deserialized
 
     def value_str(self) -> str:
-        return str(self.value_deserialized())
+        return content_str(self.value_deserialized(), self.bytes_format)
 
     def dict(self) -> dict[str, Any]:
-        return {"key": self.key, "value": self.value_deserialized()}
+        return {
+            "key": self.key,
+            "value": json_content(self.value_deserialized(), self.bytes_format),
+        }
 
 
 @dataclass(frozen=True)
@@ -272,6 +310,7 @@ class DeserializationOutcome:
     content: Any
     schema: RegistrySchema | None = None
     error: Exception | None = None
+    bytes_format: BytesFormat = BytesFormat.BASE64
 
     @property
     def used_fallback(self) -> bool:
@@ -287,12 +326,13 @@ class DeserializationOutcome:
                 "message": str(self.error),
                 "fallback": Deserialization.BYTES.name,
             }
-        return {"content": self.content, "deserializer": deserializer}
+        return {
+            "content": json_content(self.content, self.bytes_format),
+            "deserializer": deserializer,
+        }
 
     def content_str(self) -> str:
-        if isinstance(self.content, bool):
-            return str(self.content).lower()
-        return str(self.content)
+        return content_str(self.content, self.bytes_format)
 
 
 @dataclass(eq=False)
@@ -308,6 +348,8 @@ class Record:
     value_deserialization: Deserialization = Deserialization.BYTES
     key_deserializer: Deserializer | None = None
     value_deserializer: Deserializer | None = None
+    key_bytes_format: BytesFormat = BytesFormat.BASE64
+    value_bytes_format: BytesFormat = BytesFormat.BASE64
     _key_outcome: DeserializationOutcome | object = field(
         default=_NOT_DESERIALIZED, init=False, repr=False
     )
@@ -351,6 +393,7 @@ class Record:
                 self.key_deserialization,
                 self.key_deserializer,
                 MessageField.KEY,
+                self.key_bytes_format,
             )
         assert isinstance(self._key_outcome, DeserializationOutcome)
         return self._key_outcome
@@ -362,6 +405,7 @@ class Record:
                 self.value_deserialization,
                 self.value_deserializer,
                 MessageField.VALUE,
+                self.value_bytes_format,
             )
         assert isinstance(self._value_outcome, DeserializationOutcome)
         return self._value_outcome
@@ -372,16 +416,22 @@ class Record:
         requested: Deserialization,
         deserializer: Deserializer | None,
         field: MessageField,
+        bytes_format: BytesFormat,
     ) -> DeserializationOutcome:
         if raw is None:
-            return DeserializationOutcome(requested, None)
+            return DeserializationOutcome(requested, None, bytes_format=bytes_format)
         if deserializer is None:
-            return DeserializationOutcome(requested, str(raw))
+            return DeserializationOutcome(requested, raw, bytes_format=bytes_format)
         try:
             result = self._deserialize_result(deserializer, raw, field)
-            return DeserializationOutcome(requested, result.content, result.schema)
+            return DeserializationOutcome(
+                requested,
+                result.content,
+                result.schema,
+                bytes_format=bytes_format,
+            )
         except DESERIALIZATION_EXCEPTIONS as ex:
-            return DeserializationOutcome(requested, str(raw), error=ex)
+            return DeserializationOutcome(requested, raw, error=ex, bytes_format=bytes_format)
 
     def _deserialize_result(
         self,

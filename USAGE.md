@@ -21,11 +21,11 @@ Supported deserializers are `bytes`, `boolean`, `string`, `long`, `integer`,
 `double`, `float`, `json`, `avro`, `protobuf`, and `registry`.
 
 Deserializer-specific settings use repeatable `property=value` options. Use
-`--avro` for local Avro schemas and framing, `--protobuf` for descriptors and
-message names, and `--registry` for Schema Registry client properties. Repeat
-the relevant option once per property; it is required when the selected key or
-value format needs that configuration. See the [Schema Registry](#schema-registry),
-[Avro](#avro-consumer), and [Protobuf](#protobuf-consumer) examples below.
+`--bytes` for byte presentation, `--json` for local JSON framing, `--avro` for
+local Avro schemas and framing, `--protobuf` for descriptors, message names,
+and framing, and `--registry` for Schema Registry client properties. Repeat the
+relevant option once per property. See the [Schema Registry](#schema-registry)
+and [format-specific consumer](#format-specific-consumers) examples below.
 
 ## Application settings and controls
 
@@ -254,6 +254,33 @@ local Protobuf, and non-schema deserializers use `schema: null`.
 In the records table, absent keys and values appear as a colored `null`; hover the cell
 to distinguish an absent key from a tombstone value.
 
+Byte content is self-describing. Base64 is the default portable format:
+
+```json
+{
+  "content": {
+    "format": "BASE64",
+    "data": "SGVsbG8gd29ybGQ="
+  },
+  "deserializer": {
+    "type": "BYTES",
+    "schema": null
+  }
+}
+```
+
+Configure byte presentation globally or override it for one field:
+
+```bash
+--bytes format=base64 \
+--bytes key.format=hex \
+--bytes value.format=byte-array
+```
+
+Supported formats are `base64`, `hex`, `byte-array`, and `python`. A scoped
+property overrides `format`; header fallbacks use the global format. The same
+formatting applies to explicitly selected BYTES fields and BYTES fallbacks.
+
 ## Consumer behavior
 
 ### Choose the starting position
@@ -281,12 +308,15 @@ cannot be combined.
 
 If a configured key or value deserializer cannot decode an individual record,
 Kaskade shows `⚠`, displays that field with its BYTES fallback, and keeps
-consuming. The recovered content retains the current Python byte string, while
-the diagnostic is nested inside the requested deserializer:
+consuming. The recovered content uses the configured self-describing byte
+format, while the diagnostic is nested inside the requested deserializer:
 
 ```json
 {
-  "content": "b'\\xff'",
+  "content": {
+    "format": "BASE64",
+    "data": "/w=="
+  },
   "deserializer": {
     "type": "REGISTRY",
     "schema": null,
@@ -642,6 +672,30 @@ docker run --rm -it --network my-network sauljabin/kaskade:latest \
 
 ## Format-specific consumers
 
+Local JSON, Avro, and Protobuf deserializers use raw framing by default. Their
+repeatable options accept `framing`, `key.framing`, and `value.framing`. The
+scoped property overrides the global property, allowing key and value framing
+to differ. Framing is explicit; these deserializers do not infer it from payload
+bytes. The Registry deserializer always uses Confluent framing.
+
+### JSON consumer
+
+Consume raw JSON without additional configuration:
+
+```bash
+kaskade consumer -b my-kafka:9092 -t my-json-topic -v json
+```
+
+For a JSON payload with Confluent's magic-byte and schema-ID envelope, select
+Confluent framing explicitly. This removes the envelope and parses the JSON but
+does not query Schema Registry:
+
+```bash
+kaskade consumer -b my-kafka:9092 -t my-json-topic \
+        -k string -v json \
+        --json value.framing=confluent
+```
+
 ### Avro consumer
 
 Consume using a `my-schema.avsc` schema file:
@@ -653,10 +707,9 @@ kaskade consumer -b my-kafka:9092 --earliest \
         --avro value=my-schema.avsc
 ```
 
-Local-schema Avro deserialization treats payloads as raw Avro by default. For
-records produced with Confluent's five-byte framing, add
-`--avro framing=confluent`. Framing is explicit because a valid raw Avro payload
-may also begin with a zero byte.
+For records produced with Confluent's five-byte framing, add
+`--avro value.framing=confluent`. Use the unscoped
+`--avro framing=confluent` when every selected Avro field has the same framing.
 
 ### Protobuf consumer
 
@@ -684,6 +737,16 @@ kaskade consumer -b my-kafka:9092 --earliest \
         -t my-protobuf-topic \
         --protobuf descriptor=my-descriptor.desc \
         --protobuf value=mypackage.MyMessage
+```
+
+For Confluent-framed Protobuf, select its decoder explicitly:
+
+```bash
+kaskade consumer -b my-kafka:9092 -t my-protobuf-topic \
+        -k string -v protobuf \
+        --protobuf descriptor=my-descriptor.desc \
+        --protobuf value=mypackage.MyMessage \
+        --protobuf value.framing=confluent
 ```
 
 See the

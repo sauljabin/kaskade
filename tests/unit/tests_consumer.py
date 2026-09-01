@@ -209,7 +209,7 @@ class TestRecordExport(unittest.TestCase):
                 "timestamp": "2026-08-28T14:12:07.120Z",
                 "headers": [],
                 "key": {
-                    "content": "b'\\xff'",
+                    "content": {"format": "BASE64", "data": "/w=="},
                     "deserializer": {
                         "type": "JSON",
                         "schema": None,
@@ -686,7 +686,7 @@ class TestConsumptionCoordination(unittest.IsolatedAsyncioTestCase):
 
             self.assertIsInstance(row[0], Text)
             self.assertEqual(
-                f"{WARNING_INDICATOR} b'\\xff'",
+                f"{WARNING_INDICATOR} /w==",
                 row[0].plain,
             )
             self.assertEqual(WARNING_STYLE, row[0].style)
@@ -700,6 +700,7 @@ class TestConsumptionCoordination(unittest.IsolatedAsyncioTestCase):
             self.assertIn("Record: orders[1][10]", table.tooltip.plain)
             self.assertIn("Requested: JSON", table.tooltip.plain)
             self.assertIn("Fallback: BYTES", table.tooltip.plain)
+            self.assertIn("Format: BASE64", table.tooltip.plain)
             self.assertIn("Error: malformed key", table.tooltip.plain)
 
             table.hover_coordinate = Coordinate(0, 1)

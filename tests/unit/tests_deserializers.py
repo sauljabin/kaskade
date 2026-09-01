@@ -8,10 +8,12 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 from confluent_kafka.serialization import MessageField
+from google.protobuf.message import DecodeError
 
 from kaskade.deserializers import (
     AvroDeserializer,
     BooleanDeserializer,
+    BytesFormat,
     DefaultDeserializer,
     Deserialization,
     DeserializationError,
@@ -63,15 +65,16 @@ class TestDeserializer(unittest.TestCase):
         deserializer.deserialize.side_effect = DeserializationError("invalid data")
         header = Header(value=value, value_deserializer=deserializer)
 
-        self.assertEqual(str(value), header.value_deserialized())
-        self.assertEqual(str(value), header.value_deserialized())
+        self.assertEqual(value, header.value_deserialized())
+        self.assertEqual(value, header.value_deserialized())
+        self.assertEqual("aW52YWxpZA==", header.value_str())
         deserializer.deserialize.assert_called_once_with(value)
 
     def test_header_falls_back_for_malformed_integer(self):
         value = b"586"
         header = Header(value=value, value_deserializer=IntegerDeserializer())
 
-        self.assertEqual(str(value), header.value_deserialized())
+        self.assertEqual(value, header.value_deserialized())
 
     def test_record_caches_successful_deserialization(self):
         key_deserializer = MagicMock()
@@ -107,6 +110,28 @@ class TestDeserializer(unittest.TestCase):
         self.assertIs(record.dict()["key"]["content"], False)
         self.assertIs(record.dict()["value"]["content"], True)
 
+    def test_record_bytes_support_every_output_format(self):
+        data = b"Hello world"
+        formats = {
+            BytesFormat.BASE64: ("SGVsbG8gd29ybGQ=", "SGVsbG8gd29ybGQ="),
+            BytesFormat.HEX: ("48656c6c6f20776f726c64", "48656c6c6f20776f726c64"),
+            BytesFormat.BYTE_ARRAY: (
+                [72, 101, 108, 108, 111, 32, 119, 111, 114, 108, 100],
+                "[72, 101, 108, 108, 111, 32, 119, 111, 114, 108, 100]",
+            ),
+            BytesFormat.PYTHON: ("b'Hello world'", "b'Hello world'"),
+        }
+
+        for bytes_format, (json_data, display) in formats.items():
+            record = Record(key=data, key_bytes_format=bytes_format)
+
+            with self.subTest(bytes_format=bytes_format):
+                self.assertEqual(
+                    {"format": bytes_format.name, "data": json_data},
+                    record.dict()["key"]["content"],
+                )
+                self.assertEqual(display, record.key_str())
+
     def test_record_propagates_unexpected_deserialization_errors(self):
         for exception in (RuntimeError("unexpected"), IndexError("unexpected")):
             deserializer = MagicMock()
@@ -129,7 +154,7 @@ class TestDeserializer(unittest.TestCase):
 
         self.assertEqual(
             {
-                "content": "b'586'",
+                "content": {"format": "BASE64", "data": "NTg2"},
                 "deserializer": {
                     "type": "INTEGER",
                     "schema": None,
@@ -190,7 +215,7 @@ class TestDeserializer(unittest.TestCase):
 
         result = deserializer.deserialize(expected_value)
 
-        self.assertEqual(str(expected_value), result)
+        self.assertEqual(expected_value, result)
 
     def test_boolean_deserialization(self):
         expected_value = faker.pybool()
@@ -234,12 +259,41 @@ class TestDeserializer(unittest.TestCase):
 
     def test_json_deserialization_with_magic_byte(self):
         expected_value = faker.pydict(5, value_types=[str, int, float, bool])
-        deserializer = JsonDeserializer()
+        deserializer = JsonDeserializer({"framing": "confluent"})
 
         binaries = b"\x00\x00\x00\x00\x00" + json.dumps(expected_value).encode("utf-8")
         result = deserializer.deserialize(binaries)
 
         self.assertEqual(expected_value, result)
+
+    def test_json_raw_framing_does_not_infer_confluent_header(self):
+        payload = b"\x00\x00\x00\x00\x01{}"
+
+        with self.assertRaises((UnicodeDecodeError, json.JSONDecodeError)):
+            JsonDeserializer().deserialize(payload, "orders", MessageField.VALUE)
+
+    def test_json_framing_can_differ_between_key_and_value(self):
+        expected_value = {"active": True}
+        encoded = json.dumps(expected_value).encode("utf-8")
+        deserializer = JsonDeserializer(
+            {
+                "framing": "confluent",
+                "key.framing": "raw",
+            }
+        )
+
+        self.assertEqual(
+            expected_value,
+            deserializer.deserialize(encoded, "orders", MessageField.KEY),
+        )
+        self.assertEqual(
+            expected_value,
+            deserializer.deserialize(
+                b"\x00\x00\x00\x00\x01" + encoded,
+                "orders",
+                MessageField.VALUE,
+            ),
+        )
 
     @patch("kaskade.deserializers.SchemaRegistryClient")
     def test_registry_deserialization_avro(self, mock_sr_client_class):
@@ -389,7 +443,13 @@ class TestDeserializer(unittest.TestCase):
         self.assertEqual({"name": user.name}, result)
 
     def test_protobuf_deserialization_with_magic_byte(self):
-        deserializer = ProtobufDeserializer({"descriptor": DESCRIPTOR_PATH, "value": "User"})
+        deserializer = ProtobufDeserializer(
+            {
+                "descriptor": DESCRIPTOR_PATH,
+                "value": "User",
+                "framing": "confluent",
+            }
+        )
 
         user = User()
         user.name = "my name"
@@ -398,6 +458,39 @@ class TestDeserializer(unittest.TestCase):
             b"\x00\x00\x00\x00\x00\x00" + user.SerializeToString(), "", MessageField.VALUE
         )
         self.assertEqual({"name": user.name}, result)
+
+    def test_protobuf_raw_framing_does_not_infer_confluent_header(self):
+        user = User(name="my name")
+        payload = b"\x00\x00\x00\x00\x01\x00" + user.SerializeToString()
+        deserializer = ProtobufDeserializer({"descriptor": DESCRIPTOR_PATH, "value": "User"})
+
+        with self.assertRaises(DecodeError):
+            deserializer.deserialize(payload, "orders", MessageField.VALUE)
+
+    def test_protobuf_framing_can_differ_between_key_and_value(self):
+        deserializer = ProtobufDeserializer(
+            {
+                "descriptor": DESCRIPTOR_PATH,
+                "key": "User",
+                "value": "User",
+                "framing": "confluent",
+                "key.framing": "raw",
+            }
+        )
+        user = User(name="my name")
+
+        self.assertEqual(
+            {"name": user.name},
+            deserializer.deserialize(user.SerializeToString(), "orders", MessageField.KEY),
+        )
+        self.assertEqual(
+            {"name": user.name},
+            deserializer.deserialize(
+                b"\x00\x00\x00\x00\x01\x00" + user.SerializeToString(),
+                "orders",
+                MessageField.VALUE,
+            ),
+        )
 
     def test_avro_deserialization(self):
         expected_value = {"name": "Pedro Pascal"}
@@ -423,6 +516,31 @@ class TestDeserializer(unittest.TestCase):
         result = deserializer.deserialize(b"\x00\x00\x00\x00\x00" + encoded, "", MessageField.VALUE)
 
         self.assertEqual(expected_value, result)
+
+    def test_avro_framing_can_differ_between_key_and_value(self):
+        expected_value = {"name": "Pedro Pascal"}
+        encoded = py_to_avro(AVRO_PATH, expected_value)
+        deserializer = AvroDeserializer(
+            {
+                "key": AVRO_PATH,
+                "value": AVRO_PATH,
+                "framing": "confluent",
+                "key.framing": "raw",
+            }
+        )
+
+        self.assertEqual(
+            expected_value,
+            deserializer.deserialize(encoded, "orders", MessageField.KEY),
+        )
+        self.assertEqual(
+            expected_value,
+            deserializer.deserialize(
+                b"\x00\x00\x00\x00\x01" + encoded,
+                "orders",
+                MessageField.VALUE,
+            ),
+        )
 
     def test_raw_avro_starting_with_zero_is_not_mistaken_for_framing(self):
         schema = {

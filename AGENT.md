@@ -61,9 +61,9 @@ requiring newer functionality.
 - Importing `kaskade` must not create directories, open files, or modify the root
   logger. Configure the named Kaskade logger lazily from the CLI and tolerate an
   unavailable log destination.
-- Local-schema Avro payloads use raw framing by default. Confluent's five-byte
-  framing must be selected explicitly with `--avro framing=confluent`; do not
-  infer it from the first byte because valid raw Avro may begin with zero.
+- Local JSON, Avro, and Protobuf payloads use raw framing by default. Confluent
+  framing must be selected explicitly with the format's global or field-scoped
+  framing property; never infer it from payload bytes.
 
 ## Admin Data Loading
 
@@ -96,6 +96,9 @@ requiring newer functionality.
   headers as ordered `key`/`value` objects, nest `type`, nullable Registry `schema`,
   and optional fallback `error` under `deserializer`, and keep Registry metadata
   resolution best-effort and cached per schema, topic, and field.
+- Represent byte content as a self-describing `format`/`data` object. Apply the
+  configured global byte format to keys, values, header fallbacks, and
+  deserialization fallbacks, with field-scoped key/value overrides.
 
 ## TUI Interaction Conventions
 

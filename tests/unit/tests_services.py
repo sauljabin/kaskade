@@ -426,7 +426,7 @@ class TestConsumerService(unittest.IsolatedAsyncioTestCase):
 
         records = await service.consume()
 
-        self.assertEqual(["valid-1", "b'\\xff'", "valid-3"], [r.key_str() for r in records])
+        self.assertEqual(["valid-1", "/w==", "valid-3"], [r.key_str() for r in records])
         self.assertEqual(["value-1", "value-2", "value-3"], [r.value_str() for r in records])
         self.assertFalse(records[0].has_deserialization_errors())
         self.assertTrue(records[1].key_outcome().used_fallback)
@@ -435,6 +435,50 @@ class TestConsumerService(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(
             "BYTES",
             records[1].dict()["key"]["deserializer"]["error"]["fallback"],
+        )
+
+    @patch("kaskade.services.Consumer")
+    async def test_byte_formats_are_scoped_per_field_and_global_for_headers(
+        self, mock_class_consumer: MagicMock
+    ) -> None:
+        consumer = mock_class_consumer.return_value
+        consumer.consume.return_value = [
+            consumer_message(
+                key=b"Hello world",
+                value=b"Hello world",
+                headers=[("binary", b"\xff")],
+            )
+        ]
+        service = ConsumerService(
+            "orders",
+            {"bootstrap.servers": "localhost:9092"},
+            DeserializerPool(),
+            Deserialization.BYTES,
+            Deserialization.BYTES,
+            bytes_config={
+                "format": "python",
+                "key.format": "hex",
+                "value.format": "byte-array",
+            },
+        )
+        service.on_assign(consumer, [TopicPartition("orders", 0)])
+
+        record = (await service.consume())[0]
+
+        self.assertEqual(
+            {"format": "HEX", "data": "48656c6c6f20776f726c64"},
+            record.dict()["key"]["content"],
+        )
+        self.assertEqual(
+            {
+                "format": "BYTE_ARRAY",
+                "data": [72, 101, 108, 108, 111, 32, 119, 111, 114, 108, 100],
+            },
+            record.dict()["value"]["content"],
+        )
+        self.assertEqual(
+            {"format": "PYTHON", "data": "b'\\xff'"},
+            record.dict()["headers"][0]["value"],
         )
 
     @patch("kaskade.services.Consumer")
