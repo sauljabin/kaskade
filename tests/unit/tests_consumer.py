@@ -6,11 +6,13 @@ from io import StringIO
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
+from confluent_kafka.serialization import MessageField
 from rich.text import Text
 from textual import events
 from textual.coordinate import Coordinate
 from textual.widgets import DataTable
 
+from kaskade.colors import NULL as NULL_STYLE
 from kaskade.colors import WARNING as WARNING_STYLE
 from kaskade.consumer import (
     KaskadeConsumer,
@@ -21,7 +23,14 @@ from kaskade.consumer import (
     record_json,
     record_json_renderable,
 )
-from kaskade.deserializers import Deserialization, DeserializationError, StringDeserializer
+from kaskade.deserializers import (
+    Deserialization,
+    DeserializationError,
+    DeserializationResult,
+    Deserializer,
+    RegistrySchema,
+    StringDeserializer,
+)
 from kaskade.help import HelpScreen
 from kaskade.models import Header, Record
 from kaskade.record_export import record_filename
@@ -42,7 +51,7 @@ def exported_record() -> Record:
         topic="orders",
         partition=2,
         offset=42,
-        timestamp="2026-08-28 14:12:05.120",
+        timestamp=datetime(2026, 8, 28, 14, 12, 5, 120_000, tzinfo=timezone.utc),
         headers=[
             Header("source", b"storefront", string_deserializer),
             Header("source", b"mobile", string_deserializer),
@@ -65,16 +74,22 @@ class TestRecordExport(unittest.TestCase):
                 "topic": "orders",
                 "partition": 2,
                 "offset": 42,
-                "timestamp": "2026-08-28 14:12:05.120",
-                "headers": [("source", "storefront"), ("source", "mobile")],
-                "key": {"deserializer": "STRING", "content": "order-1048"},
+                "timestamp": "2026-08-28T14:12:05.120Z",
+                "headers": [
+                    {"key": "source", "value": "storefront"},
+                    {"key": "source", "value": "mobile"},
+                ],
+                "key": {
+                    "content": "order-1048",
+                    "deserializer": {"type": "STRING", "schema": None},
+                },
                 "value": {
-                    "deserializer": "JSON",
                     "content": {
                         "status": "paid",
                         "customer": "Zoë",
                         "binary": b"\xff",
                     },
+                    "deserializer": {"type": "JSON", "schema": None},
                 },
             },
             record.dict(),
@@ -95,7 +110,8 @@ class TestRecordExport(unittest.TestCase):
 
         self.assertEqual(record_json(exported_record()).rstrip("\n"), renderable.text.plain)
         self.assertIn(
-            '  "key": {\n    "deserializer": "STRING",\n    "content": "order-1048"\n  }',
+            '  "key": {\n    "content": "order-1048",\n    "deserializer": {\n'
+            '      "type": "STRING",\n      "schema": null\n    }\n  }',
             renderable.text.plain,
         )
         self.assertFalse(renderable.text.no_wrap)
@@ -111,8 +127,59 @@ class TestRecordExport(unittest.TestCase):
         ).dict()
 
         self.assertEqual([], data["headers"])
+        self.assertIsNone(data["timestamp"])
         self.assertIsNone(data["key"]["content"])
         self.assertIsNone(data["value"]["content"])
+        self.assertEqual(
+            {"type": "STRING", "schema": None},
+            data["key"]["deserializer"],
+        )
+
+    def test_record_dict_preserves_tombstones_and_repeated_headers(self) -> None:
+        string_deserializer = StringDeserializer()
+        record = Record(
+            topic="orders",
+            partition=2,
+            offset=44,
+            headers=[
+                Header("trace-id", b"first", string_deserializer),
+                Header("trace-id", b"second", string_deserializer),
+            ],
+            key_deserialization=Deserialization.STRING,
+            value_deserialization=Deserialization.JSON,
+        )
+
+        self.assertEqual(
+            {
+                "topic": "orders",
+                "partition": 2,
+                "offset": 44,
+                "timestamp": None,
+                "headers": [
+                    {"key": "trace-id", "value": "first"},
+                    {"key": "trace-id", "value": "second"},
+                ],
+                "key": {
+                    "content": None,
+                    "deserializer": {"type": "STRING", "schema": None},
+                },
+                "value": {
+                    "content": None,
+                    "deserializer": {"type": "JSON", "schema": None},
+                },
+            },
+            record.dict(),
+        )
+
+    def test_record_dict_uses_the_requested_deserializer_type(self) -> None:
+        for deserialization in Deserialization:
+            with self.subTest(deserialization=deserialization):
+                data = Record(key_deserialization=deserialization).dict()
+
+                self.assertEqual(
+                    deserialization.name,
+                    data["key"]["deserializer"]["type"],
+                )
 
     def test_record_dict_preserves_deserialization_warning_metadata(self) -> None:
         key_deserializer = MagicMock()
@@ -121,6 +188,7 @@ class TestRecordExport(unittest.TestCase):
             topic="orders",
             partition=1,
             offset=10,
+            timestamp=datetime(2026, 8, 28, 14, 12, 7, 120_000, tzinfo=timezone.utc),
             key=b"\xff",
             value=b"paid",
             key_deserialization=Deserialization.JSON,
@@ -133,19 +201,109 @@ class TestRecordExport(unittest.TestCase):
 
         self.assertEqual(
             {
-                "deserializer": "JSON",
-                "fallback": "BYTES",
-                "content": "b'\\xff'",
-                "error": "malformed key",
+                "topic": "orders",
+                "partition": 1,
+                "offset": 10,
+                "timestamp": "2026-08-28T14:12:07.120Z",
+                "headers": [],
+                "key": {
+                    "content": "b'\\xff'",
+                    "deserializer": {
+                        "type": "JSON",
+                        "schema": None,
+                        "error": {
+                            "message": "malformed key",
+                            "fallback": "BYTES",
+                        },
+                    },
+                },
+                "value": {
+                    "content": "paid",
+                    "deserializer": {"type": "STRING", "schema": None},
+                },
             },
-            data["key"],
-        )
-        self.assertEqual(
-            {"deserializer": "STRING", "content": "paid"},
-            data["value"],
+            data,
         )
         self.assertTrue(record.has_deserialization_errors())
         key_deserializer.deserialize.assert_called_once()
+
+    def test_record_dict_keeps_key_and_value_schema_metadata_independent(self) -> None:
+        class MetadataDeserializer(Deserializer):
+            def __init__(self, content: object, schema: RegistrySchema):
+                self.content = content
+                self.schema = schema
+
+            def deserialize(
+                self,
+                data: bytes,
+                topic: str | None = None,
+                context: MessageField = MessageField.NONE,
+            ) -> object:
+                return self.content
+
+            def deserialize_with_metadata(
+                self,
+                data: bytes,
+                topic: str | None = None,
+                context: MessageField = MessageField.NONE,
+            ) -> DeserializationResult:
+                return DeserializationResult(self.content, self.schema)
+
+        record = Record(
+            topic="orders",
+            partition=0,
+            offset=43,
+            timestamp=datetime(2026, 8, 28, 14, 12, 6, 120_000, tzinfo=timezone.utc),
+            key=b"key",
+            value=b"value",
+            key_deserialization=Deserialization.REGISTRY,
+            value_deserialization=Deserialization.REGISTRY,
+            key_deserializer=MetadataDeserializer(
+                {"id": "order-1049"},
+                RegistrySchema(12, "orders-key", 2, "AVRO"),
+            ),
+            value_deserializer=MetadataDeserializer(
+                {"status": "shipped"},
+                RegistrySchema(27, "orders-value", 5, "JSON"),
+            ),
+        )
+
+        data = record.dict()
+
+        self.assertEqual(
+            {
+                "topic": "orders",
+                "partition": 0,
+                "offset": 43,
+                "timestamp": "2026-08-28T14:12:06.120Z",
+                "headers": [],
+                "key": {
+                    "content": {"id": "order-1049"},
+                    "deserializer": {
+                        "type": "REGISTRY",
+                        "schema": {
+                            "id": 12,
+                            "subject": "orders-key",
+                            "version": 2,
+                            "type": "AVRO",
+                        },
+                    },
+                },
+                "value": {
+                    "content": {"status": "shipped"},
+                    "deserializer": {
+                        "type": "REGISTRY",
+                        "schema": {
+                            "id": 27,
+                            "subject": "orders-value",
+                            "version": 5,
+                            "type": "JSON",
+                        },
+                    },
+                },
+            },
+            data,
+        )
 
     def test_record_filename_contains_identity_and_sanitized_export_time(self) -> None:
         record = Record(topic="orders.v1:archive", partition=2, offset=42)
@@ -516,6 +674,55 @@ class TestConsumptionCoordination(unittest.IsolatedAsyncioTestCase):
             await pilot.pause()
 
             self.assertIsNone(table.tooltip)
+
+    @patch("kaskade.consumer.ConsumerService")
+    async def test_null_key_and_value_have_colored_cells_and_tooltips(
+        self, consumer_service: MagicMock
+    ) -> None:
+        record = Record(
+            topic="orders",
+            partition=2,
+            offset=44,
+            key_deserialization=Deserialization.STRING,
+            value_deserialization=Deserialization.JSON,
+        )
+        consumer_service.return_value.consume = AsyncMock(return_value=[record])
+        app = KaskadeConsumer(
+            "orders",
+            {},
+            {},
+            {},
+            {},
+            Deserialization.STRING,
+            Deserialization.JSON,
+        )
+
+        async with app.run_test() as pilot:
+            await app.workers.wait_for_complete()
+            await pilot.pause()
+            table = app.query_one(RecordDataTable)
+            row = table.get_row_at(0)
+
+            for cell in row[:2]:
+                self.assertIsInstance(cell, Text)
+                self.assertEqual("null", cell.plain)
+                self.assertEqual(NULL_STYLE, cell.style)
+
+            table.hover_coordinate = Coordinate(0, 0)
+            await pilot.pause()
+
+            self.assertIsInstance(table.tooltip, Text)
+            self.assertIn("Null Key", table.tooltip.plain)
+            self.assertIn("This Kafka record has no key", table.tooltip.plain)
+            self.assertEqual(WARNING_STYLE, table.tooltip.spans[0].style)
+
+            table.hover_coordinate = Coordinate(0, 1)
+            await pilot.pause()
+
+            self.assertIsInstance(table.tooltip, Text)
+            self.assertIn("Null Value", table.tooltip.plain)
+            self.assertIn("This Kafka record is a tombstone", table.tooltip.plain)
+            self.assertEqual(WARNING_STYLE, table.tooltip.spans[0].style)
 
     @patch("kaskade.consumer.ConsumerService")
     async def test_duplicate_requests_do_not_schedule_overlapping_consumers(

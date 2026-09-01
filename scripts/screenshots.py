@@ -133,7 +133,15 @@ def mock_records() -> list[Record]:
             topic="order-events",
             partition=index % 3,
             offset=8_421 + index,
-            timestamp=f"2026-08-28 14:{12 + index:02d}:05.120",
+            timestamp=datetime(
+                2026,
+                8,
+                28,
+                14,
+                12 + index,
+                5,
+                120_000,
+            ).astimezone(),
             key=key.encode(),
             value=value.encode(),
             headers=[

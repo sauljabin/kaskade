@@ -11,7 +11,7 @@ from textual.coordinate import Coordinate
 from textual.widgets import DataTable, Footer, Input, OptionList, Static
 from textual.widgets.option_list import Option
 
-from kaskade.colors import PRIMARY
+from kaskade.colors import NULL, PRIMARY
 from kaskade.colors import WARNING as WARNING_STYLE
 from kaskade.commands import RecordFilters
 from kaskade.deserializers import (
@@ -481,9 +481,11 @@ class ListRecords(Container):
         self.consume_records()
 
     @staticmethod
-    def _content_cell(content: str, *, warning: bool) -> str | Text:
-        content = content.strip()
-        if warning:
+    def _content_cell(outcome: DeserializationOutcome) -> str | Text:
+        if outcome.content is None:
+            return Text("null", style=NULL)
+        content = str(outcome.content).strip()
+        if outcome.used_fallback:
             return Text(
                 f"{WARNING_INDICATOR} {content}",
                 style=WARNING_STYLE,
@@ -494,15 +496,9 @@ class ListRecords(Container):
     def _record_row(cls, record: Record) -> list[str | Text]:
         record.resolve_deserializations()
         return [
-            cls._content_cell(
-                record.key_str(),
-                warning=record.key_outcome().used_fallback,
-            ),
-            cls._content_cell(
-                record.value_str(),
-                warning=record.value_outcome().used_fallback,
-            ),
-            record.timestamp,
+            cls._content_cell(record.key_outcome()),
+            cls._content_cell(record.value_outcome()),
+            record.timestamp_str(),
             str(record.partition),
             str(record.offset),
             str(record.headers_count()),
@@ -525,8 +521,19 @@ class ListRecords(Container):
         tooltip.append(f"\nError: {outcome.error}")
         return tooltip
 
+    @staticmethod
+    def _null_tooltip(record: Record, field_name: str) -> Text:
+        tooltip = Text()
+        tooltip.append(f"Null {field_name.title()}", style=WARNING_STYLE)
+        tooltip.append(f"\nRecord: {record.topic}[{record.partition}][{record.offset}]")
+        if field_name == "key":
+            tooltip.append("\nThis Kafka record has no key")
+        else:
+            tooltip.append("\nThis Kafka record is a tombstone")
+        return tooltip
+
     @classmethod
-    def _add_warning_tooltips(
+    def _add_cell_tooltips(
         cls,
         table: RecordDataTable,
         row_index: int,
@@ -541,6 +548,11 @@ class ListRecords(Container):
                     Coordinate(row_index, column_index),
                     cls._warning_tooltip(record, field_name, outcome),
                 )
+            elif outcome.content is None:
+                table.set_cell_tooltip(
+                    Coordinate(row_index, column_index),
+                    cls._null_tooltip(record, field_name),
+                )
 
     @work(group="records-consume")
     async def consume_records(self) -> None:
@@ -553,7 +565,7 @@ class ListRecords(Container):
                 self.records[record_id] = record
                 row_index = len(table.rows)
                 table.add_row(*self._record_row(record), key=record_id)
-                self._add_warning_tooltips(table, row_index, record)
+                self._add_cell_tooltips(table, row_index, record)
             self._update_table_title()
         except CONSUMER_EXCEPTIONS as ex:
             notify_error(self.app, "Consumption Error", ex)

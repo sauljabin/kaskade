@@ -379,7 +379,7 @@ class TestConsumerService(unittest.IsolatedAsyncioTestCase):
     async def test_consumes_records_in_batches(self, mock_class_consumer: MagicMock) -> None:
         message = MagicMock()
         message.error.return_value = None
-        message.timestamp.return_value = (0, 0)
+        message.timestamp.return_value = (1, 1000)
         message.partition.return_value = 0
         message.offset.return_value = 1
         message.key.return_value = b"key"
@@ -401,6 +401,7 @@ class TestConsumerService(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(1, len(records))
         self.assertEqual("key", records[0].key_str())
+        self.assertEqual("1970-01-01T00:00:01.000Z", records[0].dict()["timestamp"])
         consumer.consume.assert_called_once_with(1, timeout=service.timeout)
 
     @patch("kaskade.services.Consumer")
@@ -431,7 +432,10 @@ class TestConsumerService(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(records[1].key_outcome().used_fallback)
         self.assertFalse(records[1].value_outcome().used_fallback)
         self.assertFalse(records[2].has_deserialization_errors())
-        self.assertEqual("BYTES", records[1].dict()["key"]["fallback"])
+        self.assertEqual(
+            "BYTES",
+            records[1].dict()["key"]["deserializer"]["error"]["fallback"],
+        )
 
     @patch("kaskade.services.Consumer")
     async def test_filters_batches_until_a_record_matches(

@@ -306,7 +306,8 @@ Start with raw bytes:
 uv run kaskade consumer -b localhost:19092 --earliest -t string
 ```
 
-Test null keys and values:
+Test null keys and values. Every record in the `null` topic has both fields set
+to Kafka null:
 
 ```bash
 uv run kaskade consumer -b localhost:19092 --earliest -k string -v string -t null

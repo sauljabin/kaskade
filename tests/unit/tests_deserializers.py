@@ -4,6 +4,7 @@ import struct
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 from confluent_kafka.serialization import MessageField
@@ -207,6 +208,95 @@ class TestDeserializer(unittest.TestCase):
         )
 
         self.assertEqual(expected_value, result)
+
+    @patch("kaskade.deserializers.SchemaRegistryClient")
+    def test_registry_metadata_uses_a_unique_registration_and_caches_it(self, mock_sr_client_class):
+        registry_client = mock_sr_client_class.return_value
+        registry_client.get_schema.return_value.schema_type = "JSON"
+        registry_client.get_schema_versions.return_value = [
+            SimpleNamespace(subject="orders-key", version=2)
+        ]
+        deserializer = RegistryDeserializer({})
+        deserializer.json_deserializer = MagicMock(return_value={"id": "order-1049"})
+        payload = b"\x00\x00\x00\x00\x0c{}"
+
+        first = deserializer.deserialize_with_metadata(payload, "orders", MessageField.KEY)
+        second = deserializer.deserialize_with_metadata(payload, "orders", MessageField.KEY)
+
+        self.assertEqual({"id": "order-1049"}, first.content)
+        self.assertEqual(first, second)
+        self.assertIsNotNone(first.schema)
+        self.assertEqual(
+            {
+                "id": 12,
+                "subject": "orders-key",
+                "version": 2,
+                "type": "JSON",
+            },
+            first.schema.dict(),
+        )
+        registry_client.get_schema_versions.assert_called_once_with(12)
+
+    @patch("kaskade.deserializers.SchemaRegistryClient")
+    def test_registry_metadata_prefers_the_conventional_field_subject(self, mock_sr_client_class):
+        registry_client = mock_sr_client_class.return_value
+        registry_client.get_schema.return_value.schema_type = "AVRO"
+        registry_client.get_schema_versions.return_value = [
+            SimpleNamespace(subject="shared-order", version=1),
+            SimpleNamespace(subject="orders-value", version=5),
+        ]
+        deserializer = RegistryDeserializer({})
+        deserializer.avro_deserializer = MagicMock(return_value={"status": "shipped"})
+
+        result = deserializer.deserialize_with_metadata(
+            b"\x00\x00\x00\x00\x1bpayload",
+            "orders",
+            MessageField.VALUE,
+        )
+
+        self.assertIsNotNone(result.schema)
+        self.assertEqual("orders-value", result.schema.subject)
+        self.assertEqual(5, result.schema.version)
+
+    @patch("kaskade.deserializers.SchemaRegistryClient")
+    def test_registry_metadata_is_null_when_registrations_are_ambiguous(self, mock_sr_client_class):
+        registry_client = mock_sr_client_class.return_value
+        registry_client.get_schema.return_value.schema_type = "JSON"
+        registry_client.get_schema_versions.return_value = [
+            SimpleNamespace(subject="shared-one", version=1),
+            SimpleNamespace(subject="shared-two", version=2),
+        ]
+        deserializer = RegistryDeserializer({})
+        deserializer.json_deserializer = MagicMock(return_value={"status": "paid"})
+
+        result = deserializer.deserialize_with_metadata(
+            b"\x00\x00\x00\x00\x1b{}",
+            "orders",
+            MessageField.VALUE,
+        )
+
+        self.assertEqual({"status": "paid"}, result.content)
+        self.assertIsNone(result.schema)
+
+    @patch("kaskade.deserializers.SchemaRegistryClient")
+    def test_registry_metadata_lookup_failure_does_not_fail_deserialization(
+        self, mock_sr_client_class
+    ):
+        registry_client = mock_sr_client_class.return_value
+        registry_client.get_schema.return_value.schema_type = "JSON"
+        registry_client.get_schema_versions.side_effect = OSError("registry unavailable")
+        deserializer = RegistryDeserializer({})
+        deserializer.json_deserializer = MagicMock(return_value={"status": "paid"})
+
+        with self.assertLogs("kaskade", level="WARNING"):
+            result = deserializer.deserialize_with_metadata(
+                b"\x00\x00\x00\x00\x1b{}",
+                "orders",
+                MessageField.VALUE,
+            )
+
+        self.assertEqual({"status": "paid"}, result.content)
+        self.assertIsNone(result.schema)
 
     def test_protobuf_deserialization(self):
         deserializer = ProtobufDeserializer({"descriptor": DESCRIPTOR_PATH, "value": "User"})

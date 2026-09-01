@@ -189,8 +189,70 @@ Select a record in consumer mode or open its details, then press `Ctrl+E` to exp
 JSON. Kaskade saves the file to the same destination as the Screenshot command: the
 Downloads directory in a local terminal or a browser download when web-hosted. The export
 includes the topic, partition, offset, timestamp, headers, and the deserialized key and value with
-their deserializer names. Export Record is omitted from the Footer; find it in contextual
+their deserializer types. Export Record is omitted from the Footer; find it in contextual
 Help or Commands.
+
+Record details, clipboard copies, and exports share the same JSON structure. Primitive and
+plain JSON deserializers have no Registry schema metadata:
+
+```json
+{
+  "topic": "orders",
+  "partition": 0,
+  "offset": 42,
+  "timestamp": "2026-08-28T14:12:05.120Z",
+  "headers": [
+    {"key": "source", "value": "storefront"}
+  ],
+  "key": {
+    "content": "order-1048",
+    "deserializer": {"type": "STRING", "schema": null}
+  },
+  "value": {
+    "content": {"status": "paid"},
+    "deserializer": {"type": "JSON", "schema": null}
+  }
+}
+```
+
+Schema Registry metadata is independent for the key and value. Kaskade includes it when
+the schema ID resolves to an unambiguous subject and version:
+
+```json
+{
+  "key": {
+    "content": {"id": "order-1049"},
+    "deserializer": {
+      "type": "REGISTRY",
+      "schema": {
+        "id": 12,
+        "subject": "orders-key",
+        "version": 2,
+        "type": "AVRO"
+      }
+    }
+  },
+  "value": {
+    "content": {"status": "shipped"},
+    "deserializer": {
+      "type": "REGISTRY",
+      "schema": {
+        "id": 27,
+        "subject": "orders-value",
+        "version": 5,
+        "type": "JSON"
+      }
+    }
+  }
+}
+```
+
+Headers remain an ordered array of `key` and `value` objects because Kafka permits repeated
+header names. JSON timestamps use UTC ISO 8601 with millisecond precision, or `null` when
+Kafka supplies no timestamp. Tombstone keys and values use `content: null`. Local Avro,
+local Protobuf, and non-schema deserializers use `schema: null`.
+In the records table, absent keys and values appear as a colored `null`; hover the cell
+to distinguish an absent key from a tombstone value.
 
 ## Consumer behavior
 
@@ -219,9 +281,27 @@ cannot be combined.
 
 If a configured key or value deserializer cannot decode an individual record,
 Kaskade shows `⚠`, displays that field with its BYTES fallback, and keeps
-consuming. Record details, copy, and export include the requested deserializer,
-fallback, and error. Hover the warning cell to see the diagnostic in a tooltip.
-The other field remains decoded normally.
+consuming. The recovered content retains the current Python byte string, while
+the diagnostic is nested inside the requested deserializer:
+
+```json
+{
+  "content": "b'\\xff'",
+  "deserializer": {
+    "type": "REGISTRY",
+    "schema": null,
+    "error": {
+      "message": "Unexpected magic byte -1",
+      "fallback": "BYTES"
+    }
+  }
+}
+```
+
+Record details, copy, and export preserve this structure. Hover the warning cell
+to see the same diagnostic in a tooltip. The other field remains decoded normally.
+Registry subject/version lookup is best-effort and cached; missing or ambiguous
+metadata produces `schema: null` without turning successful content into a fallback.
 
 ## Connections and security
 

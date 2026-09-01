@@ -92,6 +92,10 @@ requiring newer functionality.
   deserializer for subsequent records, and preserve the diagnostics in details,
   cell tooltips, copy, and export. Broker failures and unexpected exceptions
   remain fatal.
+- Keep consumed-record JSON consistent across details, copy, and export. Represent
+  headers as ordered `key`/`value` objects, nest `type`, nullable Registry `schema`,
+  and optional fallback `error` under `deserializer`, and keep Registry metadata
+  resolution best-effort and cached per schema, topic, and field.
 
 ## TUI Interaction Conventions
 
@@ -244,6 +248,8 @@ from tests. Its `errors` topic cycles through valid and deliberately malformed
 Schema Registry key/value payloads for consumer fallback testing. Keep one
 Compose topology: three Confluent Kafka brokers, Apicurio Registry, and
 Confluent Schema Registry, with no web UI.
+Keep the sandbox topic registry lambda-free and route every topic through a
+named `Populator.populate_*` entrypoint.
 
 Reusable script classes and functions belong in `scripts/__init__.py`; keep
 individual script modules focused on executable workflows.

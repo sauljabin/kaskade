@@ -1,5 +1,6 @@
 import unittest
-from unittest.mock import MagicMock, patch
+from functools import partial
+from unittest.mock import MagicMock, call, patch
 
 import click
 from click.testing import CliRunner
@@ -13,10 +14,32 @@ from kaskade.authentication import (
     AwsMskOAuthCallback,
 )
 from kaskade.configs import BOOTSTRAP_SERVERS
-from sandbox.__main__ import AVAILABLE_TOPICS, ERRORS_TOPIC, Populator, main, sandbox_kafka_config
+from sandbox.__main__ import (
+    AVAILABLE_TOPICS,
+    ERRORS_TOPIC,
+    NULL_TOPIC,
+    Populator,
+    main,
+    sandbox_kafka_config,
+)
 
 
 class TestPopulator(unittest.TestCase):
+    @patch("sandbox.__main__.Producer")
+    @patch("sandbox.__main__.AdminClient")
+    def test_null_topic_contains_only_null_keys_and_values(
+        self, _: MagicMock, mock_producer: MagicMock
+    ) -> None:
+        populator = Populator({})
+
+        populator.populate_null(3)
+
+        self.assertEqual(
+            [call(NULL_TOPIC, key=None, value=None)] * 3,
+            mock_producer.return_value.produce.call_args_list,
+        )
+        mock_producer.return_value.flush.assert_called_once_with(5)
+
     @patch("sandbox.__main__.Producer")
     @patch("sandbox.__main__.AdminClient")
     def test_create_topic_uses_broker_replication_defaults(
@@ -131,6 +154,30 @@ class TestSandboxKafkaConfig(unittest.TestCase):
         )
         self.assertEqual(14, mock_run_population.call_count)
         self.assertEqual(ERRORS_TOPIC, mock_run_population.call_args.args[3])
+
+        actions = [
+            population_call.args[4] for population_call in mock_run_population.call_args_list
+        ]
+        self.assertTrue(all(isinstance(action, partial) for action in actions))
+        self.assertEqual(
+            [
+                mock_populator.return_value.populate_string,
+                mock_populator.return_value.populate_integer,
+                mock_populator.return_value.populate_long,
+                mock_populator.return_value.populate_float,
+                mock_populator.return_value.populate_double,
+                mock_populator.return_value.populate_boolean,
+                mock_populator.return_value.populate_null,
+                mock_populator.return_value.populate_json,
+                mock_populator.return_value.populate_json_schema,
+                mock_populator.return_value.populate_protobuf,
+                mock_populator.return_value.populate_protobuf_schema,
+                mock_populator.return_value.populate_avro,
+                mock_populator.return_value.populate_avro_schema,
+                mock_populator.return_value.populate_errors,
+            ],
+            [action.func for action in actions],
+        )
 
     @patch("sandbox.__main__.run_population")
     @patch("sandbox.__main__.Populator")
