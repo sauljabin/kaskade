@@ -11,6 +11,7 @@ from textual.containers import Container
 from textual.content import Content
 from textual.validation import Function, Integer
 from textual.widgets import (
+    Collapsible,
     DataTable,
     Footer,
     Input,
@@ -76,6 +77,10 @@ def _valid_topic_name(name: str) -> bool:
             for character in name
         )
     )
+
+
+def _valid_optional_positive_integer(value: str) -> bool:
+    return not value or (value.isdigit() and int(value) >= 1)
 
 
 def _input_failures(inputs: dict[str, Input]) -> list[str]:
@@ -375,7 +380,14 @@ class EditTopicScreen(HelpableModalScreen[UpdateTopicCommand]):
             id="min_insync_replicas",
             type="integer",
             value=self.min_insync_replicas,
-            validators=Integer(minimum=1),
+            validators=(
+                Integer(minimum=1)
+                if self.min_insync_replicas
+                else Function(
+                    _valid_optional_positive_integer,
+                    "Enter a positive integer or leave empty when unavailable",
+                )
+            ),
             classes="kaskade-input",
         )
         input_min_insync.border_title = "Min In-Sync Replicas"
@@ -397,7 +409,6 @@ class EditTopicScreen(HelpableModalScreen[UpdateTopicCommand]):
 
         with container:
             yield input_partitions
-            yield input_min_insync
             yield input_retention
             with radio_set:
                 yield RadioButton(
@@ -408,6 +419,8 @@ class EditTopicScreen(HelpableModalScreen[UpdateTopicCommand]):
                     str(CleanupPolicy.COMPACT),
                     value=self.cleanup_policy == str(CleanupPolicy.COMPACT),
                 )
+            with Collapsible(title="Advanced", id="advanced-topic-config"):
+                yield input_min_insync
         yield Footer(compact=True)
 
     def action_edit(self) -> None:
@@ -418,22 +431,42 @@ class EditTopicScreen(HelpableModalScreen[UpdateTopicCommand]):
         }
         failures = _input_failures(inputs)
         if failures:
+            if inputs["Min In-Sync Replicas"].has_class("-invalid"):
+                self.query_one("#advanced-topic-config", Collapsible).collapsed = False
             _focus_first_invalid(inputs)
             self.notify("\n".join(failures), title="Invalid Topic", severity="warning")
             return
 
         cleanup_input = self.query_one("#cleanup", RadioSet)
-        cleanup_policy = (
+        selected_cleanup_policy = (
             str(cleanup_input.pressed_button.label)
             if cleanup_input.pressed_button is not None
-            else str(CleanupPolicy.DELETE)
+            else None
         )
+        cleanup_policy = (
+            selected_cleanup_policy if selected_cleanup_policy != self.cleanup_policy else None
+        )
+
+        min_insync_value = inputs["Min In-Sync Replicas"].value
+        min_insync_replicas = (
+            int(min_insync_value)
+            if min_insync_value
+            and (
+                not self.min_insync_replicas
+                or int(min_insync_value) != int(self.min_insync_replicas)
+            )
+            else None
+        )
+
+        retention_ms = int(inputs["Retention"].value)
+        changed_retention_ms = retention_ms if retention_ms != int(self.retention) else None
+
         self.dismiss(
             UpdateTopicCommand(
                 partitions=int(inputs["Partitions"].value),
-                min_insync_replicas=int(inputs["Min In-Sync Replicas"].value),
+                min_insync_replicas=min_insync_replicas,
                 cleanup_policy=cleanup_policy,
-                retention_ms=int(inputs["Retention"].value),
+                retention_ms=changed_retention_ms,
             )
         )
 
@@ -486,17 +519,23 @@ class CreateTopicScreen(HelpableModalScreen[CreateTopicCommand]):
         input_replication = Input(
             id="replicas",
             type="integer",
-            value="3",
-            validators=Integer(minimum=1),
+            placeholder="Broker default",
+            validators=Function(
+                _valid_optional_positive_integer,
+                "Enter a positive integer or leave empty to use the broker default",
+            ),
             classes="kaskade-input",
         )
-        input_replication.border_title = "Replicas"
+        input_replication.border_title = "Replication Factor"
 
         input_min_insync = Input(
             id="min_insync_replicas",
             type="integer",
-            value="2",
-            validators=Integer(minimum=1),
+            placeholder="Broker default",
+            validators=Function(
+                _valid_optional_positive_integer,
+                "Enter a positive integer or leave empty to use the broker default",
+            ),
             classes="kaskade-input",
         )
         input_min_insync.border_title = "Min In-Sync Replicas"
@@ -519,31 +558,39 @@ class CreateTopicScreen(HelpableModalScreen[CreateTopicCommand]):
         with container:
             yield input_name
             yield input_partitions
-            yield input_replication
-            yield input_min_insync
             yield input_retention
             with radio_set:
                 yield RadioButton(str(CleanupPolicy.DELETE), value=True)
                 yield RadioButton(str(CleanupPolicy.COMPACT))
+            with Collapsible(title="Advanced", id="advanced-topic-config"):
+                yield input_replication
+                yield input_min_insync
         yield Footer(compact=True)
 
     def action_create(self) -> None:
         inputs = {
             "Name": self.query_one("#name", Input),
             "Partitions": self.query_one("#partitions", Input),
-            "Replicas": self.query_one("#replicas", Input),
+            "Replication Factor": self.query_one("#replicas", Input),
             "Min In-Sync Replicas": self.query_one("#min_insync_replicas", Input),
             "Retention": self.query_one("#retention", Input),
         }
         failures = _input_failures(inputs)
 
-        replicas = inputs["Replicas"]
+        replicas = inputs["Replication Factor"]
         min_insync_replicas = inputs["Min In-Sync Replicas"]
-        if not failures and int(min_insync_replicas.value) > int(replicas.value):
+        if (
+            not failures
+            and replicas.value
+            and min_insync_replicas.value
+            and int(min_insync_replicas.value) > int(replicas.value)
+        ):
             min_insync_replicas.add_class("-invalid")
-            failures.append("Min In-Sync Replicas cannot exceed Replicas")
+            failures.append("Min In-Sync Replicas cannot exceed Replication Factor")
 
         if failures:
+            if replicas.has_class("-invalid") or min_insync_replicas.has_class("-invalid"):
+                self.query_one("#advanced-topic-config", Collapsible).collapsed = False
             _focus_first_invalid(inputs)
             self.notify("\n".join(failures), title="Invalid Topic", severity="warning")
             return
@@ -558,8 +605,10 @@ class CreateTopicScreen(HelpableModalScreen[CreateTopicCommand]):
         command = CreateTopicCommand(
             name=inputs["Name"].value,
             partitions=int(inputs["Partitions"].value),
-            replicas=int(replicas.value),
-            min_insync_replicas=int(min_insync_replicas.value),
+            replicas=int(replicas.value) if replicas.value else None,
+            min_insync_replicas=(
+                int(min_insync_replicas.value) if min_insync_replicas.value else None
+            ),
             cleanup_policy=cleanup,
             retention_ms=int(inputs["Retention"].value),
         )
@@ -897,21 +946,35 @@ class ListTopics(Container):
                 partitions_added = True
                 refresh_after = True
 
-            await make_it_async(
-                self.topic_service.edit,
-                topic.name,
-                {
-                    MIN_INSYNC_REPLICAS_CONFIG: str(command.min_insync_replicas),
-                    CLEANUP_POLICY_CONFIG: command.cleanup_policy,
-                    RETENTION_MS_CONFIG: str(command.retention_ms),
-                },
-            )
+            changed_config: dict[str, str] = {}
+            if command.min_insync_replicas is not None:
+                changed_config[MIN_INSYNC_REPLICAS_CONFIG] = str(command.min_insync_replicas)
+            if command.cleanup_policy is not None:
+                changed_config[CLEANUP_POLICY_CONFIG] = command.cleanup_policy
+            if command.retention_ms is not None:
+                changed_config[RETENTION_MS_CONFIG] = str(command.retention_ms)
+
+            if changed_config:
+                await make_it_async(
+                    self.topic_service.edit,
+                    topic.name,
+                    changed_config,
+                )
+                refresh_after = True
+
+            if not refresh_after:
+                self.app.notify(
+                    f"No changes to topic '{topic.name}'",
+                    title="No Changes",
+                    severity="information",
+                )
+                return
+
             self.app.notify(
                 f"Updated topic '{topic.name}'",
                 title="Topic Updated",
                 severity="information",
             )
-            refresh_after = True
         except (KafkaException, ValueError) as ex:
             title = "Topic Partially Updated" if partitions_added else "Kafka Error"
             notify_error(self.app, title, ex)

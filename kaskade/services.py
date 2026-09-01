@@ -71,7 +71,7 @@ class ConsumerService:
     def __init__(
         self,
         topic: str,
-        kafka_config: dict[str, str],
+        kafka_config: dict[str, Any],
         deserializer_factory: DeserializerPool,
         key_deserialization: Deserialization,
         value_deserialization: Deserialization,
@@ -347,23 +347,24 @@ class GroupSnapshot:
 class TopicService:
     GROUP_OFFSET_CONCURRENCY = 16
 
-    def __init__(
-        self, config: dict[str, str | int | float | bool], *, timeout: float = 2.0
-    ) -> None:
+    def __init__(self, config: dict[str, Any], *, timeout: float = 2.0) -> None:
         self.timeout = timeout
         self.config = config.copy()
         self.admin_client = AdminClient(self.config, logger=logger)
 
     def create(self, command: CreateTopicCommand) -> None:
+        topic_config = {
+            CLEANUP_POLICY_CONFIG: command.cleanup_policy,
+            RETENTION_MS_CONFIG: str(command.retention_ms),
+        }
+        if command.min_insync_replicas is not None:
+            topic_config[MIN_INSYNC_REPLICAS_CONFIG] = str(command.min_insync_replicas)
+
         new_topic = NewTopic(
             topic=command.name,
             num_partitions=command.partitions,
-            replication_factor=command.replicas,
-            config={
-                CLEANUP_POLICY_CONFIG: command.cleanup_policy,
-                RETENTION_MS_CONFIG: str(command.retention_ms),
-                MIN_INSYNC_REPLICAS_CONFIG: str(command.min_insync_replicas),
-            },
+            replication_factor=command.replicas if command.replicas is not None else -1,
+            config=topic_config,
         )
         futures = self.admin_client.create_topics([new_topic])
         for future in futures.values():

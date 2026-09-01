@@ -20,7 +20,9 @@ from faker import Faker
 from rich.console import Console
 from rich.status import Status
 
-from kaskade.configs import BOOTSTRAP_SERVERS, MIN_INSYNC_REPLICAS_CONFIG
+from kaskade.authentication import configure_aws_msk_iam
+from kaskade.cli_utils import tuple_properties_to_dict, validate_aws_config
+from kaskade.configs import AWS_CONFIGS, BOOTSTRAP_SERVERS, MIN_INSYNC_REPLICAS_CONFIG
 from kaskade.utils import file_to_str, pack_bytes, py_to_avro
 from sandbox.avro_model.user import User as AvroUser
 from sandbox.json_model.user import User as JsonUser
@@ -30,6 +32,22 @@ SANDBOX_PATH = Path(__file__).resolve().parent
 JSON_USER_SCHEMA = str(SANDBOX_PATH / "json_model" / "user.schema.json")
 AVRO_USER_SCHEMA = str(SANDBOX_PATH / "avro_model" / "user.avsc")
 ERRORS_TOPIC = "errors"
+AVAILABLE_TOPICS = (
+    "string",
+    "integer",
+    "long",
+    "float",
+    "double",
+    "boolean",
+    "null",
+    "json",
+    "json-schema",
+    "protobuf",
+    "protobuf-schema",
+    "avro",
+    "avro-schema",
+    ERRORS_TOPIC,
+)
 ERROR_CASES = ("key", "value", "both", "valid")
 MALFORMED_KEY_CASES = frozenset({"key", "both"})
 MALFORMED_VALUE_CASES = frozenset({"value", "both"})
@@ -37,7 +55,13 @@ MALFORMED_PAYLOAD_BYTES = 32
 
 
 class Populator:
-    def __init__(self, kafka_config: dict[str, str | int | float | bool]) -> None:
+    def __init__(
+        self,
+        kafka_config: dict[str, Any],
+        partitions: int = 10,
+        replication_factor: int | None = None,
+        min_insync_replicas: int | None = None,
+    ) -> None:
         self.producer = Producer(
             kafka_config
             | {
@@ -45,15 +69,22 @@ class Populator:
             }
         )
         self.admin_client = AdminClient(kafka_config)
+        self.partitions = partitions
+        self.replication_factor = replication_factor
+        self.min_insync_replicas = min_insync_replicas
 
     def create_topic(self, topic: str) -> None:
+        topic_config = {}
+        if self.min_insync_replicas is not None:
+            topic_config[MIN_INSYNC_REPLICAS_CONFIG] = str(self.min_insync_replicas)
+
         new_topic = NewTopic(
             topic=topic,
-            num_partitions=10,
-            replication_factor=3,
-            config={
-                MIN_INSYNC_REPLICAS_CONFIG: "2",
-            },
+            num_partitions=self.partitions,
+            replication_factor=(
+                self.replication_factor if self.replication_factor is not None else -1
+            ),
+            config=topic_config,
         )
         futures = self.admin_client.create_topics([new_topic])
         for future in futures.values():
@@ -127,8 +158,48 @@ def run_population(
     console.print(f":white_check_mark: {topic} [green]{time.time() - start:.1f} secs[/]")
 
 
+def sandbox_kafka_config(bootstrap_servers: str, aws_config: dict[str, str]) -> dict[str, Any]:
+    validate_aws_config(aws_config)
+    return configure_aws_msk_iam({BOOTSTRAP_SERVERS: bootstrap_servers}, aws_config)
+
+
+def validate_topics(
+    ctx: click.Context, param: click.Parameter, value: tuple[str, ...]
+) -> tuple[str, ...] | None:
+    if len(value) != len(set(value)):
+        raise click.BadParameter("Each topic may only be selected once.", ctx=ctx, param=param)
+    return value or None
+
+
 @click.command()
 @click.option("--messages", default=1000, help="Number of messages to send.")
+@click.option(
+    "--topic",
+    "selected_topics",
+    type=click.Choice(AVAILABLE_TOPICS),
+    multiple=True,
+    callback=validate_topics,
+    help="Topic to populate. Repeat for a subset; omit to populate all topics.",
+)
+@click.option(
+    "--partitions",
+    type=click.IntRange(min=1),
+    default=10,
+    help="Number of partitions for created topics.",
+    show_default=True,
+)
+@click.option(
+    "--replication-factor",
+    type=click.IntRange(min=1),
+    default=None,
+    help="Replication factor for created topics. Uses the broker default when omitted.",
+)
+@click.option(
+    "--min-insync-replicas",
+    type=click.IntRange(min=1),
+    default=None,
+    help="Minimum in-sync replicas for created topics. Uses the broker default when omitted.",
+)
 @click.option(
     "--bootstrap-servers", default="localhost:19092", help="Bootstrap servers.", show_default=True
 )
@@ -138,7 +209,25 @@ def run_population(
     help="Schema registry. For Apicurio use 'http://localhost:18082/apis/ccompat/v7'",
     show_default=True,
 )
-def main(messages: int, bootstrap_servers: str, registry: str) -> None:
+@click.option(
+    "--aws",
+    "aws_config",
+    help=f"Amazon MSK IAM property. Multiple are allowed. Valid properties: {AWS_CONFIGS}.",
+    metavar="property=value",
+    multiple=True,
+    callback=tuple_properties_to_dict,
+)
+def main(
+    messages: int,
+    selected_topics: tuple[str, ...] | None,
+    partitions: int,
+    replication_factor: int | None,
+    min_insync_replicas: int | None,
+    bootstrap_servers: str,
+    registry: str,
+    aws_config: dict[str, str],
+) -> None:
+    kafka_config = sandbox_kafka_config(bootstrap_servers, aws_config)
     registry_client = SchemaRegistryClient({"url": registry})
     avro_serializer = AvroSerializer(
         registry_client,
@@ -154,98 +243,111 @@ def main(messages: int, bootstrap_servers: str, registry: str) -> None:
         ProtobufUser, registry_client, {"use.deprecated.format": False}
     )
     faker = Faker()
-    topics = [
-        (
+    populator = Populator(
+        kafka_config,
+        partitions=partitions,
+        replication_factor=replication_factor,
+        min_insync_replicas=min_insync_replicas,
+    )
+
+    def topic_population(
+        topic: str,
+        generator: Callable[[], Any],
+        serializer: Callable[[Any], Any],
+    ) -> tuple[str, Callable[[], None]]:
+        return topic, partial(populator.populate, topic, generator, serializer, messages)
+
+    topics: list[tuple[str, Callable[[], None]]] = [
+        topic_population(
             "string",
             lambda: faker.name(),
             lambda value: value.encode("utf-8"),
         ),
-        (
+        topic_population(
             "integer",
             lambda: faker.pyint(min_value=500, max_value=10000),
             lambda value: pack_bytes(">i", value),
         ),
-        (
+        topic_population(
             "long",
             lambda: faker.pyint(min_value=500, max_value=10000),
             lambda value: pack_bytes(">q", value),
         ),
-        (
+        topic_population(
             "float",
             lambda: faker.pyfloat(min_value=500, max_value=10000),
             lambda value: pack_bytes(">f", value),
         ),
-        (
+        topic_population(
             "double",
             lambda: faker.pyfloat(min_value=500, max_value=10000),
             lambda value: pack_bytes(">d", value),
         ),
-        (
+        topic_population(
             "boolean",
             lambda: faker.pybool(),
             lambda value: pack_bytes(">?", value),
         ),
-        (
+        topic_population(
             "null",
             lambda: "not null" if faker.pybool() else None,
             lambda value: value.encode("utf-8") if value else None,
         ),
-        (
+        topic_population(
             "json",
             lambda: faker.json(),
             lambda value: value.encode("utf-8"),
         ),
-        (
+        topic_population(
             "json-schema",
             lambda: JsonUser(name=faker.name()),
             lambda value: json_serializer(
                 value, SerializationContext("json-schema", MessageField.VALUE)
             ),
         ),
-        (
+        topic_population(
             "protobuf",
             lambda: ProtobufUser(name=faker.name()),
             lambda value: value.SerializeToString(),
         ),
-        (
+        topic_population(
             "protobuf-schema",
             lambda: ProtobufUser(name=faker.name()),
             lambda value: protobuf_serializer(
                 value, SerializationContext("protobuf-schema", MessageField.VALUE)
             ),
         ),
-        (
+        topic_population(
             "avro",
             lambda: AvroUser(name=faker.name()),
             lambda value: py_to_avro(AVRO_USER_SCHEMA, vars(value)),
         ),
-        (
+        topic_population(
             "avro-schema",
             lambda: AvroUser(name=faker.name()),
             lambda value: avro_serializer(
                 value, SerializationContext("avro-schema", MessageField.VALUE)
             ),
         ),
+        (
+            ERRORS_TOPIC,
+            partial(populator.populate_registry_errors, json_serializer, faker, messages),
+        ),
     ]
-    populator = Populator({BOOTSTRAP_SERVERS: bootstrap_servers})
+    if selected_topics is not None:
+        actions_by_topic = dict(topics)
+        topics = [(topic, actions_by_topic[topic]) for topic in selected_topics]
+
     console = Console()
     with console.status("", spinner="dots") as status:
-        for topic, generator, serializer in topics:
+        for topic, action in topics:
             run_population(
                 console,
                 status,
                 populator,
                 topic,
-                partial(populator.populate, topic, generator, serializer, messages),
+                action,
             )
-
-        run_population(
-            console,
-            status,
-            populator,
-            ERRORS_TOPIC,
-            partial(populator.populate_registry_errors, json_serializer, faker, messages),
-        )
 
 
 if __name__ == "__main__":

@@ -38,6 +38,7 @@ Bring Kafka along for the terminal ride. Kaskade gives you a stylish, keyboard-f
 - Browse topics, partitions, consumer groups, and group members
 - Inspect topic lag, replicas, and record counts
 - Create, edit, delete, and filter topics
+- Connect to Amazon MSK clusters with AWS IAM authentication
 - Refresh topic metadata and metrics automatically or manually
 - Copy topic names to the clipboard
 

@@ -239,7 +239,206 @@ Configuration precedence, from lowest to highest, is:
 1. Properties loaded from `--config-file`.
 2. Repeated `-c/--config property=value` options.
 3. `-b/--bootstrap-servers` for `bootstrap.servers`.
-4. In consumer mode, `--earliest` for `auto.offset.reset=earliest`.
+4. `--aws property=value` for the Amazon MSK IAM authentication properties.
+5. In consumer mode, `--earliest` for `auto.offset.reset=earliest`.
+
+### Amazon MSK with IAM authentication
+
+Pass the AWS region to enable IAM authentication in either mode:
+
+```bash
+kaskade admin -b ${AWS_MSK_BOOTSTRAP_SERVERS} --aws region=us-east-1
+
+kaskade consumer -b ${AWS_MSK_BOOTSTRAP_SERVERS} -t my-topic \
+        --aws region=us-east-1
+```
+
+Kaskade configures `security.protocol=SASL_SSL`, `sasl.mechanism=OAUTHBEARER`,
+and automatic token refresh. Credentials are discovered through the standard AWS
+credential provider chain, so environment variables, shared AWS profiles (including
+`AWS_PROFILE`), and IAM roles attached to AWS workloads are supported without passing
+credentials to Kaskade.
+
+See [Configure clients for IAM access control](https://docs.aws.amazon.com/msk/latest/developerguide/configure-clients-for-iam-access-control.html)
+for the Amazon MSK broker and IAM policy requirements.
+
+#### IAM permissions
+
+The IAM principal used by `--aws` needs these `kafka-cluster` actions:
+
+| Mode | Required actions |
+| --- | --- |
+| Admin (read only) | `Connect`, `DescribeTopic`, `DescribeTopicDynamicConfiguration`, `DescribeGroup` |
+| Admin (full access) | Read-only actions plus `CreateTopic`, `AlterTopic`, `DeleteTopic`, `AlterTopicDynamicConfiguration` |
+| Consumer | `Connect`, `DescribeTopic`, `ReadData`, `DescribeGroup`, `AlterGroup` |
+| Sandbox population | `Connect`, `CreateTopic`, `DescribeTopic`, `WriteData` |
+
+This policy enables all admin and consumer features. Replace the placeholders
+and narrow the topic wildcard when appropriate.
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ConnectToCluster",
+      "Effect": "Allow",
+      "Action": "kafka-cluster:Connect",
+      "Resource": "arn:aws:kafka:<region>:<account-id>:cluster/<cluster-name>/<cluster-uuid>"
+    },
+    {
+      "Sid": "ManageAndReadTopics",
+      "Effect": "Allow",
+      "Action": [
+        "kafka-cluster:CreateTopic",
+        "kafka-cluster:DescribeTopic",
+        "kafka-cluster:AlterTopic",
+        "kafka-cluster:DeleteTopic",
+        "kafka-cluster:DescribeTopicDynamicConfiguration",
+        "kafka-cluster:AlterTopicDynamicConfiguration",
+        "kafka-cluster:ReadData"
+      ],
+      "Resource": "arn:aws:kafka:<region>:<account-id>:topic/<cluster-name>/<cluster-uuid>/*"
+    },
+    {
+      "Sid": "InspectConsumerGroups",
+      "Effect": "Allow",
+      "Action": "kafka-cluster:DescribeGroup",
+      "Resource": "arn:aws:kafka:<region>:<account-id>:group/<cluster-name>/<cluster-uuid>/*"
+    },
+    {
+      "Sid": "UseKaskadeConsumerGroups",
+      "Effect": "Allow",
+      "Action": "kafka-cluster:AlterGroup",
+      "Resource": "arn:aws:kafka:<region>:<account-id>:group/<cluster-name>/<cluster-uuid>/kaskade-*"
+    }
+  ]
+}
+```
+
+Consumer group access can be limited to `kaskade-*` because Kaskade creates
+ephemeral groups named `kaskade-<uuid>`. For read-only admin access, remove the
+topic create, alter, delete, and configuration-alter actions.
+
+Use this policy for sandbox population:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ConnectToCluster",
+      "Effect": "Allow",
+      "Action": "kafka-cluster:Connect",
+      "Resource": "arn:aws:kafka:<region>:<account-id>:cluster/<cluster-name>/<cluster-uuid>"
+    },
+    {
+      "Sid": "CreateAndPopulateTopics",
+      "Effect": "Allow",
+      "Action": [
+        "kafka-cluster:CreateTopic",
+        "kafka-cluster:DescribeTopic",
+        "kafka-cluster:WriteData"
+      ],
+      "Resource": "arn:aws:kafka:<region>:<account-id>:topic/<cluster-name>/<cluster-uuid>/*"
+    }
+  ]
+}
+```
+
+See AWS's [authorization action semantics](https://docs.aws.amazon.com/msk/latest/developerguide/kafka-actions.html)
+and [common client policy use cases](https://docs.aws.amazon.com/msk/latest/developerguide/iam-access-control-use-cases.html)
+for dependencies and resource formats.
+
+### Kafka ACLs
+
+For SASL/SCRAM and mTLS connections, grant the Kafka principal these operations:
+
+| Mode | Topic ACLs | Group ACLs | Cluster ACLs |
+| --- | --- | --- | --- |
+| Admin (read only) | `Describe`, `DescribeConfigs` | `Describe` on groups to display | `Describe` |
+| Admin (full access) | `Describe`, `DescribeConfigs`, `Create`, `Alter`, `Delete`, `AlterConfigs` | `Describe` on groups to display | `Describe` |
+| Consumer | `Read`, `Describe` on topics to consume | `Read`, `Describe` on the `kaskade-` prefix | None |
+| Sandbox population | `Create`, `Write`, `Describe` on topics to populate | None | None |
+
+Use `User:<username>` for SASL/SCRAM or the certificate principal for mTLS, such
+as `User:CN=kaskade`. Run the commands as an ACL administrator and configure
+`admin-client.properties` for that administrator.
+
+Full admin access:
+
+```bash
+kafka-acls.sh \
+    --bootstrap-server "${BOOTSTRAP_SERVERS}" \
+    --command-config admin-client.properties \
+    --add \
+    --allow-principal "User:<principal>" \
+    --operation Describe \
+    --cluster
+
+kafka-acls.sh \
+    --bootstrap-server "${BOOTSTRAP_SERVERS}" \
+    --command-config admin-client.properties \
+    --add \
+    --allow-principal "User:<principal>" \
+    --operation Describe \
+    --operation DescribeConfigs \
+    --operation Create \
+    --operation Alter \
+    --operation Delete \
+    --operation AlterConfigs \
+    --topic '*'
+
+kafka-acls.sh \
+    --bootstrap-server "${BOOTSTRAP_SERVERS}" \
+    --command-config admin-client.properties \
+    --add \
+    --allow-principal "User:<principal>" \
+    --operation Describe \
+    --group '*'
+```
+
+Consumer access to one topic and Kaskade's ephemeral consumer groups:
+
+```bash
+kafka-acls.sh \
+    --bootstrap-server "${BOOTSTRAP_SERVERS}" \
+    --command-config admin-client.properties \
+    --add \
+    --allow-principal "User:<principal>" \
+    --operation Read \
+    --operation Describe \
+    --topic '<topic-name>'
+
+kafka-acls.sh \
+    --bootstrap-server "${BOOTSTRAP_SERVERS}" \
+    --command-config admin-client.properties \
+    --add \
+    --allow-principal "User:<principal>" \
+    --operation Read \
+    --operation Describe \
+    --group kaskade- \
+    --resource-pattern-type prefixed
+```
+
+Sandbox population access to all topics:
+
+```bash
+kafka-acls.sh \
+    --bootstrap-server "${BOOTSTRAP_SERVERS}" \
+    --command-config admin-client.properties \
+    --add \
+    --allow-principal "User:<principal>" \
+    --operation Create \
+    --operation Write \
+    --operation Describe \
+    --topic '*'
+```
+
+Narrow `--topic '*'` with literal topic names or prefixed resource patterns when
+appropriate. See AWS's
+[Apache Kafka ACL documentation](https://docs.aws.amazon.com/msk/latest/developerguide/msk-acls.html),
+including the default `allow.everyone.if.no.acl.found` behavior.
 
 ### Confluent Cloud
 

@@ -5,8 +5,8 @@ from dataclasses import dataclass
 class CreateTopicCommand:
     name: str
     partitions: int
-    replicas: int
-    min_insync_replicas: int
+    replicas: int | None
+    min_insync_replicas: int | None
     cleanup_policy: str
     retention_ms: int
 
@@ -14,9 +14,9 @@ class CreateTopicCommand:
 @dataclass(frozen=True)
 class UpdateTopicCommand:
     partitions: int
-    min_insync_replicas: int
-    cleanup_policy: str
-    retention_ms: int
+    min_insync_replicas: int | None
+    cleanup_policy: str | None
+    retention_ms: int | None
 
 
 @dataclass(frozen=True)
