@@ -32,6 +32,22 @@ SANDBOX_PATH = Path(__file__).resolve().parent
 JSON_USER_SCHEMA = str(SANDBOX_PATH / "json_model" / "user.schema.json")
 AVRO_USER_SCHEMA = str(SANDBOX_PATH / "avro_model" / "user.avsc")
 ERRORS_TOPIC = "errors"
+AVAILABLE_TOPICS = (
+    "string",
+    "integer",
+    "long",
+    "float",
+    "double",
+    "boolean",
+    "null",
+    "json",
+    "json-schema",
+    "protobuf",
+    "protobuf-schema",
+    "avro",
+    "avro-schema",
+    ERRORS_TOPIC,
+)
 ERROR_CASES = ("key", "value", "both", "valid")
 MALFORMED_KEY_CASES = frozenset({"key", "both"})
 MALFORMED_VALUE_CASES = frozenset({"value", "both"})
@@ -147,8 +163,24 @@ def sandbox_kafka_config(bootstrap_servers: str, aws_config: dict[str, str]) -> 
     return configure_aws_msk_iam({BOOTSTRAP_SERVERS: bootstrap_servers}, aws_config)
 
 
+def validate_topics(
+    ctx: click.Context, param: click.Parameter, value: tuple[str, ...]
+) -> tuple[str, ...] | None:
+    if len(value) != len(set(value)):
+        raise click.BadParameter("Each topic may only be selected once.", ctx=ctx, param=param)
+    return value or None
+
+
 @click.command()
 @click.option("--messages", default=1000, help="Number of messages to send.")
+@click.option(
+    "--topic",
+    "selected_topics",
+    type=click.Choice(AVAILABLE_TOPICS),
+    multiple=True,
+    callback=validate_topics,
+    help="Topic to populate. Repeat for a subset; omit to populate all topics.",
+)
 @click.option(
     "--partitions",
     type=click.IntRange(min=1),
@@ -187,6 +219,7 @@ def sandbox_kafka_config(bootstrap_servers: str, aws_config: dict[str, str]) -> 
 )
 def main(
     messages: int,
+    selected_topics: tuple[str, ...] | None,
     partitions: int,
     replication_factor: int | None,
     min_insync_replicas: int | None,
@@ -210,103 +243,111 @@ def main(
         ProtobufUser, registry_client, {"use.deprecated.format": False}
     )
     faker = Faker()
-    topics = [
-        (
-            "string",
-            lambda: faker.name(),
-            lambda value: value.encode("utf-8"),
-        ),
-        (
-            "integer",
-            lambda: faker.pyint(min_value=500, max_value=10000),
-            lambda value: pack_bytes(">i", value),
-        ),
-        (
-            "long",
-            lambda: faker.pyint(min_value=500, max_value=10000),
-            lambda value: pack_bytes(">q", value),
-        ),
-        (
-            "float",
-            lambda: faker.pyfloat(min_value=500, max_value=10000),
-            lambda value: pack_bytes(">f", value),
-        ),
-        (
-            "double",
-            lambda: faker.pyfloat(min_value=500, max_value=10000),
-            lambda value: pack_bytes(">d", value),
-        ),
-        (
-            "boolean",
-            lambda: faker.pybool(),
-            lambda value: pack_bytes(">?", value),
-        ),
-        (
-            "null",
-            lambda: "not null" if faker.pybool() else None,
-            lambda value: value.encode("utf-8") if value else None,
-        ),
-        (
-            "json",
-            lambda: faker.json(),
-            lambda value: value.encode("utf-8"),
-        ),
-        (
-            "json-schema",
-            lambda: JsonUser(name=faker.name()),
-            lambda value: json_serializer(
-                value, SerializationContext("json-schema", MessageField.VALUE)
-            ),
-        ),
-        (
-            "protobuf",
-            lambda: ProtobufUser(name=faker.name()),
-            lambda value: value.SerializeToString(),
-        ),
-        (
-            "protobuf-schema",
-            lambda: ProtobufUser(name=faker.name()),
-            lambda value: protobuf_serializer(
-                value, SerializationContext("protobuf-schema", MessageField.VALUE)
-            ),
-        ),
-        (
-            "avro",
-            lambda: AvroUser(name=faker.name()),
-            lambda value: py_to_avro(AVRO_USER_SCHEMA, vars(value)),
-        ),
-        (
-            "avro-schema",
-            lambda: AvroUser(name=faker.name()),
-            lambda value: avro_serializer(
-                value, SerializationContext("avro-schema", MessageField.VALUE)
-            ),
-        ),
-    ]
     populator = Populator(
         kafka_config,
         partitions=partitions,
         replication_factor=replication_factor,
         min_insync_replicas=min_insync_replicas,
     )
+
+    def topic_population(
+        topic: str,
+        generator: Callable[[], Any],
+        serializer: Callable[[Any], Any],
+    ) -> tuple[str, Callable[[], None]]:
+        return topic, partial(populator.populate, topic, generator, serializer, messages)
+
+    topics: list[tuple[str, Callable[[], None]]] = [
+        topic_population(
+            "string",
+            lambda: faker.name(),
+            lambda value: value.encode("utf-8"),
+        ),
+        topic_population(
+            "integer",
+            lambda: faker.pyint(min_value=500, max_value=10000),
+            lambda value: pack_bytes(">i", value),
+        ),
+        topic_population(
+            "long",
+            lambda: faker.pyint(min_value=500, max_value=10000),
+            lambda value: pack_bytes(">q", value),
+        ),
+        topic_population(
+            "float",
+            lambda: faker.pyfloat(min_value=500, max_value=10000),
+            lambda value: pack_bytes(">f", value),
+        ),
+        topic_population(
+            "double",
+            lambda: faker.pyfloat(min_value=500, max_value=10000),
+            lambda value: pack_bytes(">d", value),
+        ),
+        topic_population(
+            "boolean",
+            lambda: faker.pybool(),
+            lambda value: pack_bytes(">?", value),
+        ),
+        topic_population(
+            "null",
+            lambda: "not null" if faker.pybool() else None,
+            lambda value: value.encode("utf-8") if value else None,
+        ),
+        topic_population(
+            "json",
+            lambda: faker.json(),
+            lambda value: value.encode("utf-8"),
+        ),
+        topic_population(
+            "json-schema",
+            lambda: JsonUser(name=faker.name()),
+            lambda value: json_serializer(
+                value, SerializationContext("json-schema", MessageField.VALUE)
+            ),
+        ),
+        topic_population(
+            "protobuf",
+            lambda: ProtobufUser(name=faker.name()),
+            lambda value: value.SerializeToString(),
+        ),
+        topic_population(
+            "protobuf-schema",
+            lambda: ProtobufUser(name=faker.name()),
+            lambda value: protobuf_serializer(
+                value, SerializationContext("protobuf-schema", MessageField.VALUE)
+            ),
+        ),
+        topic_population(
+            "avro",
+            lambda: AvroUser(name=faker.name()),
+            lambda value: py_to_avro(AVRO_USER_SCHEMA, vars(value)),
+        ),
+        topic_population(
+            "avro-schema",
+            lambda: AvroUser(name=faker.name()),
+            lambda value: avro_serializer(
+                value, SerializationContext("avro-schema", MessageField.VALUE)
+            ),
+        ),
+        (
+            ERRORS_TOPIC,
+            partial(populator.populate_registry_errors, json_serializer, faker, messages),
+        ),
+    ]
+    if selected_topics is not None:
+        actions_by_topic = dict(topics)
+        topics = [(topic, actions_by_topic[topic]) for topic in selected_topics]
+
     console = Console()
     with console.status("", spinner="dots") as status:
-        for topic, generator, serializer in topics:
+        for topic, action in topics:
             run_population(
                 console,
                 status,
                 populator,
                 topic,
-                partial(populator.populate, topic, generator, serializer, messages),
+                action,
             )
-
-        run_population(
-            console,
-            status,
-            populator,
-            ERRORS_TOPIC,
-            partial(populator.populate_registry_errors, json_serializer, faker, messages),
-        )
 
 
 if __name__ == "__main__":

@@ -13,7 +13,7 @@ from kaskade.authentication import (
     AwsMskOAuthCallback,
 )
 from kaskade.configs import BOOTSTRAP_SERVERS
-from sandbox.__main__ import Populator, main, sandbox_kafka_config
+from sandbox.__main__ import AVAILABLE_TOPICS, ERRORS_TOPIC, Populator, main, sandbox_kafka_config
 
 
 class TestPopulator(unittest.TestCase):
@@ -104,7 +104,7 @@ class TestSandboxKafkaConfig(unittest.TestCase):
     @patch("sandbox.__main__.run_population")
     @patch("sandbox.__main__.Populator")
     def test_cli_passes_topic_settings_to_populator(
-        self, mock_populator: MagicMock, _: MagicMock
+        self, mock_populator: MagicMock, mock_run_population: MagicMock
     ) -> None:
         result = CliRunner().invoke(
             main,
@@ -129,3 +129,34 @@ class TestSandboxKafkaConfig(unittest.TestCase):
             },
             mock_populator.call_args.kwargs,
         )
+        self.assertEqual(14, mock_run_population.call_count)
+        self.assertEqual(ERRORS_TOPIC, mock_run_population.call_args.args[3])
+
+    @patch("sandbox.__main__.run_population")
+    @patch("sandbox.__main__.Populator")
+    def test_cli_populates_only_selected_topics(
+        self, _: MagicMock, mock_run_population: MagicMock
+    ) -> None:
+        result = CliRunner().invoke(
+            main,
+            ["--messages", "0", "--topic", "string", "--topic", ERRORS_TOPIC],
+        )
+
+        self.assertEqual(0, result.exit_code, result.output)
+        self.assertEqual(
+            ["string", ERRORS_TOPIC],
+            [call.args[3] for call in mock_run_population.call_args_list],
+        )
+
+    def test_cli_rejects_unknown_topic(self) -> None:
+        result = CliRunner().invoke(main, ["--topic", "unknown"])
+
+        self.assertNotEqual(0, result.exit_code)
+        self.assertIn("Invalid value for '--topic'", result.output)
+        self.assertIn(AVAILABLE_TOPICS[0], result.output)
+
+    def test_cli_rejects_duplicate_topic(self) -> None:
+        result = CliRunner().invoke(main, ["--topic", "string", "--topic", "string"])
+
+        self.assertNotEqual(0, result.exit_code)
+        self.assertIn("Each topic may only be selected once", result.output)
