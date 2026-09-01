@@ -1,7 +1,9 @@
 import json
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum, auto
+from struct import error as StructError
 from struct import unpack
 from typing import Any
 
@@ -26,7 +28,21 @@ from kaskade.utils import avro_to_py, file_to_bytes, unpack_bytes
 
 
 class DeserializationError(Exception):
-    """Raised when deserializer configuration or input framing is invalid."""
+    """Raised when configuration, framing, or payload data cannot be deserialized."""
+
+
+def _unpack_payload(struct_format: str, data: bytes) -> Any:
+    try:
+        return unpack_bytes(struct_format, data)
+    except StructError as ex:
+        raise DeserializationError(str(ex)) from ex
+
+
+def _deserialize_avro(deserialize: Callable[..., Any], *args: Any) -> Any:
+    try:
+        return deserialize(*args)
+    except IndexError as ex:
+        raise DeserializationError(str(ex)) from ex
 
 
 DESERIALIZATION_EXCEPTIONS: tuple[type[Exception], ...] = (
@@ -122,35 +138,35 @@ class BooleanDeserializer(Deserializer):
     def deserialize(
         self, data: bytes, topic: str | None = None, context: MessageField = MessageField.NONE
     ) -> Any:
-        return unpack_bytes(">?", data)
+        return _unpack_payload(">?", data)
 
 
 class FloatDeserializer(Deserializer):
     def deserialize(
         self, data: bytes, topic: str | None = None, context: MessageField = MessageField.NONE
     ) -> Any:
-        return unpack_bytes(">f", data)
+        return _unpack_payload(">f", data)
 
 
 class DoubleDeserializer(Deserializer):
     def deserialize(
         self, data: bytes, topic: str | None = None, context: MessageField = MessageField.NONE
     ) -> Any:
-        return unpack_bytes(">d", data)
+        return _unpack_payload(">d", data)
 
 
 class LongDeserializer(Deserializer):
     def deserialize(
         self, data: bytes, topic: str | None = None, context: MessageField = MessageField.NONE
     ) -> Any:
-        return unpack_bytes(">q", data)
+        return _unpack_payload(">q", data)
 
 
 class IntegerDeserializer(Deserializer):
     def deserialize(
         self, data: bytes, topic: str | None = None, context: MessageField = MessageField.NONE
     ) -> Any:
-        return unpack_bytes(">i", data)
+        return _unpack_payload(">i", data)
 
 
 class JsonDeserializer(Deserializer):
@@ -226,7 +242,11 @@ class RegistryDeserializer(Deserializer):
             case "JSON":
                 return self.json_deserializer(data, SerializationContext(topic, context))
             case "AVRO":
-                return self.avro_deserializer(data, SerializationContext(topic, context))
+                return _deserialize_avro(
+                    self.avro_deserializer,
+                    data,
+                    SerializationContext(topic, context),
+                )
             case _:
                 raise DeserializationError("Schema type not supported")
 
@@ -323,7 +343,7 @@ class AvroDeserializer(Deserializer):
             raise DeserializationError("Avro schema file not found")
 
         payload = self._payload(data)
-        return avro_to_py(schema_path, payload)
+        return _deserialize_avro(avro_to_py, schema_path, payload)
 
     def _payload(self, data: bytes) -> bytes:
         if self.framing == "raw":

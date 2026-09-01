@@ -67,6 +67,12 @@ class TestDeserializer(unittest.TestCase):
         self.assertEqual(str(value), header.value_deserialized())
         deserializer.deserialize.assert_called_once_with(value)
 
+    def test_header_falls_back_for_malformed_integer(self):
+        value = b"586"
+        header = Header(value=value, value_deserializer=IntegerDeserializer())
+
+        self.assertEqual(str(value), header.value_deserialized())
+
     def test_record_caches_successful_deserialization(self):
         key_deserializer = MagicMock()
         key_deserializer.deserialize.return_value = "customer-1"
@@ -88,12 +94,39 @@ class TestDeserializer(unittest.TestCase):
         value_deserializer.deserialize.assert_called_once()
 
     def test_record_propagates_unexpected_deserialization_errors(self):
-        deserializer = MagicMock()
-        deserializer.deserialize.side_effect = RuntimeError("unexpected")
-        record = Record(key=b"payload", key_deserializer=deserializer)
+        for exception in (RuntimeError("unexpected"), IndexError("unexpected")):
+            deserializer = MagicMock()
+            deserializer.deserialize.side_effect = exception
+            record = Record(key=b"payload", key_deserializer=deserializer)
 
-        with self.assertRaisesRegex(RuntimeError, "unexpected"):
-            record.key_str()
+            with (
+                self.subTest(exception=type(exception).__name__),
+                self.assertRaisesRegex(type(exception), "unexpected"),
+            ):
+                record.key_str()
+
+    def test_record_falls_back_for_malformed_integer(self):
+        record = Record(
+            topic="integer",
+            key=b"586",
+            key_deserialization=Deserialization.INTEGER,
+            key_deserializer=IntegerDeserializer(),
+        )
+
+        self.assertEqual(
+            {
+                "content": "b'586'",
+                "deserializer": {
+                    "type": "INTEGER",
+                    "schema": None,
+                    "error": {
+                        "message": "unpack requires a buffer of 4 bytes",
+                        "fallback": "BYTES",
+                    },
+                },
+            },
+            record.dict()["key"],
+        )
 
     def test_header_propagates_unexpected_errors(self):
         deserializer = MagicMock()
@@ -118,6 +151,24 @@ class TestDeserializer(unittest.TestCase):
         result = deserializer.deserialize(struct.pack(">i", expected_value))
 
         self.assertEqual(expected_value, result)
+
+    def test_fixed_width_deserializers_normalize_invalid_payload_size(self):
+        deserializers = (
+            BooleanDeserializer(),
+            IntegerDeserializer(),
+            LongDeserializer(),
+            FloatDeserializer(),
+            DoubleDeserializer(),
+        )
+
+        for deserializer in deserializers:
+            with (
+                self.subTest(deserializer=type(deserializer).__name__),
+                self.assertRaisesRegex(DeserializationError, "unpack requires") as raised,
+            ):
+                deserializer.deserialize(b"586")
+
+            self.assertIsInstance(raised.exception.__cause__, struct.error)
 
     def test_default_deserialization(self):
         expected_value = os.urandom(10)
@@ -192,6 +243,22 @@ class TestDeserializer(unittest.TestCase):
         result = deserializer.deserialize(b"\x00\x00\x00\x00\x00" + encoded, "", MessageField.VALUE)
 
         self.assertEqual(expected_value, result)
+
+    @patch("kaskade.deserializers.SchemaRegistryClient")
+    def test_registry_avro_normalizes_corrupt_payload_error(self, mock_sr_client_class):
+        schema = mock_sr_client_class.return_value.get_schema.return_value
+        schema.schema_str = file_to_str(AVRO_PATH)
+        schema.schema_type = "AVRO"
+        deserializer = RegistryDeserializer({})
+
+        with self.assertRaises(DeserializationError) as raised:
+            deserializer.deserialize(
+                b"\x00\x00\x00\x00\x00\xff",
+                "orders",
+                MessageField.VALUE,
+            )
+
+        self.assertIsInstance(raised.exception.__cause__, IndexError)
 
     @patch("kaskade.deserializers.SchemaRegistryClient")
     def test_registry_deserialization_json(self, mock_sr_client_class):
@@ -325,6 +392,14 @@ class TestDeserializer(unittest.TestCase):
 
         result = deserializer.deserialize(encoded, "", MessageField.VALUE)
         self.assertEqual(expected_value, result)
+
+    def test_avro_normalizes_corrupt_payload_error(self):
+        deserializer = AvroDeserializer({"value": AVRO_PATH})
+
+        with self.assertRaises(DeserializationError) as raised:
+            deserializer.deserialize(b"\xff", "orders", MessageField.VALUE)
+
+        self.assertIsInstance(raised.exception.__cause__, IndexError)
 
     def test_avro_deserialization_with_magic_byte(self):
         expected_value = {"name": "Pedro Pascal"}
