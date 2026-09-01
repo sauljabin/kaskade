@@ -156,6 +156,8 @@ Help is a dedicated centered `ModalScreen`, not a sidebar. It must:
 
 - Keep all application styling in the shared `kaskade/styles.css`; both admin
   and consumer applications inherit `KaskadeApp.CSS_PATH`.
+- Keep main-table borders, titles, and subtitles on the shared `TableFrame` so
+  a table's loading indicator replaces only its content inside the frame.
 - Keep the shared one-line root header on both main applications: show the
   Kaskade version on the left and only Kafka `bootstrap.servers` on the right.
   Give the name and version contrasting semantic colors, and truncate the Kafka

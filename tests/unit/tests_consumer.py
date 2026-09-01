@@ -9,6 +9,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from rich.text import Text
 from textual import events
 from textual.coordinate import Coordinate
+from textual.widgets import DataTable
 
 from kaskade.colors import WARNING as WARNING_STYLE
 from kaskade.consumer import (
@@ -26,6 +27,7 @@ from kaskade.models import Header, Record
 from kaskade.record_export import record_filename
 from kaskade.themes import KaskadeApp
 from kaskade.unicodes import WARNING as WARNING_INDICATOR
+from kaskade.widgets import TableFrame
 
 
 def exported_record() -> Record:
@@ -418,6 +420,46 @@ class TestRecordCopyActions(unittest.IsolatedAsyncioTestCase):
 
 
 class TestConsumptionCoordination(unittest.IsolatedAsyncioTestCase):
+    @patch("kaskade.consumer.ConsumerService")
+    async def test_keeps_records_frame_visible_while_table_loads(
+        self, consumer_service: MagicMock
+    ) -> None:
+        started = asyncio.Event()
+        release = asyncio.Event()
+
+        async def consume(*, filters: object) -> list[Record]:
+            started.set()
+            await release.wait()
+            return []
+
+        consumer_service.return_value.consume = AsyncMock(side_effect=consume)
+        consumer_service.return_value.aclose = AsyncMock()
+        app = KaskadeConsumer(
+            "orders",
+            {},
+            {},
+            {},
+            {},
+            Deserialization.STRING,
+            Deserialization.JSON,
+        )
+
+        async with app.run_test() as pilot:
+            try:
+                await started.wait()
+                await pilot.pause()
+                frame = app.query_one("#records-frame", TableFrame)
+                table = app.query_one("#records-table", DataTable)
+
+                self.assertTrue(table.loading)
+                self.assertFalse(frame.loading)
+                self.assertIn("Records", frame.border_title)
+                self.assertNotEqual("", frame.styles.border_top[0])
+                self.assertEqual("", table.styles.border_top[0])
+            finally:
+                release.set()
+            await app.workers.wait_for_complete()
+
     @patch("kaskade.consumer.ConsumerService")
     async def test_warning_record_has_visible_indicator_and_warning_cells(
         self, consumer_service: MagicMock

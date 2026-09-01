@@ -41,7 +41,7 @@ from kaskade.services import (
 from kaskade.themes import KaskadeApp
 from kaskade.unicodes import APPROXIMATION
 from kaskade.utils import copy_text, make_it_async, notify_error
-from kaskade.widgets import KaskadeHeader, StretchyDataTable
+from kaskade.widgets import KaskadeHeader, StretchyDataTable, TableFrame
 
 REFRESH_TABLE_DELAY = 1
 FILTER_TOPICS_SHORTCUT = "/,ctrl+f"
@@ -731,12 +731,8 @@ class ListTopics(Container):
         self.refresh_coordinator = RefreshCoordinator()
 
     def compose(self) -> ComposeResult:
-        table: StretchyDataTable[str] = StretchyDataTable(
-            id="topics-table", classes="kaskade-table main-table"
-        )
+        table: StretchyDataTable[str] = StretchyDataTable(id="topics-table", classes="main-table")
         table.cursor_type = "row"
-        table.border_title = rf"[{PRIMARY}]Topics[/] \[[{PRIMARY}]0[/]]"
-        table.border_subtitle = rf"\[[{PRIMARY}]Admin Mode[/]]"
         table.zebra_stripes = True
 
         table.add_column("Name", key="name", stretch=1)
@@ -748,7 +744,10 @@ class ListTopics(Container):
         table.add_column("Records", key="records")
         table.add_column("Lag", key="lag")
 
-        yield table
+        frame = TableFrame(table, id="topics-frame", classes="kaskade-table")
+        frame.border_title = rf"[{PRIMARY}]Topics[/] \[[{PRIMARY}]0[/]]"
+        frame.border_subtitle = rf"\[[{PRIMARY}]Admin Mode[/]]"
+        yield frame
 
     def on_mount(self) -> None:
         table = self.query_one("#topics-table", DataTable)
@@ -1112,7 +1111,7 @@ class ListTopics(Container):
         desired_keys = [topic.name for topic in visible_topics]
         self._render_topic_rows(table, visible_topics, desired_keys, selected_topic_name)
         self._restore_selection(table, desired_keys, selected_topic_name)
-        self._update_table_title(table, len(visible_topics))
+        self._update_table_title(len(visible_topics))
         self.finish_loading_table()
 
     def _visible_topics(self) -> list[Topic]:
@@ -1156,11 +1155,11 @@ class ListTopics(Container):
             self.current_topic = None
         self.refresh_bindings()
 
-    def _update_table_title(self, table: DataTable[Any], visible_topic_count: int) -> None:
+    def _update_table_title(self, visible_topic_count: int) -> None:
         border_title_filter_info = (
             rf"\[[{PRIMARY}]*{self.current_filter}*[/]]" if self.current_filter else ""
         )
-        table.border_title = (
+        self.query_one("#topics-frame", TableFrame).border_title = (
             rf"[{PRIMARY}]Topics[/] {border_title_filter_info}"
             rf"\[[{PRIMARY}]{visible_topic_count}[/]]"
         )
@@ -1189,7 +1188,6 @@ class ListTopics(Container):
         return LOADING_METRIC
 
     def _update_status(self, *, refreshing: bool) -> None:
-        table = self.query_one(DataTable)
         interval = getattr(self.app, "auto_refresh_interval", 0)
         auto_status = f"Auto {interval}s" if interval else "Auto Off"
         if refreshing:
@@ -1198,7 +1196,9 @@ class ListTopics(Container):
             state = f"Updated {self.last_updated_at:%H:%M:%S}"
         else:
             state = "Not Updated"
-        table.border_subtitle = rf"\[[{PRIMARY}]Admin Mode · {state} · {auto_status}[/]]"
+        self.query_one("#topics-frame", TableFrame).border_subtitle = (
+            rf"\[[{PRIMARY}]Admin Mode · {state} · {auto_status}[/]]"
+        )
 
 
 class KaskadeAdmin(KaskadeApp):

@@ -35,6 +35,7 @@ from kaskade.widgets import (
     KaskadeOptionList,
     KaskadeScrollableContainer,
     StretchyDataTable,
+    TableFrame,
 )
 
 CHUNKS_SHORTCUT = "#"
@@ -365,11 +366,9 @@ class ListRecords(Container):
         return rf"[{PRIMARY}]Records[/] \[[{PRIMARY}]{self.topic}[/]]{title_filter}\[[{PRIMARY}]{len(self.records)}[/]]"
 
     def compose(self) -> ComposeResult:
-        table = RecordDataTable(id="records-table", classes="kaskade-table main-table")
+        table = RecordDataTable(id="records-table", classes="main-table")
         table.cursor_type = "row"
-        table.border_subtitle = rf"\[[{PRIMARY}]Consumer Mode[/]]"
         table.zebra_stripes = True
-        table.border_title = self._get_title()
 
         table.add_column("Key", stretch=2)
         table.add_column("Value", stretch=3)
@@ -378,7 +377,10 @@ class ListRecords(Container):
         table.add_column("Offset", width=9)
         table.add_column("Headers", width=9)
 
-        yield table
+        frame = TableFrame(table, id="records-frame", classes="kaskade-table")
+        frame.border_title = self._get_title()
+        frame.border_subtitle = rf"\[[{PRIMARY}]Consumer Mode[/]]"
+        yield frame
 
     async def on_unmount(self) -> None:
         result = self.consumer.aclose()
@@ -411,8 +413,11 @@ class ListRecords(Container):
         self.records = {}
         self.current_record = None
         self.refresh_bindings()
-        table.border_title = self._get_title()
+        self._update_table_title()
         self.action_consume()
+
+    def _update_table_title(self) -> None:
+        self.query_one("#records-frame", TableFrame).border_title = self._get_title()
 
     def action_change_chunk(self) -> None:
         def dismiss(result: int | None) -> None:
@@ -549,7 +554,7 @@ class ListRecords(Container):
                 row_index = len(table.rows)
                 table.add_row(*self._record_row(record), key=record_id)
                 self._add_warning_tooltips(table, row_index, record)
-            table.border_title = self._get_title()
+            self._update_table_title()
         except CONSUMER_EXCEPTIONS as ex:
             notify_error(self.app, "Consumption Error", ex)
         finally:

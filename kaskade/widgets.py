@@ -5,7 +5,7 @@ from rich.text import Text, TextType
 from textual import events
 from textual.app import ComposeResult
 from textual.binding import Binding, BindingType
-from textual.containers import Horizontal, ScrollableContainer
+from textual.containers import Container, Horizontal, ScrollableContainer
 from textual.geometry import Size
 from textual.widgets import DataTable, OptionList, Static
 from textual.widgets.data_table import CellType, ColumnKey
@@ -49,6 +49,10 @@ class KaskadeHeader(Horizontal):
             self._product_text(),
             layout=False,
         )
+
+
+class TableFrame(Container):
+    """Keep table borders and titles visible while table content is loading."""
 
 
 class StretchyDataTable(DataTable[CellType]):

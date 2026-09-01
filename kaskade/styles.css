@@ -38,13 +38,18 @@ DataTable:focus > .datatable--header {
     background-tint: transparent;
 }
 
-DataTable.kaskade-table {
+.kaskade-table {
     border: solid $secondary 50%;
     height: 100%;
 }
 
-DataTable.kaskade-table:focus {
+.kaskade-table:focus-within {
     border: $secondary;
+}
+
+.kaskade-table > DataTable {
+    border: none;
+    height: 100%;
 }
 
 DataTable.details-table {

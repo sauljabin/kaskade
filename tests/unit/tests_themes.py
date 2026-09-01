@@ -54,6 +54,7 @@ from kaskade.widgets import (
     KaskadeOptionList,
     KaskadeScrollableContainer,
     StretchyDataTable,
+    TableFrame,
 )
 from tests import configure_admin_service
 
@@ -187,6 +188,7 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
             async with app.run_test(size=(70, 18)) as pilot:
                 await pilot.pause()
                 table = app.query_one("#topics-table", DataTable)
+                frame = app.query_one("#topics-frame", TableFrame)
                 header = app.query_one(KaskadeHeader)
                 product = header.query_one("#kaskade-product", Static)
                 kafka = header.query_one("#kaskade-kafka", Static)
@@ -221,16 +223,18 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                     0,
                     table.get_component_styles("datatable--header").background_tint.a,
                 )
-                self.assertNotEqual("", table.styles.border_top[0])
-                self.assertGreater(table.styles.border_top[1].a, 0)
+                self.assertEqual("", table.styles.border_top[0])
+                self.assertNotEqual("", frame.styles.border_top[0])
+                self.assertGreater(frame.styles.border_top[1].a, 0)
                 footer = app.query_one(Footer)
                 self.assertIsInstance(footer, Footer)
-                for widget in (header, table, footer):
+                for widget in (header, frame, footer):
                     self.assertEqual(1, widget.region.x)
                     self.assertEqual(app.screen.region.right - 1, widget.region.right)
                 self.assertEqual(0, header.region.y)
                 self.assertEqual(1, header.content_region.y)
-                self.assertEqual(header.region.bottom, table.region.y)
+                self.assertEqual(header.region.bottom, frame.region.y)
+                self.assertEqual(frame.content_region, table.region)
                 self.assertIs(table, app.screen.focused)
                 self.assertTrue(
                     {"Describe", "Filter", "Refresh", "Create", "Quit", "Commands"}
@@ -484,7 +488,10 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 )
                 self.assertIsInstance(table, StretchyDataTable)
                 self.assertFalse(table.show_horizontal_scrollbar)
-                self.assertIn("Topics", table.border_title)
+                self.assertIn(
+                    "Topics",
+                    app.query_one("#topics-frame", TableFrame).border_title,
+                )
                 self.assertTrue(
                     {
                         "Theme",

@@ -23,6 +23,7 @@ from kaskade.configs import MIN_INSYNC_REPLICAS_CONFIG
 from kaskade.keymaps import CONFIG_ENV_VAR
 from kaskade.models import MetricState, Partition, Topic, TopicConfiguration
 from kaskade.services import EnrichmentResult, GroupSnapshot
+from kaskade.widgets import TableFrame
 from tests import configure_admin_service
 
 
@@ -62,6 +63,38 @@ class TestRefreshCoordinator(unittest.TestCase):
 
         self.assertFalse(coordinator.complete(0))
         self.assertTrue(coordinator.is_current(generation or 0))
+
+
+class TestInitialLoadingFrame(unittest.IsolatedAsyncioTestCase):
+    async def test_keeps_topics_frame_visible_while_table_loads(self) -> None:
+        started = asyncio.Event()
+        release = asyncio.Event()
+        service = MagicMock()
+        configure_admin_service(service, {})
+
+        async def metadata() -> dict[str, Topic]:
+            started.set()
+            await release.wait()
+            return {}
+
+        service.metadata = AsyncMock(side_effect=metadata)
+        with patch("kaskade.admin.TopicService", return_value=service):
+            app = KaskadeAdmin({})
+            async with app.run_test() as pilot:
+                try:
+                    await started.wait()
+                    await pilot.pause()
+                    frame = app.query_one("#topics-frame", TableFrame)
+                    table = app.query_one("#topics-table", DataTable)
+
+                    self.assertTrue(table.loading)
+                    self.assertFalse(frame.loading)
+                    self.assertIn("Topics", frame.border_title)
+                    self.assertNotEqual("", frame.styles.border_top[0])
+                    self.assertEqual("", table.styles.border_top[0])
+                finally:
+                    release.set()
+                await app.workers.wait_for_complete()
 
 
 class TestCreateTopic(unittest.IsolatedAsyncioTestCase):
@@ -558,7 +591,10 @@ class TestAdminRefresh(unittest.IsolatedAsyncioTestCase):
 
                     self.assertEqual(0, app.auto_refresh_interval)
                     self.assertIsNone(app._auto_refresh_timer)
-                    self.assertIn("Auto Off", app.query_one(DataTable).border_subtitle)
+                    self.assertIn(
+                        "Auto Off",
+                        app.query_one("#topics-frame", TableFrame).border_subtitle,
+                    )
 
     async def test_renders_metadata_before_metrics_finish(self) -> None:
         offsets_gate = asyncio.Event()
