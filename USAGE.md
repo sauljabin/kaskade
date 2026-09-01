@@ -262,24 +262,19 @@ credentials to Kaskade.
 See [Configure clients for IAM access control](https://docs.aws.amazon.com/msk/latest/developerguide/configure-clients-for-iam-access-control.html)
 for the Amazon MSK broker and IAM policy requirements.
 
-#### Required IAM authorization policy
+#### IAM permissions
 
-Amazon MSK IAM authentication does not use Apache Kafka ACLs for authorization.
-Kafka ACLs have no effect on IAM identities; attach an IAM policy to the user or
-role whose credentials Kaskade discovers.
-
-Kaskade operations require these `kafka-cluster` actions:
+The IAM principal used by `--aws` needs these `kafka-cluster` actions:
 
 | Mode | Required actions |
 | --- | --- |
-| Admin browsing | `Connect`, `DescribeTopic`, `DescribeTopicDynamicConfiguration`, `DescribeGroup` |
-| Admin topic changes | Admin browsing plus `CreateTopic`, `AlterTopic`, `DeleteTopic`, `AlterTopicDynamicConfiguration` |
+| Admin (read only) | `Connect`, `DescribeTopic`, `DescribeTopicDynamicConfiguration`, `DescribeGroup` |
+| Admin (full access) | Read-only actions plus `CreateTopic`, `AlterTopic`, `DeleteTopic`, `AlterTopicDynamicConfiguration` |
 | Consumer | `Connect`, `DescribeTopic`, `ReadData`, `DescribeGroup`, `AlterGroup` |
 | Sandbox population | `Connect`, `CreateTopic`, `DescribeTopic`, `WriteData` |
 
-The following policy enables all Kaskade admin and consumer features. Replace the
-region, account, cluster name, and cluster UUID placeholders. Narrow the topic
-wildcard when Kaskade should only access selected topics.
+This policy enables all admin and consumer features. Replace the placeholders
+and narrow the topic wildcard when appropriate.
 
 ```json
 {
@@ -321,16 +316,11 @@ wildcard when Kaskade should only access selected topics.
 }
 ```
 
-Consumer mode creates an ephemeral group named `kaskade-<uuid>`, which is why
-`AlterGroup` can be limited to the `kaskade-*` group ARN. Admin mode needs
-`DescribeGroup` on every group it should display. For read-only admin access,
-remove `CreateTopic`, `AlterTopic`, `DeleteTopic`, and
-`AlterTopicDynamicConfiguration`. For consumer-only access, retain `Connect`,
-`DescribeTopic`, `ReadData`, `DescribeGroup`, and `AlterGroup` on the corresponding
-cluster, topic, and `kaskade-*` group resources.
+Consumer group access can be limited to `kaskade-*` because Kaskade creates
+ephemeral groups named `kaskade-<uuid>`. For read-only admin access, remove the
+topic create, alter, delete, and configuration-alter actions.
 
-The sandbox population command creates topics and writes records, so use this
-separate policy when populating MSK:
+Use this policy for sandbox population:
 
 ```json
 {
@@ -356,34 +346,24 @@ separate policy when populating MSK:
 }
 ```
 
-Schema Registry authorization is separate from Amazon MSK IAM authorization.
 See AWS's [authorization action semantics](https://docs.aws.amazon.com/msk/latest/developerguide/kafka-actions.html)
 and [common client policy use cases](https://docs.aws.amazon.com/msk/latest/developerguide/iam-access-control-use-cases.html)
-for action dependencies and resource formats.
+for dependencies and resource formats.
 
-#### Apache Kafka ACLs for SASL/SCRAM and mTLS
+### Kafka ACLs
 
-Keep the IAM policies above when Kaskade connects with `--aws region=<region>`.
-Use Apache Kafka ACLs instead when the broker authenticates Kaskade with
-SASL/SCRAM or mutual TLS. On Amazon MSK, Kafka ACLs do not authorize IAM
-identities, and IAM policies do not replace the ACLs needed by a SCRAM or mTLS
-principal.
-
-Grant the authenticated Kafka principal the operations used by the selected
-Kaskade mode:
+For SASL/SCRAM and mTLS connections, grant the Kafka principal these operations:
 
 | Mode | Topic ACLs | Group ACLs | Cluster ACLs |
 | --- | --- | --- | --- |
-| Admin browsing | `Describe`, `DescribeConfigs` | `Describe` on groups to display | `Describe` |
-| Admin topic changes | Admin browsing plus `Create`, `Alter`, `Delete`, `AlterConfigs` | None beyond admin browsing | None beyond admin browsing |
+| Admin (read only) | `Describe`, `DescribeConfigs` | `Describe` on groups to display | `Describe` |
+| Admin (full access) | `Describe`, `DescribeConfigs`, `Create`, `Alter`, `Delete`, `AlterConfigs` | `Describe` on groups to display | `Describe` |
 | Consumer | `Read`, `Describe` on topics to consume | `Read`, `Describe` on the `kaskade-` prefix | None |
 | Sandbox population | `Create`, `Write`, `Describe` on topics to populate | None | None |
 
-For SASL/SCRAM, the principal is normally `User:<username>`. For mTLS, use the
-principal derived from the client certificate, such as `User:CN=kaskade`. Run
-the following commands as an ACL administrator, replacing the bootstrap servers,
-principal, and command configuration file. The command configuration must contain
-the properties that authenticate `kafka-acls.sh` to the cluster.
+Use `User:<username>` for SASL/SCRAM or the certificate principal for mTLS, such
+as `User:CN=kaskade`. Run the commands as an ACL administrator and configure
+`admin-client.properties` for that administrator.
 
 Full admin access:
 
@@ -455,12 +435,10 @@ kafka-acls.sh \
     --topic '*'
 ```
 
-Replace `--topic '*'` with literal topic names or a prefixed resource pattern
-when broader access is not required. On Amazon MSK,
-`allow.everyone.if.no.acl.found` is `true` by default; after an ACL exists for a
-resource, only explicitly authorized principals can access it. Review AWS's
-[Apache Kafka ACL documentation](https://docs.aws.amazon.com/msk/latest/developerguide/msk-acls.html)
-before applying ACLs to an existing cluster.
+Narrow `--topic '*'` with literal topic names or prefixed resource patterns when
+appropriate. See AWS's
+[Apache Kafka ACL documentation](https://docs.aws.amazon.com/msk/latest/developerguide/msk-acls.html),
+including the default `allow.everyone.if.no.acl.found` behavior.
 
 ### Confluent Cloud
 
