@@ -13,7 +13,39 @@ from kaskade.authentication import (
     AwsMskOAuthCallback,
 )
 from kaskade.configs import BOOTSTRAP_SERVERS
-from sandbox.__main__ import main, sandbox_kafka_config
+from sandbox.__main__ import Populator, main, sandbox_kafka_config
+
+
+class TestPopulator(unittest.TestCase):
+    @patch("sandbox.__main__.Producer")
+    @patch("sandbox.__main__.AdminClient")
+    def test_create_topic_uses_broker_replication_defaults(
+        self, mock_admin_client: MagicMock, _: MagicMock
+    ) -> None:
+        mock_admin_client.return_value.create_topics.return_value = {"orders": MagicMock()}
+
+        Populator({}).create_topic("orders")
+
+        topic = mock_admin_client.return_value.create_topics.call_args.args[0][0]
+        self.assertEqual(10, topic.num_partitions)
+        self.assertEqual(-1, topic.replication_factor)
+        self.assertEqual({}, topic.config)
+
+    @patch("sandbox.__main__.Producer")
+    @patch("sandbox.__main__.AdminClient")
+    def test_create_topic_uses_explicit_replication_settings(
+        self, mock_admin_client: MagicMock, _: MagicMock
+    ) -> None:
+        mock_admin_client.return_value.create_topics.return_value = {"orders": MagicMock()}
+
+        Populator({}, partitions=6, replication_factor=3, min_insync_replicas=2).create_topic(
+            "orders"
+        )
+
+        topic = mock_admin_client.return_value.create_topics.call_args.args[0][0]
+        self.assertEqual(6, topic.num_partitions)
+        self.assertEqual(3, topic.replication_factor)
+        self.assertEqual({"min.insync.replicas": "2"}, topic.config)
 
 
 class TestSandboxKafkaConfig(unittest.TestCase):
@@ -60,3 +92,40 @@ class TestSandboxKafkaConfig(unittest.TestCase):
         self.assertEqual(0, result.exit_code, result.output)
         config = mock_populator.call_args.args[0]
         self.assertEqual(AwsMskOAuthCallback("us-west-2"), config[OAUTH_CALLBACK])
+        self.assertEqual(
+            {
+                "partitions": 10,
+                "replication_factor": None,
+                "min_insync_replicas": None,
+            },
+            mock_populator.call_args.kwargs,
+        )
+
+    @patch("sandbox.__main__.run_population")
+    @patch("sandbox.__main__.Populator")
+    def test_cli_passes_topic_settings_to_populator(
+        self, mock_populator: MagicMock, _: MagicMock
+    ) -> None:
+        result = CliRunner().invoke(
+            main,
+            [
+                "--messages",
+                "0",
+                "--partitions",
+                "6",
+                "--replication-factor",
+                "3",
+                "--min-insync-replicas",
+                "2",
+            ],
+        )
+
+        self.assertEqual(0, result.exit_code, result.output)
+        self.assertEqual(
+            {
+                "partitions": 6,
+                "replication_factor": 3,
+                "min_insync_replicas": 2,
+            },
+            mock_populator.call_args.kwargs,
+        )

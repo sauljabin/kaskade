@@ -39,7 +39,13 @@ MALFORMED_PAYLOAD_BYTES = 32
 
 
 class Populator:
-    def __init__(self, kafka_config: dict[str, Any]) -> None:
+    def __init__(
+        self,
+        kafka_config: dict[str, Any],
+        partitions: int = 10,
+        replication_factor: int | None = None,
+        min_insync_replicas: int | None = None,
+    ) -> None:
         self.producer = Producer(
             kafka_config
             | {
@@ -47,15 +53,22 @@ class Populator:
             }
         )
         self.admin_client = AdminClient(kafka_config)
+        self.partitions = partitions
+        self.replication_factor = replication_factor
+        self.min_insync_replicas = min_insync_replicas
 
     def create_topic(self, topic: str) -> None:
+        topic_config = {}
+        if self.min_insync_replicas is not None:
+            topic_config[MIN_INSYNC_REPLICAS_CONFIG] = str(self.min_insync_replicas)
+
         new_topic = NewTopic(
             topic=topic,
-            num_partitions=10,
-            replication_factor=3,
-            config={
-                MIN_INSYNC_REPLICAS_CONFIG: "2",
-            },
+            num_partitions=self.partitions,
+            replication_factor=(
+                self.replication_factor if self.replication_factor is not None else -1
+            ),
+            config=topic_config,
         )
         futures = self.admin_client.create_topics([new_topic])
         for future in futures.values():
@@ -137,6 +150,25 @@ def sandbox_kafka_config(bootstrap_servers: str, aws_config: dict[str, str]) -> 
 @click.command()
 @click.option("--messages", default=1000, help="Number of messages to send.")
 @click.option(
+    "--partitions",
+    type=click.IntRange(min=1),
+    default=10,
+    help="Number of partitions for created topics.",
+    show_default=True,
+)
+@click.option(
+    "--replication-factor",
+    type=click.IntRange(min=1),
+    default=None,
+    help="Replication factor for created topics. Uses the broker default when omitted.",
+)
+@click.option(
+    "--min-insync-replicas",
+    type=click.IntRange(min=1),
+    default=None,
+    help="Minimum in-sync replicas for created topics. Uses the broker default when omitted.",
+)
+@click.option(
     "--bootstrap-servers", default="localhost:19092", help="Bootstrap servers.", show_default=True
 )
 @click.option(
@@ -155,6 +187,9 @@ def sandbox_kafka_config(bootstrap_servers: str, aws_config: dict[str, str]) -> 
 )
 def main(
     messages: int,
+    partitions: int,
+    replication_factor: int | None,
+    min_insync_replicas: int | None,
     bootstrap_servers: str,
     registry: str,
     aws_config: dict[str, str],
@@ -248,7 +283,12 @@ def main(
             ),
         ),
     ]
-    populator = Populator(kafka_config)
+    populator = Populator(
+        kafka_config,
+        partitions=partitions,
+        replication_factor=replication_factor,
+        min_insync_replicas=min_insync_replicas,
+    )
     console = Console()
     with console.status("", spinner="dots") as status:
         for topic, generator, serializer in topics:
