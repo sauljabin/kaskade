@@ -171,42 +171,74 @@ The standalone `sandbox` package owns its Compose environment, population tools,
 and Avro, JSON Schema, and Protobuf models. These models are intentionally
 separate from the fixtures under `tests/unit`.
 
-Start the sandbox's three-node Confluent Kafka cluster, Apicurio Registry, and
-Confluent Schema Registry:
+Use this sequence for a complete manual test:
+
+1. Start the local services.
+2. Populate all topics or a selected subset.
+3. Inspect registry data when testing schema-backed topics.
+4. Run the Admin and Consumer smoke tests.
+5. Stop the services and remove their volumes.
+
+#### Start the local sandbox
+
+Start the three-node Confluent Kafka cluster, Confluent Schema Registry, and
+Apicurio Registry:
 
 ```bash
 docker compose --project-directory sandbox up -d
 ```
 
-Stop sandbox:
+The sandbox exposes:
 
-```bash
-docker compose --project-directory sandbox down -v
-```
+| Service | Address |
+| --- | --- |
+| Kafka brokers | `localhost:19092`, `localhost:29092`, `localhost:39092` |
+| Confluent Schema Registry | `http://localhost:18081` |
+| Apicurio Confluent-compatible API | `http://localhost:18082/apis/ccompat/v7` |
+| Apicurio Core Registry API | `http://localhost:18082/apis/registry/v3` |
 
-Kafka is available at `localhost:19092`, `localhost:29092`, and
-`localhost:39092`. Confluent Schema Registry is available at
-`http://localhost:18081`; Apicurio's compatibility API is available at
-`http://localhost:18082/apis/ccompat/v7`. Image versions and the Kafka cluster
-ID are defined in `sandbox/.env`.
+Image versions and the Kafka cluster ID are defined in `sandbox/.env`.
 
-Populate Kafka using Confluent Schema Registry:
+#### Populate test topics
+
+The default command creates and populates every available sandbox topic using
+Confluent Schema Registry:
 
 ```bash
 uv run python -m sandbox
 ```
 
-To use Apicurio instead, populate a fresh sandbox with its compatibility API:
+Repeat `--topic` to populate only a subset. The accepted topic names are listed
+by `uv run python -m sandbox --help`:
+
+```bash
+uv run python -m sandbox --topic string --topic errors
+```
+
+Topic creation uses 10 partitions and the broker defaults for replication
+factor and minimum in-sync replicas. Override them when testing a specific
+topology:
+
+```bash
+uv run python -m sandbox \
+    --partitions 6 \
+    --replication-factor 3 \
+    --min-insync-replicas 2
+```
+
+To test Apicurio, start from an empty sandbox and populate it through the
+Confluent-compatible API:
 
 ```bash
 uv run python -m sandbox --registry http://localhost:18082/apis/ccompat/v7
 ```
 
-#### Query registry APIs with HTTPie
+#### Inspect registry APIs with HTTPie
 
 After populating the sandbox, use [HTTPie](https://httpie.io/) to inspect the
-registered subjects and schemas. Query Confluent Schema Registry at port
-`18081`:
+registered subjects and schemas.
+
+Query Confluent Schema Registry:
 
 ```bash
 http GET http://localhost:18081/subjects
@@ -215,8 +247,7 @@ http GET http://localhost:18081/subjects/avro-schema-value/versions/latest
 http GET http://localhost:18081/config
 ```
 
-Apicurio exposes the same subject operations through its Confluent-compatible
-API:
+Query Apicurio's Confluent-compatible API:
 
 ```bash
 http GET http://localhost:18082/apis/ccompat/v7/subjects
@@ -225,7 +256,7 @@ http GET http://localhost:18082/apis/ccompat/v7/subjects/avro-schema-value/versi
 http GET http://localhost:18082/apis/ccompat/v7/config
 ```
 
-Use Apicurio's native Core Registry API v3 to search its artifacts and versions:
+Query Apicurio's native Core Registry API:
 
 ```bash
 http GET http://localhost:18082/apis/registry/v3/search/artifacts
@@ -235,6 +266,8 @@ http GET http://localhost:18082/apis/registry/v3/search/versions
 The `avro-schema-value` subject exists after populating the `avro-schema` topic.
 Substitute another name returned by the `/subjects` request when testing a
 different schema-backed topic.
+
+#### Populate a remote Amazon MSK cluster
 
 To populate an Amazon MSK cluster that uses IAM authentication, run the tool from
 a network with access to the brokers and pass the IAM bootstrap servers and AWS
@@ -250,58 +283,56 @@ The Schema Registry URL remains independently configurable with `--registry`.
 See the sandbox requirements under [IAM permissions](USAGE.md#iam-permissions)
 or [Kafka ACLs](USAGE.md#kafka-acls).
 
-Read help messages:
+#### Run application smoke tests
+
+Confirm both command interfaces render successfully:
 
 ```bash
 uv run kaskade admin --help
 uv run kaskade consumer --help
 ```
 
-Test admin:
+Open the Admin application and verify the populated topics and their metadata:
 
 ```bash
 uv run kaskade admin -b localhost:19092
 ```
 
-Test consumer without deserialization:
+##### Primitive and JSON consumers
+
+Start with raw bytes:
 
 ```bash
 uv run kaskade consumer -b localhost:19092 --earliest -t string
 ```
 
-Test consumer with nulls:
+Test null keys and values:
 
 ```bash
 uv run kaskade consumer -b localhost:19092 --earliest -k string -v string -t null
 ```
 
-Test consumer with deserializers:
+Test every primitive deserializer:
 
 ```bash
 uv run kaskade consumer -b localhost:19092 --earliest -k string -v string -t string
-```
-
-```bash
 uv run kaskade consumer -b localhost:19092 --earliest -k string -v integer -t integer
-```
-
-```bash
 uv run kaskade consumer -b localhost:19092 --earliest -k string -v long -t long
-```
-
-```bash
 uv run kaskade consumer -b localhost:19092 --earliest -k string -v float -t float
-```
-
-```bash
 uv run kaskade consumer -b localhost:19092 --earliest -k string -v double -t double
-```
-
-```bash
 uv run kaskade consumer -b localhost:19092 --earliest -k string -v boolean -t boolean
 ```
 
-Test json consumer with Schema Registry:
+Test JSON payloads without Schema Registry:
+
+```bash
+uv run kaskade consumer -b localhost:19092 --earliest -k string -v json -t json
+uv run kaskade consumer -b localhost:19092 --earliest -k string -v json -t json-schema
+```
+
+##### Schema Registry consumers
+
+Test a JSON Schema payload through Confluent Schema Registry:
 
 ```bash
 uv run kaskade consumer -b localhost:19092 --earliest -t json-schema \
@@ -309,7 +340,7 @@ uv run kaskade consumer -b localhost:19092 --earliest -t json-schema \
         --registry url=http://localhost:18081
 ```
 
-Test per-field Schema Registry deserialization fallbacks:
+Test independent key and value deserialization fallbacks:
 
 ```bash
 uv run kaskade consumer -b localhost:19092 --earliest -t errors \
@@ -321,17 +352,7 @@ The `errors` topic cycles through a malformed key, malformed value, both fields
 malformed, and a fully valid record. Malformed fields contain randomized bytes,
 and the `sandbox-error-case` header identifies each case.
 
-Test json consumer without Schema Registry:
-
-```bash
-uv run kaskade consumer -b localhost:19092 --earliest -k string -v json -t json
-```
-
-```bash
-uv run kaskade consumer -b localhost:19092 --earliest -k string -v json -t json-schema
-```
-
-Test avro consumer with Schema Registry:
+Test an Avro payload through Confluent Schema Registry:
 
 ```bash
 uv run kaskade consumer -b localhost:19092 --earliest -t avro-schema \
@@ -339,7 +360,7 @@ uv run kaskade consumer -b localhost:19092 --earliest -t avro-schema \
         --registry url=http://localhost:18081
 ```
 
-Test avro consumer with Apicurio Registry:
+Test the same Avro payload through Apicurio after populating that registry:
 
 ```bash
 uv run kaskade consumer -b localhost:19092 --earliest -t avro-schema \
@@ -347,25 +368,37 @@ uv run kaskade consumer -b localhost:19092 --earliest -t avro-schema \
         --registry url=http://localhost:18082/apis/ccompat/v7
 ```
 
-Test avro consumer without Schema Registry:
+##### Local-schema consumers
+
+Test raw and Confluent-framed Avro payloads with a local schema:
 
 ```bash
 uv run kaskade consumer -b localhost:19092 --earliest -t avro \
         -k string -v avro \
         --avro value=sandbox/avro_model/user.avsc
-```
 
-```bash
 uv run kaskade consumer -b localhost:19092 --earliest -t avro-schema \
         -k string -v avro \
         --avro value=sandbox/avro_model/user.avsc \
         --avro framing=confluent
 ```
 
-Test protobuf consumer:
+Test raw and Confluent-framed Protobuf payloads with the checked-in descriptor:
 
-The checked-in descriptor is generated from `sandbox/protobuf_model/user.proto`.
-After changing the schema, regenerate the sandbox artifacts with `protoc`:
+```bash
+uv run kaskade consumer -b localhost:19092 --earliest -t protobuf \
+        -k string -v protobuf \
+        --protobuf descriptor=sandbox/protobuf_model/user.desc \
+        --protobuf value=User
+
+uv run kaskade consumer -b localhost:19092 --earliest -t protobuf-schema \
+        -k string -v protobuf \
+        --protobuf descriptor=sandbox/protobuf_model/user.desc \
+        --protobuf value=User
+```
+
+The descriptor is generated from `sandbox/protobuf_model/user.proto`. After
+changing the schema, regenerate the sandbox artifacts with `protoc`:
 
 ```bash
 protoc --include_imports \
@@ -376,16 +409,11 @@ protoc --include_imports \
        sandbox/protobuf_model/user.proto
 ```
 
-```bash
-uv run kaskade consumer -b localhost:19092 --earliest -t protobuf \
-        -k string -v protobuf \
-        --protobuf descriptor=sandbox/protobuf_model/user.desc \
-        --protobuf value=User
-```
+#### Stop the local sandbox
+
+Remove the containers, networks, and persisted test data when manual testing is
+complete:
 
 ```bash
-uv run kaskade consumer -b localhost:19092 --earliest -t protobuf-schema \
-        -k string -v protobuf \
-        --protobuf descriptor=sandbox/protobuf_model/user.desc \
-        --protobuf value=User
+docker compose --project-directory sandbox down -v
 ```
