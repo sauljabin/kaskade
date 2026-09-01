@@ -215,7 +215,9 @@ uv run python -m sandbox \
 The Schema Registry URL remains independently configurable with `--registry`.
 Use the sandbox population policy in the
 [Amazon MSK IAM authorization documentation](USAGE.md#required-iam-authorization-policy)
-for the required cluster and topic permissions.
+when connecting with `--aws`. For SASL/SCRAM or mTLS connections, grant the
+sandbox principal the Kafka ACLs in the
+[Apache Kafka ACL documentation](USAGE.md#apache-kafka-acls-for-saslscram-and-mtls).
 
 Read help messages:
 

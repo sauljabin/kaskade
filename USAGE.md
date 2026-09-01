@@ -361,6 +361,107 @@ See AWS's [authorization action semantics](https://docs.aws.amazon.com/msk/lates
 and [common client policy use cases](https://docs.aws.amazon.com/msk/latest/developerguide/iam-access-control-use-cases.html)
 for action dependencies and resource formats.
 
+#### Apache Kafka ACLs for SASL/SCRAM and mTLS
+
+Keep the IAM policies above when Kaskade connects with `--aws region=<region>`.
+Use Apache Kafka ACLs instead when the broker authenticates Kaskade with
+SASL/SCRAM or mutual TLS. On Amazon MSK, Kafka ACLs do not authorize IAM
+identities, and IAM policies do not replace the ACLs needed by a SCRAM or mTLS
+principal.
+
+Grant the authenticated Kafka principal the operations used by the selected
+Kaskade mode:
+
+| Mode | Topic ACLs | Group ACLs | Cluster ACLs |
+| --- | --- | --- | --- |
+| Admin browsing | `Describe`, `DescribeConfigs` | `Describe` on groups to display | `Describe` |
+| Admin topic changes | Admin browsing plus `Create`, `Alter`, `Delete`, `AlterConfigs` | None beyond admin browsing | None beyond admin browsing |
+| Consumer | `Read`, `Describe` on topics to consume | `Read`, `Describe` on the `kaskade-` prefix | None |
+| Sandbox population | `Create`, `Write`, `Describe` on topics to populate | None | None |
+
+For SASL/SCRAM, the principal is normally `User:<username>`. For mTLS, use the
+principal derived from the client certificate, such as `User:CN=kaskade`. Run
+the following commands as an ACL administrator, replacing the bootstrap servers,
+principal, and command configuration file. The command configuration must contain
+the properties that authenticate `kafka-acls.sh` to the cluster.
+
+Full admin access:
+
+```bash
+kafka-acls.sh \
+    --bootstrap-server "${BOOTSTRAP_SERVERS}" \
+    --command-config admin-client.properties \
+    --add \
+    --allow-principal "User:<principal>" \
+    --operation Describe \
+    --cluster
+
+kafka-acls.sh \
+    --bootstrap-server "${BOOTSTRAP_SERVERS}" \
+    --command-config admin-client.properties \
+    --add \
+    --allow-principal "User:<principal>" \
+    --operation Describe \
+    --operation DescribeConfigs \
+    --operation Create \
+    --operation Alter \
+    --operation Delete \
+    --operation AlterConfigs \
+    --topic '*'
+
+kafka-acls.sh \
+    --bootstrap-server "${BOOTSTRAP_SERVERS}" \
+    --command-config admin-client.properties \
+    --add \
+    --allow-principal "User:<principal>" \
+    --operation Describe \
+    --group '*'
+```
+
+Consumer access to one topic and Kaskade's ephemeral consumer groups:
+
+```bash
+kafka-acls.sh \
+    --bootstrap-server "${BOOTSTRAP_SERVERS}" \
+    --command-config admin-client.properties \
+    --add \
+    --allow-principal "User:<principal>" \
+    --operation Read \
+    --operation Describe \
+    --topic '<topic-name>'
+
+kafka-acls.sh \
+    --bootstrap-server "${BOOTSTRAP_SERVERS}" \
+    --command-config admin-client.properties \
+    --add \
+    --allow-principal "User:<principal>" \
+    --operation Read \
+    --operation Describe \
+    --group kaskade- \
+    --resource-pattern-type prefixed
+```
+
+Sandbox population access to all topics:
+
+```bash
+kafka-acls.sh \
+    --bootstrap-server "${BOOTSTRAP_SERVERS}" \
+    --command-config admin-client.properties \
+    --add \
+    --allow-principal "User:<principal>" \
+    --operation Create \
+    --operation Write \
+    --operation Describe \
+    --topic '*'
+```
+
+Replace `--topic '*'` with literal topic names or a prefixed resource pattern
+when broader access is not required. On Amazon MSK,
+`allow.everyone.if.no.acl.found` is `true` by default; after an ACL exists for a
+resource, only explicitly authorized principals can access it. Review AWS's
+[Apache Kafka ACL documentation](https://docs.aws.amazon.com/msk/latest/developerguide/msk-acls.html)
+before applying ACLs to an existing cluster.
+
 ### Confluent Cloud
 
 Admin:

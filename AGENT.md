@@ -55,6 +55,10 @@ Kafka clients. The signer dependency baseline is
 `aws-msk-iam-sasl-signer-python>=1.0`; do not raise its minimum version without
 requiring newer functionality.
 
+Keep Amazon MSK authorization documentation split by authentication mechanism:
+IAM-authenticated clients use `kafka-cluster` IAM policies, while SASL/SCRAM and
+mTLS principals use Apache Kafka ACLs. Kafka ACLs do not authorize IAM identities.
+
 ## Runtime Initialization
 
 - Importing `kaskade` must not create directories, open files, or modify the root
