@@ -20,7 +20,7 @@ class KaskadeHeader(Horizontal):
     def __init__(self, kafka_config: Mapping[str, Any], *, version: str = APP_VERSION) -> None:
         super().__init__(id="kaskade-header")
         bootstrap_servers = kafka_config.get(BOOTSTRAP_SERVERS, "Not configured")
-        self.bootstrap_servers = str(bootstrap_servers)
+        self.bootstrap_servers = str(bootstrap_servers).split(",", maxsplit=1)[0].strip()
         self.version = version
 
     def _product_text(self) -> Text:

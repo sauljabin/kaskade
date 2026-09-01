@@ -574,7 +574,7 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                     header.query_one("#kaskade-product", Static).render().plain,
                 )
                 self.assertEqual(
-                    bootstrap_servers,
+                    "kafka1:9092",
                     header.query_one("#kaskade-kafka", Static).render().plain,
                 )
                 self.assertIsInstance(table, StretchyDataTable)
@@ -602,7 +602,7 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 kafka = header.query_one("#kaskade-kafka", Static)
 
                 self.assertEqual(f"Kaskade v{APP_VERSION}", product.render().plain)
-                self.assertEqual(bootstrap_servers, kafka.render().plain)
+                self.assertEqual("[::1]:9092", kafka.render().plain)
                 self.assertEqual(3, header.region.height)
                 self.assertEqual(app.screen.content_region.width, header.region.width)
                 self.assertEqual(
