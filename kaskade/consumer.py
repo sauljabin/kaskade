@@ -497,7 +497,7 @@ class ListRecords(Container):
                 record.value_str(),
                 warning=record.value_outcome().used_fallback,
             ),
-            record.date,
+            record.timestamp,
             str(record.partition),
             str(record.offset),
             str(record.headers_count()),

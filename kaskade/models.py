@@ -278,7 +278,7 @@ class Record:
     topic: str = ""
     partition: int = -1
     offset: int = -1
-    date: str = ""
+    timestamp: str = ""
     key: bytes | None = None
     value: bytes | None = None
     headers: list[Header] = field(default_factory=list)
@@ -316,7 +316,7 @@ class Record:
             "topic": self.topic,
             "partition": self.partition,
             "offset": self.offset,
-            "date": self.date,
+            "timestamp": self.timestamp,
             "headers": [(header.key, header.value_deserialized()) for header in self.headers],
             "key": self.key_outcome().dict(),
             "value": self.value_outcome().dict(),

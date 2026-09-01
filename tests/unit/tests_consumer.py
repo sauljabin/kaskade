@@ -40,7 +40,7 @@ def exported_record() -> Record:
         topic="orders",
         partition=2,
         offset=42,
-        date="2026-08-28 14:12:05.120",
+        timestamp="2026-08-28 14:12:05.120",
         headers=[
             Header("source", b"storefront", string_deserializer),
             Header("source", b"mobile", string_deserializer),
@@ -63,7 +63,7 @@ class TestRecordExport(unittest.TestCase):
                 "topic": "orders",
                 "partition": 2,
                 "offset": 42,
-                "date": "2026-08-28 14:12:05.120",
+                "timestamp": "2026-08-28 14:12:05.120",
                 "headers": [("source", "storefront"), ("source", "mobile")],
                 "key": {"deserializer": "STRING", "content": "order-1048"},
                 "value": {

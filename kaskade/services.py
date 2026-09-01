@@ -265,7 +265,7 @@ class ConsumerService:
             offset=message.offset(),
             key=message.key(),
             value=message.value(),
-            date=self._message_date(message),
+            timestamp=self._message_timestamp(message),
             headers=[
                 Header(key=key, value=value, value_deserializer=self.header_deserializer)
                 for key, value in message.headers() or []
@@ -299,7 +299,7 @@ class ConsumerService:
             )
 
     @staticmethod
-    def _message_date(message: Any) -> str:
+    def _message_timestamp(message: Any) -> str:
         timestamp_available, timestamp = message.timestamp()
         if timestamp_available <= 0:
             return ""
