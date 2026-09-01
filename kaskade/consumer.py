@@ -52,6 +52,21 @@ VALUE_COLUMN_INDEX = 1
 class RecordDataTable(StretchyDataTable[str | Text]):
     """A records table with diagnostic tooltips for individual cells."""
 
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        self._cell_tooltips: dict[Coordinate, Text] = {}
+
+    def set_cell_tooltip(self, coordinate: Coordinate, tooltip: Text) -> None:
+        self._cell_tooltips[coordinate] = tooltip
+
+    def clear_cell_tooltips(self) -> None:
+        self._cell_tooltips.clear()
+        self.tooltip = None
+
+    def watch_hover_coordinate(self, old: Coordinate, value: Coordinate) -> None:
+        super().watch_hover_coordinate(old, value)
+        self.tooltip = self._cell_tooltips.get(value)
+
 
 class FilterRecordScreen(HelpableModalScreen[RecordFilters]):
     BINDING_GROUP_TITLE = "Filter Records"

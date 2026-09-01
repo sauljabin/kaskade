@@ -123,7 +123,7 @@ class TestTopicService(unittest.IsolatedAsyncioTestCase):
         self.assertEqual({"cleanup.policy": "delete", "retention.ms": "1000"}, new_topic.config)
 
     @patch("kaskade.services.AdminClient")
-    async def test_describes_effective_topic_configurations_and_marks_sensitive_values(
+    async def test_describes_effective_topic_configurations(
         self, mock_class_admin: MagicMock
     ) -> None:
         admin = mock_class_admin.return_value
@@ -132,12 +132,6 @@ class TestTopicService(unittest.IsolatedAsyncioTestCase):
                 "visible.setting",
                 "visible",
             ),
-            "sensitive.setting": ConfigEntry(
-                "sensitive.setting",
-                "secret",
-                is_sensitive=True,
-            ),
-            "unavailable.setting": ConfigEntry("unavailable.setting", None),
         }
         admin.describe_configs.return_value = {"orders": completed(entries)}
 
@@ -147,14 +141,9 @@ class TestTopicService(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(
             {
-                "visible.setting": ("visible", False),
-                "sensitive.setting": ("", True),
-                "unavailable.setting": ("", False),
+                "visible.setting": "visible",
             },
-            {
-                configuration.name: (configuration.value, configuration.sensitive)
-                for configuration in configurations
-            },
+            {configuration.name: configuration.value for configuration in configurations},
         )
 
     @patch("kaskade.services.Consumer")

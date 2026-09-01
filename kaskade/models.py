@@ -178,7 +178,6 @@ class Topic:
 class TopicConfiguration:
     name: str
     value: str
-    sensitive: bool
 
 
 class CleanupPolicy(Enum):

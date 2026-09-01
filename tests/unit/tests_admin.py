@@ -368,7 +368,7 @@ class TestUpdateTopic(unittest.IsolatedAsyncioTestCase):
 class TestDescribeTopic(unittest.IsolatedAsyncioTestCase):
     async def test_loads_configurations_before_opening_topic_details(self) -> None:
         topic = Topic(name="orders")
-        configurations = (TopicConfiguration("cleanup.policy", "compact", False),)
+        configurations = (TopicConfiguration("cleanup.policy", "compact"),)
         service = MagicMock()
         configure_admin_service(service, {topic.name: topic})
         service.describe_configs.return_value = configurations
@@ -446,8 +446,8 @@ class TestTopicCopyActions(unittest.IsolatedAsyncioTestCase):
                     DescribeTopicScreen(
                         topic,
                         (
-                            TopicConfiguration("retention.ms", "604800000", False),
-                            TopicConfiguration("cleanup.policy", "compact", False),
+                            TopicConfiguration("retention.ms", "604800000"),
+                            TopicConfiguration("cleanup.policy", "compact"),
                         ),
                     )
                 )

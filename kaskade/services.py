@@ -378,8 +378,7 @@ class TopicService:
         configurations = (
             TopicConfiguration(
                 name=config.name,
-                value="" if config.is_sensitive or config.value is None else config.value,
-                sensitive=config.is_sensitive,
+                value=cast(str, config.value),
             )
             for config in self._config_entries(name)
         )

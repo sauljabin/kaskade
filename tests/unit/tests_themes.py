@@ -1,7 +1,6 @@
 import unittest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from rich.text import Text
 from textual.command import CommandList, CommandPalette
 from textual.containers import ScrollableContainer
 from textual.coordinate import Coordinate
@@ -30,7 +29,6 @@ from kaskade.admin import (
     KaskadeAdmin,
     ListTopics,
 )
-from kaskade.colors import WARNING as WARNING_STYLE
 from kaskade.commands import RecordFilters
 from kaskade.configs import BOOTSTRAP_SERVERS
 from kaskade.consumer import (
@@ -51,7 +49,6 @@ from kaskade.themes import (
     KaskadeApp,
     available_theme_names,
 )
-from kaskade.unicodes import LOCK
 from kaskade.widgets import (
     KaskadeHeader,
     KaskadeOptionList,
@@ -646,9 +643,8 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
             configure_admin_service(topic_service.return_value, {})
             app = KaskadeAdmin({})
             configurations = (
-                TopicConfiguration("retention.ms", "604800000", False),
-                TopicConfiguration("cleanup.policy", "compact", False),
-                TopicConfiguration("ssl.keystore.password", "", True),
+                TopicConfiguration("retention.ms", "604800000"),
+                TopicConfiguration("cleanup.policy", "compact"),
             )
 
             async with app.run_test() as pilot:
@@ -663,7 +659,7 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(
                     [
                         "Partitions [0]",
-                        "Configurations [3]",
+                        "Configurations [2]",
                         "Groups [0]",
                         "Group Members [0]",
                     ],
@@ -685,22 +681,15 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                     [
                         ["cleanup.policy", "compact"],
                         ["retention.ms", "604800000"],
-                        ["ssl.keystore.password", LOCK],
                     ],
                     [
                         [
                             str(configuration_table.get_cell_at(Coordinate(row, column)))
                             for column in range(2)
                         ]
-                        for row in range(3)
+                        for row in range(2)
                     ],
                 )
-                sensitive_name = configuration_table.get_cell_at(Coordinate(2, 0))
-                sensitive_value = configuration_table.get_cell_at(Coordinate(2, 1))
-                self.assertIsInstance(sensitive_name, Text)
-                self.assertIsInstance(sensitive_value, Text)
-                self.assertEqual(WARNING_STYLE, sensitive_name.style)
-                self.assertEqual(WARNING_STYLE, sensitive_value.style)
                 for table in detail_tables:
                     self.assertIsNone(table.border_title)
                     self.assertEqual("", table.styles.border_top[0])
@@ -716,11 +705,6 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                     configuration_table.ordered_columns[0].width,
                     configuration_table.ordered_columns[1].width,
                 )
-                configuration_table.hover_coordinate = Coordinate(2, 1)
-                await pilot.pause()
-                self.assertIsInstance(configuration_table.tooltip, Text)
-                self.assertIn("Sensitive Configuration", configuration_table.tooltip.plain)
-                self.assertIn("ssl.keystore.password", configuration_table.tooltip.plain)
                 await pilot.press("l")
                 self.assertEqual("groups", tabs.active)
                 await pilot.press("h")

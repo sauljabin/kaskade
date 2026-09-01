@@ -4,13 +4,11 @@ from time import perf_counter
 from typing import Any, ClassVar
 
 from confluent_kafka import KafkaException
-from rich.text import Text
 from textual import work
 from textual.app import ComposeResult
 from textual.binding import Binding, BindingType
 from textual.containers import Container
 from textual.content import Content
-from textual.coordinate import Coordinate
 from textual.validation import Function, Integer
 from textual.widgets import (
     Collapsible,
@@ -26,7 +24,6 @@ from textual.widgets import (
 
 from kaskade import logger
 from kaskade.colors import PRIMARY
-from kaskade.colors import WARNING as WARNING_STYLE
 from kaskade.commands import CreateTopicCommand, UpdateTopicCommand
 from kaskade.configs import (
     CLEANUP_POLICY_CONFIG,
@@ -42,7 +39,7 @@ from kaskade.services import (
     TopicService,
 )
 from kaskade.themes import KaskadeApp
-from kaskade.unicodes import APPROXIMATION, LOCK
+from kaskade.unicodes import APPROXIMATION
 from kaskade.utils import copy_text, make_it_async, notify_error
 from kaskade.widgets import KaskadeHeader, StretchyDataTable
 
@@ -266,15 +263,13 @@ class DescribeTopicScreen(HelpableModalScreen):
                 yield self._group_members_table()
         yield Footer(compact=True)
 
-    def _new_table(self, table_id: str) -> StretchyDataTable[str | Text]:
-        table: StretchyDataTable[str | Text] = StretchyDataTable(
-            id=table_id, classes="details-table"
-        )
+    def _new_table(self, table_id: str) -> StretchyDataTable[str]:
+        table: StretchyDataTable[str] = StretchyDataTable(id=table_id, classes="details-table")
         table.cursor_type = "row"
         table.zebra_stripes = True
         return table
 
-    def _partitions_table(self) -> StretchyDataTable[str | Text]:
+    def _partitions_table(self) -> StretchyDataTable[str]:
         table = self._new_table("partitions-table")
         table.add_column("ID", stretch=1)
         table.add_column("Leader", stretch=1)
@@ -292,34 +287,19 @@ class DescribeTopicScreen(HelpableModalScreen):
             )
         return table
 
-    def _configurations_table(self) -> StretchyDataTable[str | Text]:
+    def _configurations_table(self) -> StretchyDataTable[str]:
         table = self._new_table("configurations-table")
         table.add_column("Name", stretch=3)
         table.add_column("Value", stretch=2)
 
-        for row_index, configuration in enumerate(self._sorted_configurations()):
-            if configuration.sensitive:
-                tooltip = self._sensitive_configuration_tooltip(configuration.name)
-                table.add_row(
-                    Text(configuration.name, style=WARNING_STYLE),
-                    Text(LOCK, style=WARNING_STYLE),
-                )
-                table.set_cell_tooltip(Coordinate(row_index, 0), tooltip)
-                table.set_cell_tooltip(Coordinate(row_index, 1), tooltip)
-            else:
-                table.add_row(configuration.name, configuration.value)
+        for configuration in self._sorted_configurations():
+            table.add_row(configuration.name, configuration.value)
         return table
 
     def _sorted_configurations(self) -> list[TopicConfiguration]:
         return sorted(self.configurations, key=lambda config: config.name.lower())
 
-    @staticmethod
-    def _sensitive_configuration_tooltip(name: str) -> Text:
-        tooltip = Text(f"{LOCK} Sensitive Configuration", style=WARNING_STYLE)
-        tooltip.append(f"\nKafka does not return the value of '{name}'")
-        return tooltip
-
-    def _groups_table(self) -> StretchyDataTable[str | Text]:
+    def _groups_table(self) -> StretchyDataTable[str]:
         table = self._new_table("groups-table")
         table.add_column("ID", stretch=1)
         table.add_column("Coordinator", stretch=1)
@@ -341,7 +321,7 @@ class DescribeTopicScreen(HelpableModalScreen):
             )
         return table
 
-    def _group_members_table(self) -> StretchyDataTable[str | Text]:
+    def _group_members_table(self) -> StretchyDataTable[str]:
         table = self._new_table("group-members-table")
         table.add_column("Group", stretch=1)
         table.add_column("Client ID", stretch=1)

@@ -6,7 +6,6 @@ from textual import events
 from textual.app import ComposeResult
 from textual.binding import Binding, BindingType
 from textual.containers import Horizontal, ScrollableContainer
-from textual.coordinate import Coordinate
 from textual.geometry import Size
 from textual.widgets import DataTable, OptionList, Static
 from textual.widgets.data_table import CellType, ColumnKey
@@ -53,7 +52,7 @@ class KaskadeHeader(Horizontal):
 
 
 class StretchyDataTable(DataTable[CellType]):
-    """A stretchable data table with optional cell-level tooltips."""
+    """A data table whose columns can expand to fill the available width."""
 
     BINDINGS: ClassVar[list[BindingType]] = [
         Binding(
@@ -172,18 +171,6 @@ class StretchyDataTable(DataTable[CellType]):
         super().__init__(**kwargs)
         self._column_minimums: dict[ColumnKey, int] = {}
         self._column_stretches: dict[ColumnKey, int] = {}
-        self._cell_tooltips: dict[Coordinate, Text] = {}
-
-    def set_cell_tooltip(self, coordinate: Coordinate, tooltip: Text) -> None:
-        self._cell_tooltips[coordinate] = tooltip
-
-    def clear_cell_tooltips(self) -> None:
-        self._cell_tooltips.clear()
-        self.tooltip = None
-
-    def watch_hover_coordinate(self, old: Coordinate, value: Coordinate) -> None:
-        super().watch_hover_coordinate(old, value)
-        self.tooltip = self._cell_tooltips.get(value)
 
     def add_column(
         self,
