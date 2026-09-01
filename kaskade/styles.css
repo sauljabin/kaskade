@@ -123,6 +123,10 @@ DeleteTopicScreen > Input {
     padding: 0 1;
 }
 
+.topic-form {
+    overflow-y: auto;
+}
+
 Input.kaskade-input {
     padding: 0 0 0 1;
     border: solid $secondary 50%;

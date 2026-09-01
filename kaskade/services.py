@@ -353,15 +353,18 @@ class TopicService:
         self.admin_client = AdminClient(self.config, logger=logger)
 
     def create(self, command: CreateTopicCommand) -> None:
+        topic_config = {
+            CLEANUP_POLICY_CONFIG: command.cleanup_policy,
+            RETENTION_MS_CONFIG: str(command.retention_ms),
+        }
+        if command.min_insync_replicas is not None:
+            topic_config[MIN_INSYNC_REPLICAS_CONFIG] = str(command.min_insync_replicas)
+
         new_topic = NewTopic(
             topic=command.name,
             num_partitions=command.partitions,
-            replication_factor=command.replicas,
-            config={
-                CLEANUP_POLICY_CONFIG: command.cleanup_policy,
-                RETENTION_MS_CONFIG: str(command.retention_ms),
-                MIN_INSYNC_REPLICAS_CONFIG: str(command.min_insync_replicas),
-            },
+            replication_factor=command.replicas if command.replicas is not None else -1,
+            config=topic_config,
         )
         futures = self.admin_client.create_topics([new_topic])
         for future in futures.values():

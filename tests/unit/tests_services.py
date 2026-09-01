@@ -107,6 +107,20 @@ class TestTopicService(unittest.IsolatedAsyncioTestCase):
             new_topic.config,
         )
 
+    @patch("kaskade.services.AdminClient")
+    async def test_create_topic_uses_broker_replication_defaults(
+        self, mock_class_admin: MagicMock
+    ) -> None:
+        admin = mock_class_admin.return_value
+        admin.create_topics.return_value = {"orders": completed(None)}
+        command = CreateTopicCommand("orders", 3, None, None, "delete", 1000)
+
+        TopicService({"bootstrap.servers": "localhost:9092"}).create(command)
+
+        new_topic = admin.create_topics.call_args.args[0][0]
+        self.assertEqual(-1, new_topic.replication_factor)
+        self.assertEqual({"cleanup.policy": "delete", "retention.ms": "1000"}, new_topic.config)
+
     @patch("kaskade.services.Consumer")
     @patch("kaskade.services.AdminClient")
     async def test_batches_offsets_without_admin_consumers(
