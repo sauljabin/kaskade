@@ -32,7 +32,7 @@ from kaskade.configs import (
     RETENTION_MS_CONFIG,
 )
 from kaskade.help import HelpableModalScreen, modal_bindings
-from kaskade.models import CleanupPolicy, MetricState, Topic
+from kaskade.models import CleanupPolicy, MetricState, Topic, TopicConfiguration
 from kaskade.refresh import RefreshCoordinator, RefreshReason
 from kaskade.services import (
     ADMIN_EXCEPTIONS,
@@ -201,9 +201,9 @@ class DescribeTopicScreen(HelpableModalScreen):
         Binding(
             COPY_TOPIC_SHORTCUT,
             "copy_topic",
-            "Copy Topic",
+            "Copy Selection",
             show=False,
-            tooltip="Copy the topic name to the clipboard.",
+            tooltip="Copy the selected configuration or topic name to the clipboard.",
             id="kaskade.topics.copy",
         ),
         Binding(
@@ -231,9 +231,14 @@ class DescribeTopicScreen(HelpableModalScreen):
         ),
     )
 
-    def __init__(self, topic: Topic):
+    def __init__(
+        self,
+        topic: Topic,
+        configurations: tuple[TopicConfiguration, ...],
+    ):
         super().__init__()
         self.topic = topic
+        self.configurations = configurations
 
     def compose(self) -> ComposeResult:
         details = TabbedContent(initial="partitions", id="topic-details")
@@ -244,6 +249,11 @@ class DescribeTopicScreen(HelpableModalScreen):
                 id="partitions",
             ):
                 yield self._partitions_table()
+            with TabPane(
+                Content(f"Configurations [{len(self.configurations)}]"),
+                id="configurations",
+            ):
+                yield self._configurations_table()
             with TabPane(Content(f"Groups [{self.topic.groups_count()}]"), id="groups"):
                 yield self._groups_table()
             with TabPane(
@@ -276,6 +286,18 @@ class DescribeTopicScreen(HelpableModalScreen):
                 str(partition.records_count()),
             )
         return table
+
+    def _configurations_table(self) -> StretchyDataTable[str]:
+        table = self._new_table("configurations-table")
+        table.add_column("Name", stretch=3)
+        table.add_column("Value", stretch=2)
+
+        for configuration in self._sorted_configurations():
+            table.add_row(configuration.name, configuration.value)
+        return table
+
+    def _sorted_configurations(self) -> list[TopicConfiguration]:
+        return sorted(self.configurations, key=lambda config: config.name.lower())
 
     def _groups_table(self) -> StretchyDataTable[str]:
         table = self._new_table("groups-table")
@@ -322,6 +344,17 @@ class DescribeTopicScreen(HelpableModalScreen):
         self.dismiss()
 
     def action_copy_topic(self) -> None:
+        if self.query_one(TabbedContent).active == "configurations":
+            table = self.query_one("#configurations-table", DataTable)
+            if table.row_count == 0:
+                return
+            configuration = self._sorted_configurations()[table.cursor_row]
+            copy_text(
+                self.app,
+                f"{configuration.name}={configuration.value}",
+                "configuration",
+            )
+            return
         copy_text(self.app, self.topic.name, "topic name")
 
     def action_previous_tab(self) -> None:
@@ -627,7 +660,7 @@ class ListTopics(Container):
             "Describe",
             priority=True,
             key_display="d",
-            tooltip="Show partitions, groups, and members for the selected topic.",
+            tooltip="Show topic partitions, configurations, groups, and members.",
             id="kaskade.topics.describe",
         ),
         Binding(
@@ -1026,10 +1059,24 @@ class ListTopics(Container):
         elif self.refresh_coordinator.take_pending():
             self.call_after_refresh(lambda: self.request_refresh(RefreshReason.PENDING))
 
-    def action_describe(self) -> None:
+    @work(exclusive=True, group="topic-config")
+    async def action_describe(self) -> None:
         if self.current_topic is None:
             return
-        self.app.push_screen(DescribeTopicScreen(self.current_topic))
+
+        topic = self.current_topic
+        self.start_loading_table()
+        try:
+            configurations = await make_it_async(
+                self.topic_service.describe_configs,
+                topic.name,
+            )
+        except KafkaException as ex:
+            self.finish_loading_table()
+            notify_error(self.app, "Kafka Error", ex)
+            return
+        self.finish_loading_table()
+        self.app.push_screen(DescribeTopicScreen(topic, configurations))
 
     def action_all(self) -> None:
         self.current_filter = None

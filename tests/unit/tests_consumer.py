@@ -253,6 +253,17 @@ class TestRecordExportActions(unittest.IsolatedAsyncioTestCase):
                 "Export Record",
                 {binding.description for binding in app.screen.help_bindings},
             )
+            help_bindings = {
+                binding.description: binding.keys for binding in app.screen.help_bindings
+            }
+            self.assertEqual(("ctrl+e",), help_bindings["Export Record"])
+            self.assertFalse(
+                any(
+                    key.startswith("^")
+                    for binding in app.screen.help_bindings
+                    for key in binding.keys
+                )
+            )
             await pilot.press("escape")
 
             await pilot.press("ctrl+e")

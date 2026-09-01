@@ -12,6 +12,7 @@ from confluent_kafka import (
     Node,
 )
 from confluent_kafka.admin import (
+    ConfigEntry,
     ConsumerGroupDescription,
     ConsumerGroupListing,
     ListConsumerGroupsResult,
@@ -120,6 +121,30 @@ class TestTopicService(unittest.IsolatedAsyncioTestCase):
         new_topic = admin.create_topics.call_args.args[0][0]
         self.assertEqual(-1, new_topic.replication_factor)
         self.assertEqual({"cleanup.policy": "delete", "retention.ms": "1000"}, new_topic.config)
+
+    @patch("kaskade.services.AdminClient")
+    async def test_describes_effective_topic_configurations(
+        self, mock_class_admin: MagicMock
+    ) -> None:
+        admin = mock_class_admin.return_value
+        entries = {
+            "visible.setting": ConfigEntry(
+                "visible.setting",
+                "visible",
+            ),
+        }
+        admin.describe_configs.return_value = {"orders": completed(entries)}
+
+        configurations = TopicService({"bootstrap.servers": "localhost:9092"}).describe_configs(
+            "orders"
+        )
+
+        self.assertEqual(
+            {
+                "visible.setting": "visible",
+            },
+            {configuration.name: configuration.value for configuration in configurations},
+        )
 
     @patch("kaskade.services.Consumer")
     @patch("kaskade.services.AdminClient")
