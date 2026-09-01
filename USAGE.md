@@ -1,8 +1,9 @@
 # Usage
 
-This guide provides common Kaskade commands for connecting to Kafka, consuming records, and configuring Schema Registry, TLS, and cloud services.
+This guide provides common Kaskade commands for connecting to Kafka, consuming
+records, and configuring Schema Registry, TLS, and cloud services.
 
-## Configuration examples
+## Common commands
 
 ### Multiple bootstrap servers
 
@@ -16,21 +17,36 @@ kaskade admin -b my-kafka:9092,my-kafka:9093
 kaskade consumer -b my-kafka:9092 -t my-json-topic -k json -v json
 ```
 
-Supported deserializers: `bytes`, `boolean`, `string`, `long`, `integer`, `double`, `float`, `json`, `avro`, `protobuf`, and `registry`.
+Supported deserializers are `bytes`, `boolean`, `string`, `long`, `integer`,
+`double`, `float`, `json`, `avro`, `protobuf`, and `registry`.
+
+Deserializer-specific settings use repeatable `property=value` options. Use
+`--avro` for local Avro schemas and framing, `--protobuf` for descriptors and
+message names, and `--registry` for Schema Registry client properties. Repeat
+the relevant option once per property; it is required when the selected key or
+value format needs that configuration. See the [Schema Registry](#schema-registry),
+[Avro](#avro-consumer), and [Protobuf](#protobuf-consumer) examples below.
+
+## Application settings and controls
 
 ### Themes
 
-Kaskade defaults to the `eva01` Unit-01-inspired theme. Choose any Textual theme at launch:
+Kaskade defaults to the `eva01` Unit-01-inspired theme. Choose any Textual theme
+at launch:
 
 ```bash
 kaskade admin -b my-kafka:9092 --theme dracula
 ```
 
-While Kaskade is running, press `:` (or `Ctrl+P`) and select a theme from the Commands window. Theme changes apply only to the current session.
+While Kaskade is running, press `:` (or `Ctrl+P`) and select a theme from the
+Commands window. Theme changes apply only to the current session.
 
 ### Admin auto-refresh
 
-Admin mode refreshes topic metadata and metrics every 30 seconds. Auto-refresh pauses while a dialog, topic details, Help, or the command palette is open, then refreshes after returning to the topic list. Press `Ctrl+R` to refresh immediately.
+Admin mode refreshes topic metadata and metrics every 30 seconds. Auto-refresh
+pauses while a dialog, topic details, Help, or the command palette is open, then
+refreshes after returning to the topic list. Press `Ctrl+R` to refresh
+immediately.
 
 Configure the interval in Kaskade's `config.yaml`:
 
@@ -39,7 +55,9 @@ admin:
   refresh_interval_seconds: 30
 ```
 
-Use `0` to disable auto-refresh. Enabled intervals must be at least 5 seconds. Missing or invalid values use the 30-second default and invalid values produce an in-app warning.
+Use `0` to disable auto-refresh. Enabled intervals must be at least 5 seconds.
+Missing or invalid values use the 30-second default; invalid values also
+produce an in-app warning.
 
 Override the configured interval for one admin session with `--refresh-interval`:
 
@@ -48,11 +66,13 @@ kaskade admin -b my-kafka:9092 --refresh-interval 10
 kaskade admin -b my-kafka:9092 --refresh-interval 0
 ```
 
-The command-line value takes precedence over `config.yaml`. As with the YAML setting, `0` disables auto-refresh and enabled intervals must be at least 5 seconds.
+The command-line value takes precedence over `config.yaml` and follows the same
+validation rules.
 
 ### Keyboard shortcuts
 
-Kaskade supports arrow keys and Vim-style navigation. The defaults follow familiar k9s conventions where the applications have equivalent actions.
+Kaskade supports arrow keys and Vim-style navigation. The defaults follow
+familiar k9s conventions where the applications have equivalent actions.
 
 | Action | Shortcut |
 | --- | --- |
@@ -76,13 +96,19 @@ Kaskade supports arrow keys and Vim-style navigation. The defaults follow famili
 | Consume more records | `n` |
 | Change record chunk size | `#` |
 
-Help opens in a contextual window above the current screen and lists every effective shortcut alias. Navigate it with `j`/`k`, arrows, Page Up/Down, or `g`/`G`, then close it with `Esc`, `q`, `?`, or `F1`. The command palette includes this contextual Help window instead of Textual's generic Keys panel.
+Help opens in a contextual window above the current screen and lists every
+effective shortcut alias. Navigate it with `j`/`k`, arrows, Page Up/Down, or
+`g`/`G`, then close it with `Esc`, `q`, `?`, or `F1`. The command palette
+includes this contextual Help window instead of Textual's generic Keys panel.
 
-Plain-character application shortcuts do not intercept typing in filter and editor fields.
+Plain-character application shortcuts do not intercept typing in filter and
+editor fields.
 
 #### Custom keymap
 
-On Linux and macOS, Kaskade reads `$XDG_CONFIG_HOME/kaskade/config.yaml`. If `XDG_CONFIG_HOME` is not set, it reads `~/.config/kaskade/config.yaml`. Set `KASKADE_CONFIG` to use a different file.
+On Linux and macOS, Kaskade reads `$XDG_CONFIG_HOME/kaskade/config.yaml`. If
+`XDG_CONFIG_HOME` is not set, it reads `~/.config/kaskade/config.yaml`. Set
+`KASKADE_CONFIG` to use a different file.
 
 Copy the complete example to the default location before customizing it:
 
@@ -91,7 +117,8 @@ mkdir -p ~/.config/kaskade
 cp examples/config.yaml ~/.config/kaskade/config.yaml
 ```
 
-The `keymap` values use Textual key names. Separate keys with commas to assign aliases:
+The `keymap` values use Textual key names. Separate keys with commas to assign
+aliases:
 
 ```yaml
 keymap:
@@ -114,17 +141,26 @@ Common configurable binding IDs are:
 | Dialogs | `kaskade.filter-topics.apply`, `kaskade.delete-topic.confirm`, `kaskade.filter-records.apply`, `kaskade.chunk-size.select` |
 | Editors | `kaskade.create-topic.save`, `kaskade.edit-topic.save` |
 
-Unknown binding IDs, invalid key names, and malformed configuration produce an in-app warning while Kaskade continues with its default bindings.
+Unknown binding IDs, invalid key names, and malformed configuration produce an
+in-app warning while Kaskade continues with its default bindings.
 
 ### Copy topics and consumed records
 
-Select a topic in Admin mode or a consumed record in Consumer mode, then press `y` to copy the topic name or readable record JSON. Copy is also available in Topic Details, Record Details, contextual Help, and Commands, but is omitted from the Footer.
+Select a topic in Admin mode or a consumed record in Consumer mode, then press
+`y` to copy the topic name or readable record JSON. Copy is also available in
+Topic Details, Record Details, contextual Help, and Commands, but is omitted
+from the Footer.
 
-Selecting screen text is separate: use `Cmd+C` on macOS or `Ctrl+Shift+C` on Linux. `Ctrl+C` always quits Kaskade, even while text is selected.
+Selecting screen text is separate: use `Cmd+C` on macOS or `Ctrl+Shift+C` on
+Linux. `Ctrl+C` always quits Kaskade, even while text is selected.
 
 #### OSC 52 compatibility
 
-Kaskade uses [Textual's terminal clipboard API](https://textual.textualize.io/api/app/#textual.app.App.copy_to_clipboard), which sends an [OSC 52](https://github.com/tmux/tmux/wiki/Clipboard) request to the terminal emulator. Kaskade cannot detect whether the terminal accepted it, so a confirmation toast means the request was sent, not that the system clipboard was verified.
+Kaskade uses [Textual's terminal clipboard API](https://textual.textualize.io/api/app/#textual.app.App.copy_to_clipboard),
+which sends an [OSC 52](https://github.com/tmux/tmux/wiki/Clipboard) request to
+the terminal emulator. Kaskade cannot detect whether the terminal accepted it,
+so a confirmation toast means the request was sent, not that the system
+clipboard was verified.
 
 | Terminal | Compatibility |
 | --- | --- |
@@ -139,7 +175,13 @@ Kaskade uses [Textual's terminal clipboard API](https://textual.textualize.io/ap
 | Apple Terminal.app | Not supported |
 | VTE-based terminals: GNOME Terminal (Ubuntu's built-in terminal), GNOME Console/Ptyxis, Terminator, and XFCE Terminal | Not supported |
 
-OSC 52 writes to the clipboard owned by the terminal emulator on the user's computer. It can therefore work when Kaskade runs through SSH or `kubectl exec -it`; the remote machine or pod does not need its own clipboard. Every intermediate layer must preserve the escape sequence. Terminal multiplexers such as tmux may require [additional clipboard configuration](https://github.com/tmux/tmux/wiki/Clipboard#quick-summary), and browser terminals or other relays may filter OSC 52.
+OSC 52 writes to the clipboard owned by the terminal emulator on the user's
+computer. It can therefore work when Kaskade runs through SSH or
+`kubectl exec -it`; the remote machine or pod does not need its own clipboard.
+Every intermediate layer must preserve the escape sequence. Terminal
+multiplexers such as tmux may require
+[additional clipboard configuration](https://github.com/tmux/tmux/wiki/Clipboard#quick-summary),
+and browser terminals or other relays may filter OSC 52.
 
 ### Export a consumed record
 
@@ -149,6 +191,8 @@ Downloads directory in a local terminal or a browser download when web-hosted. T
 includes the topic, partition, offset, date, headers, and the deserialized key and value with
 their deserializer names. Export Record is omitted from the Footer; find it in contextual
 Help or Commands.
+
+## Consumer behavior
 
 ### Choose the starting position
 
@@ -171,11 +215,15 @@ absolute Kafka offset. `earliest` resolves to the partition's current low waterm
 an omitted offset starts at the normal latest position. `--earliest` and `--partition`
 cannot be combined.
 
-If a configured key or value deserializer cannot decode an individual record, Kaskade
-shows `⚠`, displays that field with its BYTES fallback, and keeps consuming. Record
-details, copy, and export include the requested deserializer, fallback, and error. Hover
-the warning cell to see the field, requested deserializer, fallback, and error in a
-tooltip. The other field remains decoded normally.
+### Deserialization failures
+
+If a configured key or value deserializer cannot decode an individual record,
+Kaskade shows `⚠`, displays that field with its BYTES fallback, and keeps
+consuming. Record details, copy, and export include the requested deserializer,
+fallback, and error. Hover the warning cell to see the diagnostic in a tooltip.
+The other field remains decoded normally.
+
+## Connections and security
 
 ### Schema Registry
 
@@ -187,9 +235,11 @@ kaskade consumer -b my-kafka:9092 -t my-avro-topic \
         --registry url=http://my-schema-registry:8081
 ```
 
-See the [Confluent Schema Registry client documentation](https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#schemaregistry-client) for additional Schema Registry settings.
+See the
+[Confluent Schema Registry client documentation](https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#schemaregistry-client)
+for additional Schema Registry settings.
 
-### Apicurio Registry
+#### Apicurio Registry
 
 ```bash
 kaskade consumer -b my-kafka:9092 -t my-avro-topic \
@@ -205,26 +255,30 @@ Learn more at [Apicurio Registry](https://github.com/apicurio/apicurio-registry)
 kaskade admin -b my-kafka:9092 -c security.protocol=SSL
 ```
 
-See [Configure librdkafka client](https://github.com/edenhill/librdkafka/wiki/Using-SSL-with-librdkafka#configure-librdkafka-client) for SSL encryption and authentication settings.
+See
+[Configure librdkafka client](https://github.com/edenhill/librdkafka/wiki/Using-SSL-with-librdkafka#configure-librdkafka-client)
+for SSL encryption and authentication settings.
 
 ### Kafka client properties file
 
-Both admin and consumer modes accept Kafka client properties from a separate file:
+Both admin and consumer modes accept Kafka client properties from a separate
+file:
 
 ```bash
 kaskade admin \
-    -b my-kafka:9092 \
     --config-file kafka.properties
 
 kaskade consumer \
-    -b my-kafka:9092 \
     -t my-topic \
     --config-file kafka.properties
 ```
 
-The file uses one `property=value` entry per line. Blank lines and lines beginning with `#` are ignored. See [examples/kafka.properties](examples/kafka.properties) for a SASL/SSL example:
+The file uses one `property=value` entry per line. Blank lines and lines
+beginning with `#` are ignored. See
+[examples/kafka.properties](examples/kafka.properties) for a SASL/SSL example:
 
 ```properties
+bootstrap.servers=my-kafka:9092
 security.protocol=SASL_SSL
 sasl.mechanism=PLAIN
 sasl.username=replace-with-your-api-key
@@ -232,13 +286,32 @@ sasl.password=replace-with-your-api-secret
 client.id=kaskade
 ```
 
-This file contains only properties for `confluent-kafka`; Kaskade UI, admin, and keymap settings remain in `config.yaml` as documented above. The required `-b/--bootstrap-servers` option sets `bootstrap.servers`, so it does not need to appear in `kafka.properties`.
+This file contains only properties for `confluent-kafka`; Kaskade UI, admin,
+and keymap settings remain in `config.yaml` as documented above. Both commands
+require a non-empty `bootstrap.servers` after Kafka properties are merged. It
+can come from `--config-file`, an inline property, or the dedicated option:
+
+```bash
+kaskade admin --config bootstrap.servers=my-kafka:9092
+kaskade consumer -t my-topic --config bootstrap.servers=my-kafka:9092
+```
+
+`-b/--bootstrap-servers` remains the most concise choice for ordinary commands
+and overrides a value from Kafka client configuration. For example, this uses
+`override-kafka:9092` while retaining the other file and inline properties:
+
+```bash
+kaskade admin \
+    --config-file kafka.properties \
+    --config client.id=temporary-kaskade \
+    -b override-kafka:9092
+```
 
 Configuration precedence, from lowest to highest, is:
 
 1. Properties loaded from `--config-file`.
 2. Repeated `-c/--config property=value` options.
-3. `-b/--bootstrap-servers` for `bootstrap.servers`.
+3. When supplied, `-b/--bootstrap-servers` for `bootstrap.servers`.
 4. `--aws property=value` for the Amazon MSK IAM authentication properties.
 5. In consumer mode, `--earliest` for `auto.offset.reset=earliest`.
 
@@ -254,12 +327,13 @@ kaskade consumer -b ${AWS_MSK_BOOTSTRAP_SERVERS} -t my-topic \
 ```
 
 Kaskade configures `security.protocol=SASL_SSL`, `sasl.mechanism=OAUTHBEARER`,
-and automatic token refresh. Credentials are discovered through the standard AWS
-credential provider chain, so environment variables, shared AWS profiles (including
-`AWS_PROFILE`), and IAM roles attached to AWS workloads are supported without passing
-credentials to Kaskade.
+and automatic token refresh. Credentials are discovered through the standard
+AWS credential provider chain, so environment variables, shared AWS profiles
+(including `AWS_PROFILE`), and IAM roles attached to AWS workloads are
+supported without passing credentials to Kaskade.
 
-See [Configure clients for IAM access control](https://docs.aws.amazon.com/msk/latest/developerguide/configure-clients-for-iam-access-control.html)
+See
+[Configure clients for IAM access control](https://docs.aws.amazon.com/msk/latest/developerguide/configure-clients-for-iam-access-control.html)
 for the Amazon MSK broker and IAM policy requirements.
 
 #### IAM permissions
@@ -317,8 +391,10 @@ and narrow the topic wildcard when appropriate.
 ```
 
 Consumer group access can be limited to `kaskade-*` because Kaskade creates
-ephemeral groups named `kaskade-<uuid>`. For read-only admin access, remove the
-topic create, alter, delete, and configuration-alter actions.
+ephemeral groups named `kaskade-<uuid>`. For read-only admin access, remove
+`CreateTopic`, `AlterTopic`, `DeleteTopic`, `AlterTopicDynamicConfiguration`,
+and `ReadData` from the topic statement, then remove the
+`UseKaskadeConsumerGroups` statement.
 
 Use this policy for sandbox population:
 
@@ -465,7 +541,8 @@ kaskade consumer -b ${BOOTSTRAP_SERVERS} -t my-avro-topic \
         --registry basic.auth.user.info=${SR_API_KEY}:${SR_API_SECRET}
 ```
 
-See the [Kafka client quick start for Confluent Cloud](https://docs.confluent.io/cloud/current/client-apps/config-client.html).
+See the
+[Kafka client quick start for Confluent Cloud](https://docs.confluent.io/cloud/current/client-apps/config-client.html).
 
 ### Docker
 
@@ -483,6 +560,8 @@ docker run --rm -it --network my-network sauljabin/kaskade:latest \
     consumer -b my-kafka:9092 -t my-topic
 ```
 
+## Format-specific consumers
+
 ### Avro consumer
 
 Consume using a `my-schema.avsc` schema file:
@@ -494,16 +573,18 @@ kaskade consumer -b my-kafka:9092 --earliest \
         --avro value=my-schema.avsc
 ```
 
-Local-schema Avro deserialization treats payloads as raw Avro by default. For records
-produced with Confluent's five-byte framing, add `--avro framing=confluent`. Framing is
-explicit because a valid raw Avro payload may also begin with a zero byte.
+Local-schema Avro deserialization treats payloads as raw Avro by default. For
+records produced with Confluent's five-byte framing, add
+`--avro framing=confluent`. Framing is explicit because a valid raw Avro payload
+may also begin with a zero byte.
 
 ### Protobuf consumer
 
-Install `protoc`:
+Install `protoc` with your platform's package manager. For example:
 
 ```bash
-brew install protobuf
+brew install protobuf                 # macOS
+sudo apt install protobuf-compiler    # Debian or Ubuntu
 ```
 
 Generate a descriptor set from a `.proto` file:
@@ -525,4 +606,6 @@ kaskade consumer -b my-kafka:9092 --earliest \
         --protobuf value=mypackage.MyMessage
 ```
 
-See the [Protocol Buffers documentation](https://protobuf.dev/programming-guides/techniques/#self-description) for more about `FileDescriptorSet`.
+See the
+[Protocol Buffers documentation](https://protobuf.dev/programming-guides/techniques/#self-description)
+for more about `FileDescriptorSet`.
