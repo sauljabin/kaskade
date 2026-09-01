@@ -300,15 +300,11 @@ class ConsumerService:
             )
 
     @staticmethod
-    def _message_timestamp(message: Any) -> str:
+    def _message_timestamp(message: Any) -> datetime | None:
         timestamp_available, timestamp = message.timestamp()
         if timestamp_available <= 0:
-            return ""
-        return (
-            datetime.fromtimestamp(timestamp / 1000, tz=timezone.utc)
-            .astimezone()
-            .strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
-        )
+            return None
+        return datetime.fromtimestamp(timestamp / 1000, tz=timezone.utc)
 
     @staticmethod
     def _matches(

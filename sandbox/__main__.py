@@ -5,7 +5,7 @@ from collections.abc import Callable
 from functools import partial
 from pathlib import Path
 from time import sleep
-from typing import Any
+from typing import Any, cast
 
 import click
 from confluent_kafka import KafkaError, KafkaException, Producer
@@ -32,6 +32,7 @@ SANDBOX_PATH = Path(__file__).resolve().parent
 JSON_USER_SCHEMA = str(SANDBOX_PATH / "json_model" / "user.schema.json")
 AVRO_USER_SCHEMA = str(SANDBOX_PATH / "avro_model" / "user.avsc")
 ERRORS_TOPIC = "errors"
+NULL_TOPIC = "null"
 AVAILABLE_TOPICS = (
     "string",
     "integer",
@@ -39,7 +40,7 @@ AVAILABLE_TOPICS = (
     "float",
     "double",
     "boolean",
-    "null",
+    NULL_TOPIC,
     "json",
     "json-schema",
     "protobuf",
@@ -52,6 +53,32 @@ ERROR_CASES = ("key", "value", "both", "valid")
 MALFORMED_KEY_CASES = frozenset({"key", "both"})
 MALFORMED_VALUE_CASES = frozenset({"value", "both"})
 MALFORMED_PAYLOAD_BYTES = 32
+FAKE_NUMBER_MIN = 500
+FAKE_NUMBER_MAX = 10000
+
+
+def model_to_dict(value: Any, _: SerializationContext) -> dict[str, Any]:
+    return cast(dict[str, Any], vars(value))
+
+
+def fake_user(model: Callable[..., Any], faker: Faker) -> Any:
+    return model(name=faker.name())
+
+
+def serialize_with_context(
+    value: Any,
+    serializer: Callable[[Any, SerializationContext], Any],
+    topic: str,
+) -> Any:
+    return serializer(value, SerializationContext(topic, MessageField.VALUE))
+
+
+def serialize_protobuf(value: ProtobufUser) -> bytes:
+    return value.SerializeToString()
+
+
+def serialize_avro(value: AvroUser) -> bytes:
+    return py_to_avro(AVRO_USER_SCHEMA, vars(value))
 
 
 class Populator:
@@ -106,12 +133,119 @@ class Populator:
         serializer: Callable[[Any], Any],
         total_messages: int,
     ) -> None:
-        for n in range(total_messages):
+        for _ in range(total_messages):
             value = generator()
             self.producer.produce(topic, value=serializer(value), key=f"{value}")
         self.producer.flush(5)
 
-    def populate_registry_errors(
+    def populate_string(self, faker: Faker, total_messages: int) -> None:
+        self.populate("string", faker.name, str.encode, total_messages)
+
+    def populate_integer(self, faker: Faker, total_messages: int) -> None:
+        self._populate_number("integer", faker.pyint, ">i", total_messages)
+
+    def populate_long(self, faker: Faker, total_messages: int) -> None:
+        self._populate_number("long", faker.pyint, ">q", total_messages)
+
+    def populate_float(self, faker: Faker, total_messages: int) -> None:
+        self._populate_number("float", faker.pyfloat, ">f", total_messages)
+
+    def populate_double(self, faker: Faker, total_messages: int) -> None:
+        self._populate_number("double", faker.pyfloat, ">d", total_messages)
+
+    def _populate_number(
+        self,
+        topic: str,
+        generator: Callable[..., Any],
+        struct_format: str,
+        total_messages: int,
+    ) -> None:
+        self.populate(
+            topic,
+            partial(generator, min_value=FAKE_NUMBER_MIN, max_value=FAKE_NUMBER_MAX),
+            partial(pack_bytes, struct_format),
+            total_messages,
+        )
+
+    def populate_boolean(self, faker: Faker, total_messages: int) -> None:
+        self.populate("boolean", faker.pybool, partial(pack_bytes, ">?"), total_messages)
+
+    def populate_null(self, total_messages: int) -> None:
+        for _ in range(total_messages):
+            self.producer.produce(NULL_TOPIC, key=None, value=None)
+        self.producer.flush(5)
+
+    def populate_json(self, faker: Faker, total_messages: int) -> None:
+        self.populate("json", faker.json, str.encode, total_messages)
+
+    def populate_json_schema(
+        self,
+        serializer: JSONSerializer,
+        faker: Faker,
+        total_messages: int,
+    ) -> None:
+        self._populate_schema(
+            "json-schema",
+            JsonUser,
+            serializer,
+            faker,
+            total_messages,
+        )
+
+    def populate_protobuf(self, faker: Faker, total_messages: int) -> None:
+        self.populate(
+            "protobuf",
+            partial(fake_user, ProtobufUser, faker),
+            serialize_protobuf,
+            total_messages,
+        )
+
+    def populate_protobuf_schema(
+        self,
+        serializer: ProtobufSerializer,
+        faker: Faker,
+        total_messages: int,
+    ) -> None:
+        self._populate_schema(
+            "protobuf-schema",
+            ProtobufUser,
+            serializer,
+            faker,
+            total_messages,
+        )
+
+    def populate_avro(self, faker: Faker, total_messages: int) -> None:
+        self.populate(
+            "avro",
+            partial(fake_user, AvroUser, faker),
+            serialize_avro,
+            total_messages,
+        )
+
+    def populate_avro_schema(
+        self,
+        serializer: AvroSerializer,
+        faker: Faker,
+        total_messages: int,
+    ) -> None:
+        self._populate_schema("avro-schema", AvroUser, serializer, faker, total_messages)
+
+    def _populate_schema(
+        self,
+        topic: str,
+        model: Callable[..., Any],
+        serializer: Callable[[Any, SerializationContext], Any],
+        faker: Faker,
+        total_messages: int,
+    ) -> None:
+        self.populate(
+            topic,
+            partial(fake_user, model, faker),
+            partial(serialize_with_context, serializer=serializer, topic=topic),
+            total_messages,
+        )
+
+    def populate_errors(
         self,
         serializer: JSONSerializer,
         faker: Faker,
@@ -232,12 +366,12 @@ def main(
     avro_serializer = AvroSerializer(
         registry_client,
         file_to_str(AVRO_USER_SCHEMA),
-        lambda value, ctx: vars(value),
+        model_to_dict,
     )
     json_serializer = JSONSerializer(
         file_to_str(JSON_USER_SCHEMA),
         registry_client,
-        lambda value, ctx: vars(value),
+        model_to_dict,
     )
     protobuf_serializer = ProtobufSerializer(
         ProtobufUser, registry_client, {"use.deprecated.format": False}
@@ -252,87 +386,36 @@ def main(
 
     def topic_population(
         topic: str,
-        generator: Callable[[], Any],
-        serializer: Callable[[Any], Any],
+        action: Callable[..., None],
+        *args: Any,
     ) -> tuple[str, Callable[[], None]]:
-        return topic, partial(populator.populate, topic, generator, serializer, messages)
+        return topic, partial(action, *args, messages)
 
     topics: list[tuple[str, Callable[[], None]]] = [
-        topic_population(
-            "string",
-            lambda: faker.name(),
-            lambda value: value.encode("utf-8"),
-        ),
-        topic_population(
-            "integer",
-            lambda: faker.pyint(min_value=500, max_value=10000),
-            lambda value: pack_bytes(">i", value),
-        ),
-        topic_population(
-            "long",
-            lambda: faker.pyint(min_value=500, max_value=10000),
-            lambda value: pack_bytes(">q", value),
-        ),
-        topic_population(
-            "float",
-            lambda: faker.pyfloat(min_value=500, max_value=10000),
-            lambda value: pack_bytes(">f", value),
-        ),
-        topic_population(
-            "double",
-            lambda: faker.pyfloat(min_value=500, max_value=10000),
-            lambda value: pack_bytes(">d", value),
-        ),
-        topic_population(
-            "boolean",
-            lambda: faker.pybool(),
-            lambda value: pack_bytes(">?", value),
-        ),
-        topic_population(
-            "null",
-            lambda: "not null" if faker.pybool() else None,
-            lambda value: value.encode("utf-8") if value else None,
-        ),
-        topic_population(
-            "json",
-            lambda: faker.json(),
-            lambda value: value.encode("utf-8"),
-        ),
-        topic_population(
-            "json-schema",
-            lambda: JsonUser(name=faker.name()),
-            lambda value: json_serializer(
-                value, SerializationContext("json-schema", MessageField.VALUE)
-            ),
-        ),
-        topic_population(
-            "protobuf",
-            lambda: ProtobufUser(name=faker.name()),
-            lambda value: value.SerializeToString(),
-        ),
+        topic_population("string", populator.populate_string, faker),
+        topic_population("integer", populator.populate_integer, faker),
+        topic_population("long", populator.populate_long, faker),
+        topic_population("float", populator.populate_float, faker),
+        topic_population("double", populator.populate_double, faker),
+        topic_population("boolean", populator.populate_boolean, faker),
+        topic_population(NULL_TOPIC, populator.populate_null),
+        topic_population("json", populator.populate_json, faker),
+        topic_population("json-schema", populator.populate_json_schema, json_serializer, faker),
+        topic_population("protobuf", populator.populate_protobuf, faker),
         topic_population(
             "protobuf-schema",
-            lambda: ProtobufUser(name=faker.name()),
-            lambda value: protobuf_serializer(
-                value, SerializationContext("protobuf-schema", MessageField.VALUE)
-            ),
+            populator.populate_protobuf_schema,
+            protobuf_serializer,
+            faker,
         ),
-        topic_population(
-            "avro",
-            lambda: AvroUser(name=faker.name()),
-            lambda value: py_to_avro(AVRO_USER_SCHEMA, vars(value)),
-        ),
+        topic_population("avro", populator.populate_avro, faker),
         topic_population(
             "avro-schema",
-            lambda: AvroUser(name=faker.name()),
-            lambda value: avro_serializer(
-                value, SerializationContext("avro-schema", MessageField.VALUE)
-            ),
+            populator.populate_avro_schema,
+            avro_serializer,
+            faker,
         ),
-        (
-            ERRORS_TOPIC,
-            partial(populator.populate_registry_errors, json_serializer, faker, messages),
-        ),
+        topic_population(ERRORS_TOPIC, populator.populate_errors, json_serializer, faker),
     ]
     if selected_topics is not None:
         actions_by_topic = dict(topics)

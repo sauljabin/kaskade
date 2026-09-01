@@ -1,6 +1,9 @@
 import json
 from abc import ABC, abstractmethod
+from collections.abc import Callable
+from dataclasses import dataclass
 from enum import Enum, auto
+from struct import error as StructError
 from struct import unpack
 from typing import Any
 
@@ -19,12 +22,27 @@ from google.protobuf.json_format import MessageToDict
 from google.protobuf.message import DecodeError, Message
 from google.protobuf.message_factory import GetMessages
 
+from kaskade import logger
 from kaskade.configs import SCHEMA_REGISTRY_MAGIC_BYTE
 from kaskade.utils import avro_to_py, file_to_bytes, unpack_bytes
 
 
 class DeserializationError(Exception):
-    """Raised when deserializer configuration or input framing is invalid."""
+    """Raised when configuration, framing, or payload data cannot be deserialized."""
+
+
+def _unpack_payload(struct_format: str, data: bytes) -> Any:
+    try:
+        return unpack_bytes(struct_format, data)
+    except StructError as ex:
+        raise DeserializationError(str(ex)) from ex
+
+
+def _deserialize_avro(deserialize: Callable[..., Any], *args: Any) -> Any:
+    try:
+        return deserialize(*args)
+    except IndexError as ex:
+        raise DeserializationError(str(ex)) from ex
 
 
 DESERIALIZATION_EXCEPTIONS: tuple[type[Exception], ...] = (
@@ -36,6 +54,7 @@ DESERIALIZATION_EXCEPTIONS: tuple[type[Exception], ...] = (
     SerializationError,
     DecodeError,
 )
+SCHEMA_METADATA_EXCEPTIONS = DESERIALIZATION_EXCEPTIONS + (AttributeError, TypeError)
 
 
 class Deserialization(Enum):
@@ -66,12 +85,39 @@ class Deserialization(Enum):
         return [str(name) for name in Deserialization]
 
 
+@dataclass(frozen=True)
+class RegistrySchema:
+    id: int
+    subject: str
+    version: int
+    type: str
+
+    def dict(self) -> dict[str, int | str]:
+        return {
+            "id": self.id,
+            "subject": self.subject,
+            "version": self.version,
+            "type": self.type,
+        }
+
+
+@dataclass(frozen=True)
+class DeserializationResult:
+    content: Any
+    schema: RegistrySchema | None = None
+
+
 class Deserializer(ABC):
     @abstractmethod
     def deserialize(
         self, data: bytes, topic: str | None = None, context: MessageField = MessageField.NONE
     ) -> Any:
         pass
+
+    def deserialize_with_metadata(
+        self, data: bytes, topic: str | None = None, context: MessageField = MessageField.NONE
+    ) -> DeserializationResult:
+        return DeserializationResult(self.deserialize(data, topic, context))
 
 
 class DefaultDeserializer(Deserializer):
@@ -92,35 +138,35 @@ class BooleanDeserializer(Deserializer):
     def deserialize(
         self, data: bytes, topic: str | None = None, context: MessageField = MessageField.NONE
     ) -> Any:
-        return unpack_bytes(">?", data)
+        return _unpack_payload(">?", data)
 
 
 class FloatDeserializer(Deserializer):
     def deserialize(
         self, data: bytes, topic: str | None = None, context: MessageField = MessageField.NONE
     ) -> Any:
-        return unpack_bytes(">f", data)
+        return _unpack_payload(">f", data)
 
 
 class DoubleDeserializer(Deserializer):
     def deserialize(
         self, data: bytes, topic: str | None = None, context: MessageField = MessageField.NONE
     ) -> Any:
-        return unpack_bytes(">d", data)
+        return _unpack_payload(">d", data)
 
 
 class LongDeserializer(Deserializer):
     def deserialize(
         self, data: bytes, topic: str | None = None, context: MessageField = MessageField.NONE
     ) -> Any:
-        return unpack_bytes(">q", data)
+        return _unpack_payload(">q", data)
 
 
 class IntegerDeserializer(Deserializer):
     def deserialize(
         self, data: bytes, topic: str | None = None, context: MessageField = MessageField.NONE
     ) -> Any:
-        return unpack_bytes(">i", data)
+        return _unpack_payload(">i", data)
 
 
 class JsonDeserializer(Deserializer):
@@ -137,10 +183,31 @@ class RegistryDeserializer(Deserializer):
         self.json_deserializer = ConfluentJsonDeserializer(
             None, schema_registry_client=self.registry_client
         )
+        self._schema_cache: dict[tuple[int, str, MessageField], RegistrySchema | None] = {}
 
     def deserialize(
         self, data: bytes, topic: str | None = None, context: MessageField = MessageField.NONE
     ) -> Any:
+        _, schema_type = self._schema(data, topic, context)
+        return self._deserialize_content(data, topic, context, schema_type)
+
+    def deserialize_with_metadata(
+        self, data: bytes, topic: str | None = None, context: MessageField = MessageField.NONE
+    ) -> DeserializationResult:
+        schema_id, schema_type = self._schema(data, topic, context)
+        content = self._deserialize_content(data, topic, context, schema_type)
+        assert topic is not None
+        return DeserializationResult(
+            content,
+            self._resolve_schema(schema_id, schema_type, topic, context),
+        )
+
+    def _schema(
+        self,
+        data: bytes,
+        topic: str | None,
+        context: MessageField,
+    ) -> tuple[int, str]:
         if topic is None:
             raise DeserializationError("Topic name needed")
 
@@ -159,14 +226,93 @@ class RegistryDeserializer(Deserializer):
             )
 
         schema = self.registry_client.get_schema(schema_id)
+        if schema.schema_type is None:
+            raise DeserializationError("Schema type not supported")
+        return schema_id, schema.schema_type.upper()
 
-        match schema.schema_type:
+    def _deserialize_content(
+        self,
+        data: bytes,
+        topic: str | None,
+        context: MessageField,
+        schema_type: str,
+    ) -> Any:
+        assert topic is not None
+        match schema_type:
             case "JSON":
                 return self.json_deserializer(data, SerializationContext(topic, context))
             case "AVRO":
-                return self.avro_deserializer(data, SerializationContext(topic, context))
+                return _deserialize_avro(
+                    self.avro_deserializer,
+                    data,
+                    SerializationContext(topic, context),
+                )
             case _:
                 raise DeserializationError("Schema type not supported")
+
+    def _resolve_schema(
+        self,
+        schema_id: int,
+        schema_type: str,
+        topic: str,
+        context: MessageField,
+    ) -> RegistrySchema | None:
+        cache_key = (schema_id, topic, context)
+        if cache_key in self._schema_cache:
+            return self._schema_cache[cache_key]
+
+        try:
+            registrations = self.registry_client.get_schema_versions(schema_id)
+            result = self._select_schema(
+                schema_id,
+                schema_type,
+                topic,
+                context,
+                registrations,
+            )
+        except SCHEMA_METADATA_EXCEPTIONS as ex:
+            logger.warning(
+                "schema metadata lookup failed schema_id=%d topic=%s field=%s error=%s",
+                schema_id,
+                topic,
+                context.name,
+                ex,
+            )
+            result = None
+
+        self._schema_cache[cache_key] = result
+        return result
+
+    @staticmethod
+    def _select_schema(
+        schema_id: int,
+        schema_type: str,
+        topic: str,
+        context: MessageField,
+        registrations: list[Any],
+    ) -> RegistrySchema | None:
+        candidates = [
+            registration
+            for registration in registrations
+            if registration.subject is not None and registration.version is not None
+        ]
+        selected = candidates[0] if len(candidates) == 1 else None
+        if selected is None:
+            conventional_subject = f"{topic}-{context.name.lower()}"
+            conventional = [
+                registration
+                for registration in candidates
+                if registration.subject == conventional_subject
+            ]
+            selected = conventional[0] if len(conventional) == 1 else None
+        if selected is None:
+            return None
+        return RegistrySchema(
+            id=schema_id,
+            subject=selected.subject,
+            version=selected.version,
+            type=schema_type,
+        )
 
 
 class AvroDeserializer(Deserializer):
@@ -197,7 +343,7 @@ class AvroDeserializer(Deserializer):
             raise DeserializationError("Avro schema file not found")
 
         payload = self._payload(data)
-        return avro_to_py(schema_path, payload)
+        return _deserialize_avro(avro_to_py, schema_path, payload)
 
     def _payload(self, data: bytes) -> bytes:
         if self.framing == "raw":

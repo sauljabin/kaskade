@@ -4,6 +4,7 @@ import struct
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 from confluent_kafka.serialization import MessageField
@@ -66,6 +67,12 @@ class TestDeserializer(unittest.TestCase):
         self.assertEqual(str(value), header.value_deserialized())
         deserializer.deserialize.assert_called_once_with(value)
 
+    def test_header_falls_back_for_malformed_integer(self):
+        value = b"586"
+        header = Header(value=value, value_deserializer=IntegerDeserializer())
+
+        self.assertEqual(str(value), header.value_deserialized())
+
     def test_record_caches_successful_deserialization(self):
         key_deserializer = MagicMock()
         key_deserializer.deserialize.return_value = "customer-1"
@@ -86,13 +93,54 @@ class TestDeserializer(unittest.TestCase):
         key_deserializer.deserialize.assert_called_once()
         value_deserializer.deserialize.assert_called_once()
 
-    def test_record_propagates_unexpected_deserialization_errors(self):
-        deserializer = MagicMock()
-        deserializer.deserialize.side_effect = RuntimeError("unexpected")
-        record = Record(key=b"payload", key_deserializer=deserializer)
+    def test_record_boolean_strings_use_json_literals(self):
+        deserializer = BooleanDeserializer()
+        record = Record(
+            key=struct.pack(">?", False),
+            value=struct.pack(">?", True),
+            key_deserializer=deserializer,
+            value_deserializer=deserializer,
+        )
 
-        with self.assertRaisesRegex(RuntimeError, "unexpected"):
-            record.key_str()
+        self.assertEqual("false", record.key_str())
+        self.assertEqual("true", record.value_str())
+        self.assertIs(record.dict()["key"]["content"], False)
+        self.assertIs(record.dict()["value"]["content"], True)
+
+    def test_record_propagates_unexpected_deserialization_errors(self):
+        for exception in (RuntimeError("unexpected"), IndexError("unexpected")):
+            deserializer = MagicMock()
+            deserializer.deserialize.side_effect = exception
+            record = Record(key=b"payload", key_deserializer=deserializer)
+
+            with (
+                self.subTest(exception=type(exception).__name__),
+                self.assertRaisesRegex(type(exception), "unexpected"),
+            ):
+                record.key_str()
+
+    def test_record_falls_back_for_malformed_integer(self):
+        record = Record(
+            topic="integer",
+            key=b"586",
+            key_deserialization=Deserialization.INTEGER,
+            key_deserializer=IntegerDeserializer(),
+        )
+
+        self.assertEqual(
+            {
+                "content": "b'586'",
+                "deserializer": {
+                    "type": "INTEGER",
+                    "schema": None,
+                    "error": {
+                        "message": "unpack requires a buffer of 4 bytes",
+                        "fallback": "BYTES",
+                    },
+                },
+            },
+            record.dict()["key"],
+        )
 
     def test_header_propagates_unexpected_errors(self):
         deserializer = MagicMock()
@@ -117,6 +165,24 @@ class TestDeserializer(unittest.TestCase):
         result = deserializer.deserialize(struct.pack(">i", expected_value))
 
         self.assertEqual(expected_value, result)
+
+    def test_fixed_width_deserializers_normalize_invalid_payload_size(self):
+        deserializers = (
+            BooleanDeserializer(),
+            IntegerDeserializer(),
+            LongDeserializer(),
+            FloatDeserializer(),
+            DoubleDeserializer(),
+        )
+
+        for deserializer in deserializers:
+            with (
+                self.subTest(deserializer=type(deserializer).__name__),
+                self.assertRaisesRegex(DeserializationError, "unpack requires") as raised,
+            ):
+                deserializer.deserialize(b"586")
+
+            self.assertIsInstance(raised.exception.__cause__, struct.error)
 
     def test_default_deserialization(self):
         expected_value = os.urandom(10)
@@ -193,6 +259,22 @@ class TestDeserializer(unittest.TestCase):
         self.assertEqual(expected_value, result)
 
     @patch("kaskade.deserializers.SchemaRegistryClient")
+    def test_registry_avro_normalizes_corrupt_payload_error(self, mock_sr_client_class):
+        schema = mock_sr_client_class.return_value.get_schema.return_value
+        schema.schema_str = file_to_str(AVRO_PATH)
+        schema.schema_type = "AVRO"
+        deserializer = RegistryDeserializer({})
+
+        with self.assertRaises(DeserializationError) as raised:
+            deserializer.deserialize(
+                b"\x00\x00\x00\x00\x00\xff",
+                "orders",
+                MessageField.VALUE,
+            )
+
+        self.assertIsInstance(raised.exception.__cause__, IndexError)
+
+    @patch("kaskade.deserializers.SchemaRegistryClient")
     def test_registry_deserialization_json(self, mock_sr_client_class):
         expected_value = {"name": "Pedro Pascal"}
         expected_json = json.dumps(expected_value)
@@ -207,6 +289,95 @@ class TestDeserializer(unittest.TestCase):
         )
 
         self.assertEqual(expected_value, result)
+
+    @patch("kaskade.deserializers.SchemaRegistryClient")
+    def test_registry_metadata_uses_a_unique_registration_and_caches_it(self, mock_sr_client_class):
+        registry_client = mock_sr_client_class.return_value
+        registry_client.get_schema.return_value.schema_type = "JSON"
+        registry_client.get_schema_versions.return_value = [
+            SimpleNamespace(subject="orders-key", version=2)
+        ]
+        deserializer = RegistryDeserializer({})
+        deserializer.json_deserializer = MagicMock(return_value={"id": "order-1049"})
+        payload = b"\x00\x00\x00\x00\x0c{}"
+
+        first = deserializer.deserialize_with_metadata(payload, "orders", MessageField.KEY)
+        second = deserializer.deserialize_with_metadata(payload, "orders", MessageField.KEY)
+
+        self.assertEqual({"id": "order-1049"}, first.content)
+        self.assertEqual(first, second)
+        self.assertIsNotNone(first.schema)
+        self.assertEqual(
+            {
+                "id": 12,
+                "subject": "orders-key",
+                "version": 2,
+                "type": "JSON",
+            },
+            first.schema.dict(),
+        )
+        registry_client.get_schema_versions.assert_called_once_with(12)
+
+    @patch("kaskade.deserializers.SchemaRegistryClient")
+    def test_registry_metadata_prefers_the_conventional_field_subject(self, mock_sr_client_class):
+        registry_client = mock_sr_client_class.return_value
+        registry_client.get_schema.return_value.schema_type = "AVRO"
+        registry_client.get_schema_versions.return_value = [
+            SimpleNamespace(subject="shared-order", version=1),
+            SimpleNamespace(subject="orders-value", version=5),
+        ]
+        deserializer = RegistryDeserializer({})
+        deserializer.avro_deserializer = MagicMock(return_value={"status": "shipped"})
+
+        result = deserializer.deserialize_with_metadata(
+            b"\x00\x00\x00\x00\x1bpayload",
+            "orders",
+            MessageField.VALUE,
+        )
+
+        self.assertIsNotNone(result.schema)
+        self.assertEqual("orders-value", result.schema.subject)
+        self.assertEqual(5, result.schema.version)
+
+    @patch("kaskade.deserializers.SchemaRegistryClient")
+    def test_registry_metadata_is_null_when_registrations_are_ambiguous(self, mock_sr_client_class):
+        registry_client = mock_sr_client_class.return_value
+        registry_client.get_schema.return_value.schema_type = "JSON"
+        registry_client.get_schema_versions.return_value = [
+            SimpleNamespace(subject="shared-one", version=1),
+            SimpleNamespace(subject="shared-two", version=2),
+        ]
+        deserializer = RegistryDeserializer({})
+        deserializer.json_deserializer = MagicMock(return_value={"status": "paid"})
+
+        result = deserializer.deserialize_with_metadata(
+            b"\x00\x00\x00\x00\x1b{}",
+            "orders",
+            MessageField.VALUE,
+        )
+
+        self.assertEqual({"status": "paid"}, result.content)
+        self.assertIsNone(result.schema)
+
+    @patch("kaskade.deserializers.SchemaRegistryClient")
+    def test_registry_metadata_lookup_failure_does_not_fail_deserialization(
+        self, mock_sr_client_class
+    ):
+        registry_client = mock_sr_client_class.return_value
+        registry_client.get_schema.return_value.schema_type = "JSON"
+        registry_client.get_schema_versions.side_effect = OSError("registry unavailable")
+        deserializer = RegistryDeserializer({})
+        deserializer.json_deserializer = MagicMock(return_value={"status": "paid"})
+
+        with self.assertLogs("kaskade", level="WARNING"):
+            result = deserializer.deserialize_with_metadata(
+                b"\x00\x00\x00\x00\x1b{}",
+                "orders",
+                MessageField.VALUE,
+            )
+
+        self.assertEqual({"status": "paid"}, result.content)
+        self.assertIsNone(result.schema)
 
     def test_protobuf_deserialization(self):
         deserializer = ProtobufDeserializer({"descriptor": DESCRIPTOR_PATH, "value": "User"})
@@ -235,6 +406,14 @@ class TestDeserializer(unittest.TestCase):
 
         result = deserializer.deserialize(encoded, "", MessageField.VALUE)
         self.assertEqual(expected_value, result)
+
+    def test_avro_normalizes_corrupt_payload_error(self):
+        deserializer = AvroDeserializer({"value": AVRO_PATH})
+
+        with self.assertRaises(DeserializationError) as raised:
+            deserializer.deserialize(b"\xff", "orders", MessageField.VALUE)
+
+        self.assertIsInstance(raised.exception.__cause__, IndexError)
 
     def test_avro_deserialization_with_magic_byte(self):
         expected_value = {"name": "Pedro Pascal"}

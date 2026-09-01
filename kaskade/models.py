@@ -1,10 +1,17 @@
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from enum import Enum, auto
 from typing import Any
 
 from confluent_kafka.serialization import MessageField
 
-from kaskade.deserializers import DESERIALIZATION_EXCEPTIONS, Deserialization, Deserializer
+from kaskade.deserializers import (
+    DESERIALIZATION_EXCEPTIONS,
+    Deserialization,
+    DeserializationResult,
+    Deserializer,
+    RegistrySchema,
+)
 
 _NOT_DESERIALIZED = object()
 
@@ -255,11 +262,15 @@ class Header:
     def value_str(self) -> str:
         return str(self.value_deserialized())
 
+    def dict(self) -> dict[str, Any]:
+        return {"key": self.key, "value": self.value_deserialized()}
+
 
 @dataclass(frozen=True)
 class DeserializationOutcome:
     requested: Deserialization
     content: Any
+    schema: RegistrySchema | None = None
     error: Exception | None = None
 
     @property
@@ -267,16 +278,21 @@ class DeserializationOutcome:
         return self.error is not None
 
     def dict(self) -> dict[str, Any]:
-        result: dict[str, Any] = {
-            "deserializer": self.requested.name,
-            "content": self.content,
+        deserializer: dict[str, Any] = {
+            "type": self.requested.name,
+            "schema": self.schema.dict() if self.schema is not None else None,
         }
         if self.error is not None:
-            result |= {
+            deserializer["error"] = {
+                "message": str(self.error),
                 "fallback": Deserialization.BYTES.name,
-                "error": str(self.error),
             }
-        return result
+        return {"content": self.content, "deserializer": deserializer}
+
+    def content_str(self) -> str:
+        if isinstance(self.content, bool):
+            return str(self.content).lower()
+        return str(self.content)
 
 
 @dataclass(eq=False)
@@ -284,7 +300,7 @@ class Record:
     topic: str = ""
     partition: int = -1
     offset: int = -1
-    timestamp: str = ""
+    timestamp: datetime | None = None
     key: bytes | None = None
     value: bytes | None = None
     headers: list[Header] = field(default_factory=list)
@@ -322,8 +338,8 @@ class Record:
             "topic": self.topic,
             "partition": self.partition,
             "offset": self.offset,
-            "timestamp": self.timestamp,
-            "headers": [(header.key, header.value_deserialized()) for header in self.headers],
+            "timestamp": self.timestamp_json(),
+            "headers": [header.dict() for header in self.headers],
             "key": self.key_outcome().dict(),
             "value": self.value_outcome().dict(),
         }
@@ -362,12 +378,20 @@ class Record:
         if deserializer is None:
             return DeserializationOutcome(requested, str(raw))
         try:
-            return DeserializationOutcome(
-                requested,
-                deserializer.deserialize(raw, self.topic, field),
-            )
+            result = self._deserialize_result(deserializer, raw, field)
+            return DeserializationOutcome(requested, result.content, result.schema)
         except DESERIALIZATION_EXCEPTIONS as ex:
-            return DeserializationOutcome(requested, str(raw), ex)
+            return DeserializationOutcome(requested, str(raw), error=ex)
+
+    def _deserialize_result(
+        self,
+        deserializer: Deserializer,
+        raw: bytes,
+        field: MessageField,
+    ) -> DeserializationResult:
+        if isinstance(deserializer, Deserializer):
+            return deserializer.deserialize_with_metadata(raw, self.topic, field)
+        return DeserializationResult(deserializer.deserialize(raw, self.topic, field))
 
     def resolve_deserializations(self) -> None:
         self.key_outcome()
@@ -383,7 +407,27 @@ class Record:
         return self.value_outcome().content
 
     def key_str(self) -> str:
-        return str(self.key_deserialized())
+        return self.key_outcome().content_str()
 
     def value_str(self) -> str:
-        return str(self.value_deserialized())
+        return self.value_outcome().content_str()
+
+    def timestamp_json(self) -> str | None:
+        timestamp = self._timestamp_utc()
+        if timestamp is None:
+            return None
+        return timestamp.isoformat(timespec="milliseconds").replace("+00:00", "Z")
+
+    def timestamp_str(self) -> str:
+        timestamp = self._timestamp_utc()
+        if timestamp is None:
+            return ""
+        return timestamp.astimezone().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+
+    def _timestamp_utc(self) -> datetime | None:
+        timestamp = self.timestamp
+        if timestamp is None:
+            return None
+        if timestamp.tzinfo is None:
+            timestamp = timestamp.replace(tzinfo=timezone.utc)
+        return timestamp.astimezone(timezone.utc)
