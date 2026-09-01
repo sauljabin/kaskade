@@ -202,6 +202,40 @@ To use Apicurio instead, populate a fresh sandbox with its compatibility API:
 uv run python -m sandbox --registry http://localhost:18082/apis/ccompat/v7
 ```
 
+#### Query registry APIs with HTTPie
+
+After populating the sandbox, use [HTTPie](https://httpie.io/) to inspect the
+registered subjects and schemas. Query Confluent Schema Registry at port
+`18081`:
+
+```bash
+http GET http://localhost:18081/subjects
+http GET http://localhost:18081/subjects/avro-schema-value/versions
+http GET http://localhost:18081/subjects/avro-schema-value/versions/latest
+http GET http://localhost:18081/config
+```
+
+Apicurio exposes the same subject operations through its Confluent-compatible
+API:
+
+```bash
+http GET http://localhost:18082/apis/ccompat/v7/subjects
+http GET http://localhost:18082/apis/ccompat/v7/subjects/avro-schema-value/versions
+http GET http://localhost:18082/apis/ccompat/v7/subjects/avro-schema-value/versions/latest
+http GET http://localhost:18082/apis/ccompat/v7/config
+```
+
+Use Apicurio's native Core Registry API v3 to search its artifacts and versions:
+
+```bash
+http GET http://localhost:18082/apis/registry/v3/search/artifacts
+http GET http://localhost:18082/apis/registry/v3/search/versions
+```
+
+The `avro-schema-value` subject exists after populating the `avro-schema` topic.
+Substitute another name returned by the `/subjects` request when testing a
+different schema-backed topic.
+
 To populate an Amazon MSK cluster that uses IAM authentication, run the tool from
 a network with access to the brokers and pass the IAM bootstrap servers and AWS
 region. AWS credentials use the standard provider chain:
