@@ -42,6 +42,7 @@ dev = [
     "actionlint-py",
     "black",
     "faker",
+    "jsonschema",
     "mypy",
     "pre-commit",
     "ruff",

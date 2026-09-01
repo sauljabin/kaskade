@@ -1,0 +1,711 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/sauljabin/kaskade/main/schemas/consumer-record.schema.json",
+  "title": "Kaskade Consumer Record",
+  "description": "The versionless JSON contract shared by record details, clipboard copies, and exports.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "topic",
+    "partition",
+    "offset",
+    "timestamp",
+    "headers",
+    "key",
+    "value"
+  ],
+  "properties": {
+    "topic": {
+      "type": "string"
+    },
+    "partition": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "offset": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "timestamp": {
+      "oneOf": [
+        {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}Z$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "headers": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/header"
+      }
+    },
+    "key": {
+      "$ref": "#/$defs/deserializedField"
+    },
+    "value": {
+      "$ref": "#/$defs/deserializedField"
+    }
+  },
+  "$defs": {
+    "deserializerType": {
+      "enum": [
+        "BYTES",
+        "BOOLEAN",
+        "STRING",
+        "LONG",
+        "INTEGER",
+        "DOUBLE",
+        "FLOAT",
+        "JSON",
+        "AVRO",
+        "PROTOBUF",
+        "REGISTRY"
+      ]
+    },
+    "nonBytesDeserializerType": {
+      "enum": [
+        "BOOLEAN",
+        "STRING",
+        "LONG",
+        "INTEGER",
+        "DOUBLE",
+        "FLOAT",
+        "JSON",
+        "AVRO",
+        "PROTOBUF"
+      ]
+    },
+    "bytesFormat": {
+      "enum": [
+        "BASE64",
+        "HEX",
+        "BYTE_ARRAY",
+        "PYTHON"
+      ]
+    },
+    "base64Content": {
+      "type": "string",
+      "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$"
+    },
+    "hexContent": {
+      "type": "string",
+      "pattern": "^(?:[0-9a-f]{2})*$"
+    },
+    "byteArrayContent": {
+      "type": "array",
+      "items": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 255
+      }
+    },
+    "pythonContent": {
+      "type": "string",
+      "pattern": "^b(?:'.*'|\".*\")$"
+    },
+    "encodedBytes": {
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "$ref": "#/$defs/byteArrayContent"
+        }
+      ]
+    },
+    "schemaMetadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "subject",
+        "version",
+        "type"
+      ],
+      "properties": {
+        "id": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "subject": {
+          "type": "string",
+          "minLength": 1
+        },
+        "version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "type": {
+          "enum": [
+            "AVRO",
+            "JSON"
+          ]
+        }
+      }
+    },
+    "bytesDeserializer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "format"
+      ],
+      "properties": {
+        "type": {
+          "const": "BYTES"
+        },
+        "format": {
+          "$ref": "#/$defs/bytesFormat"
+        }
+      }
+    },
+    "errorMetadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "message",
+        "deserializer"
+      ],
+      "properties": {
+        "message": {
+          "type": "string"
+        },
+        "deserializer": {
+          "$ref": "#/$defs/bytesDeserializer"
+        }
+      }
+    },
+    "errorDeserializer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "error"
+      ],
+      "properties": {
+        "type": {
+          "$ref": "#/$defs/deserializerType"
+        },
+        "error": {
+          "$ref": "#/$defs/errorMetadata"
+        }
+      }
+    },
+    "nullDeserializer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "type": {
+          "$ref": "#/$defs/deserializerType"
+        }
+      }
+    },
+    "nonBytesDeserializer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "type": {
+          "$ref": "#/$defs/nonBytesDeserializerType"
+        }
+      }
+    },
+    "registryDeserializer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type"
+      ],
+      "properties": {
+        "type": {
+          "const": "REGISTRY"
+        },
+        "schema": {
+          "$ref": "#/$defs/schemaMetadata"
+        }
+      }
+    },
+    "deserializedField": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "content",
+        "deserializer"
+      ],
+      "properties": {
+        "content": {},
+        "deserializer": {}
+      },
+      "oneOf": [
+        {
+          "properties": {
+            "content": {
+              "type": "null"
+            },
+            "deserializer": {
+              "$ref": "#/$defs/nullDeserializer"
+            }
+          }
+        },
+        {
+          "properties": {
+            "content": {
+              "$ref": "#/$defs/encodedBytes"
+            },
+            "deserializer": {
+              "$ref": "#/$defs/bytesDeserializer"
+            }
+          }
+        },
+        {
+          "properties": {
+            "content": {
+              "not": {
+                "type": "null"
+              }
+            },
+            "deserializer": {
+              "$ref": "#/$defs/nonBytesDeserializer"
+            }
+          }
+        },
+        {
+          "properties": {
+            "content": {
+              "not": {
+                "type": "null"
+              }
+            },
+            "deserializer": {
+              "$ref": "#/$defs/registryDeserializer"
+            }
+          }
+        },
+        {
+          "properties": {
+            "content": {
+              "$ref": "#/$defs/encodedBytes"
+            },
+            "deserializer": {
+              "$ref": "#/$defs/errorDeserializer"
+            }
+          }
+        }
+      ],
+      "allOf": [
+        {
+          "$ref": "#/$defs/successfulBytesFormatRules"
+        },
+        {
+          "$ref": "#/$defs/errorBytesFormatRules"
+        }
+      ]
+    },
+    "successfulBytesFormatRules": {
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "deserializer": {
+                "required": [
+                  "type",
+                  "format"
+                ],
+                "properties": {
+                  "type": {
+                    "const": "BYTES"
+                  },
+                  "format": {
+                    "const": "BASE64"
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "content": {
+                "$ref": "#/$defs/base64Content"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "deserializer": {
+                "required": [
+                  "type",
+                  "format"
+                ],
+                "properties": {
+                  "type": {
+                    "const": "BYTES"
+                  },
+                  "format": {
+                    "const": "HEX"
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "content": {
+                "$ref": "#/$defs/hexContent"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "deserializer": {
+                "required": [
+                  "type",
+                  "format"
+                ],
+                "properties": {
+                  "type": {
+                    "const": "BYTES"
+                  },
+                  "format": {
+                    "const": "BYTE_ARRAY"
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "content": {
+                "$ref": "#/$defs/byteArrayContent"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "deserializer": {
+                "required": [
+                  "type",
+                  "format"
+                ],
+                "properties": {
+                  "type": {
+                    "const": "BYTES"
+                  },
+                  "format": {
+                    "const": "PYTHON"
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "content": {
+                "$ref": "#/$defs/pythonContent"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "errorBytesFormatRules": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/errorBase64Rule"
+        },
+        {
+          "$ref": "#/$defs/errorHexRule"
+        },
+        {
+          "$ref": "#/$defs/errorByteArrayRule"
+        },
+        {
+          "$ref": "#/$defs/errorPythonRule"
+        }
+      ]
+    },
+    "errorBase64Rule": {
+      "if": {
+        "$ref": "#/$defs/errorFormatBase64Condition"
+      },
+      "then": {
+        "properties": {
+          "content": {
+            "$ref": "#/$defs/base64Content"
+          }
+        }
+      }
+    },
+    "errorHexRule": {
+      "if": {
+        "$ref": "#/$defs/errorFormatHexCondition"
+      },
+      "then": {
+        "properties": {
+          "content": {
+            "$ref": "#/$defs/hexContent"
+          }
+        }
+      }
+    },
+    "errorByteArrayRule": {
+      "if": {
+        "$ref": "#/$defs/errorFormatByteArrayCondition"
+      },
+      "then": {
+        "properties": {
+          "content": {
+            "$ref": "#/$defs/byteArrayContent"
+          }
+        }
+      }
+    },
+    "errorPythonRule": {
+      "if": {
+        "$ref": "#/$defs/errorFormatPythonCondition"
+      },
+      "then": {
+        "properties": {
+          "content": {
+            "$ref": "#/$defs/pythonContent"
+          }
+        }
+      }
+    },
+    "errorFormatBase64Condition": {
+      "$ref": "#/$defs/errorFormatConditionBase",
+      "properties": {
+        "deserializer": {
+          "properties": {
+            "error": {
+              "properties": {
+                "deserializer": {
+                  "properties": {
+                    "format": {
+                      "const": "BASE64"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "errorFormatHexCondition": {
+      "$ref": "#/$defs/errorFormatConditionBase",
+      "properties": {
+        "deserializer": {
+          "properties": {
+            "error": {
+              "properties": {
+                "deserializer": {
+                  "properties": {
+                    "format": {
+                      "const": "HEX"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "errorFormatByteArrayCondition": {
+      "$ref": "#/$defs/errorFormatConditionBase",
+      "properties": {
+        "deserializer": {
+          "properties": {
+            "error": {
+              "properties": {
+                "deserializer": {
+                  "properties": {
+                    "format": {
+                      "const": "BYTE_ARRAY"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "errorFormatPythonCondition": {
+      "$ref": "#/$defs/errorFormatConditionBase",
+      "properties": {
+        "deserializer": {
+          "properties": {
+            "error": {
+              "properties": {
+                "deserializer": {
+                  "properties": {
+                    "format": {
+                      "const": "PYTHON"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "errorFormatConditionBase": {
+      "required": [
+        "deserializer"
+      ],
+      "properties": {
+        "deserializer": {
+          "required": [
+            "error"
+          ],
+          "properties": {
+            "error": {
+              "required": [
+                "deserializer"
+              ],
+              "properties": {
+                "deserializer": {
+                  "required": [
+                    "format"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "header": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "key",
+        "value"
+      ],
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "value": {},
+        "deserializer": {}
+      },
+      "oneOf": [
+        {
+          "properties": {
+            "value": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "not": {
+            "required": [
+              "deserializer"
+            ]
+          }
+        },
+        {
+          "required": [
+            "deserializer"
+          ],
+          "properties": {
+            "value": {
+              "$ref": "#/$defs/encodedBytes"
+            },
+            "deserializer": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "type",
+                "error"
+              ],
+              "properties": {
+                "type": {
+                  "const": "STRING"
+                },
+                "error": {
+                  "$ref": "#/$defs/errorMetadata"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "allOf": [
+        {
+          "$ref": "#/$defs/errorBytesFormatRulesForHeader"
+        }
+      ]
+    },
+    "errorBytesFormatRulesForHeader": {
+      "allOf": [
+        {
+          "if": {
+            "$ref": "#/$defs/errorFormatBase64Condition"
+          },
+          "then": {
+            "properties": {
+              "value": {
+                "$ref": "#/$defs/base64Content"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "$ref": "#/$defs/errorFormatHexCondition"
+          },
+          "then": {
+            "properties": {
+              "value": {
+                "$ref": "#/$defs/hexContent"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "$ref": "#/$defs/errorFormatByteArrayCondition"
+          },
+          "then": {
+            "properties": {
+              "value": {
+                "$ref": "#/$defs/byteArrayContent"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "$ref": "#/$defs/errorFormatPythonCondition"
+          },
+          "then": {
+            "properties": {
+              "value": {
+                "$ref": "#/$defs/pythonContent"
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

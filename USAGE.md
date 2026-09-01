@@ -195,6 +195,10 @@ Help or Commands.
 Record details, clipboard copies, and exports share the same JSON structure. Primitive and
 plain JSON deserializers omit Registry schema metadata:
 
+The machine-readable contract is available as
+[`schemas/consumer-record.schema.json`](schemas/consumer-record.schema.json). It uses JSON
+Schema Draft 2020-12 and intentionally has no separate contract-version property.
+
 ```json
 {
   "topic": "orders",

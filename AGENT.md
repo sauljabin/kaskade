@@ -95,7 +95,9 @@ requiring newer functionality.
 - Keep consumed-record JSON consistent across details, copy, and export. Represent
   headers as ordered `key`/`value` objects, nest `type`, optional Registry `schema`,
   and error-deserializer metadata under `deserializer`, and keep Registry metadata
-  resolution best-effort and cached per schema, topic, and field.
+  resolution best-effort and cached per schema, topic, and field. Keep
+  `schemas/consumer-record.schema.json`, its examples, and conformance tests synchronized
+  with this versionless contract.
 - Represent encoded bytes directly in `content` and put `format` on the BYTES
   deserializer that produced them. Apply the configured global byte format to
   keys, values, header errors, and deserialization errors, with field-scoped
