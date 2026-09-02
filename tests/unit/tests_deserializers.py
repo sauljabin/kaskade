@@ -41,6 +41,13 @@ from kaskade.record_export import record_json
 from kaskade.utils import py_to_avro
 from tests import faker
 
+
+def apicurio_type_ref(name: str) -> bytes:
+    encoded = name.encode()
+    message = b"\x0a" + bytes([len(encoded)]) + encoded
+    return bytes([len(message)]) + message
+
+
 AVRO_SCHEMA = {
     "name": "User",
     "type": "record",
@@ -379,6 +386,15 @@ class TestDeserializer(unittest.TestCase):
 
         self.assertEqual(expected_value, result)
 
+    def test_json_deserialization_with_apicurio_framing(self):
+        expected_value = {"name": "Jonathan Rivers"}
+        deserializer = JsonDeserializer({"framing": "apicurio"})
+        payload = json.dumps(expected_value).encode("utf-8")
+
+        result = deserializer.deserialize(struct.pack(">bI", 0, 42) + payload)
+
+        self.assertEqual(expected_value, result)
+
     def test_json_raw_framing_does_not_infer_confluent_header(self):
         payload = b"\x00\x00\x00\x00\x01{}"
 
@@ -686,6 +702,25 @@ class TestDeserializer(unittest.TestCase):
         )
         self.assertEqual({"name": user.name}, result)
 
+    def test_protobuf_deserialization_with_apicurio_framing(self):
+        deserializer = ProtobufDeserializer(
+            {
+                "descriptor": self.descriptor_path,
+                "value": "User",
+                "framing": "apicurio",
+            }
+        )
+        user = User(name="my name")
+        payload = apicurio_type_ref("User") + user.SerializeToString()
+
+        result = deserializer.deserialize(
+            struct.pack(">bI", 0, 42) + payload,
+            "orders",
+            MessageField.VALUE,
+        )
+
+        self.assertEqual({"name": user.name}, result)
+
     def test_protobuf_raw_framing_does_not_infer_confluent_header(self):
         user = User(name="my name")
         payload = b"\x00\x00\x00\x00\x01\x00" + user.SerializeToString()
@@ -741,6 +776,19 @@ class TestDeserializer(unittest.TestCase):
         encoded = py_to_avro(self.avro_path, expected_value)
 
         result = deserializer.deserialize(b"\x00\x00\x00\x00\x00" + encoded, "", MessageField.VALUE)
+
+        self.assertEqual(expected_value, result)
+
+    def test_avro_deserialization_with_apicurio_framing(self):
+        expected_value = {"name": "Jonathan Rivers"}
+        deserializer = AvroDeserializer({"value": self.avro_path, "framing": "apicurio"})
+        encoded = py_to_avro(self.avro_path, expected_value)
+
+        result = deserializer.deserialize(
+            struct.pack(">bI", 0, 42) + encoded,
+            "orders",
+            MessageField.VALUE,
+        )
 
         self.assertEqual(expected_value, result)
 

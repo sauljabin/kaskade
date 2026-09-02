@@ -57,7 +57,7 @@ and Schema Registry containers through Testcontainers. Docker must be running;
 the first run may pull the required images. Registry coverage creates separate
 JSON Schema, Avro, and Protobuf topics and consumes each through the Registry
 deserializer, then consumes the same records through the corresponding local
-deserializers with `framing=confluent`:
+deserializers with `framing=confluent` or `framing=apicurio`:
 
 ```bash
 uv run --locked python -m scripts.tests --e2e
@@ -378,6 +378,13 @@ uv run kaskade consumer -b localhost:19092 --earliest -k string -v json -t json-
         --json framing=confluent
 ```
 
+Test an Apicurio-produced payload without querying the registry:
+
+```bash
+uv run kaskade consumer -b localhost:19092 --earliest -k string -v json \
+        -t json-schema-apicurio --json framing=apicurio
+```
+
 #### Schema Registry consumers
 
 Test a JSON Schema payload through Confluent Schema Registry:
@@ -423,7 +430,7 @@ Test the native Apicurio Avro payload:
 ```bash
 uv run kaskade consumer -b localhost:19092 --earliest -t avro-schema-apicurio \
         -k string -v registry \
-        --registry provider=APICURIO \
+        --registry provider=apicurio \
         --registry apicurio.registry.url=http://localhost:18082/apis/registry/v3
 ```
 

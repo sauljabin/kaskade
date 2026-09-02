@@ -14,9 +14,6 @@ from google.protobuf.descriptor_pool import DescriptorPool
 from google.protobuf.message_factory import GetMessageClass
 
 from kaskade.apicurio import (
-    APICURIO_ARTIFACT_GROUP_ID,
-    APICURIO_ARTIFACT_ID,
-    APICURIO_ARTIFACT_VERSION,
     APICURIO_CHECK_PERIOD,
     APICURIO_CLIENT_ID,
     APICURIO_CLIENT_SECRET,
@@ -39,7 +36,7 @@ from kaskade.apicurio import (
     ApicurioReference,
     ApicurioRegistryError,
 )
-from kaskade.configs import APICURIO
+from kaskade.configs import APICURIO, APICURIO_OPTION
 from kaskade.deserializers import (
     ApicurioRegistryDeserializer,
     ConfluentRegistryDeserializer,
@@ -49,7 +46,10 @@ from kaskade.deserializers import (
 
 
 def apicurio_config(**overrides: str) -> dict[str, str]:
-    return {"provider": APICURIO, APICURIO_URL: "http://registry/apis/registry/v3"} | overrides
+    return {
+        "provider": APICURIO_OPTION,
+        APICURIO_URL: "http://registry/apis/registry/v3",
+    } | overrides
 
 
 def apicurio_frame(artifact_id: int, payload: bytes) -> bytes:
@@ -80,21 +80,6 @@ class TestApicurioConfig(unittest.TestCase):
         self.assertEqual(30000, config.check_period_ms)
         self.assertEqual(3, config.retry_count)
         self.assertEqual(300, config.retry_backoff_ms)
-
-    def test_accepts_explicit_artifact_metadata_hints(self) -> None:
-        config = ApicurioConfig.from_dict(
-            apicurio_config(
-                **{
-                    APICURIO_ARTIFACT_GROUP_ID: "orders",
-                    APICURIO_ARTIFACT_ID: "orders-value",
-                    APICURIO_ARTIFACT_VERSION: "2",
-                }
-            )
-        )
-
-        self.assertEqual("orders", config.artifact_group_id)
-        self.assertEqual("orders-value", config.artifact_id)
-        self.assertEqual("2", config.artifact_version)
 
     def test_accepts_basic_authentication_and_proxy(self) -> None:
         config = ApicurioConfig.from_dict(
@@ -166,61 +151,6 @@ class TestApicurioConfig(unittest.TestCase):
 
 class TestApicurioClient(unittest.TestCase):
     @patch("kaskade.apicurio.httpx.Client")
-    def test_uses_explicit_artifact_hints_for_metadata(self, client_class: MagicMock) -> None:
-        metadata_response = MagicMock(status_code=200)
-        metadata_response.json.return_value = {
-            "groupId": "orders",
-            "artifactId": "orders-value",
-            "version": "2",
-            "artifactType": "JSON",
-            "contentId": 7,
-        }
-        client_class.return_value.request.return_value = metadata_response
-        client = ApicurioClient(
-            apicurio_config(
-                **{
-                    APICURIO_ARTIFACT_GROUP_ID: "orders",
-                    APICURIO_ARTIFACT_ID: "orders-value",
-                    APICURIO_ARTIFACT_VERSION: "2",
-                }
-            )
-        )
-
-        metadata = client.get_metadata(7)
-
-        self.assertEqual("JSON", metadata[0]["artifactType"])
-        client_class.return_value.request.assert_called_once_with(
-            "GET",
-            "/groups/orders/artifacts/orders-value/versions/2",
-            headers={},
-        )
-
-    @patch("kaskade.apicurio.httpx.Client")
-    def test_explicit_artifact_defaults_to_latest_branch(self, client_class: MagicMock) -> None:
-        metadata_response = MagicMock(status_code=200)
-        metadata_response.json.return_value = {
-            "artifactId": "orders-value",
-            "version": "1",
-            "contentId": 7,
-        }
-        client_class.return_value.request.return_value = metadata_response
-        client = ApicurioClient(
-            apicurio_config(
-                **{
-                    APICURIO_ARTIFACT_GROUP_ID: "orders",
-                    APICURIO_ARTIFACT_ID: "orders-value",
-                }
-            )
-        )
-
-        client.get_metadata(7)
-
-        self.assertEqual(
-            "/groups/orders/artifacts/orders-value/versions/branch=latest",
-            client_class.return_value.request.call_args.args[1],
-        )
-
-    @patch("kaskade.apicurio.httpx.Client")
     def test_fetches_artifact_references_metadata_and_caches(self, client_class: MagicMock) -> None:
         content_response = MagicMock(
             text='{"type":"record","name":"User","fields":[]}',
@@ -274,6 +204,25 @@ class TestApicurioClient(unittest.TestCase):
             ],
             client_class.return_value.request.call_args_list,
         )
+
+    @patch("kaskade.apicurio.httpx.Client")
+    def test_infers_json_schema_when_gateway_omits_artifact_type(
+        self, client_class: MagicMock
+    ) -> None:
+        content_response = MagicMock(
+            text='{"$schema":"http://json-schema.org/draft-07/schema#","type":"object"}',
+            headers={"Content-Type": "application/json"},
+            status_code=200,
+        )
+        references_response = MagicMock(status_code=200)
+        references_response.json.return_value = []
+        client_class.return_value.request.side_effect = [content_response, references_response]
+        client = ApicurioClient(apicurio_config())
+
+        artifact = client.get_artifact(7)
+
+        self.assertEqual("JSON", artifact.type)
+        self.assertEqual(2, client_class.return_value.request.call_count)
 
     @patch("kaskade.apicurio.httpx.Client")
     def test_oauth_token_is_lazy_cached_and_refreshed_once_after_401(
@@ -407,6 +356,8 @@ class TestApicurioDeserializer(unittest.TestCase):
             self.assertIsInstance(confluent._backend, ConfluentRegistryDeserializer)
         apicurio = RegistryDeserializer(apicurio_config())
         self.assertIsInstance(apicurio._backend, ApicurioRegistryDeserializer)
+        uppercase = RegistryDeserializer(apicurio_config() | {"provider": APICURIO})
+        self.assertIsInstance(uppercase._backend, ApicurioRegistryDeserializer)
         with self.assertRaisesRegex(DeserializationError, "Unsupported registry provider"):
             RegistryDeserializer({"provider": "OTHER"})
 

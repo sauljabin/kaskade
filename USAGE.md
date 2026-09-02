@@ -399,8 +399,9 @@ kaskade consumer -b my-kafka:9092 -t my-avro-topic \
         --registry url=http://my-schema-registry:8081
 ```
 
-`provider` defaults to `CONFLUENT`. Confluent client properties retain their
-existing names and are forwarded unchanged.
+`provider` accepts `confluent` or `apicurio` case-insensitively and defaults to
+`confluent`. Confluent client properties retain their existing names and are
+forwarded unchanged.
 
 With Confluent Schema Registry, the Registry deserializer detects Avro, JSON
 Schema, and Protobuf from each record's schema ID. Protobuf messages are resolved
@@ -433,14 +434,14 @@ Schema Registry client validates property names, values, and required settings.
 
 #### Apicurio Registry
 
-Use `provider=APICURIO` to select the native Apicurio Registry v3 API. Kaskade
-accepts the corresponding official `apicurio.registry.*` serializer/deserializer properties;
+Use `provider=apicurio` to select the native Apicurio Registry v3 API. Kaskade
+accepts the applicable official `apicurio.registry.*` deserializer properties;
 it does not infer a provider from those names or accept generic aliases:
 
 ```bash
 kaskade consumer -b my-kafka:9092 -t my-avro-topic \
         -k registry -v registry \
-        --registry provider=APICURIO \
+        --registry provider=apicurio \
         --registry apicurio.registry.url=http://my-apicurio-registry:8081/apis/registry/v3 \
         --registry apicurio.registry.use-id=contentId
 ```
@@ -450,7 +451,7 @@ OAuth client credentials use Apicurio names as well:
 ```bash
 kaskade consumer -b my-kafka:9092 -t my-avro-topic \
         -k registry -v registry \
-        --registry provider=APICURIO \
+        --registry provider=apicurio \
         --registry apicurio.registry.url=${APICURIO_REGISTRY_URL} \
         --registry apicurio.registry.auth.service.token.endpoint=${OAUTH_TOKEN_URL} \
         --registry apicurio.registry.auth.client.id=${OAUTH_CLIENT_ID} \
@@ -458,15 +459,14 @@ kaskade consumer -b my-kafka:9092 -t my-avro-topic \
 ```
 
 The native client also accepts Apicurio's Basic authentication, retry, cache,
-proxy, and PEM TLS properties. Explicit `apicurio.registry.artifact.group-id`,
-`apicurio.registry.artifact.artifact-id`, and `apicurio.registry.artifact.version`
-values are accepted as metadata-selection hints for shared producer/consumer
-configurations. JKS and PKCS12 stores, header-based IDs, custom ID handlers, and
-legacy eight-byte framing are not supported. See the
+proxy, and PEM TLS properties. Serializer-only properties, including artifact
+selection and auto-registration settings, are rejected. JKS and PKCS12 stores,
+header-based IDs, custom ID handlers, and legacy eight-byte framing are not
+supported. See the
 [Apicurio Registry client configuration reference](https://www.apicur.io/registry/docs/apicurio-registry/3.3.x/getting-started/assembly-configuring-kafka-client-serdes.html).
 
 To use Apicurio's Confluent-compatible endpoint instead, leave the provider as
-`CONFLUENT` and configure the existing Confluent `url` property:
+`confluent` and configure the existing Confluent `url` property:
 
 ```bash
 --registry url=http://my-apicurio-registry:8081/apis/ccompat/v7
@@ -519,7 +519,7 @@ region = us-east-1
 
 The `[kafka]` section contains `confluent-kafka` properties. The `[registry]`
 section contains Confluent client properties by default or native Apicurio
-properties when `provider=APICURIO`. Kaskade UI, admin, and keymap settings remain in
+properties when `provider=apicurio`. Kaskade UI, admin, and keymap settings remain in
 `settings.yaml` as documented above. Both commands require a non-empty
 `bootstrap.servers` after Kafka properties are merged. It can come from
 `--config-file`, an inline property, or the dedicated option:
@@ -755,11 +755,15 @@ docker run --rm -it --network my-network sauljabin/kaskade:latest \
 
 ## Format-specific consumers
 
-Local JSON, Avro, and Protobuf deserializers use raw framing by default. Their
-repeatable options accept `framing`, `key.framing`, and `value.framing`. The
-scoped property overrides the global property, allowing key and value framing
-to differ. Framing is explicit; these deserializers do not infer it from payload
-bytes. The Registry deserializer always uses Confluent framing.
+The `--key` and `--value` format names are case-insensitive and normalize to the
+lowercase choices shown in CLI help.
+
+Local JSON, Avro, and Protobuf deserializers use `raw` framing by default. Their
+repeatable options accept `framing`, `key.framing`, and `value.framing`, with
+case-insensitive values `raw`, `apicurio`, or `confluent`. The scoped property
+overrides the global property, allowing key and value framing to differ. Framing
+is explicit; these deserializers do not infer it from payload bytes. The Registry
+deserializer selects framing from its configured provider.
 
 ### JSON consumer
 
@@ -779,6 +783,15 @@ kaskade consumer -b my-kafka:9092 -t my-json-topic \
         --json value.framing=confluent
 ```
 
+For an Apicurio-produced JSON payload, use the corresponding framing without
+querying the registry:
+
+```bash
+kaskade consumer -b my-kafka:9092 -t my-json-topic \
+        -k string -v json \
+        --json value.framing=apicurio
+```
+
 ### Avro consumer
 
 Consume using a `my-schema.avsc` schema file:
@@ -793,6 +806,7 @@ kaskade consumer -b my-kafka:9092 --earliest \
 For records produced with Confluent's five-byte framing, add
 `--avro value.framing=confluent`. Use the unscoped
 `--avro framing=confluent` when every selected Avro field has the same framing.
+Use `apicurio` instead for records produced by Apicurio serializers.
 
 ### Protobuf consumer
 
@@ -831,6 +845,10 @@ kaskade consumer -b my-kafka:9092 -t my-protobuf-topic \
         --protobuf value=mypackage.MyMessage \
         --protobuf value.framing=confluent
 ```
+
+Use `--protobuf value.framing=apicurio` for Apicurio-produced Protobuf. It
+removes both the registry ID envelope and Apicurio's message-type reference
+before decoding with the local descriptor.
 
 See the
 [Protocol Buffers documentation](https://protobuf.dev/programming-guides/techniques/#self-description)

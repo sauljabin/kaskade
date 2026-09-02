@@ -31,7 +31,13 @@ from testcontainers.core.wait_strategies import HttpWaitStrategy
 from textual.widgets import DataTable
 
 from kaskade.admin import KaskadeAdmin
-from kaskade.configs import APICURIO, AUTO_OFFSET_RESET, BOOTSTRAP_SERVERS, EARLIEST
+from kaskade.configs import (
+    APICURIO,
+    APICURIO_OPTION,
+    AUTO_OFFSET_RESET,
+    BOOTSTRAP_SERVERS,
+    EARLIEST,
+)
 from kaskade.consumer import KaskadeConsumer, ListRecords
 from kaskade.deserializers import Deserialization
 from kaskade.models import PartitionOffset, PartitionSelection
@@ -386,7 +392,7 @@ class TestE2E(unittest.IsolatedAsyncioTestCase):
             cases = (
                 (
                     JSON_TOPIC,
-                    apicurio_frame(json_id, apicurio_type_ref("User") + b'{"name":"Ada"}'),
+                    apicurio_frame(json_id, b'{"name":"Ada"}'),
                 ),
                 (AVRO_TOPIC, apicurio_frame(avro_id, avro_payload.getvalue())),
                 (
@@ -404,7 +410,7 @@ class TestE2E(unittest.IsolatedAsyncioTestCase):
             producer.flush()
 
             registry_config = {
-                "provider": APICURIO,
+                "provider": APICURIO_OPTION,
                 "apicurio.registry.url": registry_url,
             }
             for topic, _ in cases:
@@ -416,6 +422,49 @@ class TestE2E(unittest.IsolatedAsyncioTestCase):
                         registry_config=registry_config,
                         expected_registry_provider=APICURIO,
                     )
+
+            with tempfile.TemporaryDirectory() as directory:
+                avro_path = Path(directory) / "user.avsc"
+                avro_path.write_text(AVRO_SCHEMA, encoding="utf-8")
+                descriptor_path = Path(directory) / "user.desc"
+                descriptor_set = FileDescriptorSet(file=[PROTOBUF_DESCRIPTOR])
+                descriptor_path.write_bytes(descriptor_set.SerializeToString())
+                local_cases = (
+                    (
+                        JSON_TOPIC,
+                        Deserialization.JSON,
+                        {"json_config": {"framing": "apicurio"}},
+                    ),
+                    (
+                        AVRO_TOPIC,
+                        Deserialization.AVRO,
+                        {
+                            "avro_config": {
+                                "value": str(avro_path),
+                                "framing": "apicurio",
+                            }
+                        },
+                    ),
+                    (
+                        PROTOBUF_TOPIC,
+                        Deserialization.PROTOBUF,
+                        {
+                            "protobuf_config": {
+                                "descriptor": str(descriptor_path),
+                                "value": "User",
+                                "framing": "apicurio",
+                            }
+                        },
+                    ),
+                )
+                for topic, deserialization, configs in local_cases:
+                    with self.subTest(topic=topic, framing="apicurio"):
+                        await self.assert_consumed_user(
+                            topic,
+                            kafka_config,
+                            deserialization,
+                            **configs,
+                        )
 
 
 if __name__ == "__main__":

@@ -304,11 +304,7 @@ class Populator:
         self.populate(
             APICURIO_JSON_TOPIC,
             partial(fake_user, User, faker),
-            lambda value: (
-                apicurio_frame(
-                    schema_id, apicurio_type_ref("User") + json.dumps(vars(value)).encode()
-                )
-            ),
+            lambda value: apicurio_frame(schema_id, json.dumps(vars(value)).encode()),
             total_messages,
         )
 

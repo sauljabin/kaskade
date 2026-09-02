@@ -14,14 +14,14 @@ from kaskade.apicurio import APICURIO_PREFIX, ApicurioConfig, ApicurioRegistryEr
 from kaskade.authentication import configure_aws_msk_iam
 from kaskade.cli_utils import tuple_properties_to_dict, validate_aws_config
 from kaskade.configs import (
-    APICURIO,
+    APICURIO_OPTION,
     AUTO_OFFSET_RESET,
     AVRO_DESERIALIZER_CONFIGS,
     AWS_CONFIGS,
     BOOTSTRAP_SERVERS,
     BYTES_DESERIALIZER_CONFIGS,
     BYTES_ENCODINGS,
-    CONFLUENT,
+    CONFLUENT_OPTION,
     DESERIALIZER_FRAMINGS,
     EARLIEST,
     FALLBACK_CONFIGS,
@@ -76,17 +76,20 @@ THEME_HELP = (
 AVRO_CONFIG_HELP = (
     "Avro deserializer property. Repeatable; required when the key or value format is "
     f"avro. Properties: {', '.join(AVRO_DESERIALIZER_CONFIGS)}. Framing: "
-    f"{', '.join(DESERIALIZER_FRAMINGS)}; scoped framing overrides the global value."
+    f"{', '.join(DESERIALIZER_FRAMINGS)} (case-insensitive); scoped framing overrides "
+    "the global value."
 )
 PROTOBUF_CONFIG_HELP = (
     "Protobuf deserializer property. Repeatable; required when the key or value format "
     f"is protobuf. Properties: {', '.join(PROTOBUF_DESERIALIZER_CONFIGS)}. Framing: "
-    f"{', '.join(DESERIALIZER_FRAMINGS)}; scoped framing overrides the global value."
+    f"{', '.join(DESERIALIZER_FRAMINGS)} (case-insensitive); scoped framing overrides "
+    "the global value."
 )
 JSON_CONFIG_HELP = (
     "JSON deserializer property. Repeatable. "
     f"Properties: {', '.join(JSON_DESERIALIZER_CONFIGS)}. Framing: "
-    f"{', '.join(DESERIALIZER_FRAMINGS)}; scoped framing overrides the global value."
+    f"{', '.join(DESERIALIZER_FRAMINGS)} (case-insensitive); scoped framing overrides "
+    "the global value."
 )
 BYTES_CONFIG_HELP = (
     "Byte presentation property for keys and values using the BYTES deserializer. "
@@ -100,8 +103,9 @@ FALLBACK_CONFIG_HELP = (
 )
 REGISTRY_CONFIG_HELP = (
     "Registry provider or client property. Repeatable; overrides matching properties from "
-    f"--config-file. provider defaults to {CONFLUENT}; use provider={APICURIO} with official "
-    "apicurio.registry.* properties for the native API."
+    f"--config-file. provider choices: {', '.join(REGISTRY_PROVIDERS)} (case-insensitive); "
+    f"defaults to {CONFLUENT_OPTION}. Use provider={APICURIO_OPTION} with supported official "
+    "Apicurio deserializer properties."
 )
 CliDecoratorTarget = TypeVar("CliDecoratorTarget", bound=Callable[..., Any])
 
@@ -358,7 +362,7 @@ def admin(
         "--key",
         "key_deserialization",
         type=cloup.Choice(Deserialization.str_list(), False),
-        help="Key deserializer.",
+        help="Key deserializer (case-insensitive).",
         default=str(Deserialization.BYTES),
         show_default=True,
         callback=string_to_deserializer_type,
@@ -368,7 +372,7 @@ def admin(
         "--value",
         "value_deserialization",
         type=cloup.Choice(Deserialization.str_list(), False),
-        help="Value deserializer.",
+        help="Value deserializer (case-insensitive).",
         default=str(Deserialization.BYTES),
         show_default=True,
         callback=string_to_deserializer_type,
@@ -720,22 +724,22 @@ def validate_schema_registry_usage(
 def validate_registry_config(registry_config: dict[str, str]) -> None:
     if not registry_config:
         return
-    provider_value = registry_config.get("provider", CONFLUENT)
-    provider = provider_value.upper()
+    provider_value = registry_config.get("provider", CONFLUENT_OPTION)
+    provider = provider_value.lower()
     if provider not in REGISTRY_PROVIDERS:
         raise BadParameter(
-            message=f"Registry provider must be {CONFLUENT} or {APICURIO}.",
+            message=f"Registry provider should be one of {REGISTRY_PROVIDERS}.",
             param_hint="'--registry provider'",
         )
     if "provider" in registry_config:
         registry_config["provider"] = provider
     apicurio_properties = [key for key in registry_config if key.startswith(APICURIO_PREFIX)]
-    if provider == CONFLUENT and apicurio_properties:
+    if provider == CONFLUENT_OPTION and apicurio_properties:
         raise BadParameter(
-            message=f"apicurio.registry.* properties require provider={APICURIO}.",
+            message=f"apicurio.registry.* properties require provider={APICURIO_OPTION}.",
             param_hint="'--registry'",
         )
-    if provider == APICURIO:
+    if provider == APICURIO_OPTION:
         try:
             ApicurioConfig.from_dict(registry_config)
         except (ApicurioRegistryError, OSError, ValueError) as ex:

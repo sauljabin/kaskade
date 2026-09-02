@@ -45,7 +45,7 @@ Bring Kafka along for the terminal ride. Kaskade gives you a stylish, keyboard-f
 
 - Deserialize keys and values as bytes, primitives, JSON, Avro, or Protobuf,
   including Confluent Schema Registry and native Apicurio Registry v3 without generated classes
-- Select raw or Confluent framing independently for local key and value deserializers
+- Select raw, Apicurio, or Confluent framing independently for local key and value deserializers
 - Filter records by key, value, header, or partition
 - Start from the earliest offsets or explicit partition/offset selections
 - Preserve malformed keys, values, and headers with BYTES fallback metadata

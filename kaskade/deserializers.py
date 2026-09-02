@@ -40,8 +40,6 @@ from referencing.jsonschema import DRAFT202012
 
 from kaskade import logger
 from kaskade.apicurio import (
-    APICURIO_ARTIFACT_GROUP_ID,
-    APICURIO_ARTIFACT_ID,
     APICURIO_CACHE_CAPACITY,
     ApicurioArtifact,
     ApicurioClient,
@@ -49,7 +47,10 @@ from kaskade.apicurio import (
 )
 from kaskade.configs import (
     APICURIO,
+    APICURIO_OPTION,
     CONFLUENT,
+    CONFLUENT_OPTION,
+    REGISTRY_PROVIDERS,
     SCHEMA_REGISTRY_HEADER_SIZE,
     SCHEMA_REGISTRY_MAGIC_BYTE,
 )
@@ -574,8 +575,6 @@ class ApicurioRegistryDeserializer(Deserializer):
 
     def __init__(self, registry_config: dict[str, str]):
         self.registry_client = ApicurioClient(registry_config)
-        self._artifact_group_id = registry_config.get(APICURIO_ARTIFACT_GROUP_ID)
-        self._artifact_id = registry_config.get(APICURIO_ARTIFACT_ID)
         self._protobuf_descriptor_cache: OrderedDict[
             tuple[str, int], tuple[FileDescriptorProto, DescriptorPool]
         ] = OrderedDict()
@@ -873,18 +872,7 @@ class ApicurioRegistryDeserializer(Deserializer):
             conventional = [
                 value for value in candidates if value.get("artifactId") == conventional_artifact
             ]
-            hinted = [
-                value
-                for value in candidates
-                if (
-                    self._artifact_group_id is None
-                    or value.get("groupId") == self._artifact_group_id
-                )
-                and (self._artifact_id is None or value.get("artifactId") == self._artifact_id)
-            ]
-            selected = hinted[0] if len(hinted) == 1 else None
-            if selected is None and len(conventional) == 1:
-                selected = conventional[0]
+            selected = conventional[0] if len(conventional) == 1 else None
             if selected is None and len(candidates) == 1:
                 selected = candidates[0]
             result = None
@@ -915,13 +903,15 @@ class RegistryDeserializer(Deserializer):
     _backend: Deserializer
 
     def __init__(self, registry_config: dict[str, str]):
-        provider = registry_config.get("provider", CONFLUENT).upper()
-        if provider == CONFLUENT:
+        provider = registry_config.get("provider", CONFLUENT_OPTION).lower()
+        if provider == CONFLUENT_OPTION:
             backend: Deserializer = ConfluentRegistryDeserializer(registry_config)
-        elif provider == APICURIO:
+        elif provider == APICURIO_OPTION:
             backend = ApicurioRegistryDeserializer(registry_config)
         else:
-            raise DeserializationError(f"Unsupported registry provider: {provider}")
+            raise DeserializationError(
+                f"Unsupported registry provider: {provider}; expected one of {REGISTRY_PROVIDERS}"
+            )
         object.__setattr__(self, "_backend", backend)
 
     def __getattr__(self, name: str) -> Any:
@@ -990,13 +980,18 @@ class ProtobufDeserializer(Deserializer):
             raise DeserializationError("Topic name needed")
         message_class = self._message_class(context)
         framing = _scoped_property(self.config, "framing", context, "raw")
-        if framing == "confluent":
+        if framing == CONFLUENT_OPTION:
             return self._deserialize_confluent(data, topic, context, message_class)
-        if framing != "raw":
+        if framing == APICURIO_OPTION:
+            payload = _payload(data, self.config, context, "Protobuf")
+            _, payload = ApicurioRegistryDeserializer._type_ref(payload)
+        elif framing == "raw":
+            payload = data
+        else:
             raise DeserializationError(f"Unsupported Protobuf framing: {framing}")
 
         new_message = message_class()
-        new_message.ParseFromString(data)
+        new_message.ParseFromString(payload)
         return MessageToDict(new_message, always_print_fields_with_no_presence=True)
 
     def _message_class(self, context: MessageField) -> type[Message]:
@@ -1095,7 +1090,7 @@ class DeserializerPool:
         return deserializer
 
 
-def _has_confluent_header(data: bytes) -> bool:
+def _has_registry_header(data: bytes) -> bool:
     if len(data) <= SCHEMA_REGISTRY_HEADER_SIZE:
         return False
     magic = int(unpack(">bI", data[:SCHEMA_REGISTRY_HEADER_SIZE])[0])
@@ -1124,8 +1119,10 @@ def _payload(
     framing = _scoped_property(config, "framing", context, "raw")
     if framing == "raw":
         return data
-    if framing == "confluent" and _has_confluent_header(data):
+    if framing in REGISTRY_PROVIDERS and _has_registry_header(data):
         return data[SCHEMA_REGISTRY_HEADER_SIZE:]
-    if framing == "confluent":
-        raise DeserializationError(f"Confluent {deserializer_name} framing header not found")
+    if framing in REGISTRY_PROVIDERS:
+        raise DeserializationError(
+            f"{framing.title()} {deserializer_name} framing header not found"
+        )
     raise DeserializationError(f"Unsupported {deserializer_name} framing: {framing}")
