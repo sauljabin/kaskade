@@ -32,6 +32,8 @@
   `$XDG_CONFIG_HOME/kaskade/config.yaml`, then
   `~/.config/kaskade/config.yaml`. Ignore invalid entries, retain valid ones,
   warn in-app, and keep `examples/config.yaml` current when bindings change.
+- Logs use `$XDG_STATE_HOME/kaskade/kaskade.log`, falling back to
+  `~/.local/state/kaskade/kaskade.log`, and rotate at 5 MiB with three backups.
 - `--aws region=<region>` enables Amazon MSK IAM in admin, consumer, and sandbox
   population. Validate repeatable `--aws property=value` settings before client
   construction. Do not raise the `aws-msk-iam-sasl-signer-python>=1.0` baseline
