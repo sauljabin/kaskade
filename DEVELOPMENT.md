@@ -56,7 +56,8 @@ E2E test modules live in `tests/e2e` and run against disposable Confluent Kafka
 and Schema Registry containers through Testcontainers. Docker must be running;
 the first run may pull the required images. Registry coverage creates separate
 JSON Schema, Avro, and Protobuf topics and consumes each through the Registry
-deserializer:
+deserializer, then consumes the same records through the corresponding local
+deserializers with `framing=confluent`:
 
 ```bash
 uv run --locked python -m scripts.tests --e2e
