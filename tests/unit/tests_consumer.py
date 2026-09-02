@@ -5,7 +5,7 @@ import unittest
 from datetime import datetime, timezone
 from io import StringIO
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, call, patch
 
 from confluent_kafka.serialization import MessageField
 from rich.text import Text
@@ -630,16 +630,24 @@ class TestRecordDetailsNavigation(unittest.IsolatedAsyncioTestCase):
             self.assertTrue(details.check_action("next_record", ()))
 
             record_json_widget = details.query_one(".record-json")
-            with patch.object(
-                record_json_widget,
-                "update",
-                wraps=record_json_widget.update,
-            ) as update_record_json:
+            with (
+                patch.object(
+                    record_json_widget,
+                    "update",
+                    wraps=record_json_widget.update,
+                ) as update_record_json,
+                patch.object(
+                    table,
+                    "refresh",
+                    wraps=table.refresh,
+                ) as refresh_table,
+            ):
                 await pilot.press("n", "n")
             self.assertIs(details, app.screen)
             self.assertIs(consumed_records[2], details.record)
             self.assertEqual(2, details.data["offset"])
             self.assertEqual(2, table.cursor_row)
+            self.assertIn(call(), refresh_table.call_args_list)
             self.assertIs(consumed_records[2], app.query_one(ListRecords).current_record)
             rendered_record = update_record_json.call_args.args[0]
             self.assertEqual(

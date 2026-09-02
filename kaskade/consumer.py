@@ -521,7 +521,12 @@ class ListRecords(Container):
                 row = tuple(self.records).index(record_id)
             except ValueError:
                 return
-            self.query_one(RecordDataTable).move_cursor(row=row)
+            table = self.query_one(RecordDataTable)
+            table.move_cursor(row=row)
+            # DataTable normally repaints only the old and new row. When a modal
+            # covers the middle of the table, Textual can leave an exposed segment
+            # of the old row highlighted, so invalidate the complete table.
+            table.refresh()
 
         try:
             self.app.push_screen(
