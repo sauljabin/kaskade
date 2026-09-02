@@ -84,7 +84,7 @@
         "BASE64",
         "HEX",
         "BYTE_ARRAY",
-        "PYTHON"
+        "ESCAPED"
       ]
     },
     "base64Content": {
@@ -103,9 +103,9 @@
         "maximum": 255
       }
     },
-    "pythonContent": {
+    "escapedContent": {
       "type": "string",
-      "pattern": "^b(?:'.*'|\".*\")$"
+      "pattern": "^(?:[\\x20-\\x5b\\x5d-\\x7e]|\\\\\\\\|\\\\x[0-9a-f]{2})*$"
     },
     "encodedBytes": {
       "oneOf": [
@@ -419,7 +419,7 @@
                     "const": "BYTES"
                   },
                   "encoding": {
-                    "const": "PYTHON"
+                    "const": "ESCAPED"
                   }
                 }
               }
@@ -428,7 +428,7 @@
           "then": {
             "properties": {
               "content": {
-                "$ref": "#/$defs/pythonContent"
+                "$ref": "#/$defs/escapedContent"
               }
             }
           }
@@ -447,7 +447,7 @@
           "$ref": "#/$defs/errorByteArrayRule"
         },
         {
-          "$ref": "#/$defs/errorPythonRule"
+          "$ref": "#/$defs/errorEscapedRule"
         }
       ]
     },
@@ -487,14 +487,14 @@
         }
       }
     },
-    "errorPythonRule": {
+    "errorEscapedRule": {
       "if": {
-        "$ref": "#/$defs/errorEncodingPythonCondition"
+        "$ref": "#/$defs/errorEncodingEscapedCondition"
       },
       "then": {
         "properties": {
           "content": {
-            "$ref": "#/$defs/pythonContent"
+            "$ref": "#/$defs/escapedContent"
           }
         }
       }
@@ -547,7 +547,7 @@
         }
       }
     },
-    "errorEncodingPythonCondition": {
+    "errorEncodingEscapedCondition": {
       "$ref": "#/$defs/errorEncodingConditionBase",
       "properties": {
         "error": {
@@ -555,7 +555,7 @@
             "fallback": {
               "properties": {
                 "encoding": {
-                  "const": "PYTHON"
+                  "const": "ESCAPED"
                 }
               }
             }
@@ -674,12 +674,12 @@
         },
         {
           "if": {
-            "$ref": "#/$defs/errorEncodingPythonCondition"
+            "$ref": "#/$defs/errorEncodingEscapedCondition"
           },
           "then": {
             "properties": {
               "value": {
-                "$ref": "#/$defs/pythonContent"
+                "$ref": "#/$defs/escapedContent"
               }
             }
           }

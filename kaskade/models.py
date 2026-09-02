@@ -18,6 +18,18 @@ from kaskade.deserializers import (
 _NOT_DESERIALIZED = object()
 
 
+def escaped_bytes(data: bytes) -> str:
+    escaped: list[str] = []
+    for byte in data:
+        if 0x20 <= byte <= 0x7E and byte != ord("\\"):
+            escaped.append(chr(byte))
+        elif byte == ord("\\"):
+            escaped.append("\\\\")
+        else:
+            escaped.append(f"\\x{byte:02x}")
+    return "".join(escaped)
+
+
 def bytes_data(data: bytes, bytes_encoding: BytesEncoding) -> str | list[int]:
     match bytes_encoding:
         case BytesEncoding.BASE64:
@@ -26,8 +38,8 @@ def bytes_data(data: bytes, bytes_encoding: BytesEncoding) -> str | list[int]:
             return data.hex()
         case BytesEncoding.BYTE_ARRAY:
             return list(data)
-        case BytesEncoding.PYTHON:
-            return str(data)
+        case BytesEncoding.ESCAPED:
+            return escaped_bytes(data)
 
 
 def content_str(content: Any, bytes_encoding: BytesEncoding) -> str:

@@ -1021,7 +1021,7 @@ class TestConsumerCli(unittest.TestCase):
 
         self.assertGreater(result.exit_code, 0)
         self.assertIn(
-            "Bytes encoding should be one of ['base64', 'hex', 'byte-array', 'python']",
+            "Bytes encoding should be one of ['base64', 'hex', 'byte-array', 'escaped']",
             result.output,
         )
 
@@ -1041,7 +1041,7 @@ class TestConsumerCli(unittest.TestCase):
 
         self.assertGreater(result.exit_code, 0)
         self.assertIn(
-            "Fallback encoding should be one of ['base64', 'hex', 'byte-array', 'python']",
+            "Fallback encoding should be one of ['base64', 'hex', 'byte-array', 'escaped']",
             result.output,
         )
 
