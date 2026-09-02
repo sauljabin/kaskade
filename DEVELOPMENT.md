@@ -52,8 +52,11 @@ Unit test modules live in `tests/unit`:
 uv run --locked python -m scripts.tests
 ```
 
-E2E test modules live in `tests/e2e` and run against Confluent Kafka through
-Testcontainers:
+E2E test modules live in `tests/e2e` and run against disposable Confluent Kafka
+and Schema Registry containers through Testcontainers. Docker must be running;
+the first run may pull the required images. Registry coverage creates separate
+JSON Schema, Avro, and Protobuf topics and consumes each through the Registry
+deserializer:
 
 ```bash
 uv run --locked python -m scripts.tests --e2e

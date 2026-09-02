@@ -1,10 +1,23 @@
 import asyncio
+import json
 import unittest
 
 from confluent_kafka import Producer
 from confluent_kafka.admin import AdminClient
 from confluent_kafka.cimpl import NewTopic
+from confluent_kafka.schema_registry import SchemaRegistryClient
+from confluent_kafka.schema_registry.avro import AvroSerializer
+from confluent_kafka.schema_registry.json_schema import JSONSerializer
+from confluent_kafka.schema_registry.protobuf import ProtobufSerializer
+from confluent_kafka.serialization import MessageField, SerializationContext
+from google.protobuf.descriptor_pb2 import FieldDescriptorProto, FileDescriptorProto
+from google.protobuf.descriptor_pool import DescriptorPool
+from google.protobuf.message import Message
+from google.protobuf.message_factory import GetMessageClass
 from testcontainers.community.kafka import KafkaContainer
+from testcontainers.core.container import DockerContainer
+from testcontainers.core.network import Network
+from testcontainers.core.wait_strategies import HttpWaitStrategy
 from textual.widgets import DataTable
 
 from kaskade.admin import KaskadeAdmin
@@ -19,16 +32,73 @@ MY_TOPIC = "my-topic"
 
 
 KAFKA_IMAGE = "confluentinc/cp-kafka:8.1.0"
+SCHEMA_REGISTRY_IMAGE = "confluentinc/cp-schema-registry:8.1.0"
+SCHEMA_REGISTRY_PORT = 8081
+JSON_TOPIC = "json-schema"
+AVRO_TOPIC = "avro-schema"
+PROTOBUF_TOPIC = "protobuf-schema"
+AVRO_SCHEMA = json.dumps(
+    {
+        "type": "record",
+        "name": "User",
+        "fields": [{"name": "name", "type": "string"}],
+    }
+)
+JSON_SCHEMA = json.dumps(
+    {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "title": "User",
+        "type": "object",
+        "properties": {"name": {"type": "string"}},
+        "required": ["name"],
+    }
+)
 
 
 def kafka_container() -> KafkaContainer:
     return KafkaContainer(KAFKA_IMAGE).with_kraft()
 
 
-def create_topic(config, partitions: int = 1):
+def schema_registry_container(network: Network) -> DockerContainer:
+    wait_strategy = HttpWaitStrategy(SCHEMA_REGISTRY_PORT, "/subjects")
+    wait_strategy.with_startup_timeout(60)
+    return (
+        DockerContainer(SCHEMA_REGISTRY_IMAGE)
+        .with_network(network)
+        .with_network_aliases("schema-registry")
+        .with_exposed_ports(SCHEMA_REGISTRY_PORT)
+        .with_env("SCHEMA_REGISTRY_HOST_NAME", "schema-registry")
+        .with_env("SCHEMA_REGISTRY_LISTENERS", f"http://0.0.0.0:{SCHEMA_REGISTRY_PORT}")
+        .with_env("SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS", "PLAINTEXT://kafka:9092")
+        .with_env("SCHEMA_REGISTRY_KAFKASTORE_TOPIC_REPLICATION_FACTOR", "1")
+        .waiting_for(wait_strategy)
+    )
+
+
+def schema_registry_url(container: DockerContainer) -> str:
+    host = container.get_container_host_ip()
+    port = container.get_exposed_port(SCHEMA_REGISTRY_PORT)
+    return f"http://{host}:{port}"
+
+
+def protobuf_user_class() -> type[Message]:
+    descriptor = FileDescriptorProto(name="user.proto", syntax="proto3")
+    user = descriptor.message_type.add(name="User")
+    user.field.add(
+        name="name",
+        number=1,
+        label=FieldDescriptorProto.LABEL_OPTIONAL,
+        type=FieldDescriptorProto.TYPE_STRING,
+    )
+    pool = DescriptorPool()
+    pool.Add(descriptor)
+    return GetMessageClass(pool.FindMessageTypeByName("User"))
+
+
+def create_topic(config, topic: str = MY_TOPIC, partitions: int = 1):
     admin_client = AdminClient(config)
     futures = admin_client.create_topics(
-        [NewTopic(MY_TOPIC, num_partitions=partitions, replication_factor=1)]
+        [NewTopic(topic, num_partitions=partitions, replication_factor=1)]
     ).values()
     for future in futures:
         future.result()
@@ -110,6 +180,53 @@ class TestE2E(unittest.IsolatedAsyncioTestCase):
                 selected_row = table.get_row("1/0")
                 self.assertEqual("selected", selected_row[0])
                 self.assertEqual("partition-1", selected_row[1])
+
+    async def test_consumer_deserializes_all_schema_registry_formats(self):
+        with Network() as network:
+            kafka_container_instance = (
+                kafka_container().with_network(network).with_network_aliases("kafka")
+            )
+            with (
+                kafka_container_instance as kafka,
+                schema_registry_container(network) as registry,
+            ):
+                kafka_config = {BOOTSTRAP_SERVERS: kafka.get_bootstrap_server()}
+                registry_config = {"url": schema_registry_url(registry)}
+                registry_client = SchemaRegistryClient(registry_config)
+                protobuf_class = protobuf_user_class()
+                cases = (
+                    (JSON_TOPIC, JSONSerializer(JSON_SCHEMA, registry_client), {"name": "Ada"}),
+                    (AVRO_TOPIC, AvroSerializer(registry_client, AVRO_SCHEMA), {"name": "Ada"}),
+                    (
+                        PROTOBUF_TOPIC,
+                        ProtobufSerializer(protobuf_class, registry_client),
+                        protobuf_class(name="Ada"),
+                    ),
+                )
+                producer = Producer(kafka_config)
+                for topic, serializer, value in cases:
+                    create_topic(kafka_config, topic)
+                    context = SerializationContext(topic, MessageField.VALUE)
+                    producer.produce(topic, key=MY_KEY, value=serializer(value, context))
+                producer.flush()
+
+                for topic, _, _ in cases:
+                    with self.subTest(topic=topic):
+                        consumer_app = KaskadeConsumer(
+                            topic,
+                            kafka_config | {AUTO_OFFSET_RESET: EARLIEST},
+                            registry_config,
+                            {},
+                            {},
+                            Deserialization.STRING,
+                            Deserialization.REGISTRY,
+                        )
+                        async with consumer_app.run_test():
+                            table = consumer_app.query_one(DataTable)
+                            await self.wait_for_rows(table, 1)
+                            first_row = table.get_row("0/0")
+                            self.assertEqual(MY_KEY, first_row[0])
+                            self.assertEqual("{'name': 'Ada'}", first_row[1])
 
 
 if __name__ == "__main__":
