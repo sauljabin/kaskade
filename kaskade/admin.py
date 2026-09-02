@@ -1213,7 +1213,7 @@ class KaskadeAdmin(KaskadeApp):
         super().__init__()
         self.kafka_config = kafka_config
         self.auto_refresh_interval = (
-            self.keymap_settings.admin_refresh_interval_seconds
+            self.settings.admin_refresh_interval_seconds
             if refresh_interval is None
             else refresh_interval
         )

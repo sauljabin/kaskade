@@ -28,13 +28,13 @@ from kaskade.configs import (
 )
 from kaskade.consumer import KaskadeConsumer
 from kaskade.deserializers import Deserialization
-from kaskade.keymaps import (
-    MIN_ADMIN_REFRESH_INTERVAL_SECONDS,
-    is_valid_admin_refresh_interval,
-)
 from kaskade.logs import configure_logging
 from kaskade.models import PartitionOffset, PartitionSelection
 from kaskade.services import PartitionSelectionError
+from kaskade.settings import (
+    MIN_ADMIN_REFRESH_INTERVAL_SECONDS,
+    is_valid_admin_refresh_interval,
+)
 from kaskade.themes import available_theme_names
 from kaskade.utils import load_ini
 

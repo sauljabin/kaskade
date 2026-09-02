@@ -36,6 +36,8 @@
   `$XDG_CONFIG_HOME/kaskade/settings.yaml`, then
   `~/.config/kaskade/settings.yaml`. Ignore invalid entries, retain valid ones,
   warn in-app, and keep `examples/settings.yaml` current when settings change.
+- Keep settings loading in `settings.py`, key binding parsing in `keymaps.py`,
+  and supported-theme resolution in `themes.py`.
 - The theme precedence is `--theme`, then `settings.yaml`, then `eva01`. Accept
   Textual built-in theme names and Kaskade's custom theme name.
 - Logs use `$XDG_STATE_HOME/kaskade/kaskade.log`, falling back to

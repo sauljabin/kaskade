@@ -23,32 +23,24 @@ from kaskade.consumer import (
 )
 from kaskade.help import HelpableModalScreen, HelpScreen
 from kaskade.keymaps import (
-    DEFAULT_THEME,
     KNOWN_BINDING_IDS,
-    SETTINGS_ENV_VAR,
-    AppSettings,
-    KeymapSettings,
-    default_settings_path,
-    load_keymap,
-    load_settings,
 )
 from kaskade.models import Topic
-from kaskade.themes import KaskadeApp
+from kaskade.settings import SETTINGS_ENV_VAR, default_settings_path, load_settings
+from kaskade.themes import DEFAULT_THEME, KaskadeApp
 from kaskade.widgets import KaskadeOptionList, KaskadeScrollableContainer, StretchyDataTable
 from tests import configure_admin_service
 
 
-class TestKeymapConfiguration(unittest.TestCase):
-    def test_preserves_original_settings_names_as_aliases(self):
+class TestSettingsConfiguration(unittest.TestCase):
+    def test_loads_settings(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
             path = Path(temporary_directory) / "settings.yaml"
             path.write_text("admin:\n  refresh_interval_seconds: 10\n", encoding="utf-8")
 
             settings = load_settings(path)
-            compatibility_settings = load_keymap(path)
 
-        self.assertIs(AppSettings, KeymapSettings)
-        self.assertEqual(settings, compatibility_settings)
+        self.assertEqual(10, settings.admin_refresh_interval_seconds)
 
     def test_every_kaskade_binding_id_is_configurable(self):
         binding_owners = (
@@ -106,16 +98,16 @@ class TestKeymapConfiguration(unittest.TestCase):
     def test_missing_and_empty_files_use_defaults(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
             directory = Path(temporary_directory)
-            missing = load_keymap(directory / "missing.yaml")
+            missing = load_settings(directory / "missing.yaml")
             empty_path = directory / "empty.yaml"
             empty_path.write_text("", encoding="utf-8")
-            empty = load_keymap(empty_path)
+            empty = load_settings(empty_path)
 
         self.assertEqual({}, missing.keymap)
-        self.assertEqual(DEFAULT_THEME, missing.theme)
+        self.assertIsNone(missing.theme)
         self.assertEqual((), missing.warnings)
         self.assertEqual({}, empty.keymap)
-        self.assertEqual(DEFAULT_THEME, empty.theme)
+        self.assertIsNone(empty.theme)
         self.assertEqual((), empty.warnings)
 
     def test_loads_theme(self):
@@ -128,20 +120,20 @@ class TestKeymapConfiguration(unittest.TestCase):
         self.assertEqual("dracula", settings.theme)
         self.assertEqual((), settings.warnings)
 
-    def test_invalid_theme_uses_default_without_discarding_other_settings(self):
+    def test_invalid_theme_value_is_ignored_without_discarding_other_settings(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
             path = Path(temporary_directory) / "settings.yaml"
             path.write_text(
-                "theme: unknown\nadmin:\n  refresh_interval_seconds: 10\n",
+                "theme: []\nadmin:\n  refresh_interval_seconds: 10\n",
                 encoding="utf-8",
             )
 
             settings = load_settings(path)
 
-        self.assertEqual(DEFAULT_THEME, settings.theme)
+        self.assertIsNone(settings.theme)
         self.assertEqual(10, settings.admin_refresh_interval_seconds)
         self.assertEqual(1, len(settings.warnings))
-        self.assertIn("unknown theme", settings.warnings[0])
+        self.assertIn("non-empty string", settings.warnings[0])
 
     def test_loads_valid_binding_overrides(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
@@ -155,7 +147,7 @@ class TestKeymapConfiguration(unittest.TestCase):
                 encoding="utf-8",
             )
 
-            settings = load_keymap(path)
+            settings = load_settings(path)
 
         self.assertEqual(
             {
@@ -175,7 +167,7 @@ class TestKeymapConfiguration(unittest.TestCase):
                 encoding="utf-8",
             )
 
-            settings = load_keymap(path)
+            settings = load_settings(path)
 
         self.assertEqual(10, settings.admin_refresh_interval_seconds)
         self.assertEqual((), settings.warnings)
@@ -188,7 +180,7 @@ class TestKeymapConfiguration(unittest.TestCase):
                 encoding="utf-8",
             )
 
-            settings = load_keymap(path)
+            settings = load_settings(path)
 
         self.assertEqual(0, settings.admin_refresh_interval_seconds)
 
@@ -204,7 +196,7 @@ keymap:
                 encoding="utf-8",
             )
 
-            settings = load_keymap(path)
+            settings = load_settings(path)
 
         self.assertEqual(30, settings.admin_refresh_interval_seconds)
         self.assertEqual({"app.quit": "x"}, settings.keymap)
@@ -223,7 +215,7 @@ keymap:
                 encoding="utf-8",
             )
 
-            settings = load_keymap(path)
+            settings = load_settings(path)
 
         self.assertEqual({"app.quit": "x"}, settings.keymap)
         self.assertEqual(3, len(settings.warnings))
@@ -241,9 +233,9 @@ keymap:
             invalid_keymap_path = directory / "invalid-keymap.yaml"
             invalid_keymap_path.write_text("keymap: []\n", encoding="utf-8")
 
-            malformed = load_keymap(malformed_path)
-            list_document = load_keymap(list_path)
-            invalid_keymap = load_keymap(invalid_keymap_path)
+            malformed = load_settings(malformed_path)
+            list_document = load_settings(list_path)
+            invalid_keymap = load_settings(invalid_keymap_path)
 
         self.assertEqual({}, malformed.keymap)
         self.assertEqual(1, len(malformed.warnings))
@@ -262,6 +254,16 @@ class TestConfiguredKeymap(unittest.IsolatedAsyncioTestCase):
             app = KaskadeApp(settings_path=path)
 
         self.assertEqual("dracula", app.theme)
+
+    async def test_app_ignores_unknown_configured_theme(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            path = Path(temporary_directory) / "settings.yaml"
+            path.write_text("theme: unknown\n", encoding="utf-8")
+
+            app = KaskadeApp(settings_path=path)
+
+        self.assertEqual(DEFAULT_THEME, app.theme)
+        self.assertTrue(any("unknown theme" in warning for warning in app.settings.warnings))
 
     async def test_app_applies_configured_keymap(self):
         with tempfile.TemporaryDirectory() as temporary_directory:

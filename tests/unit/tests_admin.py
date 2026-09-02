@@ -20,9 +20,9 @@ from kaskade.admin import (
 )
 from kaskade.commands import CreateTopicCommand, UpdateTopicCommand
 from kaskade.configs import MIN_INSYNC_REPLICAS_CONFIG
-from kaskade.keymaps import SETTINGS_ENV_VAR
 from kaskade.models import MetricState, Partition, Topic, TopicConfiguration
 from kaskade.services import EnrichmentResult, GroupSnapshot
+from kaskade.settings import SETTINGS_ENV_VAR
 from kaskade.widgets import TableFrame
 from tests import configure_admin_service
 
