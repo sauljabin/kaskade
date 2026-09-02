@@ -162,7 +162,7 @@ class TestApicurioClient(unittest.TestCase):
         metadata_response = MagicMock(status_code=200)
         metadata_response.json.return_value = {
             "count": 1,
-            "artifacts": [{"groupId": "default", "artifactId": "users-value", "version": "1"}],
+            "versions": [{"artifactId": "users-value", "version": "1"}],
         }
         client_class.return_value.request.side_effect = [
             content_response,
@@ -481,9 +481,7 @@ class TestApicurioDeserializer(unittest.TestCase):
 
     def test_returns_apicurio_metadata_with_provider_discriminator(self) -> None:
         self.client.get_artifact.return_value = ApicurioArtifact(42, "CONTENT_ID", "{}", "JSON", ())
-        self.client.get_metadata.return_value = [
-            {"groupId": "default", "artifactId": "orders-value", "version": "1"}
-        ]
+        self.client.get_metadata.return_value = [{"artifactId": "orders-value", "version": "1"}]
 
         result = self.deserializer.deserialize_with_metadata(
             struct.pack(">I", 42) + b"{}", "orders", MessageField.VALUE

@@ -857,9 +857,7 @@ class ApicurioRegistryDeserializer(Deserializer):
         try:
             registrations = self.registry_client.get_metadata(artifact.id)
             candidates = [
-                value
-                for value in registrations
-                if value.get("groupId") and value.get("artifactId") and value.get("version")
+                value for value in registrations if value.get("artifactId") and value.get("version")
             ]
             conventional_artifact = f"{topic}-{context.name.lower()}"
             conventional = [
@@ -873,7 +871,7 @@ class ApicurioRegistryDeserializer(Deserializer):
                 result = ApicurioRegistrySchema(
                     id=artifact.id,
                     id_kind=artifact.id_kind,
-                    group=str(selected["groupId"]),
+                    group=str(selected.get("groupId") or "default"),
                     artifact=str(selected["artifactId"]),
                     version=str(selected["version"]),
                     type=artifact.type,

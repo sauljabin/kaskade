@@ -191,6 +191,7 @@ class TestE2E(unittest.IsolatedAsyncioTestCase):
         protobuf_config: dict[str, str] | None = None,
         avro_config: dict[str, str] | None = None,
         json_config: dict[str, str] | None = None,
+        expected_registry_provider: str | None = None,
     ) -> None:
         consumer_app = KaskadeConsumer(
             topic,
@@ -208,11 +209,19 @@ class TestE2E(unittest.IsolatedAsyncioTestCase):
             first_row = table.get_row("0/0")
             self.assertEqual(MY_KEY, first_row[0])
             records = consumer_app.query_one(ListRecords).records
+            record = next(iter(records.values())) if records else None
             self.assertEqual(
                 "{'name': 'Ada'}",
                 first_row[1],
-                next(iter(records.values())).dict() if records else None,
+                record.dict() if record else None,
             )
+            if expected_registry_provider is not None:
+                assert record is not None
+                schema = record.dict()["value"]["deserializer"].get("schema")
+                self.assertIsNotNone(schema, record.dict())
+                self.assertEqual(expected_registry_provider, schema["provider"])
+                self.assertEqual("default", schema["group"])
+                self.assertEqual(f"{topic}-value", schema["artifact"])
 
     async def test_admin(self):
         with kafka_container() as kafka:
@@ -400,6 +409,7 @@ class TestE2E(unittest.IsolatedAsyncioTestCase):
                         kafka_config,
                         Deserialization.REGISTRY,
                         registry_config=registry_config,
+                        expected_registry_provider=APICURIO,
                     )
 
 
