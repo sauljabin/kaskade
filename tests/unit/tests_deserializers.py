@@ -9,7 +9,11 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 from confluent_kafka.serialization import MessageField
-from google.protobuf.descriptor_pb2 import FieldDescriptorProto, FileDescriptorProto
+from google.protobuf.descriptor_pb2 import (
+    FieldDescriptorProto,
+    FileDescriptorProto,
+    FileDescriptorSet,
+)
 from google.protobuf.descriptor_pool import DescriptorPool
 from google.protobuf.message import DecodeError
 from google.protobuf.message_factory import GetMessageClass
@@ -33,13 +37,25 @@ from kaskade.deserializers import (
 )
 from kaskade.models import Header, Record
 from kaskade.record_export import record_json
-from kaskade.utils import file_to_str, py_to_avro
+from kaskade.utils import py_to_avro
 from tests import faker
-from tests.unit.protobuf_model.user_pb2 import User
 
-UNIT_TESTS_PATH = Path(__file__).resolve().parent
-DESCRIPTOR_PATH = str(UNIT_TESTS_PATH / "protobuf_model" / "user.desc")
-AVRO_PATH = str(UNIT_TESTS_PATH / "avro_model" / "user.avsc")
+AVRO_SCHEMA = {
+    "name": "User",
+    "type": "record",
+    "fields": [{"name": "name", "type": "string"}],
+}
+PROTOBUF_DESCRIPTOR = FileDescriptorProto(name="user.proto", syntax="proto3")
+PROTOBUF_USER_DESCRIPTOR = PROTOBUF_DESCRIPTOR.message_type.add(name="User")
+PROTOBUF_USER_DESCRIPTOR.field.add(
+    name="name",
+    number=1,
+    label=FieldDescriptorProto.LABEL_OPTIONAL,
+    type=FieldDescriptorProto.TYPE_STRING,
+)
+PROTOBUF_POOL = DescriptorPool()
+PROTOBUF_POOL.Add(PROTOBUF_DESCRIPTOR)
+User = GetMessageClass(PROTOBUF_POOL.FindMessageTypeByName("User"))
 
 
 def registry_protobuf_schema(
@@ -54,6 +70,20 @@ def registry_protobuf_schema(
 
 
 class TestDeserializer(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.temp_directory = tempfile.TemporaryDirectory()
+        directory = Path(cls.temp_directory.name)
+        cls.avro_path = str(directory / "user.avsc")
+        Path(cls.avro_path).write_text(json.dumps(AVRO_SCHEMA), encoding="utf-8")
+        cls.descriptor_path = str(directory / "user.desc")
+        descriptor_set = FileDescriptorSet(file=[PROTOBUF_DESCRIPTOR])
+        Path(cls.descriptor_path).write_bytes(descriptor_set.SerializeToString())
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        cls.temp_directory.cleanup()
+
     def test_missing_deserializer_configuration_raises_deserialization_error(self):
         pool = DeserializerPool()
 
@@ -375,12 +405,12 @@ class TestDeserializer(unittest.TestCase):
     def test_registry_deserialization_avro(self, mock_sr_client_class):
         expected_value = {"name": "Pedro Pascal"}
 
-        mock_sr_client_class.return_value.get_schema.return_value.schema_str = file_to_str(
-            AVRO_PATH
+        mock_sr_client_class.return_value.get_schema.return_value.schema_str = json.dumps(
+            AVRO_SCHEMA
         )
         mock_sr_client_class.return_value.get_schema.return_value.schema_type = "AVRO"
 
-        encoded = py_to_avro(AVRO_PATH, expected_value)
+        encoded = py_to_avro(self.avro_path, expected_value)
 
         deserializer = RegistryDeserializer({})
 
@@ -391,7 +421,7 @@ class TestDeserializer(unittest.TestCase):
     @patch("kaskade.deserializers.SchemaRegistryClient")
     def test_registry_avro_normalizes_corrupt_payload_error(self, mock_sr_client_class):
         schema = mock_sr_client_class.return_value.get_schema.return_value
-        schema.schema_str = file_to_str(AVRO_PATH)
+        schema.schema_str = json.dumps(AVRO_SCHEMA)
         schema.schema_type = "AVRO"
         deserializer = RegistryDeserializer({})
 
@@ -422,9 +452,8 @@ class TestDeserializer(unittest.TestCase):
 
     @patch("kaskade.deserializers.SchemaRegistryClient")
     def test_registry_deserialization_protobuf_without_generated_class(self, mock_sr_client_class):
-        descriptor = FileDescriptorProto.FromString(User.DESCRIPTOR.file.serialized_pb)
         registry_client = mock_sr_client_class.return_value
-        registry_client.get_schema.return_value = registry_protobuf_schema(descriptor)
+        registry_client.get_schema.return_value = registry_protobuf_schema(PROTOBUF_DESCRIPTOR)
         deserializer = RegistryDeserializer({})
         user = User(name="Pedro Pascal")
 
@@ -523,9 +552,8 @@ class TestDeserializer(unittest.TestCase):
 
     @patch("kaskade.deserializers.SchemaRegistryClient")
     def test_registry_protobuf_rejects_malformed_message_indexes(self, mock_sr_client_class):
-        descriptor = FileDescriptorProto.FromString(User.DESCRIPTOR.file.serialized_pb)
         mock_sr_client_class.return_value.get_schema.return_value = registry_protobuf_schema(
-            descriptor
+            PROTOBUF_DESCRIPTOR
         )
 
         with self.assertRaisesRegex(DeserializationError, "Unexpected EOF"):
@@ -625,7 +653,7 @@ class TestDeserializer(unittest.TestCase):
         self.assertIsNone(result.schema)
 
     def test_protobuf_deserialization(self):
-        deserializer = ProtobufDeserializer({"descriptor": DESCRIPTOR_PATH, "value": "User"})
+        deserializer = ProtobufDeserializer({"descriptor": self.descriptor_path, "value": "User"})
 
         user = User()
         user.name = "my name"
@@ -636,7 +664,7 @@ class TestDeserializer(unittest.TestCase):
     def test_protobuf_deserialization_with_magic_byte(self):
         deserializer = ProtobufDeserializer(
             {
-                "descriptor": DESCRIPTOR_PATH,
+                "descriptor": self.descriptor_path,
                 "value": "User",
                 "framing": "confluent",
             }
@@ -653,7 +681,7 @@ class TestDeserializer(unittest.TestCase):
     def test_protobuf_raw_framing_does_not_infer_confluent_header(self):
         user = User(name="my name")
         payload = b"\x00\x00\x00\x00\x01\x00" + user.SerializeToString()
-        deserializer = ProtobufDeserializer({"descriptor": DESCRIPTOR_PATH, "value": "User"})
+        deserializer = ProtobufDeserializer({"descriptor": self.descriptor_path, "value": "User"})
 
         with self.assertRaises(DecodeError):
             deserializer.deserialize(payload, "orders", MessageField.VALUE)
@@ -661,7 +689,7 @@ class TestDeserializer(unittest.TestCase):
     def test_protobuf_framing_can_differ_between_key_and_value(self):
         deserializer = ProtobufDeserializer(
             {
-                "descriptor": DESCRIPTOR_PATH,
+                "descriptor": self.descriptor_path,
                 "key": "User",
                 "value": "User",
                 "framing": "confluent",
@@ -685,14 +713,14 @@ class TestDeserializer(unittest.TestCase):
 
     def test_avro_deserialization(self):
         expected_value = {"name": "Pedro Pascal"}
-        deserializer = AvroDeserializer({"value": AVRO_PATH})
-        encoded = py_to_avro(AVRO_PATH, expected_value)
+        deserializer = AvroDeserializer({"value": self.avro_path})
+        encoded = py_to_avro(self.avro_path, expected_value)
 
         result = deserializer.deserialize(encoded, "", MessageField.VALUE)
         self.assertEqual(expected_value, result)
 
     def test_avro_normalizes_corrupt_payload_error(self):
-        deserializer = AvroDeserializer({"value": AVRO_PATH})
+        deserializer = AvroDeserializer({"value": self.avro_path})
 
         with self.assertRaises(DeserializationError) as raised:
             deserializer.deserialize(b"\xff", "orders", MessageField.VALUE)
@@ -701,8 +729,8 @@ class TestDeserializer(unittest.TestCase):
 
     def test_avro_deserialization_with_magic_byte(self):
         expected_value = {"name": "Pedro Pascal"}
-        deserializer = AvroDeserializer({"value": AVRO_PATH, "framing": "confluent"})
-        encoded = py_to_avro(AVRO_PATH, expected_value)
+        deserializer = AvroDeserializer({"value": self.avro_path, "framing": "confluent"})
+        encoded = py_to_avro(self.avro_path, expected_value)
 
         result = deserializer.deserialize(b"\x00\x00\x00\x00\x00" + encoded, "", MessageField.VALUE)
 
@@ -710,11 +738,11 @@ class TestDeserializer(unittest.TestCase):
 
     def test_avro_framing_can_differ_between_key_and_value(self):
         expected_value = {"name": "Pedro Pascal"}
-        encoded = py_to_avro(AVRO_PATH, expected_value)
+        encoded = py_to_avro(self.avro_path, expected_value)
         deserializer = AvroDeserializer(
             {
-                "key": AVRO_PATH,
-                "value": AVRO_PATH,
+                "key": self.avro_path,
+                "value": self.avro_path,
                 "framing": "confluent",
                 "key.framing": "raw",
             }
