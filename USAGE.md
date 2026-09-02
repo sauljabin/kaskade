@@ -137,6 +137,16 @@ Common configurable binding IDs are:
 Unknown binding IDs, invalid key names, and malformed configuration produce an
 in-app warning while Kaskade continues with its default bindings.
 
+### Logs
+
+Kaskade writes logs to `$XDG_STATE_HOME/kaskade/kaskade.log`. If
+`XDG_STATE_HOME` is not set, it writes to
+`~/.local/state/kaskade/kaskade.log`.
+
+The active log rotates at 5 MiB, and Kaskade retains three backups named
+`kaskade.log.1` through `kaskade.log.3`. This bounds total log storage to
+approximately 20 MiB.
+
 ### Copy topics and consumed records
 
 Select a topic in Admin mode or a consumed record in Consumer mode, then press
