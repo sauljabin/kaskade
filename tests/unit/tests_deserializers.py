@@ -100,6 +100,15 @@ class TestDeserializer(unittest.TestCase):
             Header("nullable", None, deserializer).dict(),
         )
 
+    def test_null_content_uses_json_literal_for_display(self):
+        record = Record()
+        header = Header("nullable", None)
+
+        self.assertEqual("null", record.key_str())
+        self.assertEqual("null", record.value_str())
+        self.assertEqual("null", header.value_str())
+        self.assertEqual("nullable:null", str(header))
+
     def test_record_caches_successful_deserialization(self):
         key_deserializer = MagicMock()
         key_deserializer.deserialize.return_value = "customer-1"

@@ -278,8 +278,50 @@ uv run python -m sandbox \
 ```
 
 The Schema Registry URL remains independently configurable with `--registry`.
-See the sandbox requirements under [IAM permissions](USAGE.md#iam-permissions)
-or [Kafka ACLs](USAGE.md#kafka-acls).
+
+The IAM principal used for population needs `Connect`, `CreateTopic`,
+`DescribeTopic`, and `WriteData`. Replace the placeholders and narrow the topic
+wildcard when appropriate:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ConnectToCluster",
+      "Effect": "Allow",
+      "Action": "kafka-cluster:Connect",
+      "Resource": "arn:aws:kafka:<region>:<account-id>:cluster/<cluster-name>/<cluster-uuid>"
+    },
+    {
+      "Sid": "CreateAndPopulateTopics",
+      "Effect": "Allow",
+      "Action": [
+        "kafka-cluster:CreateTopic",
+        "kafka-cluster:DescribeTopic",
+        "kafka-cluster:WriteData"
+      ],
+      "Resource": "arn:aws:kafka:<region>:<account-id>:topic/<cluster-name>/<cluster-uuid>/*"
+    }
+  ]
+}
+```
+
+For a SASL/SCRAM or mTLS cluster, grant the population principal access to the
+test topics. Run this as an ACL administrator and configure
+`admin-client.properties` for that administrator:
+
+```bash
+kafka-acls.sh \
+    --bootstrap-server "${BOOTSTRAP_SERVERS}" \
+    --command-config admin-client.properties \
+    --add \
+    --allow-principal "User:<principal>" \
+    --operation Create \
+    --operation Write \
+    --operation Describe \
+    --topic '*'
+```
 
 ### Run application smoke tests
 
