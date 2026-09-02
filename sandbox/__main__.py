@@ -54,6 +54,7 @@ MALFORMED_KEY_CASES = frozenset({"key", "both"})
 MALFORMED_VALUE_CASES = frozenset({"value", "both"})
 MALFORMED_PAYLOAD_BYTES = 32
 INVALID_UTF8_HEADER = ("sandbox-invalid-utf8", b"\xff")
+NULL_HEADER = ("sandbox-null", None)
 FAKE_NUMBER_MIN = 500
 FAKE_NUMBER_MAX = 10000
 
@@ -173,7 +174,12 @@ class Populator:
 
     def populate_null(self, total_messages: int) -> None:
         for _ in range(total_messages):
-            self.producer.produce(NULL_TOPIC, key=None, value=None)
+            self.producer.produce(
+                NULL_TOPIC,
+                key=None,
+                value=None,
+                headers=[NULL_HEADER],
+            )
         self.producer.flush(5)
 
     def populate_json(self, faker: Faker, total_messages: int) -> None:

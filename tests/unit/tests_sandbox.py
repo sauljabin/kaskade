@@ -18,6 +18,7 @@ from sandbox.__main__ import (
     AVAILABLE_TOPICS,
     ERRORS_TOPIC,
     INVALID_UTF8_HEADER,
+    NULL_HEADER,
     NULL_TOPIC,
     Populator,
     main,
@@ -58,7 +59,7 @@ class TestPopulator(unittest.TestCase):
 
     @patch("sandbox.__main__.Producer")
     @patch("sandbox.__main__.AdminClient")
-    def test_null_topic_contains_only_null_keys_and_values(
+    def test_null_topic_contains_null_keys_values_and_header(
         self, _: MagicMock, mock_producer: MagicMock
     ) -> None:
         populator = Populator({})
@@ -66,7 +67,7 @@ class TestPopulator(unittest.TestCase):
         populator.populate_null(3)
 
         self.assertEqual(
-            [call(NULL_TOPIC, key=None, value=None)] * 3,
+            [call(NULL_TOPIC, key=None, value=None, headers=[NULL_HEADER])] * 3,
             mock_producer.return_value.produce.call_args_list,
         )
         mock_producer.return_value.flush.assert_called_once_with(5)
