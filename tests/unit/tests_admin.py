@@ -98,6 +98,36 @@ class TestInitialLoadingFrame(unittest.IsolatedAsyncioTestCase):
 
 
 class TestCreateTopic(unittest.IsolatedAsyncioTestCase):
+    async def test_f2_creates_topic_from_an_input(self) -> None:
+        with patch("kaskade.admin.TopicService") as topic_service:
+            configure_admin_service(topic_service.return_value, {})
+            app = KaskadeAdmin({})
+            results: list[CreateTopicCommand | None] = []
+
+            async with app.run_test() as pilot:
+                app.push_screen(CreateTopicScreen(), results.append)
+                await pilot.pause()
+                app.screen.query_one("#name", Input).value = "orders"
+
+                await pilot.press("f2")
+
+                self.assertEqual("orders", results[0].name)
+
+    async def test_ctrl_shift_s_creates_topic_from_an_input(self) -> None:
+        with patch("kaskade.admin.TopicService") as topic_service:
+            configure_admin_service(topic_service.return_value, {})
+            app = KaskadeAdmin({})
+            results: list[CreateTopicCommand | None] = []
+
+            async with app.run_test() as pilot:
+                app.push_screen(CreateTopicScreen(), results.append)
+                await pilot.pause()
+                app.screen.query_one("#name", Input).value = "orders"
+
+                await pilot.press("ctrl+shift+s")
+
+                self.assertEqual("orders", results[0].name)
+
     async def test_uses_broker_defaults_for_advanced_replication_settings(self) -> None:
         with patch("kaskade.admin.TopicService") as topic_service:
             configure_admin_service(topic_service.return_value, {})
@@ -174,6 +204,24 @@ class TestCreateTopic(unittest.IsolatedAsyncioTestCase):
 
 
 class TestUpdateTopic(unittest.IsolatedAsyncioTestCase):
+    async def test_ctrl_shift_s_saves_topic_changes_from_an_input(self) -> None:
+        app = KaskadeAdmin({})
+        results: list[UpdateTopicCommand | None] = []
+
+        with patch("kaskade.admin.TopicService") as topic_service:
+            configure_admin_service(topic_service.return_value, {})
+            async with app.run_test() as pilot:
+                app.push_screen(
+                    EditTopicScreen("orders", "3", "2", "delete", "1000"),
+                    results.append,
+                )
+                await pilot.pause()
+                app.screen.query_one("#retention", Input).value = "2000"
+
+                await pilot.press("ctrl+shift+s")
+
+                self.assertEqual(UpdateTopicCommand(3, None, None, 2000), results[0])
+
     async def test_keeps_unchanged_topic_configuration_out_of_command(self) -> None:
         app = KaskadeAdmin({})
         results: list[UpdateTopicCommand | None] = []

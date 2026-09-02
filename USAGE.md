@@ -130,6 +130,7 @@ Common configurable binding IDs are:
 | Navigation | `kaskade.navigation.up`, `.down`, `.left`, `.right`, `.first`, `.last`, `.page-up`, `.page-down`, `.select` |
 | Topics | `kaskade.topics.describe`, `.copy`, `.filter`, `.refresh`, `.create`, `.edit`, `.delete`, `.show-all` |
 | Records | `kaskade.records.show`, `.copy`, `.export`, `.consume`, `.filter`, `.chunk-size`, `.show-all` |
+| Record Details | `kaskade.record-details.previous`, `.next`, `.close` |
 | Dialogs | `kaskade.filter-topics.apply`, `kaskade.delete-topic.confirm`, `kaskade.filter-records.apply`, `kaskade.chunk-size.select` |
 | Editors | `kaskade.create-topic.save`, `kaskade.edit-topic.save` |
 
@@ -142,6 +143,14 @@ Select a topic in Admin mode or a consumed record in Consumer mode, then press
 `y` to copy the topic name or readable record JSON. Copy is also available in
 Topic Details, Record Details, contextual Help, and Commands, but is omitted
 from the Footer.
+
+While Record Details is open, press `n` for the next record or `N`/`p` for the
+previous record. The modal stays open and renders the newly selected record.
+
+Create Topic and Edit Topic forms save with `Ctrl+S`, `Ctrl+Shift+S`, or `F2`.
+Terminals without distinct shifted-control key encoding may treat Ctrl+Shift+S
+as Ctrl+S; both bindings save. Enter keeps its normal submission or selection
+behavior within form controls.
 
 Selecting screen text is separate: use `Cmd+C` on macOS or `Ctrl+Shift+C` on
 Linux. `Ctrl+C` always quits Kaskade, even while text is selected.

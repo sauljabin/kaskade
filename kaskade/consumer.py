@@ -40,6 +40,7 @@ from kaskade.widgets import (
 
 CHUNKS_SHORTCUT = "#"
 NEXT_SHORTCUT = "n"
+PREVIOUS_SHORTCUT = "N,p"
 SUBMIT_SHORTCUT = "enter"
 BACK_SHORTCUT = "escape"
 FILTER_SHORTCUT = "/,ctrl+f"
@@ -195,7 +196,7 @@ class ChunkSizeScreen(HelpableModalScreen[int]):
         self.dismiss(chunk_size)
 
 
-class TopicScreen(HelpableModalScreen):
+class TopicScreen(HelpableModalScreen[Record]):
     BINDING_GROUP_TITLE = "Record Details"
     AUTO_FOCUS = ".record-details"
     BINDINGS: ClassVar[list[BindingType]] = modal_bindings(
@@ -216,6 +217,22 @@ class TopicScreen(HelpableModalScreen):
             id="kaskade.records.export",
         ),
         Binding(
+            PREVIOUS_SHORTCUT,
+            "previous_record",
+            "Previous Record",
+            show=False,
+            tooltip="Show the previous consumed record.",
+            id="kaskade.record-details.previous",
+        ),
+        Binding(
+            NEXT_SHORTCUT,
+            "next_record",
+            "Next Record",
+            show=False,
+            tooltip="Show the next consumed record.",
+            id="kaskade.record-details.next",
+        ),
+        Binding(
             BACK_SHORTCUT,
             "close",
             "Back",
@@ -224,20 +241,70 @@ class TopicScreen(HelpableModalScreen):
         ),
     )
 
-    def __init__(self, record: Record):
+    def __init__(self, record: Record, records: tuple[Record, ...] = ()):
         super().__init__()
+        self.records = records or (record,)
+        record_index = next(
+            (index for index, candidate in enumerate(self.records) if candidate is record),
+            None,
+        )
+        if record_index is None:
+            self.records = (record, *self.records)
+            record_index = 0
+        self.record_index = record_index
         self.record = record
         self.data = record.dict()
 
+    def _title(self) -> str:
+        return (
+            rf"[{PRIMARY}]Record[/] "
+            rf"\[[{PRIMARY}]{self.record.topic}[/]]"
+            rf"\[[{PRIMARY}]{self.record.partition}[/]]"
+            rf"\[[{PRIMARY}]{self.record.offset}[/]]"
+        )
+
     def compose(self) -> ComposeResult:
         container = KaskadeScrollableContainer(classes="record-details")
-        container.border_title = rf"[{PRIMARY}]Record[/] \[[{PRIMARY}]{self.record.topic}[/]]\[[{PRIMARY}]{self.record.partition}[/]]\[[{PRIMARY}]{self.record.offset}[/]]"
+        container.border_title = self._title()
         with container:
             yield Static(record_json_renderable(self.data), classes="record-json")
         yield Footer(compact=True)
 
     def action_close(self) -> None:
-        self.dismiss()
+        self.dismiss(self.record)
+
+    def _show_record(self, index: int) -> None:
+        if not 0 <= index < len(self.records):
+            return
+
+        record = self.records[index]
+        try:
+            data = record.dict()
+        except DESERIALIZATION_EXCEPTIONS as ex:
+            notify_error(self.app, "Deserialization Error", ex)
+            return
+
+        self.record_index = index
+        self.record = record
+        self.data = data
+        details = self.query_one(KaskadeScrollableContainer)
+        details.border_title = self._title()
+        details.query_one(".record-json", Static).update(record_json_renderable(data))
+        details.scroll_home(animate=False)
+        self.refresh_bindings()
+
+    def action_previous_record(self) -> None:
+        self._show_record(self.record_index - 1)
+
+    def action_next_record(self) -> None:
+        self._show_record(self.record_index + 1)
+
+    def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
+        if action == "previous_record":
+            return self.record_index > 0
+        if action == "next_record":
+            return self.record_index < len(self.records) - 1
+        return True
 
     def action_export_record(self) -> None:
         try:
@@ -436,8 +503,22 @@ class ListRecords(Container):
     def action_show_message(self) -> None:
         if self.current_record is None:
             return
+
+        def select_record(record: Record | None) -> None:
+            if record is None:
+                return
+            record_id = str(record)
+            try:
+                row = tuple(self.records).index(record_id)
+            except ValueError:
+                return
+            self.query_one(RecordDataTable).move_cursor(row=row)
+
         try:
-            self.app.push_screen(TopicScreen(self.current_record))
+            self.app.push_screen(
+                TopicScreen(self.current_record, tuple(self.records.values())),
+                select_record,
+            )
         except DESERIALIZATION_EXCEPTIONS as ex:
             notify_error(self.app, "Deserialization Error", ex)
 

@@ -65,7 +65,6 @@ class KaskadeApp(App, inherit_bindings=False):
             "ctrl+c",
             "quit",
             "Quit",
-            key_display="ctrl+c",
             priority=True,
             tooltip="Quit Kaskade and return to the command prompt.",
             id="app.quit",
