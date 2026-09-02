@@ -20,7 +20,7 @@ KASKADE_URL = "https://github.com/sauljabin/kaskade"
 KASKADE_ISSUES_URL = f"{KASKADE_URL}/issues"
 SELECTED_TEXT_COPY_ACTION = "screen.copy_text"
 SELECTED_TEXT_COPY_SHORTCUT = "super+c" if sys.platform == "darwin" else "ctrl+shift+c"
-SELECTED_TEXT_COPY_KEY_DISPLAY = "cmd+c" if sys.platform == "darwin" else "ctrl+shift+c"
+SELECTED_TEXT_COPY_KEY_DISPLAY = "cmd+c" if sys.platform == "darwin" else None
 
 
 @dataclass(frozen=True)
@@ -57,12 +57,12 @@ def contextual_help(screen: Screen) -> tuple[str, tuple[HelpBinding, ...]]:
             )
         keys = groups[group_key][1]
         for alias in _help_binding_aliases(screen, namespace, binding):
-            key_display = _explicit_control_display(screen.app.get_key_display(alias))
+            key_display = screen.app.get_key_display(alias)
             if key_display in keys:
                 if binding.action == SELECTED_TEXT_COPY_ACTION:
                     continue
-                key_display = _explicit_control_display(
-                    screen.app.get_key_display(alias.with_key(alias.key, key_display=None))
+                key_display = screen.app.get_key_display(
+                    alias.with_key(alias.key, key_display=None)
                 )
             if key_display not in keys:
                 keys.append(key_display)
@@ -86,11 +86,6 @@ def _help_binding_aliases(
             ),
         )
     return _binding_aliases(screen, namespace, binding)
-
-
-def _explicit_control_display(key_display: str) -> str:
-    """Render caret-style control chords with an explicit ctrl+ prefix."""
-    return f"ctrl+{key_display[1:]}" if key_display.startswith("^") else key_display
 
 
 def _binding_aliases(screen: Screen, namespace: object, binding: Binding) -> tuple[Binding, ...]:

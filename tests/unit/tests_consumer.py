@@ -5,7 +5,7 @@ import unittest
 from datetime import datetime, timezone
 from io import StringIO
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, call, patch
 
 from confluent_kafka.serialization import MessageField
 from rich.text import Text
@@ -39,7 +39,7 @@ from kaskade.models import Header, Record
 from kaskade.record_export import record_filename
 from kaskade.themes import KaskadeApp
 from kaskade.unicodes import WARNING as WARNING_INDICATOR
-from kaskade.widgets import TableFrame
+from kaskade.widgets import KaskadeScrollableContainer, TableFrame
 
 
 def exported_record() -> Record:
@@ -443,14 +443,7 @@ class TestRecordExportActions(unittest.IsolatedAsyncioTestCase):
             help_bindings = {
                 binding.description: binding.keys for binding in app.screen.help_bindings
             }
-            self.assertEqual(("ctrl+e",), help_bindings["Export Record"])
-            self.assertFalse(
-                any(
-                    key.startswith("^")
-                    for binding in app.screen.help_bindings
-                    for key in binding.keys
-                )
-            )
+            self.assertEqual(("^e",), help_bindings["Export Record"])
             await pilot.press("escape")
 
             await pilot.press("ctrl+e")
@@ -602,6 +595,87 @@ class TestRecordCopyActions(unittest.IsolatedAsyncioTestCase):
                 severity="error",
                 title="Deserialization Error",
             )
+
+
+class TestRecordDetailsNavigation(unittest.IsolatedAsyncioTestCase):
+    @patch("kaskade.consumer.ConsumerService")
+    async def test_navigates_records_without_closing_details_and_keeps_selection(
+        self, consumer_service: MagicMock
+    ) -> None:
+        consumed_records = [
+            Record(topic="orders", partition=0, offset=offset) for offset in range(3)
+        ]
+        consumer_service.return_value.consume = AsyncMock(return_value=consumed_records)
+        app = KaskadeConsumer(
+            "orders",
+            {},
+            {},
+            {},
+            {},
+            Deserialization.STRING,
+            Deserialization.JSON,
+        )
+
+        async with app.run_test() as pilot:
+            await app.workers.wait_for_complete()
+            await pilot.pause()
+            table = app.query_one(RecordDataTable)
+
+            await pilot.press("enter")
+            await pilot.pause()
+            details = app.screen
+            self.assertIsInstance(details, TopicScreen)
+            self.assertIs(consumed_records[0], details.record)
+            self.assertFalse(details.check_action("previous_record", ()))
+            self.assertTrue(details.check_action("next_record", ()))
+
+            record_json_widget = details.query_one(".record-json")
+            with (
+                patch.object(
+                    record_json_widget,
+                    "update",
+                    wraps=record_json_widget.update,
+                ) as update_record_json,
+                patch.object(
+                    table,
+                    "refresh",
+                    wraps=table.refresh,
+                ) as refresh_table,
+            ):
+                await pilot.press("n", "n")
+            self.assertIs(details, app.screen)
+            self.assertIs(consumed_records[2], details.record)
+            self.assertEqual(2, details.data["offset"])
+            self.assertEqual(2, table.cursor_row)
+            self.assertIn(call(), refresh_table.call_args_list)
+            self.assertIs(consumed_records[2], app.query_one(ListRecords).current_record)
+            rendered_record = update_record_json.call_args.args[0]
+            self.assertEqual(
+                record_json(consumed_records[2]).rstrip("\n"),
+                rendered_record.text.plain,
+            )
+            self.assertEqual(
+                "[primary]Record[/primary] "
+                "[[primary]orders[/primary]]"
+                "[[primary]0[/primary]]"
+                "[[primary]2[/primary]]",
+                details.query_one(KaskadeScrollableContainer).border_title,
+            )
+            self.assertTrue(details.check_action("previous_record", ()))
+            self.assertFalse(details.check_action("next_record", ()))
+
+            await pilot.press("N")
+            self.assertIs(consumed_records[1], details.record)
+            self.assertEqual(1, table.cursor_row)
+
+            await pilot.press("p", "n")
+            self.assertIs(consumed_records[1], details.record)
+            self.assertEqual(1, table.cursor_row)
+
+            await pilot.press("escape")
+            await pilot.pause()
+            self.assertIs(consumed_records[1], app.query_one(ListRecords).current_record)
+            self.assertEqual(1, table.cursor_row)
 
 
 class TestConsumptionCoordination(unittest.IsolatedAsyncioTestCase):

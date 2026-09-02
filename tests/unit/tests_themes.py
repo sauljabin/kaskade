@@ -305,16 +305,17 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                     for binding in help_screen.help_bindings
                     if binding.description == "Quit"
                 )
-                self.assertEqual(("ctrl+c",), quit_binding.keys)
+                self.assertEqual(("^c",), quit_binding.keys)
                 binding_keys = {
                     binding.description: binding.keys for binding in help_screen.help_bindings
                 }
                 self.assertEqual(("?", "f1"), binding_keys["Help"])
-                self.assertEqual((":", "ctrl+p"), binding_keys["Commands"])
+                self.assertEqual((":", "^p"), binding_keys["Commands"])
                 self.assertEqual(("d", "⏎"), binding_keys["Describe"])
                 self.assertEqual(("y",), binding_keys["Copy Topic"])
+                selected_text_copy_display = SELECTED_TEXT_COPY_KEY_DISPLAY or "shift+^c"
                 self.assertEqual(
-                    (SELECTED_TEXT_COPY_KEY_DISPLAY,),
+                    (selected_text_copy_display,),
                     binding_keys["Copy Selected Text"],
                 )
                 self.assertNotIn(
@@ -458,6 +459,33 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 )
                 await pilot.press("enter")
                 self.assertEqual(100, results.pop())
+
+                app.push_screen(CreateTopicScreen(), results.append)
+                await pilot.pause()
+                self.assertEqual(
+                    [("^s", "Create Topic"), ("esc", "Back"), ("?", "Help")],
+                    footer_commands(),
+                )
+                await pilot.press("f1")
+                create_binding = next(
+                    binding
+                    for binding in app.screen.help_bindings
+                    if binding.description == "Create Topic"
+                )
+                self.assertEqual(("^s", "shift+^s", "f2"), create_binding.keys)
+                await pilot.press("escape")
+                await pilot.press("escape")
+
+                app.push_screen(
+                    EditTopicScreen("orders", "1", "1", "delete", "1000"),
+                    results.append,
+                )
+                await pilot.pause()
+                self.assertEqual(
+                    [("^s", "Save Changes"), ("esc", "Back"), ("?", "Help")],
+                    footer_commands(),
+                )
+                await pilot.press("escape")
 
     async def test_admin_uses_title_case_labels_and_contextual_palette_commands(self):
         with patch("kaskade.admin.TopicService") as topic_service:
@@ -734,8 +762,9 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                     for binding in app.screen.help_bindings
                     if binding.description.startswith("Copy")
                 }
+                selected_text_copy_display = SELECTED_TEXT_COPY_KEY_DISPLAY or "shift+^c"
                 self.assertEqual(
-                    (SELECTED_TEXT_COPY_KEY_DISPLAY,),
+                    (selected_text_copy_display,),
                     copy_bindings["Copy Selected Text"],
                 )
                 self.assertEqual(("y",), copy_bindings["Copy Selection"])

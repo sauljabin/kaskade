@@ -51,6 +51,8 @@ KNOWN_BINDING_IDS = (
             "kaskade.filter-topics.close",
             "kaskade.filter-topics.apply",
             "kaskade.record-details.close",
+            "kaskade.record-details.next",
+            "kaskade.record-details.previous",
             "kaskade.records.chunk-size",
             "kaskade.records.consume",
             "kaskade.records.copy",
