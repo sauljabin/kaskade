@@ -11,6 +11,8 @@
 - Keep this file and affected user documentation concise and current. Record
   stable conventions, remove obsolete or contradicted guidance, and avoid
   implementation history.
+- Keep `USAGE.md` focused on end users. Document the development-only sandbox,
+  its population tool, and its access requirements in `DEVELOPMENT.md` only.
 - Importing `kaskade` must not create directories, open files, or modify the root
   logger. Configure the named logger lazily and tolerate an unavailable log
   destination.

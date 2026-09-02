@@ -26,7 +26,7 @@ from confluent_kafka.cimpl import CONSUMER_GROUP_STATE_STABLE, TopicPartition
 
 from kaskade.commands import CreateTopicCommand, RecordFilters
 from kaskade.deserializers import Deserialization, DeserializerPool, StringDeserializer
-from kaskade.models import MetricState, PartitionOffset, PartitionSelection
+from kaskade.models import Header, MetricState, PartitionOffset, PartitionSelection, Record
 from kaskade.services import ConsumerService, TopicService
 from tests import faker
 
@@ -299,6 +299,19 @@ class TestTopicService(unittest.IsolatedAsyncioTestCase):
 
 
 class TestConsumerService(unittest.IsolatedAsyncioTestCase):
+    def test_null_filters_use_json_literal_instead_of_python_literal(self) -> None:
+        record = Record(headers=[Header("nullable", None)])
+
+        filters = (
+            ("key", RecordFilters(key="null"), RecordFilters(key="None")),
+            ("value", RecordFilters(value="null"), RecordFilters(value="None")),
+            ("header", RecordFilters(header="null"), RecordFilters(header="None")),
+        )
+        for field, null_filter, none_filter in filters:
+            with self.subTest(field=field):
+                self.assertTrue(ConsumerService._matches(record, null_filter))
+                self.assertFalse(ConsumerService._matches(record, none_filter))
+
     @patch("kaskade.services.Consumer")
     async def test_assigns_only_explicit_partitions_at_selected_offsets(
         self, mock_class_consumer: MagicMock

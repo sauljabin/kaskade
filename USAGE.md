@@ -255,7 +255,8 @@ as STRING without extra metadata. Timestamps are UTC ISO 8601 with milliseconds,
 or `null` when unavailable. Tombstones use `content: null`. Local and non-schema
 deserializers omit `schema`; Registry does too when resolution is ambiguous or
 unavailable. The records table renders absent keys and values as colored `null`
-with a distinguishing tooltip.
+with a distinguishing tooltip. Enter lowercase `null` in a key, value, or header
+filter to match null content.
 
 Byte content stays directly in `content`, and its BYTES deserializer carries the
 presentation encoding. Base64 is the default portable encoding:
@@ -479,7 +480,6 @@ The IAM principal used by `--aws` needs these `kafka-cluster` actions:
 | Admin (read only) | `Connect`, `DescribeTopic`, `DescribeTopicDynamicConfiguration`, `DescribeGroup` |
 | Admin (full access) | Read-only actions plus `CreateTopic`, `AlterTopic`, `DeleteTopic`, `AlterTopicDynamicConfiguration` |
 | Consumer | `Connect`, `DescribeTopic`, `ReadData`, `DescribeGroup`, `AlterGroup` |
-| Sandbox population | `Connect`, `CreateTopic`, `DescribeTopic`, `WriteData` |
 
 This policy enables all admin and consumer features. Replace the placeholders
 and narrow the topic wildcard when appropriate.
@@ -530,32 +530,6 @@ ephemeral groups named `kaskade-<uuid>`. For read-only admin access, remove
 and `ReadData` from the topic statement, then remove the
 `UseKaskadeConsumerGroups` statement.
 
-Use this policy for sandbox population:
-
-```json
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Sid": "ConnectToCluster",
-      "Effect": "Allow",
-      "Action": "kafka-cluster:Connect",
-      "Resource": "arn:aws:kafka:<region>:<account-id>:cluster/<cluster-name>/<cluster-uuid>"
-    },
-    {
-      "Sid": "CreateAndPopulateTopics",
-      "Effect": "Allow",
-      "Action": [
-        "kafka-cluster:CreateTopic",
-        "kafka-cluster:DescribeTopic",
-        "kafka-cluster:WriteData"
-      ],
-      "Resource": "arn:aws:kafka:<region>:<account-id>:topic/<cluster-name>/<cluster-uuid>/*"
-    }
-  ]
-}
-```
-
 See AWS's [authorization action semantics](https://docs.aws.amazon.com/msk/latest/developerguide/kafka-actions.html)
 and [common client policy use cases](https://docs.aws.amazon.com/msk/latest/developerguide/iam-access-control-use-cases.html)
 for dependencies and resource formats.
@@ -568,8 +542,7 @@ For SASL/SCRAM and mTLS connections, grant the Kafka principal these operations:
 | --- | --- | --- | --- |
 | Admin (read only) | `Describe`, `DescribeConfigs` | `Describe` on groups to display | `Describe` |
 | Admin (full access) | `Describe`, `DescribeConfigs`, `Create`, `Alter`, `Delete`, `AlterConfigs` | `Describe` on groups to display | `Describe` |
-| Consumer | `Read`, `Describe` on topics to consume | `Read`, `Describe` on the `kaskade-` prefix | None |
-| Sandbox population | `Create`, `Write`, `Describe` on topics to populate | None | None |
+| Consumer | `Read`, `Describe` on topics to consume | `Read`, `Describe` on the `kaskade-` prefix | — |
 
 Use `User:<username>` for SASL/SCRAM or the certificate principal for mTLS, such
 as `User:CN=kaskade`. Run the commands as an ACL administrator and configure
@@ -629,20 +602,6 @@ kafka-acls.sh \
     --operation Describe \
     --group kaskade- \
     --resource-pattern-type prefixed
-```
-
-Sandbox population access to all topics:
-
-```bash
-kafka-acls.sh \
-    --bootstrap-server "${BOOTSTRAP_SERVERS}" \
-    --command-config admin-client.properties \
-    --add \
-    --allow-principal "User:<principal>" \
-    --operation Create \
-    --operation Write \
-    --operation Describe \
-    --topic '*'
 ```
 
 Narrow `--topic '*'` with literal topic names or prefixed resource patterns when

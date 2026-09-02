@@ -31,6 +31,8 @@ def bytes_data(data: bytes, bytes_encoding: BytesEncoding) -> str | list[int]:
 
 
 def content_str(content: Any, bytes_encoding: BytesEncoding) -> str:
+    if content is None:
+        return "null"
     if isinstance(content, bytes):
         return str(bytes_data(content, bytes_encoding))
     if isinstance(content, bool):
