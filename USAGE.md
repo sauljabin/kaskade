@@ -27,28 +27,46 @@ examples below.
 
 ## Application settings and controls
 
+On Linux and macOS, Kaskade reads `$XDG_CONFIG_HOME/kaskade/settings.yaml`. If
+`XDG_CONFIG_HOME` is not set, it reads `~/.config/kaskade/settings.yaml`. Set
+`KASKADE_SETTINGS` to use a different file.
+
+Copy the complete example to the default location before customizing it:
+
+```bash
+mkdir -p ~/.config/kaskade
+cp examples/settings.yaml ~/.config/kaskade/settings.yaml
+```
+
 ### Themes
 
-Kaskade defaults to the `eva01` Unit-01-inspired theme. Choose any Textual theme
-at launch:
+Kaskade defaults to the `eva01` Unit-01-inspired theme. Set another default in
+`settings.yaml`:
+
+```yaml
+theme: dracula
+```
+
+Override the configured theme for one session at launch:
 
 ```bash
 kaskade admin -b my-kafka:9092 --theme dracula
 ```
 
 While Kaskade is running, press `:` (or `Ctrl+P`) and select a theme from the
-Commands window. Theme changes apply only to the current session.
+Commands window. Command-line and in-application theme changes apply only to the
+current session.
 
 ### Admin auto-refresh
 
 Admin mode refreshes every 30 seconds, pauses outside the topic list, and
 refreshes after returning. Press `Ctrl+R` to refresh immediately.
 
-Configure the interval in Kaskade's `config.yaml`:
+Configure the interval in Kaskade's `settings.yaml`:
 
 ```yaml
 admin:
-  refresh_interval_seconds: 30
+  refresh-interval: 30
 ```
 
 Use `0` to disable auto-refresh. Other values must be at least 5 seconds;
@@ -97,17 +115,6 @@ Plain-character application shortcuts do not intercept typing in filter and
 editor fields.
 
 #### Custom keymap
-
-On Linux and macOS, Kaskade reads `$XDG_CONFIG_HOME/kaskade/config.yaml`. If
-`XDG_CONFIG_HOME` is not set, it reads `~/.config/kaskade/config.yaml`. Set
-`KASKADE_CONFIG` to use a different file.
-
-Copy the complete example to the default location before customizing it:
-
-```bash
-mkdir -p ~/.config/kaskade
-cp examples/config.yaml ~/.config/kaskade/config.yaml
-```
 
 The `keymap` values use Textual key names. Separate keys with commas to assign
 aliases:
@@ -389,6 +396,26 @@ See the
 [Confluent Schema Registry client documentation](https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#schemaregistry-client)
 for additional Schema Registry settings.
 
+Kaskade forwards every repeated `--registry property=value` setting to the
+Schema Registry client. For an OAuth/OIDC Registry using the client credentials
+flow:
+
+```bash
+kaskade consumer -b my-kafka:9092 -t my-avro-topic \
+        -k string -v registry \
+        --registry url=${SCHEMA_REGISTRY_URL} \
+        --registry bearer.auth.credentials.source=OAUTHBEARER \
+        --registry bearer.auth.issuer.endpoint.url=${OAUTH_TOKEN_URL} \
+        --registry bearer.auth.client.id=${OAUTH_CLIENT_ID} \
+        --registry bearer.auth.client.secret=${OAUTH_CLIENT_SECRET} \
+        --registry bearer.auth.scope=${OAUTH_SCOPE} \
+        --registry bearer.auth.logical.cluster=${SR_LOGICAL_CLUSTER} \
+        --registry bearer.auth.identity.pool.id=${IDENTITY_POOL_ID}
+```
+
+The logical cluster and identity pool settings are deployment-specific. The
+Schema Registry client validates property names, values, and required settings.
+
 #### Apicurio Registry
 
 ```bash
@@ -402,48 +429,57 @@ Learn more at [Apicurio Registry](https://github.com/apicurio/apicurio-registry)
 ### SSL encryption
 
 ```bash
-kaskade admin -b my-kafka:9092 -c security.protocol=SSL
+kaskade admin -b my-kafka:9092 --kafka security.protocol=SSL
 ```
 
 See
 [Configure librdkafka client](https://github.com/edenhill/librdkafka/wiki/Using-SSL-with-librdkafka#configure-librdkafka-client)
 for SSL encryption and authentication settings.
 
-### Kafka client properties file
+### Client configuration file
 
-Both admin and consumer modes accept Kafka client properties from a separate
-file:
+Both admin and consumer modes accept an INI configuration file. Kafka client
+properties belong in `[kafka]`, consumer Schema Registry properties in
+`[registry]`, and Amazon MSK IAM settings in `[aws]`. Any section may be omitted
+when it is not needed:
 
 ```bash
 kaskade admin \
-    --config-file kafka.properties
+    --config-file client.ini
 
 kaskade consumer \
     -t my-topic \
-    --config-file kafka.properties
+    --config-file client.ini \
+    -v registry
 ```
 
-The file uses one `property=value` entry per line. Blank lines and lines
-beginning with `#` are ignored. See
-[examples/kafka.properties](examples/kafka.properties) for a SASL/SSL example:
+Keys and values remain strings and dotted client property names need no quoting.
+Blank lines and lines beginning with `#` or `;` are ignored. See
+[examples/client.ini](examples/client.ini) for a Kafka, Schema Registry, and AWS
+example:
 
-```properties
-bootstrap.servers=my-kafka:9092
-security.protocol=SASL_SSL
-sasl.mechanism=PLAIN
-sasl.username=replace-with-your-api-key
-sasl.password=replace-with-your-api-secret
-client.id=kaskade
+```ini
+[kafka]
+bootstrap.servers = my-msk-bootstrap:9098
+client.id = kaskade
+
+[registry]
+url = https://my-schema-registry:8081
+basic.auth.user.info = replace-with-your-api-key:replace-with-your-api-secret
+
+[aws]
+region = us-east-1
 ```
 
-This file contains only properties for `confluent-kafka`; Kaskade UI, admin,
-and keymap settings remain in `config.yaml` as documented above. Both commands
-require a non-empty `bootstrap.servers` after Kafka properties are merged. It
-can come from `--config-file`, an inline property, or the dedicated option:
+The `[kafka]` and `[registry]` sections contain properties for their respective
+`confluent-kafka` clients. Kaskade UI, admin, and keymap settings remain in
+`settings.yaml` as documented above. Both commands require a non-empty
+`bootstrap.servers` after Kafka properties are merged. It can come from
+`--config-file`, an inline property, or the dedicated option:
 
 ```bash
-kaskade admin --config bootstrap.servers=my-kafka:9092
-kaskade consumer -t my-topic --config bootstrap.servers=my-kafka:9092
+kaskade admin --kafka bootstrap.servers=my-kafka:9092
+kaskade consumer -t my-topic --kafka bootstrap.servers=my-kafka:9092
 ```
 
 `-b/--bootstrap-servers` remains the most concise choice for ordinary commands
@@ -452,17 +488,19 @@ and overrides a value from Kafka client configuration. For example, this uses
 
 ```bash
 kaskade admin \
-    --config-file kafka.properties \
-    --config client.id=temporary-kaskade \
+    --config-file client.ini \
+    --kafka client.id=temporary-kaskade \
     -b override-kafka:9092
 ```
 
 Configuration precedence, from lowest to highest, is:
 
-1. Properties loaded from `--config-file`.
-2. Repeated `-c/--config property=value` options.
+1. Properties loaded from the matching `[kafka]`, `[registry]`, or `[aws]`
+   section of `--config-file`.
+2. Repeated `--kafka property=value`, `--registry property=value`, and
+   `--aws property=value` options.
 3. When supplied, `-b/--bootstrap-servers` for `bootstrap.servers`.
-4. `--aws property=value` for the Amazon MSK IAM authentication properties.
+4. Resolved AWS settings configure the Amazon MSK IAM authentication properties.
 5. In consumer mode, `--earliest` for `auto.offset.reset=earliest`.
 
 ### Amazon MSK with IAM authentication
@@ -630,10 +668,10 @@ Admin:
 
 ```bash
 kaskade admin -b ${BOOTSTRAP_SERVERS} \
-        -c security.protocol=SASL_SSL \
-        -c sasl.mechanism=PLAIN \
-        -c sasl.username=${CLUSTER_API_KEY} \
-        -c sasl.password=${CLUSTER_API_SECRET}
+        --kafka security.protocol=SASL_SSL \
+        --kafka sasl.mechanism=PLAIN \
+        --kafka sasl.username=${CLUSTER_API_KEY} \
+        --kafka sasl.password=${CLUSTER_API_SECRET}
 ```
 
 Consumer:
@@ -641,10 +679,10 @@ Consumer:
 ```bash
 kaskade consumer -b ${BOOTSTRAP_SERVERS} -t my-avro-topic \
         -k string -v registry \
-        -c security.protocol=SASL_SSL \
-        -c sasl.mechanism=PLAIN \
-        -c sasl.username=${CLUSTER_API_KEY} \
-        -c sasl.password=${CLUSTER_API_SECRET} \
+        --kafka security.protocol=SASL_SSL \
+        --kafka sasl.mechanism=PLAIN \
+        --kafka sasl.username=${CLUSTER_API_KEY} \
+        --kafka sasl.password=${CLUSTER_API_SECRET} \
         --registry url=${SCHEMA_REGISTRY_URL} \
         --registry basic.auth.user.info=${SR_API_KEY}:${SR_API_SECRET}
 ```

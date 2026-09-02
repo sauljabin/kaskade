@@ -1,4 +1,5 @@
 import asyncio
+import configparser
 import functools
 import struct
 from collections.abc import Callable
@@ -13,6 +14,11 @@ from fastavro.schema import load_schema
 from textual.app import App
 
 from kaskade import logger
+
+
+class _CaseSensitiveConfigParser(configparser.ConfigParser):
+    def optionxform(self, optionstr: str) -> str:
+        return optionstr
 
 
 def copy_text(application: App, text: str, subject: str) -> None:
@@ -55,19 +61,15 @@ def file_to_str(file_path: str) -> str:
     return path.read_text()
 
 
-def load_properties(file_path: str, sep: str = "=", comment_char: str = "#") -> dict[str, str]:
-    props = {}
-    lines = file_to_str(file_path).split("\n")
+def load_ini(file_path: str) -> dict[str, dict[str, str]]:
+    parser = _CaseSensitiveConfigParser(interpolation=None, delimiters=("=",))
 
-    for line in lines:
-        line = line.strip()
-        if line and not line.startswith(comment_char) and sep in line:
-            key_value = line.split(sep, maxsplit=1)
-            key = key_value[0].strip()
-            value = key_value[1].strip().strip('"')
-            props[key] = value
+    try:
+        parser.read_string(file_to_str(file_path))
+    except configparser.Error as ex:
+        raise ValueError(f"Invalid INI: {ex}") from ex
 
-    return props
+    return {section: dict(parser.items(section, raw=True)) for section in parser.sections()}
 
 
 def py_to_avro(schema_path: str, data: dict[str, Any] | MappingProxyType[str, Any]) -> bytes:

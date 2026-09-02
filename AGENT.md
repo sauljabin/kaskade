@@ -19,19 +19,27 @@
 
 ## CLI and Configuration
 
-- Share admin and consumer Kafka connection declarations. Help groups are
-  `Kafka connection options`, `AWS options`, and `Application options`; consumer
-  also separates `Consumption options` and `Deserialization options`.
+- Share admin and consumer client configuration and Kafka connection
+  declarations. Help groups are `Configuration options`, `Kafka connection
+  options`, `AWS options`, and `Application options`; consumer also separates
+  `Consumption options` and `Deserialization options`.
 - Keep `--earliest` and `--partition` declaratively mutually exclusive. Render
   the theme argument as `name` without weakening choice validation.
-- `--config-file kafka.properties` loads Kafka client `property=value` entries.
-  Merge in this order: file, repeatable `--config`, then
-  `-b/--bootstrap-servers`. Require a non-empty resolved `bootstrap.servers` and
-  update `examples/kafka.properties` when this behavior changes.
-- Kaskade settings come from `KASKADE_CONFIG`, then
-  `$XDG_CONFIG_HOME/kaskade/config.yaml`, then
-  `~/.config/kaskade/config.yaml`. Ignore invalid entries, retain valid ones,
-  warn in-app, and keep `examples/config.yaml` current when bindings change.
+- `--config-file client.ini` loads entries from optional `[kafka]`, `[registry]`,
+  and `[aws]` INI sections. Merge each file section under its matching repeatable
+  CLI option, then apply `-b/--bootstrap-servers`. Require a non-empty resolved
+  `bootstrap.servers` and update `examples/client.ini` when this behavior changes.
+- Forward arbitrary `--kafka` and `--registry` properties to their respective
+  `confluent-kafka` clients and let those clients validate names and values.
+- Keep `-k` as the short form of consumer `--key`; `--kafka` has no short form.
+- Kaskade settings come from `KASKADE_SETTINGS`, then
+  `$XDG_CONFIG_HOME/kaskade/settings.yaml`, then
+  `~/.config/kaskade/settings.yaml`. Ignore invalid entries, retain valid ones,
+  warn in-app, and keep `examples/settings.yaml` current when settings change.
+- Keep settings loading in `settings.py`, key binding parsing in `keymaps.py`,
+  and supported-theme resolution in `themes.py`.
+- The theme precedence is `--theme`, then `settings.yaml`, then `eva01`. Accept
+  Textual built-in theme names and Kaskade's custom theme name.
 - Logs use `$XDG_STATE_HOME/kaskade/kaskade.log`, falling back to
   `~/.local/state/kaskade/kaskade.log`, and rotate at 5 MiB with three backups.
 - `--aws region=<region>` enables Amazon MSK IAM in admin, consumer, and sandbox
@@ -51,7 +59,7 @@
   manual, resumed, or post-mutation refreshes; coalesce non-periodic requests in
   the shared refresh coordinator.
 - Admin auto-refresh defaults to 30 seconds, pauses outside the topic list, and
-  is configured by `admin.refresh_interval_seconds` or
+  is configured by `admin.refresh-interval` or
   `admin --refresh-interval`; `0` disables it.
 - `consumer --earliest` subscribes to all partitions with
   `auto.offset.reset=earliest`. Repeatable

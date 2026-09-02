@@ -20,9 +20,9 @@ from kaskade.admin import (
 )
 from kaskade.commands import CreateTopicCommand, UpdateTopicCommand
 from kaskade.configs import MIN_INSYNC_REPLICAS_CONFIG
-from kaskade.keymaps import CONFIG_ENV_VAR
 from kaskade.models import MetricState, Partition, Topic, TopicConfiguration
 from kaskade.services import EnrichmentResult, GroupSnapshot
+from kaskade.settings import SETTINGS_ENV_VAR
 from kaskade.widgets import TableFrame
 from tests import configure_admin_service
 
@@ -610,25 +610,25 @@ class TestAdminRefresh(unittest.IsolatedAsyncioTestCase):
 
     async def test_command_line_interval_overrides_config(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
-            config_path = Path(temporary_directory) / "config.yaml"
+            config_path = Path(temporary_directory) / "settings.yaml"
             config_path.write_text(
-                "admin:\n  refresh_interval_seconds: 60\n",
+                "admin:\n  refresh-interval: 60\n",
                 encoding="utf-8",
             )
-            with patch.dict(os.environ, {CONFIG_ENV_VAR: str(config_path)}):
+            with patch.dict(os.environ, {SETTINGS_ENV_VAR: str(config_path)}):
                 app = KaskadeAdmin({}, refresh_interval=10)
 
                 self.assertEqual(10, app.auto_refresh_interval)
 
     async def test_can_disable_auto_refresh(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
-            config_path = Path(temporary_directory) / "config.yaml"
+            config_path = Path(temporary_directory) / "settings.yaml"
             config_path.write_text(
-                "admin:\n  refresh_interval_seconds: 0\n",
+                "admin:\n  refresh-interval: 0\n",
                 encoding="utf-8",
             )
             with (
-                patch.dict(os.environ, {CONFIG_ENV_VAR: str(config_path)}),
+                patch.dict(os.environ, {SETTINGS_ENV_VAR: str(config_path)}),
                 patch("kaskade.admin.TopicService") as topic_service,
             ):
                 configure_admin_service(topic_service.return_value, {})

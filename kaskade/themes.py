@@ -1,5 +1,6 @@
 import sys
 from collections.abc import Iterable
+from dataclasses import replace
 from functools import partial
 from pathlib import Path
 from typing import ClassVar
@@ -18,7 +19,8 @@ from kaskade.help import (
     HelpScreen,
     contextual_help,
 )
-from kaskade.keymaps import NAVIGATION_BINDING_IDS, load_settings
+from kaskade.keymaps import NAVIGATION_BINDING_IDS
+from kaskade.settings import AppSettings, load_settings
 
 DEFAULT_THEME = "eva01"
 KASKADE_COMMAND_ID_PREFIX = "kaskade."
@@ -42,6 +44,19 @@ EVA01_THEME = Theme(
 def available_theme_names() -> tuple[str, ...]:
     """Return every Textual built-in theme plus Kaskade's default theme."""
     return tuple(sorted((*BUILTIN_THEMES, EVA01_THEME.name)))
+
+
+def _resolve_theme(settings: AppSettings) -> AppSettings:
+    configured_theme = settings.theme
+    if configured_theme is None:
+        return replace(settings, theme=DEFAULT_THEME)
+    if configured_theme not in available_theme_names():
+        return replace(
+            settings,
+            theme=DEFAULT_THEME,
+            warnings=(*settings.warnings, f"Ignoring 'theme': unknown theme {configured_theme!r}"),
+        )
+    return settings
 
 
 def _rich_color(color: str) -> str:
@@ -112,21 +127,22 @@ class KaskadeApp(App, inherit_bindings=False):
         ),
     ]
 
-    def __init__(self, *, keymap_path: Path | None = None) -> None:
+    def __init__(self, *, settings_path: Path | None = None) -> None:
         self._rich_theme_pushed = False
         super().__init__()
-        self.keymap_settings = load_settings(keymap_path)
-        self.set_keymap(self.keymap_settings.keymap)
+        self.settings = _resolve_theme(load_settings(settings_path))
+        self.set_keymap(self.settings.keymap)
         self.register_theme(EVA01_THEME)
-        self.theme = DEFAULT_THEME
+        assert self.settings.theme is not None
+        self.theme = self.settings.theme
         self._sync_rich_theme()
 
     def on_mount(self) -> None:
         self.screen.add_class("main-view-screen")
-        for warning_message in self.keymap_settings.warnings:
+        for warning_message in self.settings.warnings:
             self.notify(
                 warning_message,
-                title="Keymap Configuration",
+                title="Settings Configuration",
                 severity="warning",
             )
 

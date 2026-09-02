@@ -18,18 +18,27 @@ from kaskade.deserializers import Deserialization
 from kaskade.main import PARTITION_SELECTION_METAVAR, cli
 from kaskade.models import PartitionOffset, PartitionSelection
 from kaskade.services import PartitionSelectionError
-from kaskade.themes import DEFAULT_THEME
 from tests import faker
 
 EXPECTED_TOPIC = "my.topic"
 EXPECTED_SERVER = "localhost:9092"
 CONFIGURED_SERVER = "configured:9092"
-KAFKA_CONFIG = str(Path(__file__).resolve().parent / "config" / "kafka.properties")
 
 
-def write_kafka_properties(directory: str, properties: dict[str, str]) -> str:
-    config_path = Path(directory) / "kafka-with-bootstrap.properties"
-    config_path.write_text("\n".join(f"{key}={value}" for key, value in properties.items()))
+def write_config_ini(
+    directory: str,
+    kafka: dict[str, str] | None = None,
+    registry: dict[str, str] | None = None,
+    aws: dict[str, str] | None = None,
+) -> str:
+    config_path = Path(directory) / "client.ini"
+    sections = []
+    for section, properties in (("kafka", kafka), ("registry", registry), ("aws", aws)):
+        if properties is None:
+            continue
+        entries = "\n".join(f"{key} = {value}" for key, value in properties.items())
+        sections.append(f"[{section}]\n{entries}")
+    config_path.write_text("\n\n".join(sections) + "\n")
     return str(config_path)
 
 
@@ -46,7 +55,7 @@ class TestAdminCli(unittest.TestCase):
         self.assertGreater(result.exit_code, 0)
         self.assertIn("Bootstrap servers are required", result.output)
         self.assertIn("-b/--bootstrap-servers", result.output)
-        self.assertIn("--config or --config-file", result.output)
+        self.assertIn("--kafka or --config-file", result.output)
 
     def test_help_uses_connection_and_application_groups_with_compact_theme(self):
         result = self.runner.invoke(cli, [self.command, "--help"])
@@ -64,12 +73,26 @@ class TestAdminCli(unittest.TestCase):
         self.assertEqual(4, len(examples))
 
     def test_invalid_extra_kafka_config(self):
-        result = self.runner.invoke(cli, [self.command, "-c", "property.name"])
+        result = self.runner.invoke(cli, [self.command, "--kafka", "property.name"])
 
         self.assertGreater(result.exit_code, 0)
-        self.assertIn(
-            "Invalid value for '-c' / '--config': Should be property=value", result.output
+        self.assertIn("Invalid value for '--kafka': Should be property=value", result.output)
+
+    def test_removed_config_short_option(self):
+        result = self.runner.invoke(
+            cli, [self.command, "-c", f"{BOOTSTRAP_SERVERS}={CONFIGURED_SERVER}"]
         )
+
+        self.assertGreater(result.exit_code, 0)
+        self.assertIn("No such option '-c'", result.output)
+
+    def test_removed_config_option(self):
+        result = self.runner.invoke(
+            cli, [self.command, "--config", f"{BOOTSTRAP_SERVERS}={CONFIGURED_SERVER}"]
+        )
+
+        self.assertGreater(result.exit_code, 0)
+        self.assertIn("No such option '--config'", result.output)
 
     def test_invalid_aws_config(self):
         result = self.runner.invoke(cli, [self.command, "--aws", "region"])
@@ -114,8 +137,9 @@ class TestAdminCli(unittest.TestCase):
 
     @patch("kaskade.main.KaskadeAdmin")
     def test_kafka_config_file(self, mock_class_kaskade_admin):
+        config_path = write_config_ini(self.temp_directory.name, kafka={"security.protocol": "SSL"})
         result = self.runner.invoke(
-            cli, [self.command, "-b", EXPECTED_SERVER, "--config-file", KAFKA_CONFIG]
+            cli, [self.command, "-b", EXPECTED_SERVER, "--config-file", config_path]
         )
 
         mock_class_kaskade_admin.assert_called_with(
@@ -126,7 +150,7 @@ class TestAdminCli(unittest.TestCase):
 
     @patch("kaskade.main.KaskadeAdmin")
     def test_infers_bootstrap_servers_from_config_file(self, mock_class_kaskade_admin):
-        config_path = write_kafka_properties(
+        config_path = write_config_ini(
             self.temp_directory.name,
             {BOOTSTRAP_SERVERS: CONFIGURED_SERVER, "security.protocol": "SSL"},
         )
@@ -140,10 +164,54 @@ class TestAdminCli(unittest.TestCase):
         self.assertEqual(0, result.exit_code)
 
     @patch("kaskade.main.KaskadeAdmin")
+    def test_config_file_allows_registry_only_section(self, mock_class_kaskade_admin):
+        config_path = write_config_ini(
+            self.temp_directory.name,
+            registry={"url": "https://registry.example.com"},
+        )
+
+        result = self.runner.invoke(
+            cli,
+            [self.command, "-b", EXPECTED_SERVER, "--config-file", config_path],
+        )
+
+        mock_class_kaskade_admin.assert_called_with(
+            {BOOTSTRAP_SERVERS: EXPECTED_SERVER}, refresh_interval=None
+        )
+        self.assertEqual(0, result.exit_code)
+
+    def test_config_file_rejects_unknown_section(self):
+        config_path = Path(self.temp_directory.name) / "unknown.ini"
+        config_path.write_text("[unknown]\nvalue = example\n")
+
+        result = self.runner.invoke(
+            cli,
+            [self.command, "-b", EXPECTED_SERVER, "--config-file", str(config_path)],
+        )
+
+        self.assertGreater(result.exit_code, 0)
+        self.assertIn("Unknown configuration sections: unknown", result.output)
+
+    @patch("kaskade.main.KaskadeAdmin")
+    def test_config_file_preserves_literal_percent(self, mock_class_kaskade_admin):
+        config_path = write_config_ini(
+            self.temp_directory.name,
+            {BOOTSTRAP_SERVERS: CONFIGURED_SERVER, "sasl.password": "secret%value"},
+        )
+
+        result = self.runner.invoke(cli, [self.command, "--config-file", config_path])
+
+        mock_class_kaskade_admin.assert_called_with(
+            {BOOTSTRAP_SERVERS: CONFIGURED_SERVER, "sasl.password": "secret%value"},
+            refresh_interval=None,
+        )
+        self.assertEqual(0, result.exit_code)
+
+    @patch("kaskade.main.KaskadeAdmin")
     def test_infers_bootstrap_servers_from_inline_config(self, mock_class_kaskade_admin):
         result = self.runner.invoke(
             cli,
-            [self.command, "--config", f"{BOOTSTRAP_SERVERS}={CONFIGURED_SERVER}"],
+            [self.command, "--kafka", f"{BOOTSTRAP_SERVERS}={CONFIGURED_SERVER}"],
         )
 
         mock_class_kaskade_admin.assert_called_with(
@@ -154,7 +222,7 @@ class TestAdminCli(unittest.TestCase):
     def test_rejects_empty_configured_bootstrap_servers(self):
         result = self.runner.invoke(
             cli,
-            [self.command, "--config", f"{BOOTSTRAP_SERVERS}="],
+            [self.command, "--kafka", f"{BOOTSTRAP_SERVERS}="],
         )
 
         self.assertGreater(result.exit_code, 0)
@@ -162,16 +230,17 @@ class TestAdminCli(unittest.TestCase):
 
     @patch("kaskade.main.KaskadeAdmin")
     def test_kafka_config_file_overlap(self, mock_class_kaskade_admin):
+        config_path = write_config_ini(self.temp_directory.name, kafka={"security.protocol": "SSL"})
         result = self.runner.invoke(
             cli,
             [
                 self.command,
                 "-b",
                 EXPECTED_SERVER,
-                "-c",
+                "--kafka",
                 "security.protocol=SASL_SSL",
                 "--config-file",
-                KAFKA_CONFIG,
+                config_path,
             ],
         )
 
@@ -185,7 +254,7 @@ class TestAdminCli(unittest.TestCase):
     def test_explicit_bootstrap_servers_override_kafka_configuration(
         self, mock_class_kaskade_admin
     ):
-        config_path = write_kafka_properties(
+        config_path = write_config_ini(
             self.temp_directory.name,
             {BOOTSTRAP_SERVERS: "file:9092", "security.protocol": "SSL"},
         )
@@ -196,9 +265,9 @@ class TestAdminCli(unittest.TestCase):
                 self.command,
                 "--config-file",
                 config_path,
-                "--config",
+                "--kafka",
                 f"{BOOTSTRAP_SERVERS}=inline:9092",
-                "--config",
+                "--kafka",
                 "security.protocol=SASL_SSL",
                 "-b",
                 EXPECTED_SERVER,
@@ -213,7 +282,7 @@ class TestAdminCli(unittest.TestCase):
 
     @patch("kaskade.main.KaskadeAdmin")
     def test_inline_bootstrap_servers_override_config_file(self, mock_class_kaskade_admin):
-        config_path = write_kafka_properties(
+        config_path = write_config_ini(
             self.temp_directory.name,
             {BOOTSTRAP_SERVERS: "file:9092", "security.protocol": "SSL"},
         )
@@ -224,7 +293,7 @@ class TestAdminCli(unittest.TestCase):
                 self.command,
                 "--config-file",
                 config_path,
-                "--config",
+                "--kafka",
                 f"{BOOTSTRAP_SERVERS}={CONFIGURED_SERVER}",
             ],
         )
@@ -236,10 +305,10 @@ class TestAdminCli(unittest.TestCase):
         self.assertEqual(0, result.exit_code)
 
     @patch("kaskade.main.KaskadeAdmin")
-    def test_default_theme(self, mock_class_kaskade_admin):
+    def test_uses_application_theme_when_option_is_omitted(self, mock_class_kaskade_admin):
         result = self.runner.invoke(cli, [self.command, "-b", EXPECTED_SERVER])
 
-        self.assertEqual(DEFAULT_THEME, mock_class_kaskade_admin.return_value.theme)
+        self.assertNotIn("theme", vars(mock_class_kaskade_admin.return_value))
         self.assertEqual(0, result.exit_code)
 
     @patch("kaskade.main.KaskadeAdmin")
@@ -303,7 +372,7 @@ class TestAdminCli(unittest.TestCase):
                 self.command,
                 "-b",
                 EXPECTED_SERVER,
-                "-c",
+                "--kafka",
                 f"{expected_property_name}={expected_property_value}",
             ],
         )
@@ -327,9 +396,9 @@ class TestAdminCli(unittest.TestCase):
                 self.command,
                 "-b",
                 EXPECTED_SERVER,
-                "-c",
+                "--kafka",
                 f"{expected_property_name}={expected_property_value}",
-                "-c",
+                "--kafka",
                 f"{expected_property_name2}={expected_property_value2}",
             ],
         )
@@ -352,7 +421,7 @@ class TestAdminCli(unittest.TestCase):
                 self.command,
                 "-b",
                 EXPECTED_SERVER,
-                "-c",
+                "--kafka",
                 f"{SECURITY_PROTOCOL}=PLAINTEXT",
                 "--aws",
                 "region=us-east-1",
@@ -363,6 +432,45 @@ class TestAdminCli(unittest.TestCase):
         self.assertEqual(SASL_SSL, config[SECURITY_PROTOCOL])
         self.assertEqual(OAUTHBEARER, config[SASL_MECHANISM])
         self.assertEqual(AwsMskOAuthCallback("us-east-1"), config[OAUTH_CALLBACK])
+        self.assertEqual(0, result.exit_code)
+
+    @patch("kaskade.main.KaskadeAdmin")
+    def test_configures_aws_msk_iam_from_config_file(self, mock_class_kaskade_admin):
+        config_path = write_config_ini(
+            self.temp_directory.name,
+            kafka={BOOTSTRAP_SERVERS: EXPECTED_SERVER},
+            aws={"region": "us-east-1"},
+        )
+
+        result = self.runner.invoke(cli, [self.command, "--config-file", config_path])
+
+        config = mock_class_kaskade_admin.call_args.args[0]
+        self.assertEqual(SASL_SSL, config[SECURITY_PROTOCOL])
+        self.assertEqual(OAUTHBEARER, config[SASL_MECHANISM])
+        self.assertEqual(AwsMskOAuthCallback("us-east-1"), config[OAUTH_CALLBACK])
+        self.assertEqual(0, result.exit_code)
+
+    @patch("kaskade.main.KaskadeAdmin")
+    def test_inline_aws_config_overrides_config_file(self, mock_class_kaskade_admin):
+        config_path = write_config_ini(
+            self.temp_directory.name,
+            kafka={BOOTSTRAP_SERVERS: EXPECTED_SERVER},
+            aws={"region": "us-east-1"},
+        )
+
+        result = self.runner.invoke(
+            cli,
+            [
+                self.command,
+                "--config-file",
+                config_path,
+                "--aws",
+                "region=us-west-2",
+            ],
+        )
+
+        config = mock_class_kaskade_admin.call_args.args[0]
+        self.assertEqual(AwsMskOAuthCallback("us-west-2"), config[OAUTH_CALLBACK])
         self.assertEqual(0, result.exit_code)
 
 
@@ -383,7 +491,7 @@ class TestConsumerCli(unittest.TestCase):
         self.assertGreater(result.exit_code, 0)
         self.assertIn("Bootstrap servers are required", result.output)
         self.assertIn("-b/--bootstrap-servers", result.output)
-        self.assertIn("--config or --config-file", result.output)
+        self.assertIn("--kafka or --config-file", result.output)
 
     def test_topic_required(self):
         result = self.runner.invoke(cli, [self.command, "-b", EXPECTED_SERVER])
@@ -414,6 +522,8 @@ class TestConsumerCli(unittest.TestCase):
         self.assertIn("--earliest", consumption_help)
         self.assertIn("--partition", consumption_help)
         self.assertIn("-k, --key", deserialization_help)
+        self.assertNotIn("-k, --kafka", connection_help)
+        self.assertIn("--kafka", connection_help)
         self.assertIn("-v, --value", deserialization_help)
         self.assertIn("Bytes options:", result.output)
         self.assertIn("--bytes property=value", result.output)
@@ -575,18 +685,33 @@ class TestConsumerCli(unittest.TestCase):
         self.assertIn("Partition 9 does not exist", result.output)
 
     def test_invalid_extra_kafka_config(self):
-        result = self.runner.invoke(cli, [self.command, "-c", "property.name"])
+        result = self.runner.invoke(cli, [self.command, "--kafka", "property.name"])
 
         self.assertGreater(result.exit_code, 0)
-        self.assertIn(
-            "Invalid value for '-c' / '--config': Should be property=value", result.output
-        )
+        self.assertIn("Invalid value for '--kafka': Should be property=value", result.output)
 
     def test_invalid_schema_registry_config(self):
         result = self.runner.invoke(cli, [self.command, "--registry", "property.name"])
 
         self.assertGreater(result.exit_code, 0)
         self.assertIn("Invalid value for '--registry': Should be property=value", result.output)
+
+    def test_registry_deserializer_requires_inline_or_file_config(self):
+        result = self.runner.invoke(
+            cli,
+            [
+                self.command,
+                "-b",
+                EXPECTED_SERVER,
+                "-t",
+                EXPECTED_TOPIC,
+                "-v",
+                "registry",
+            ],
+        )
+
+        self.assertGreater(result.exit_code, 0)
+        self.assertIn("Use --registry or the [registry] section in --config-file", result.output)
 
     def test_invalid_protobuf_config(self):
         result = self.runner.invoke(cli, [self.command, "--protobuf", "property.name"])
@@ -654,7 +779,7 @@ class TestConsumerCli(unittest.TestCase):
         self.assertGreater(result.exit_code, 0)
         self.assertIn("Invalid value: Path is a directory.", result.output)
 
-    def test_validate_schema_registry_no_url(self):
+    def test_schema_registry_client_validates_missing_url(self):
         result = self.runner.invoke(
             cli,
             [
@@ -671,9 +796,9 @@ class TestConsumerCli(unittest.TestCase):
         )
 
         self.assertGreater(result.exit_code, 0)
-        self.assertIn("Missing option '--registry url=my-url'", result.output)
+        self.assertIn("Missing required configuration property url", result.output)
 
-    def test_validate_schema_registry_invalid_config(self):
+    def test_schema_registry_client_validates_unknown_property(self):
         result = self.runner.invoke(
             cli,
             [
@@ -683,12 +808,16 @@ class TestConsumerCli(unittest.TestCase):
                 "-t",
                 EXPECTED_TOPIC,
                 "--registry",
+                "url=http://my-url",
+                "--registry",
                 "not.valid=property",
+                "-v",
+                "registry",
             ],
         )
 
         self.assertGreater(result.exit_code, 0)
-        self.assertIn("Invalid value: Valid properties", result.output)
+        self.assertIn("Unrecognized properties: not.valid", result.output)
 
     def test_validate_avro_invalid_config(self):
         result = self.runner.invoke(
@@ -724,7 +853,7 @@ class TestConsumerCli(unittest.TestCase):
         self.assertGreater(result.exit_code, 0)
         self.assertIn("Missing option '-k registry' and/or '-v registry'", result.output)
 
-    def test_validate_schema_registry_invalid_url(self):
+    def test_schema_registry_client_validates_invalid_url(self):
         result = self.runner.invoke(
             cli,
             [
@@ -741,7 +870,7 @@ class TestConsumerCli(unittest.TestCase):
         )
 
         self.assertGreater(result.exit_code, 0)
-        self.assertIn("Invalid value: Invalid url.", result.output)
+        self.assertIn("Invalid url no.url", result.output)
 
     def test_validate_missing_options_with_avro_key(self):
         result = self.runner.invoke(
@@ -760,7 +889,15 @@ class TestConsumerCli(unittest.TestCase):
         self.assertIn("Missing option '--avro'", result.output)
 
     @patch("kaskade.main.KaskadeConsumer")
-    def test_kafka_config_file(self, mock_class_kaskade_consumer):
+    def test_client_config_file(self, mock_class_kaskade_consumer):
+        config_path = write_config_ini(
+            self.temp_directory.name,
+            kafka={"security.protocol": "SSL"},
+            registry={
+                "url": "http://my-url",
+                "bearer.auth.credentials.source": "OAUTHBEARER",
+            },
+        )
         result = self.runner.invoke(
             cli,
             [
@@ -770,24 +907,70 @@ class TestConsumerCli(unittest.TestCase):
                 "-t",
                 EXPECTED_TOPIC,
                 "--config-file",
-                KAFKA_CONFIG,
+                config_path,
+                "-v",
+                "registry",
             ],
         )
 
         mock_class_kaskade_consumer.assert_called_with(
             EXPECTED_TOPIC,
             {BOOTSTRAP_SERVERS: EXPECTED_SERVER, "security.protocol": "SSL"},
-            {},
+            {
+                "url": "http://my-url",
+                "bearer.auth.credentials.source": "OAUTHBEARER",
+            },
             {},
             {},
             Deserialization.BYTES,
+            Deserialization.REGISTRY,
+        )
+        self.assertEqual(0, result.exit_code)
+
+    @patch("kaskade.main.KaskadeConsumer")
+    def test_inline_registry_config_overrides_config_file(self, mock_class_kaskade_consumer):
+        config_path = write_config_ini(
+            self.temp_directory.name,
+            registry={
+                "url": "http://file-url",
+                "bearer.auth.credentials.source": "OAUTHBEARER",
+            },
+        )
+
+        result = self.runner.invoke(
+            cli,
+            [
+                self.command,
+                "-b",
+                EXPECTED_SERVER,
+                "-t",
+                EXPECTED_TOPIC,
+                "--config-file",
+                config_path,
+                "--registry",
+                "url=http://inline-url",
+                "-v",
+                "registry",
+            ],
+        )
+
+        mock_class_kaskade_consumer.assert_called_with(
+            EXPECTED_TOPIC,
+            {BOOTSTRAP_SERVERS: EXPECTED_SERVER},
+            {
+                "url": "http://inline-url",
+                "bearer.auth.credentials.source": "OAUTHBEARER",
+            },
+            {},
+            {},
             Deserialization.BYTES,
+            Deserialization.REGISTRY,
         )
         self.assertEqual(0, result.exit_code)
 
     @patch("kaskade.main.KaskadeConsumer")
     def test_infers_bootstrap_servers_from_config_file(self, mock_class_kaskade_consumer):
-        config_path = write_kafka_properties(
+        config_path = write_config_ini(
             self.temp_directory.name,
             {BOOTSTRAP_SERVERS: CONFIGURED_SERVER, "security.protocol": "SSL"},
         )
@@ -816,7 +999,7 @@ class TestConsumerCli(unittest.TestCase):
                 self.command,
                 "-t",
                 EXPECTED_TOPIC,
-                "--config",
+                "--kafka",
                 f"{BOOTSTRAP_SERVERS}={CONFIGURED_SERVER}",
             ],
         )
@@ -834,6 +1017,7 @@ class TestConsumerCli(unittest.TestCase):
 
     @patch("kaskade.main.KaskadeConsumer")
     def test_kafka_config_file_overlap(self, mock_class_kaskade_consumer):
+        config_path = write_config_ini(self.temp_directory.name, kafka={"security.protocol": "SSL"})
         result = self.runner.invoke(
             cli,
             [
@@ -842,10 +1026,10 @@ class TestConsumerCli(unittest.TestCase):
                 EXPECTED_SERVER,
                 "-t",
                 EXPECTED_TOPIC,
-                "-c",
+                "--kafka",
                 "security.protocol=SASL_SSL",
                 "--config-file",
-                KAFKA_CONFIG,
+                config_path,
             ],
         )
 
@@ -878,12 +1062,12 @@ class TestConsumerCli(unittest.TestCase):
         self.assertEqual(0, result.exit_code)
 
     @patch("kaskade.main.KaskadeConsumer")
-    def test_default_theme(self, mock_class_kaskade_consumer):
+    def test_uses_application_theme_when_option_is_omitted(self, mock_class_kaskade_consumer):
         result = self.runner.invoke(
             cli, [self.command, "-b", EXPECTED_SERVER, "-t", EXPECTED_TOPIC]
         )
 
-        self.assertEqual(DEFAULT_THEME, mock_class_kaskade_consumer.return_value.theme)
+        self.assertNotIn("theme", vars(mock_class_kaskade_consumer.return_value))
         self.assertEqual(0, result.exit_code)
 
     @patch("kaskade.main.KaskadeConsumer")
@@ -1134,7 +1318,7 @@ class TestConsumerCli(unittest.TestCase):
                 EXPECTED_SERVER,
                 "-t",
                 EXPECTED_TOPIC,
-                "-c",
+                "--kafka",
                 f"{expected_property_name}={expected_property_value}",
             ],
         )
@@ -1165,9 +1349,9 @@ class TestConsumerCli(unittest.TestCase):
                 EXPECTED_SERVER,
                 "-t",
                 EXPECTED_TOPIC,
-                "-c",
+                "--kafka",
                 f"{expected_property_name}={expected_property_value}",
-                "-c",
+                "--kafka",
                 f"{expected_property_name2}={expected_property_value2}",
             ],
         )
@@ -1209,11 +1393,39 @@ class TestConsumerCli(unittest.TestCase):
         self.assertEqual(0, result.exit_code)
 
     @patch("kaskade.main.KaskadeConsumer")
+    def test_configures_aws_msk_iam_from_config_file(self, mock_class_kaskade_consumer):
+        config_path = write_config_ini(
+            self.temp_directory.name,
+            aws={"region": "us-west-2"},
+        )
+
+        result = self.runner.invoke(
+            cli,
+            [
+                self.command,
+                "-b",
+                EXPECTED_SERVER,
+                "-t",
+                EXPECTED_TOPIC,
+                "--config-file",
+                config_path,
+            ],
+        )
+
+        config = mock_class_kaskade_consumer.call_args.args[1]
+        self.assertEqual(SASL_SSL, config[SECURITY_PROTOCOL])
+        self.assertEqual(OAUTHBEARER, config[SASL_MECHANISM])
+        self.assertEqual(AwsMskOAuthCallback("us-west-2"), config[OAUTH_CALLBACK])
+        self.assertEqual(0, result.exit_code)
+
+    @patch("kaskade.main.KaskadeConsumer")
     def test_pass_schema_registry_configs(self, mock_class_kaskade_consumer):
         expected_property_name = "url"
         expected_property_value = "http://my-url"
-        expected_property_name2 = "basic.auth.user.info"
-        expected_property_value2 = "property.value2="
+        expected_property_name2 = "bearer.auth.credentials.source"
+        expected_property_value2 = "OAUTHBEARER"
+        expected_property_name3 = "bearer.auth.client.secret"
+        expected_property_value3 = "property.value3="
 
         result = self.runner.invoke(
             cli,
@@ -1227,6 +1439,8 @@ class TestConsumerCli(unittest.TestCase):
                 f"{expected_property_name}={expected_property_value}",
                 "--registry",
                 f"{expected_property_name2}={expected_property_value2}",
+                "--registry",
+                f"{expected_property_name3}={expected_property_value3}",
                 "-k",
                 "registry",
                 "-v",
@@ -1242,6 +1456,7 @@ class TestConsumerCli(unittest.TestCase):
             {
                 expected_property_name: expected_property_value,
                 expected_property_name2: expected_property_value2,
+                expected_property_name3: expected_property_value3,
             },
             {},
             {},

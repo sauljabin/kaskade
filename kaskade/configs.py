@@ -3,20 +3,6 @@ MILLISECONDS_1W = 604800000
 MIN_INSYNC_REPLICAS_CONFIG = "min.insync.replicas"
 RETENTION_MS_CONFIG = "retention.ms"
 CLEANUP_POLICY_CONFIG = "cleanup.policy"
-SCHEMA_REGISTRY_CONFIGS = [
-    "url",
-    "ssl.ca.location",
-    "ssl.key.location",
-    "ssl.certificate.location",
-    "basic.auth.user.info",
-    "proxy",
-    "timeout",
-    "cache.capacity",
-    "cache.latest.ttl.sec",
-    "max.retries",
-    "retries.wait.ms",
-]
-"""https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#schemaregistry-client"""
 FRAMING_CONFIGS = ["framing", "key.framing", "value.framing"]
 PROTOBUF_DESERIALIZER_CONFIGS = ["descriptor", "key", "value", *FRAMING_CONFIGS]
 AVRO_DESERIALIZER_CONFIGS = ["key", "value", *FRAMING_CONFIGS]

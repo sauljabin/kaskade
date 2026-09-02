@@ -25,33 +25,31 @@ from kaskade.configs import (
     FRAMING_CONFIGS,
     JSON_DESERIALIZER_CONFIGS,
     PROTOBUF_DESERIALIZER_CONFIGS,
-    SCHEMA_REGISTRY_CONFIGS,
 )
 from kaskade.consumer import KaskadeConsumer
 from kaskade.deserializers import Deserialization
-from kaskade.keymaps import (
-    MIN_ADMIN_REFRESH_INTERVAL_SECONDS,
-    is_valid_admin_refresh_interval,
-)
 from kaskade.logs import configure_logging
 from kaskade.models import PartitionOffset, PartitionSelection
 from kaskade.services import PartitionSelectionError
-from kaskade.themes import DEFAULT_THEME, available_theme_names
-from kaskade.utils import load_properties
+from kaskade.settings import (
+    MIN_ADMIN_REFRESH_INTERVAL_SECONDS,
+    is_valid_admin_refresh_interval,
+)
+from kaskade.themes import available_theme_names
+from kaskade.utils import load_ini
 
 KAFKA_CONFIG_HELP = (
     "Kafka client property. Repeatable; overrides matching properties from --config-file."
 )
-KAFKA_CONFIG_FILE_HELP = (
-    "Kafka client property file in property=value format. May provide bootstrap.servers."
-)
+CONFIG_FILE_HELP = "INI file with [kafka], [registry], and/or [aws] configuration sections."
+CONFIG_FILE_SECTIONS = ("kafka", "registry", "aws")
 BOOTSTRAP_SERVERS_HELP = (
     "Bootstrap servers. Comma-separated host:port pairs; overrides bootstrap.servers "
     "from Kafka client configuration."
 )
 BOOTSTRAP_SERVERS_REQUIRED = (
     "Bootstrap servers are required. Use -b/--bootstrap-servers or set "
-    "bootstrap.servers with --config or --config-file."
+    "bootstrap.servers with --kafka or --config-file."
 )
 EPILOG_HELP = "More information at https://github.com/sauljabin/kaskade."
 EARLIEST_HELP = "Read all partitions from their earliest available offsets."
@@ -64,8 +62,13 @@ PARTITION_SELECTION_HELP = (
 PARTITION_SELECTION_PATTERN = re.compile(
     rf"(?P<partition>[0-9]+)(?::(?P<offset>[0-9]+|{re.escape(EARLIEST)}))?"
 )
-AWS_CONFIG_HELP = f"Amazon MSK IAM property. Repeatable. Properties: {', '.join(AWS_CONFIGS)}."
-THEME_HELP = "Textual theme name. See USAGE.md or use the in-application Commands window."
+AWS_CONFIG_HELP = (
+    "Amazon MSK IAM property. Repeatable; overrides matching properties from "
+    f"--config-file. Properties: {', '.join(AWS_CONFIGS)}."
+)
+THEME_HELP = (
+    "Textual theme name; overrides settings.yaml. When omitted, settings.yaml or Eva01 " "is used."
+)
 AVRO_CONFIG_HELP = (
     "Avro deserializer property. Repeatable; required when the key or value format is "
     f"avro. Properties: {', '.join(AVRO_DESERIALIZER_CONFIGS)}. Framing: "
@@ -92,8 +95,8 @@ FALLBACK_CONFIG_HELP = (
     f"{', '.join(BYTES_ENCODINGS)}."
 )
 REGISTRY_CONFIG_HELP = (
-    "Schema Registry client property. Repeatable; required when the key or value format "
-    "is registry."
+    "Schema Registry client property. Repeatable; overrides matching properties from "
+    "--config-file."
 )
 CliDecoratorTarget = TypeVar("CliDecoratorTarget", bound=Callable[..., Any])
 
@@ -109,19 +112,24 @@ def kafka_connection_options() -> Callable[[CliDecoratorTarget], CliDecoratorTar
             metavar="host:port",
         ),
         cloup.option(
-            "-c",
-            "--config",
+            "--kafka",
             "kafka_config",
             help=KAFKA_CONFIG_HELP,
             metavar="property=value",
             multiple=True,
             callback=tuple_properties_to_dict,
         ),
+    )
+
+
+def configuration_options() -> Callable[[CliDecoratorTarget], CliDecoratorTarget]:
+    return cloup.option_group(
+        "Configuration options",
         cloup.option(
             "--config-file",
-            "kafka_config_file",
-            help=KAFKA_CONFIG_FILE_HELP,
-            type=cloup.Path(exists=True),
+            "config_file",
+            help=CONFIG_FILE_HELP,
+            type=cloup.Path(exists=True, dir_okay=False),
             metavar="filename",
         ),
     )
@@ -145,8 +153,7 @@ def theme_option() -> Callable[[CliDecoratorTarget], CliDecoratorTarget]:
     return cloup.option(
         "--theme",
         type=cloup.Choice(available_theme_names(), case_sensitive=False),
-        default=DEFAULT_THEME,
-        show_default=True,
+        default=None,
         help=THEME_HELP,
         metavar="name",
     )
@@ -161,7 +168,7 @@ def admin_application_options() -> Callable[[CliDecoratorTarget], CliDecoratorTa
             type=int,
             callback=validate_admin_refresh_interval,
             metavar="seconds",
-            help="Admin auto-refresh interval. Use 0 to disable; overrides config.yaml.",
+            help="Admin auto-refresh interval. Use 0 to disable; overrides settings.yaml.",
         ),
     )
 
@@ -227,14 +234,31 @@ def parse_partition_selections(
     return tuple(selections)
 
 
+def load_config_file(config_file: str | None) -> dict[str, dict[str, str]]:
+    if config_file is None:
+        return {}
+
+    try:
+        config = load_ini(config_file)
+    except (OSError, ValueError) as ex:
+        raise ClickException(f"Invalid configuration file: {ex}") from ex
+
+    unknown_sections = [section for section in config if section not in CONFIG_FILE_SECTIONS]
+    if unknown_sections:
+        raise ClickException(f"Unknown configuration sections: {', '.join(unknown_sections)}")
+    if not config:
+        expected = " or ".join(f"[{section}]" for section in CONFIG_FILE_SECTIONS)
+        raise ClickException(f"Configuration file requires {expected}")
+
+    return config
+
+
 def resolve_kafka_config(
     bootstrap_servers: str | None,
-    kafka_config_file: str | None,
+    file_config: dict[str, str],
     kafka_config: dict[str, Any],
 ) -> dict[str, Any]:
-    resolved_config = dict(kafka_config)
-    if kafka_config_file is not None:
-        resolved_config = load_properties(kafka_config_file) | resolved_config
+    resolved_config = file_config | kafka_config
 
     if bootstrap_servers is not None:
         resolved_config[BOOTSTRAP_SERVERS] = bootstrap_servers
@@ -254,15 +278,16 @@ def cli() -> None:
 
 
 @cli.command(epilog=EPILOG_HELP)
+@configuration_options()
 @kafka_connection_options()
 @aws_options()
 @admin_application_options()
 def admin(
     bootstrap_servers: str | None,
-    kafka_config_file: str | None,
+    config_file: str | None,
     kafka_config: dict[str, Any],
     aws_config: dict[str, str],
-    theme: str,
+    theme: str | None,
     refresh_interval: int | None,
 ) -> None:
     """
@@ -272,20 +297,26 @@ def admin(
     Examples:
       kaskade admin -b localhost:9092
       kaskade admin -b localhost:9092 --refresh-interval 10
-      kaskade admin --config-file kafka.properties
+      kaskade admin --config-file client.ini
       kaskade admin -b localhost:9092 --aws region=us-east-1
     """
 
-    kafka_config = resolve_kafka_config(bootstrap_servers, kafka_config_file, kafka_config)
+    file_config = load_config_file(config_file)
+    kafka_config = resolve_kafka_config(
+        bootstrap_servers, file_config.get("kafka", {}), kafka_config
+    )
+    aws_config = file_config.get("aws", {}) | aws_config
     validate_aws_config(aws_config)
     kafka_config = configure_aws_msk_iam(kafka_config, aws_config)
 
     kaskade_app = KaskadeAdmin(kafka_config, refresh_interval=refresh_interval)
-    kaskade_app.theme = theme
+    if theme is not None:
+        kaskade_app.theme = theme
     kaskade_app.run()
 
 
 @cli.command(epilog=EPILOG_HELP, show_constraints=True)
+@configuration_options()
 @kafka_connection_options()
 @aws_options()
 @cloup.option_group(
@@ -419,9 +450,9 @@ def consumer(
     value_deserialization: Deserialization,
     earliest: bool,
     partitions: tuple[PartitionSelection, ...],
-    kafka_config_file: str | None,
+    config_file: str | None,
     aws_config: dict[str, str],
-    theme: str,
+    theme: str | None,
 ) -> None:
     """
     Consumer mode.
@@ -434,7 +465,12 @@ def consumer(
       kaskade consumer -b localhost:9092 -t my-topic -v registry --registry url=http://localhost:8081
     """
 
-    kafka_config = resolve_kafka_config(bootstrap_servers, kafka_config_file, kafka_config)
+    file_config = load_config_file(config_file)
+    kafka_config = resolve_kafka_config(
+        bootstrap_servers, file_config.get("kafka", {}), kafka_config
+    )
+    registry_config = file_config.get("registry", {}) | registry_config
+    aws_config = file_config.get("aws", {}) | aws_config
     validate_aws_config(aws_config)
     kafka_config = configure_aws_msk_iam(kafka_config, aws_config)
 
@@ -444,7 +480,7 @@ def consumer(
     validate_deserializer(
         registry_config, avro_config, protobuf_config, key_deserialization, value_deserialization
     )
-    validate_schema_registry(registry_config, key_deserialization, value_deserialization)
+    validate_schema_registry_usage(registry_config, key_deserialization, value_deserialization)
     validate_bytes(bytes_config, key_deserialization, value_deserialization)
     validate_fallback(fallback_config)
     validate_json(json_config, key_deserialization, value_deserialization)
@@ -473,9 +509,10 @@ def consumer(
         kaskade_app = KaskadeConsumer(*consumer_args, **consumer_options)
     except PartitionSelectionError as ex:
         raise BadParameter(message=str(ex), param_hint="'--partition'") from ex
-    except KafkaException as ex:
+    except (KafkaException, ValueError) as ex:
         raise ClickException(str(ex)) from ex
-    kaskade_app.theme = theme
+    if theme is not None:
+        kaskade_app.theme = theme
     kaskade_app.run()
 
 
@@ -495,7 +532,10 @@ def validate_deserializer(
         key_deserialization == Deserialization.REGISTRY
         or value_deserialization == Deserialization.REGISTRY
     ):
-        raise MissingParameter(param_hint="'--registry'", param_type="option")
+        raise ClickException(
+            "Schema Registry configuration is required. Use --registry or the "
+            "[registry] section in --config-file."
+        )
 
     if len(protobuf_config) == 0 and (
         key_deserialization == Deserialization.PROTOBUF
@@ -656,7 +696,7 @@ def validate_avro(
     )
 
 
-def validate_schema_registry(
+def validate_schema_registry_usage(
     registry_config: dict[str, str],
     key_deserialization: Deserialization,
     value_deserialization: Deserialization,
@@ -664,22 +704,11 @@ def validate_schema_registry(
     if len(registry_config) == 0:
         return
 
-    if [config for config in registry_config if config not in SCHEMA_REGISTRY_CONFIGS]:
-        raise BadParameter(message=f"Valid properties: {SCHEMA_REGISTRY_CONFIGS}.")
-
-    url = registry_config.get("url")
-
     if (
         key_deserialization != Deserialization.REGISTRY
         and value_deserialization != Deserialization.REGISTRY
     ):
         raise MissingParameter(param_hint="'-k registry' and/or '-v registry'", param_type="option")
-
-    if url is None:
-        raise MissingParameter(param_hint="'--registry url=my-url'", param_type="option")
-
-    if not url.startswith("http://") and not url.startswith("https://"):
-        raise BadParameter("Invalid url.")
 
 
 def validate_protobuf(
