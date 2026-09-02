@@ -40,6 +40,8 @@ from referencing.jsonschema import DRAFT202012
 
 from kaskade import logger
 from kaskade.apicurio import (
+    APICURIO_ARTIFACT_GROUP_ID,
+    APICURIO_ARTIFACT_ID,
     APICURIO_CACHE_CAPACITY,
     ApicurioArtifact,
     ApicurioClient,
@@ -567,10 +569,13 @@ class ConfluentRegistryDeserializer(Deserializer):
 
 
 class ApicurioRegistryDeserializer(Deserializer):
-    HEADER_SIZE = 4
+    MAGIC_BYTE = 0
+    HEADER_SIZE = 5
 
     def __init__(self, registry_config: dict[str, str]):
         self.registry_client = ApicurioClient(registry_config)
+        self._artifact_group_id = registry_config.get(APICURIO_ARTIFACT_GROUP_ID)
+        self._artifact_id = registry_config.get(APICURIO_ARTIFACT_ID)
         self._protobuf_descriptor_cache: OrderedDict[
             tuple[str, int], tuple[FileDescriptorProto, DescriptorPool]
         ] = OrderedDict()
@@ -600,10 +605,15 @@ class ApicurioRegistryDeserializer(Deserializer):
             raise DeserializationError("Context is needed: KEY or VALUE")
         if len(data) <= self.HEADER_SIZE:
             raise DeserializationError(
-                "Expecting Apicurio data framing of length 5 bytes or more "
+                "Expecting Apicurio data framing of length 6 bytes or more "
                 f"but total data size is {len(data)} bytes"
             )
-        artifact_id = _unpack_payload(">I", data[: self.HEADER_SIZE])
+        try:
+            magic, artifact_id = unpack(">bI", data[: self.HEADER_SIZE])
+        except StructError as ex:
+            raise DeserializationError(str(ex)) from ex
+        if magic != self.MAGIC_BYTE:
+            raise DeserializationError(f"Unexpected Apicurio magic byte: {magic}")
         return self.registry_client.get_artifact(artifact_id), data[self.HEADER_SIZE :]
 
     def _deserialize_content(self, artifact: ApicurioArtifact, payload: bytes) -> Any:
@@ -863,7 +873,18 @@ class ApicurioRegistryDeserializer(Deserializer):
             conventional = [
                 value for value in candidates if value.get("artifactId") == conventional_artifact
             ]
-            selected = conventional[0] if len(conventional) == 1 else None
+            hinted = [
+                value
+                for value in candidates
+                if (
+                    self._artifact_group_id is None
+                    or value.get("groupId") == self._artifact_group_id
+                )
+                and (self._artifact_id is None or value.get("artifactId") == self._artifact_id)
+            ]
+            selected = hinted[0] if len(hinted) == 1 else None
+            if selected is None and len(conventional) == 1:
+                selected = conventional[0]
             if selected is None and len(candidates) == 1:
                 selected = candidates[0]
             result = None

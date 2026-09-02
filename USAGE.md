@@ -458,8 +458,11 @@ kaskade consumer -b my-kafka:9092 -t my-avro-topic \
 ```
 
 The native client also accepts Apicurio's Basic authentication, retry, cache,
-proxy, and PEM TLS properties. JKS and PKCS12 stores, header-based IDs, custom ID
-handlers, and legacy eight-byte framing are not supported. See the
+proxy, and PEM TLS properties. Explicit `apicurio.registry.artifact.group-id`,
+`apicurio.registry.artifact.artifact-id`, and `apicurio.registry.artifact.version`
+values are accepted as metadata-selection hints for shared producer/consumer
+configurations. JKS and PKCS12 stores, header-based IDs, custom ID handlers, and
+legacy eight-byte framing are not supported. See the
 [Apicurio Registry client configuration reference](https://www.apicur.io/registry/docs/apicurio-registry/3.3.x/getting-started/assembly-configuring-kafka-client-serdes.html).
 
 To use Apicurio's Confluent-compatible endpoint instead, leave the provider as

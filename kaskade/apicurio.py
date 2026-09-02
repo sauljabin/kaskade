@@ -14,6 +14,9 @@ import httpx
 APICURIO_PREFIX = "apicurio.registry."
 APICURIO_URL = f"{APICURIO_PREFIX}url"
 APICURIO_USE_ID = f"{APICURIO_PREFIX}use-id"
+APICURIO_ARTIFACT_GROUP_ID = f"{APICURIO_PREFIX}artifact.group-id"
+APICURIO_ARTIFACT_ID = f"{APICURIO_PREFIX}artifact.artifact-id"
+APICURIO_ARTIFACT_VERSION = f"{APICURIO_PREFIX}artifact.version"
 APICURIO_CHECK_PERIOD = f"{APICURIO_PREFIX}check-period-ms"
 APICURIO_RETRY_COUNT = f"{APICURIO_PREFIX}retry-count"
 APICURIO_RETRY_BACKOFF = f"{APICURIO_PREFIX}retry-backoff-ms"
@@ -36,6 +39,9 @@ APICURIO_CACHE_CAPACITY = 1000
 APICURIO_PROPERTIES = {
     APICURIO_URL,
     APICURIO_USE_ID,
+    APICURIO_ARTIFACT_GROUP_ID,
+    APICURIO_ARTIFACT_ID,
+    APICURIO_ARTIFACT_VERSION,
     APICURIO_CHECK_PERIOD,
     APICURIO_RETRY_COUNT,
     APICURIO_RETRY_BACKOFF,
@@ -96,6 +102,9 @@ def _complete_set(config: dict[str, str], names: set[str], label: str) -> bool:
 class ApicurioConfig:
     url: str
     use_id: str
+    artifact_group_id: str | None
+    artifact_id: str | None
+    artifact_version: str | None
     check_period_ms: int
     retry_count: int
     retry_backoff_ms: int
@@ -204,6 +213,9 @@ class ApicurioConfig:
         return cls(
             url=url,
             use_id=use_id,
+            artifact_group_id=config.get(APICURIO_ARTIFACT_GROUP_ID),
+            artifact_id=config.get(APICURIO_ARTIFACT_ID),
+            artifact_version=config.get(APICURIO_ARTIFACT_VERSION),
             check_period_ms=_integer(config, APICURIO_CHECK_PERIOD, 30000),
             retry_count=_integer(config, APICURIO_RETRY_COUNT, 3),
             retry_backoff_ms=_integer(config, APICURIO_RETRY_BACKOFF, 300),
@@ -431,6 +443,26 @@ class ApicurioClient:
         cached = self._cached(cache_key)
         if cached is not None:
             return cast(list[dict[str, Any]], cached)
+        if self.config.artifact_group_id and self.config.artifact_id:
+            group = quote(self.config.artifact_group_id, safe="")
+            artifact = quote(self.config.artifact_id, safe="")
+            version = (
+                quote(self.config.artifact_version, safe="")
+                if self.config.artifact_version
+                else "branch=latest"
+            )
+            response = self._request(
+                "GET", f"/groups/{group}/artifacts/{artifact}/versions/{version}"
+            )
+            try:
+                metadata = response.json()
+                resolved_id = int(metadata[self.config.use_id])
+            except (KeyError, TypeError, ValueError) as ex:
+                raise ApicurioRegistryError("Invalid Apicurio version metadata response") from ex
+            if resolved_id == artifact_id:
+                metadata_values = [metadata]
+                self._store(cache_key, metadata_values)
+                return metadata_values
         parameter = self.config.use_id
         values: list[dict[str, Any]] = []
         offset = 0

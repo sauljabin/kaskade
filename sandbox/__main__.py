@@ -88,6 +88,10 @@ class User:
         return str(vars(self))
 
 
+def apicurio_frame(artifact_id: int, payload: bytes) -> bytes:
+    return struct.pack(">bI", 0, artifact_id) + payload
+
+
 def protobuf_user_class() -> type[Message]:
     descriptor = FileDescriptorProto(name="user.proto", syntax="proto3")
     user = descriptor.message_type.add(name="User")
@@ -301,9 +305,9 @@ class Populator:
             APICURIO_JSON_TOPIC,
             partial(fake_user, User, faker),
             lambda value: (
-                struct.pack(">I", schema_id)
-                + apicurio_type_ref("User")
-                + json.dumps(vars(value)).encode()
+                apicurio_frame(
+                    schema_id, apicurio_type_ref("User") + json.dumps(vars(value)).encode()
+                )
             ),
             total_messages,
         )
@@ -316,7 +320,7 @@ class Populator:
             APICURIO_PROTOBUF_TOPIC,
             partial(fake_user, ProtobufUser, faker),
             lambda value: (
-                struct.pack(">I", schema_id) + apicurio_type_ref("User") + value.SerializeToString()
+                apicurio_frame(schema_id, apicurio_type_ref("User") + value.SerializeToString())
             ),
             total_messages,
         )
@@ -328,7 +332,7 @@ class Populator:
         self.populate(
             APICURIO_AVRO_TOPIC,
             partial(fake_user, User, faker),
-            lambda value: struct.pack(">I", schema_id) + serialize_avro(value),
+            lambda value: apicurio_frame(schema_id, serialize_avro(value)),
             total_messages,
         )
 

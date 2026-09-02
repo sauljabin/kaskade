@@ -57,7 +57,7 @@ class TestPopulator(unittest.TestCase):
         )
         self.assertEqual(f"{APICURIO_JSON_TOPIC}-value", request.kwargs["json"]["artifactId"])
         payload = mock_producer.return_value.produce.call_args.kwargs["value"]
-        self.assertEqual(b"\x00\x00\x00*", payload[:4])
+        self.assertEqual(b"\x00\x00\x00\x00*", payload[:5])
         self.assertIn(b'"name": "Ada"', payload)
 
     @patch("sandbox.__main__.Producer")

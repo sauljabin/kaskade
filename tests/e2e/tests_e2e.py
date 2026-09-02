@@ -157,6 +157,10 @@ def apicurio_type_ref(name: str) -> bytes:
     return bytes([len(message)]) + message
 
 
+def apicurio_frame(artifact_id: int, payload: bytes) -> bytes:
+    return struct.pack(">bI", 0, artifact_id) + payload
+
+
 def create_topic(config, topic: str = MY_TOPIC, partitions: int = 1):
     admin_client = AdminClient(config)
     futures = admin_client.create_topics(
@@ -382,14 +386,15 @@ class TestE2E(unittest.IsolatedAsyncioTestCase):
             cases = (
                 (
                     JSON_TOPIC,
-                    struct.pack(">I", json_id) + apicurio_type_ref("User") + b'{"name":"Ada"}',
+                    apicurio_frame(json_id, apicurio_type_ref("User") + b'{"name":"Ada"}'),
                 ),
-                (AVRO_TOPIC, struct.pack(">I", avro_id) + avro_payload.getvalue()),
+                (AVRO_TOPIC, apicurio_frame(avro_id, avro_payload.getvalue())),
                 (
                     PROTOBUF_TOPIC,
-                    struct.pack(">I", protobuf_id)
-                    + apicurio_type_ref("User")
-                    + ProtobufUser(name="Ada").SerializeToString(),
+                    apicurio_frame(
+                        protobuf_id,
+                        apicurio_type_ref("User") + ProtobufUser(name="Ada").SerializeToString(),
+                    ),
                 ),
             )
             producer = Producer(kafka_config)

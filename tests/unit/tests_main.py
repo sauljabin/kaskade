@@ -835,6 +835,10 @@ class TestConsumerCli(unittest.TestCase):
                 "apicurio.registry.url=http://registry/apis/registry/v3",
                 "--registry",
                 "apicurio.registry.use-id=globalId",
+                "--registry",
+                "apicurio.registry.artifact.group-id=orders",
+                "--registry",
+                "apicurio.registry.artifact.artifact-id=orders-value",
                 "-v",
                 "registry",
             ],
@@ -847,6 +851,8 @@ class TestConsumerCli(unittest.TestCase):
             "http://registry/apis/registry/v3",
             registry_config["apicurio.registry.url"],
         )
+        self.assertEqual("orders", registry_config["apicurio.registry.artifact.group-id"])
+        self.assertEqual("orders-value", registry_config["apicurio.registry.artifact.artifact-id"])
 
     def test_native_apicurio_rejects_generic_aliases(self):
         result = self.runner.invoke(
