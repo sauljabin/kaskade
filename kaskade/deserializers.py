@@ -89,7 +89,7 @@ class BytesEncoding(Enum):
     BASE64 = auto()
     HEX = auto()
     BYTE_ARRAY = auto()
-    PYTHON = auto()
+    ESCAPED = auto()
 
     def __str__(self) -> str:
         return self.name.lower().replace("_", "-")

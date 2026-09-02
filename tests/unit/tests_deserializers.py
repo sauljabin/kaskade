@@ -152,7 +152,7 @@ class TestDeserializer(unittest.TestCase):
                 [72, 101, 108, 108, 111, 32, 119, 111, 114, 108, 100],
                 "[72, 101, 108, 108, 111, 32, 119, 111, 114, 108, 100]",
             ),
-            BytesEncoding.PYTHON: ("b'Hello world'", "b'Hello world'"),
+            BytesEncoding.ESCAPED: ("Hello world", "Hello world"),
         }
 
         for bytes_encoding, (json_data, display) in encodings.items():
@@ -172,6 +172,15 @@ class TestDeserializer(unittest.TestCase):
                     json.loads(record_json(record)),
                 )
                 self.assertEqual(display, record.key_str())
+
+    def test_escaped_bytes_are_language_neutral(self):
+        record = Record(
+            key=b"Hello\\world\x00\n\xff",
+            key_bytes_encoding=BytesEncoding.ESCAPED,
+        )
+
+        self.assertEqual(r"Hello\\world\x00\x0a\xff", record.key_str())
+        self.assertEqual(r"Hello\\world\x00\x0a\xff", record.dict()["key"]["content"])
 
     def test_null_content_omits_schema_and_bytes_encoding_for_every_deserializer(self):
         for deserialization in Deserialization:
