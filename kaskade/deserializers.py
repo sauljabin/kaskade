@@ -28,7 +28,7 @@ from google.protobuf.message import DecodeError, Message
 from google.protobuf.message_factory import GetMessageClass, GetMessages
 
 from kaskade import logger
-from kaskade.configs import SCHEMA_REGISTRY_MAGIC_BYTE
+from kaskade.configs import SCHEMA_REGISTRY_HEADER_SIZE, SCHEMA_REGISTRY_MAGIC_BYTE
 from kaskade.utils import avro_to_py, file_to_bytes, unpack_bytes
 
 
@@ -246,12 +246,13 @@ class RegistryDeserializer(Deserializer):
         if context == MessageField.NONE:
             raise DeserializationError("Context is needed: KEY or VALUE")
 
-        if len(data) <= 5:
+        minimum_length = SCHEMA_REGISTRY_HEADER_SIZE + 1
+        if len(data) < minimum_length:
             raise DeserializationError(
-                f"Expecting data framing of length 6 bytes or more but total data size is {len(data)} bytes. This message was not produced with a Confluent Schema Registry serializer"
+                f"Expecting data framing of length {minimum_length} bytes or more but total data size is {len(data)} bytes. This message was not produced with a Confluent Schema Registry serializer"
             )
 
-        magic, schema_id = unpack(">bI", data[:5])
+        magic, schema_id = unpack(">bI", data[:SCHEMA_REGISTRY_HEADER_SIZE])
         if magic != SCHEMA_REGISTRY_MAGIC_BYTE:
             raise DeserializationError(
                 f"Unexpected magic byte {magic}. This message was not produced with a Confluent Schema Registry serializer"
@@ -407,7 +408,7 @@ class RegistryDeserializer(Deserializer):
 
     @classmethod
     def _protobuf_payload(cls, data: bytes) -> tuple[list[int], bytes]:
-        payload = BytesIO(data[5:])
+        payload = BytesIO(data[SCHEMA_REGISTRY_HEADER_SIZE:])
         size = cls._decode_protobuf_varint(payload)
         if size < 0 or size > 100000:
             raise DeserializationError("Invalid Protobuf message index array length")
@@ -669,9 +670,9 @@ class DeserializerPool:
 
 
 def _has_confluent_header(data: bytes) -> bool:
-    if len(data) <= 5:
+    if len(data) <= SCHEMA_REGISTRY_HEADER_SIZE:
         return False
-    magic = int(unpack(">bI", data[:5])[0])
+    magic = int(unpack(">bI", data[:SCHEMA_REGISTRY_HEADER_SIZE])[0])
     return magic == SCHEMA_REGISTRY_MAGIC_BYTE
 
 
@@ -698,7 +699,7 @@ def _payload(
     if framing == "raw":
         return data
     if framing == "confluent" and _has_confluent_header(data):
-        return data[5:]
+        return data[SCHEMA_REGISTRY_HEADER_SIZE:]
     if framing == "confluent":
         raise DeserializationError(f"Confluent {deserializer_name} framing header not found")
     raise DeserializationError(f"Unsupported {deserializer_name} framing: {framing}")

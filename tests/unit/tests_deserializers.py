@@ -15,7 +15,7 @@ from google.protobuf.descriptor_pb2 import (
     FileDescriptorSet,
 )
 from google.protobuf.descriptor_pool import DescriptorPool
-from google.protobuf.message import DecodeError
+from google.protobuf.message import DecodeError, Message
 from google.protobuf.message_factory import GetMessageClass
 
 from kaskade.deserializers import (
@@ -45,17 +45,23 @@ AVRO_SCHEMA = {
     "type": "record",
     "fields": [{"name": "name", "type": "string"}],
 }
-PROTOBUF_DESCRIPTOR = FileDescriptorProto(name="user.proto", syntax="proto3")
-PROTOBUF_USER_DESCRIPTOR = PROTOBUF_DESCRIPTOR.message_type.add(name="User")
-PROTOBUF_USER_DESCRIPTOR.field.add(
-    name="name",
-    number=1,
-    label=FieldDescriptorProto.LABEL_OPTIONAL,
-    type=FieldDescriptorProto.TYPE_STRING,
-)
-PROTOBUF_POOL = DescriptorPool()
-PROTOBUF_POOL.Add(PROTOBUF_DESCRIPTOR)
-User = GetMessageClass(PROTOBUF_POOL.FindMessageTypeByName("User"))
+
+
+def protobuf_user_model() -> tuple[FileDescriptorProto, type[Message]]:
+    descriptor = FileDescriptorProto(name="user.proto", syntax="proto3")
+    user_descriptor = descriptor.message_type.add(name="User")
+    user_descriptor.field.add(
+        name="name",
+        number=1,
+        label=FieldDescriptorProto.LABEL_OPTIONAL,
+        type=FieldDescriptorProto.TYPE_STRING,
+    )
+    pool = DescriptorPool()
+    pool.Add(descriptor)
+    return descriptor, GetMessageClass(pool.FindMessageTypeByName("User"))
+
+
+PROTOBUF_DESCRIPTOR, User = protobuf_user_model()
 
 
 def registry_protobuf_schema(

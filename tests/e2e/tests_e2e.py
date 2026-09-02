@@ -18,6 +18,7 @@ from google.protobuf.descriptor_pb2 import (
     FileDescriptorSet,
 )
 from google.protobuf.descriptor_pool import DescriptorPool
+from google.protobuf.message import Message
 from google.protobuf.message_factory import GetMessageClass
 from testcontainers.community.kafka import KafkaContainer
 from testcontainers.core.container import DockerContainer
@@ -36,8 +37,9 @@ MY_KEY = "my-key"
 MY_TOPIC = "my-topic"
 
 
-KAFKA_IMAGE = "confluentinc/cp-kafka:8.1.0"
-SCHEMA_REGISTRY_IMAGE = "confluentinc/cp-schema-registry:8.1.0"
+CONFLUENT_VERSION = "8.1.0"
+KAFKA_IMAGE = f"confluentinc/cp-kafka:{CONFLUENT_VERSION}"
+SCHEMA_REGISTRY_IMAGE = f"confluentinc/cp-schema-registry:{CONFLUENT_VERSION}"
 SCHEMA_REGISTRY_PORT = 8081
 JSON_TOPIC = "json-schema"
 AVRO_TOPIC = "avro-schema"
@@ -58,17 +60,23 @@ JSON_SCHEMA = json.dumps(
         "required": ["name"],
     }
 )
-PROTOBUF_DESCRIPTOR = FileDescriptorProto(name="user.proto", syntax="proto3")
-PROTOBUF_USER_DESCRIPTOR = PROTOBUF_DESCRIPTOR.message_type.add(name="User")
-PROTOBUF_USER_DESCRIPTOR.field.add(
-    name="name",
-    number=1,
-    label=FieldDescriptorProto.LABEL_OPTIONAL,
-    type=FieldDescriptorProto.TYPE_STRING,
-)
-PROTOBUF_POOL = DescriptorPool()
-PROTOBUF_POOL.Add(PROTOBUF_DESCRIPTOR)
-ProtobufUser = GetMessageClass(PROTOBUF_POOL.FindMessageTypeByName("User"))
+
+
+def protobuf_user_model() -> tuple[FileDescriptorProto, type[Message]]:
+    descriptor = FileDescriptorProto(name="user.proto", syntax="proto3")
+    user_descriptor = descriptor.message_type.add(name="User")
+    user_descriptor.field.add(
+        name="name",
+        number=1,
+        label=FieldDescriptorProto.LABEL_OPTIONAL,
+        type=FieldDescriptorProto.TYPE_STRING,
+    )
+    pool = DescriptorPool()
+    pool.Add(descriptor)
+    return descriptor, GetMessageClass(pool.FindMessageTypeByName("User"))
+
+
+PROTOBUF_DESCRIPTOR, ProtobufUser = protobuf_user_model()
 
 
 def kafka_container() -> KafkaContainer:
