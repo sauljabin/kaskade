@@ -279,6 +279,22 @@ class TestApicurioClient(unittest.TestCase):
 
     @patch("kaskade.apicurio.time.sleep")
     @patch("kaskade.apicurio.httpx.Client")
+    def test_does_not_retry_client_errors(self, client_class: MagicMock, sleep: MagicMock) -> None:
+        request = httpx.Request("GET", "http://registry/ids/contentIds/518")
+        client_class.return_value.request.return_value = httpx.Response(
+            404,
+            request=request,
+        )
+        client = ApicurioClient(apicurio_config())
+
+        with self.assertRaisesRegex(ApicurioRegistryError, "404 Not Found"):
+            client._request("GET", "/ids/contentIds/518")
+
+        client_class.return_value.request.assert_called_once()
+        sleep.assert_not_called()
+
+    @patch("kaskade.apicurio.time.sleep")
+    @patch("kaskade.apicurio.httpx.Client")
     def test_retry_exhaustion_is_normalized(
         self, client_class: MagicMock, sleep: MagicMock
     ) -> None:

@@ -333,23 +333,27 @@ class ApicurioClient:
                 headers["Authorization"] = f"Bearer {token}"
             try:
                 response = self.http.request(method, path, headers=headers, **kwargs)
-                if response.status_code == 401 and token is not None and not refreshed:
-                    refreshed = True
-                    self._token = None
-                    self._oauth_token(force=True)
-                    continue
-                if response.status_code == 429 or response.status_code >= 500:
-                    attempt += 1
-                    if attempt < attempts:
-                        time.sleep(self.config.retry_backoff_ms / 1000)
-                        continue
-                response.raise_for_status()
-                return response
             except httpx.HTTPError as ex:
                 attempt += 1
                 if attempt >= attempts:
                     raise ApicurioRegistryError(f"Apicurio request failed: {ex}") from ex
                 time.sleep(self.config.retry_backoff_ms / 1000)
+                continue
+            if response.status_code == 401 and token is not None and not refreshed:
+                refreshed = True
+                self._token = None
+                self._oauth_token(force=True)
+                continue
+            if response.status_code == 429 or response.status_code >= 500:
+                attempt += 1
+                if attempt < attempts:
+                    time.sleep(self.config.retry_backoff_ms / 1000)
+                    continue
+            try:
+                response.raise_for_status()
+            except httpx.HTTPError as ex:
+                raise ApicurioRegistryError(f"Apicurio request failed: {ex}") from ex
+            return response
         raise ApicurioRegistryError("Apicurio request failed")
 
     def get_artifact(self, artifact_id: int) -> ApicurioArtifact:

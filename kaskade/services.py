@@ -217,7 +217,7 @@ class ConsumerService:
             and poll_retries < self.poll_retries
             and stabilization_retries < self.stabilization_retries
         ):
-            record_batch = await self._consume_batch(
+            record_batch = await self._run_blocking(
                 self.consumer.consume,
                 self.page_size - len(records),
                 timeout=self.timeout,
@@ -237,7 +237,10 @@ class ConsumerService:
                 scanned_records += 1
                 if first_record_at is None:
                     first_record_at = perf_counter()
-                record = self._record_from_message(record_metadata)
+                record = await self._run_blocking(
+                    self._record_from_message,
+                    record_metadata,
+                )
                 if self._matches(record, filters):
                     records.append(record)
                 if len(records) >= self.page_size:
@@ -256,7 +259,7 @@ class ConsumerService:
         return records
 
     @staticmethod
-    async def _consume_batch(func: Any, *args: Any, **kwargs: Any) -> Any:
+    async def _run_blocking(func: Any, *args: Any, **kwargs: Any) -> Any:
         loop = asyncio.get_running_loop()
         future = loop.run_in_executor(None, functools.partial(func, *args, **kwargs))
         try:

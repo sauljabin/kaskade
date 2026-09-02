@@ -2,6 +2,7 @@ import asyncio
 import threading
 import unittest
 from concurrent.futures import Future
+from time import perf_counter
 from unittest.mock import MagicMock, patch
 
 from confluent_kafka import (
@@ -25,7 +26,12 @@ from confluent_kafka.admin import (
 from confluent_kafka.cimpl import CONSUMER_GROUP_STATE_STABLE, TopicPartition
 
 from kaskade.commands import CreateTopicCommand, RecordFilters
-from kaskade.deserializers import Deserialization, DeserializerPool, StringDeserializer
+from kaskade.deserializers import (
+    Deserialization,
+    Deserializer,
+    DeserializerPool,
+    StringDeserializer,
+)
 from kaskade.models import Header, MetricState, PartitionOffset, PartitionSelection, Record
 from kaskade.services import ConsumerService, TopicService
 from tests import faker
@@ -416,6 +422,56 @@ class TestConsumerService(unittest.IsolatedAsyncioTestCase):
         self.assertEqual("key", records[0].key_str())
         self.assertEqual("1970-01-01T00:00:01.000Z", records[0].dict()["timestamp"])
         consumer.consume.assert_called_once_with(1, timeout=service.timeout)
+
+    @patch("kaskade.services.Consumer")
+    async def test_blocking_deserialization_does_not_block_event_loop(
+        self, mock_class_consumer: MagicMock
+    ) -> None:
+        started = threading.Event()
+        release = threading.Event()
+        deserialization_started_at: list[float] = []
+        event_loop_observed_at: list[float] = []
+
+        class BlockingDeserializer(Deserializer):
+            def deserialize(self, data, topic=None, context=None):
+                deserialization_started_at.append(perf_counter())
+                started.set()
+                release.wait(timeout=1)
+                return data.decode()
+
+        async def observe_started() -> None:
+            await asyncio.to_thread(started.wait, 1)
+            event_loop_observed_at.append(perf_counter())
+            release.set()
+
+        consumer = mock_class_consumer.return_value
+        consumer.consume.return_value = [consumer_message()]
+        deserializer_factory = MagicMock(spec=DeserializerPool)
+        deserializer_factory.get.side_effect = [
+            StringDeserializer(),
+            BlockingDeserializer(),
+            StringDeserializer(),
+        ]
+        service = ConsumerService(
+            "orders",
+            {"bootstrap.servers": "localhost:9092"},
+            deserializer_factory,
+            Deserialization.STRING,
+            Deserialization.STRING,
+            page_size=1,
+        )
+        service.on_assign(consumer, [TopicPartition("orders", 0)])
+        release_timer = threading.Timer(0.5, release.set)
+        self.addCleanup(release_timer.cancel)
+        release_timer.start()
+
+        records, _ = await asyncio.gather(service.consume(), observe_started())
+
+        self.assertEqual("value", records[0].value_str())
+        self.assertLess(
+            event_loop_observed_at[0] - deserialization_started_at[0],
+            0.2,
+        )
 
     @patch("kaskade.services.Consumer")
     async def test_deserialization_fallback_is_per_field_and_per_record(
