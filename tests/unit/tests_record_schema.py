@@ -25,6 +25,9 @@ SCHEMA_PATH = PROJECT_PATH / "schemas" / "consumer-record.schema.json"
 
 
 class MetadataDeserializer(Deserializer):
+    def __init__(self, schema_type: str = "JSON") -> None:
+        self.schema_type = schema_type
+
     def deserialize(
         self,
         data: bytes,
@@ -41,7 +44,7 @@ class MetadataDeserializer(Deserializer):
     ) -> DeserializationResult:
         return DeserializationResult(
             self.deserialize(data, topic, context),
-            RegistrySchema(27, "orders-value", 5, "JSON"),
+            RegistrySchema(27, "orders-value", 5, self.schema_type),
         )
 
 
@@ -89,16 +92,19 @@ class TestConsumerRecordSchema(unittest.TestCase):
                 self.assert_valid(record)
 
     def test_registry_metadata_and_every_null_deserializer_validate(self) -> None:
-        registry_record = Record(
-            topic="orders",
-            partition=0,
-            offset=43,
-            timestamp=datetime(2026, 9, 1, 19, 13, 18, 27_000, tzinfo=timezone.utc),
-            value=b"payload",
-            value_deserialization=Deserialization.REGISTRY,
-            value_deserializer=MetadataDeserializer(),
-        )
-        self.assert_valid(registry_record)
+        for schema_type in ("AVRO", "JSON", "PROTOBUF"):
+            with self.subTest(schema_type=schema_type):
+                self.assert_valid(
+                    Record(
+                        topic="orders",
+                        partition=0,
+                        offset=43,
+                        timestamp=datetime(2026, 9, 1, 19, 13, 18, 27_000, tzinfo=timezone.utc),
+                        value=b"payload",
+                        value_deserialization=Deserialization.REGISTRY,
+                        value_deserializer=MetadataDeserializer(schema_type),
+                    )
+                )
 
         for deserialization in Deserialization:
             with self.subTest(deserialization=deserialization):

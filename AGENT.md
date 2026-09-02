@@ -156,8 +156,8 @@ uv run --locked python -m scripts.tests
 
 Add focused keymap or theme assertions when changing those conventions. Unit
 fixtures live in `tests/unit`; E2E tests live in `tests/e2e`, use Confluent Kafka
-through Testcontainers, and should rely on conditions and public Textual APIs
-rather than sleeps or private widget state.
+and Schema Registry through Testcontainers, and should rely on conditions and
+public Textual APIs rather than sleeps or private widget state.
 
 README SVGs in `images/` come from `uv run python -m scripts.banner` and
 `uv run python -m scripts.screenshots`; neither needs Kafka. Use absolute

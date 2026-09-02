@@ -1,13 +1,16 @@
 import json
 from abc import ABC, abstractmethod
+from base64 import b64decode
+from binascii import Error as BinasciiError
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum, auto
+from io import BytesIO
 from struct import error as StructError
 from struct import unpack
 from typing import Any
 
-from confluent_kafka.schema_registry import SchemaRegistryClient
+from confluent_kafka.schema_registry import Schema, SchemaRegistryClient
 from confluent_kafka.schema_registry.avro import AvroDeserializer as ConfluentAvroDeserializer
 from confluent_kafka.schema_registry.error import SchemaRegistryError
 from confluent_kafka.schema_registry.json_schema import (
@@ -17,13 +20,15 @@ from confluent_kafka.schema_registry.protobuf import (
     ProtobufDeserializer as ConfluentProtobufDeserializer,
 )
 from confluent_kafka.serialization import MessageField, SerializationContext, SerializationError
-from google.protobuf.descriptor_pb2 import FileDescriptorSet
+from google.protobuf.descriptor_pb2 import DescriptorProto, FileDescriptorProto, FileDescriptorSet
+from google.protobuf.descriptor_pool import Default as DefaultDescriptorPool
+from google.protobuf.descriptor_pool import DescriptorPool
 from google.protobuf.json_format import MessageToDict
 from google.protobuf.message import DecodeError, Message
-from google.protobuf.message_factory import GetMessages
+from google.protobuf.message_factory import GetMessageClass, GetMessages
 
 from kaskade import logger
-from kaskade.configs import SCHEMA_REGISTRY_MAGIC_BYTE
+from kaskade.configs import SCHEMA_REGISTRY_HEADER_SIZE, SCHEMA_REGISTRY_MAGIC_BYTE
 from kaskade.utils import avro_to_py, file_to_bytes, unpack_bytes
 
 
@@ -208,19 +213,21 @@ class RegistryDeserializer(Deserializer):
         self.json_deserializer = ConfluentJsonDeserializer(
             None, schema_registry_client=self.registry_client
         )
+        self._writer_schema_cache: dict[int, Schema] = {}
+        self._protobuf_descriptor_cache: dict[int, tuple[FileDescriptorProto, DescriptorPool]] = {}
         self._schema_cache: dict[tuple[int, str, MessageField], RegistrySchema | None] = {}
 
     def deserialize(
         self, data: bytes, topic: str | None = None, context: MessageField = MessageField.NONE
     ) -> Any:
-        _, schema_type = self._schema(data, topic, context)
-        return self._deserialize_content(data, topic, context, schema_type)
+        schema_id, schema_type = self._schema(data, topic, context)
+        return self._deserialize_content(data, topic, context, schema_id, schema_type)
 
     def deserialize_with_metadata(
         self, data: bytes, topic: str | None = None, context: MessageField = MessageField.NONE
     ) -> DeserializationResult:
         schema_id, schema_type = self._schema(data, topic, context)
-        content = self._deserialize_content(data, topic, context, schema_type)
+        content = self._deserialize_content(data, topic, context, schema_id, schema_type)
         assert topic is not None
         return DeserializationResult(
             content,
@@ -239,18 +246,27 @@ class RegistryDeserializer(Deserializer):
         if context == MessageField.NONE:
             raise DeserializationError("Context is needed: KEY or VALUE")
 
-        if len(data) <= 5:
+        minimum_length = SCHEMA_REGISTRY_HEADER_SIZE + 1
+        if len(data) < minimum_length:
             raise DeserializationError(
-                f"Expecting data framing of length 6 bytes or more but total data size is {len(data)} bytes. This message was not produced with a Confluent Schema Registry serializer"
+                f"Expecting data framing of length {minimum_length} bytes or more but total data size is {len(data)} bytes. This message was not produced with a Confluent Schema Registry serializer"
             )
 
-        magic, schema_id = unpack(">bI", data[:5])
+        magic, schema_id = unpack(">bI", data[:SCHEMA_REGISTRY_HEADER_SIZE])
         if magic != SCHEMA_REGISTRY_MAGIC_BYTE:
             raise DeserializationError(
                 f"Unexpected magic byte {magic}. This message was not produced with a Confluent Schema Registry serializer"
             )
 
-        schema = self.registry_client.get_schema(schema_id)
+        schema = self._writer_schema_cache.get(schema_id)
+        if schema is None:
+            schema = self.registry_client.get_schema(schema_id)
+            if schema.schema_type is not None and schema.schema_type.upper() == "PROTOBUF":
+                # The client caches by schema ID without considering the requested
+                # format, so clear its cache before asking for the descriptor form.
+                self.registry_client.clear_caches()  # type: ignore[no-untyped-call]
+                schema = self.registry_client.get_schema(schema_id, fmt="serialized")
+            self._writer_schema_cache[schema_id] = schema
         if schema.schema_type is None:
             raise DeserializationError("Schema type not supported")
         return schema_id, schema.schema_type.upper()
@@ -260,6 +276,7 @@ class RegistryDeserializer(Deserializer):
         data: bytes,
         topic: str | None,
         context: MessageField,
+        schema_id: int,
         schema_type: str,
     ) -> Any:
         assert topic is not None
@@ -272,8 +289,169 @@ class RegistryDeserializer(Deserializer):
                     data,
                     SerializationContext(topic, context),
                 )
+            case "PROTOBUF":
+                return self._deserialize_protobuf(data, schema_id)
             case _:
                 raise DeserializationError("Schema type not supported")
+
+    def _deserialize_protobuf(self, data: bytes, schema_id: int) -> Any:
+        descriptor, pool = self._protobuf_descriptors(schema_id)
+        message_indexes, payload = self._protobuf_payload(data)
+        message_name = self._protobuf_message_name(descriptor, message_indexes)
+        try:
+            message_class = GetMessageClass(pool.FindMessageTypeByName(message_name))
+        except KeyError as ex:
+            raise DeserializationError(f"Protobuf message not found: {message_name}") from ex
+
+        message = message_class()
+        message.ParseFromString(payload)
+        return MessageToDict(message, always_print_fields_with_no_presence=True)
+
+    def _protobuf_descriptors(self, schema_id: int) -> tuple[FileDescriptorProto, DescriptorPool]:
+        cached = self._protobuf_descriptor_cache.get(schema_id)
+        if cached is not None:
+            return cached
+
+        schema = self._writer_schema_cache[schema_id]
+        descriptors: dict[str, FileDescriptorProto] = {}
+        root = self._collect_protobuf_descriptors(schema, "default", descriptors)
+        pool = DescriptorPool()
+        added: set[str] = set()
+        visiting: set[str] = set()
+        self._add_protobuf_descriptor(root, descriptors, pool, added, visiting)
+        result = (root, pool)
+        self._protobuf_descriptor_cache[schema_id] = result
+        return result
+
+    def _collect_protobuf_descriptors(
+        self,
+        schema: Schema,
+        name: str,
+        descriptors: dict[str, FileDescriptorProto],
+    ) -> FileDescriptorProto:
+        existing = descriptors.get(name)
+        if existing is not None:
+            return existing
+
+        schema_str = schema.schema_str
+        if not isinstance(schema_str, str):
+            raise DeserializationError("Protobuf schema is empty")
+        descriptor = self._parse_protobuf_descriptor(name, schema_str)
+        descriptors[name] = descriptor
+
+        for reference in schema.references or []:
+            if reference.name is None or reference.subject is None or reference.version is None:
+                raise DeserializationError("Protobuf schema reference is incomplete")
+            registered = self.registry_client.get_version(
+                reference.subject,
+                reference.version,
+                deleted=True,
+                fmt="serialized",
+            )
+            self._collect_protobuf_descriptors(registered.schema, reference.name, descriptors)
+        return descriptor
+
+    @staticmethod
+    def _parse_protobuf_descriptor(name: str, schema_str: str) -> FileDescriptorProto:
+        try:
+            serialized = b64decode(schema_str.encode("ascii"), validate=True)
+            descriptor = FileDescriptorProto.FromString(serialized)
+        except (BinasciiError, UnicodeEncodeError, DecodeError) as ex:
+            raise DeserializationError("Invalid serialized Protobuf schema") from ex
+        descriptor.name = name
+        return descriptor
+
+    def _add_protobuf_descriptor(
+        self,
+        descriptor: FileDescriptorProto,
+        descriptors: dict[str, FileDescriptorProto],
+        pool: DescriptorPool,
+        added: set[str],
+        visiting: set[str],
+    ) -> None:
+        if descriptor.name in added:
+            return
+        if descriptor.name in visiting:
+            raise DeserializationError("Cyclic Protobuf schema reference")
+
+        visiting.add(descriptor.name)
+        for dependency in descriptor.dependency:
+            referenced = descriptors.get(dependency)
+            if referenced is not None:
+                self._add_protobuf_descriptor(referenced, descriptors, pool, added, visiting)
+            else:
+                self._add_default_protobuf_descriptor(dependency, pool, added)
+        try:
+            pool.Add(descriptor)
+        except (TypeError, ValueError) as ex:
+            raise DeserializationError(f"Invalid Protobuf descriptor: {descriptor.name}") from ex
+        visiting.remove(descriptor.name)
+        added.add(descriptor.name)
+
+    @classmethod
+    def _add_default_protobuf_descriptor(
+        cls,
+        name: str,
+        pool: DescriptorPool,
+        added: set[str],
+    ) -> None:
+        if name in added:
+            return
+        try:
+            descriptor = DefaultDescriptorPool().FindFileByName(name)
+        except KeyError as ex:
+            raise DeserializationError(f"Protobuf schema reference not found: {name}") from ex
+        for dependency in descriptor.dependencies:
+            cls._add_default_protobuf_descriptor(dependency.name, pool, added)
+        pool.AddSerializedFile(descriptor.serialized_pb)
+        added.add(name)
+
+    @classmethod
+    def _protobuf_payload(cls, data: bytes) -> tuple[list[int], bytes]:
+        payload = BytesIO(data[SCHEMA_REGISTRY_HEADER_SIZE:])
+        size = cls._decode_protobuf_varint(payload)
+        if size < 0 or size > 100000:
+            raise DeserializationError("Invalid Protobuf message index array length")
+        if size == 0:
+            return [0], payload.read()
+
+        indexes = [cls._decode_protobuf_varint(payload) for _ in range(size)]
+        if any(index < 0 for index in indexes):
+            raise DeserializationError("Invalid Protobuf message index")
+        return indexes, payload.read()
+
+    @staticmethod
+    def _decode_protobuf_varint(payload: BytesIO) -> int:
+        value = 0
+        shift = 0
+        while shift < 70:
+            byte = payload.read(1)
+            if not byte:
+                raise DeserializationError("Unexpected EOF while reading Protobuf message index")
+            current = byte[0]
+            value |= (current & 0x7F) << shift
+            if not current & 0x80:
+                return (value >> 1) ^ -(value & 1)
+            shift += 7
+        raise DeserializationError("Invalid Protobuf message index")
+
+    @staticmethod
+    def _protobuf_message_name(
+        descriptor: FileDescriptorProto,
+        indexes: list[int],
+    ) -> str:
+        messages = descriptor.message_type
+        path: list[str] = []
+        message: DescriptorProto | None = None
+        for index in indexes:
+            if index >= len(messages):
+                raise DeserializationError("Protobuf message index is out of range")
+            message = messages[index]
+            path.append(message.name)
+            messages = message.nested_type
+        if message is None:
+            raise DeserializationError("Protobuf message index is empty")
+        return ".".join(filter(None, (descriptor.package, *path)))
 
     def _resolve_schema(
         self,
@@ -492,9 +670,9 @@ class DeserializerPool:
 
 
 def _has_confluent_header(data: bytes) -> bool:
-    if len(data) <= 5:
+    if len(data) <= SCHEMA_REGISTRY_HEADER_SIZE:
         return False
-    magic = int(unpack(">bI", data[:5])[0])
+    magic = int(unpack(">bI", data[:SCHEMA_REGISTRY_HEADER_SIZE])[0])
     return magic == SCHEMA_REGISTRY_MAGIC_BYTE
 
 
@@ -521,7 +699,7 @@ def _payload(
     if framing == "raw":
         return data
     if framing == "confluent" and _has_confluent_header(data):
-        return data[5:]
+        return data[SCHEMA_REGISTRY_HEADER_SIZE:]
     if framing == "confluent":
         raise DeserializationError(f"Confluent {deserializer_name} framing header not found")
     raise DeserializationError(f"Unsupported {deserializer_name} framing: {framing}")

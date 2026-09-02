@@ -52,8 +52,12 @@ Unit test modules live in `tests/unit`:
 uv run --locked python -m scripts.tests
 ```
 
-E2E test modules live in `tests/e2e` and run against Confluent Kafka through
-Testcontainers:
+E2E test modules live in `tests/e2e` and run against disposable Confluent Kafka
+and Schema Registry containers through Testcontainers. Docker must be running;
+the first run may pull the required images. Registry coverage creates separate
+JSON Schema, Avro, and Protobuf topics and consumes each through the Registry
+deserializer, then consumes the same records through the corresponding local
+deserializers with `framing=confluent`:
 
 ```bash
 uv run --locked python -m scripts.tests --e2e
@@ -166,8 +170,8 @@ published, create a new patch version instead of reusing the tag.
 ## Manual Tests
 
 The standalone `sandbox` package owns its Compose environment, population tools,
-and Avro, JSON Schema, and Protobuf models. These models are intentionally
-separate from the fixtures under `tests/unit`.
+and inline Avro, JSON Schema, and Protobuf model definitions. These definitions
+are intentionally separate from the variables used by the automated tests.
 
 Use this sequence for a complete manual test:
 
@@ -403,6 +407,15 @@ uv run kaskade consumer -b localhost:19092 --earliest -t avro-schema \
         --registry url=http://localhost:18081
 ```
 
+Test a Protobuf payload through Confluent Schema Registry without a local
+descriptor:
+
+```bash
+uv run kaskade consumer -b localhost:19092 --earliest -t protobuf-schema \
+        -k string -v registry \
+        --registry url=http://localhost:18081
+```
+
 Test the same Avro payload through Apicurio after populating that registry:
 
 ```bash
@@ -413,45 +426,10 @@ uv run kaskade consumer -b localhost:19092 --earliest -t avro-schema \
 
 #### Local-schema consumers
 
-Test raw and Confluent-framed Avro payloads with a local schema:
-
-```bash
-uv run kaskade consumer -b localhost:19092 --earliest -t avro \
-        -k string -v avro \
-        --avro value=sandbox/avro_model/user.avsc
-
-uv run kaskade consumer -b localhost:19092 --earliest -t avro-schema \
-        -k string -v avro \
-        --avro value=sandbox/avro_model/user.avsc \
-        --avro framing=confluent
-```
-
-Test raw and Confluent-framed Protobuf payloads with the checked-in descriptor:
-
-```bash
-uv run kaskade consumer -b localhost:19092 --earliest -t protobuf \
-        -k string -v protobuf \
-        --protobuf descriptor=sandbox/protobuf_model/user.desc \
-        --protobuf value=User
-
-uv run kaskade consumer -b localhost:19092 --earliest -t protobuf-schema \
-        -k string -v protobuf \
-        --protobuf descriptor=sandbox/protobuf_model/user.desc \
-        --protobuf value=User \
-        --protobuf framing=confluent
-```
-
-The descriptor is generated from `sandbox/protobuf_model/user.proto`. After
-changing the schema, regenerate the sandbox artifacts with `protoc`:
-
-```bash
-protoc --include_imports \
-       --proto_path=sandbox/protobuf_model \
-       --python_out=sandbox/protobuf_model \
-       --pyi_out=sandbox/protobuf_model \
-       --descriptor_set_out=sandbox/protobuf_model/user.desc \
-       sandbox/protobuf_model/user.proto
-```
+Sandbox schemas and models are defined inline, so the repository does not carry
+local Avro schema or Protobuf descriptor files. To exercise the local `avro` or
+`protobuf` deserializers, provide your own `.avsc` or descriptor-set file using
+the commands documented in `USAGE.md`.
 
 ### Stop the local sandbox
 

@@ -27,6 +27,7 @@ FALLBACK_CONFIGS = ["encoding"]
 BYTES_ENCODINGS = ["base64", "hex", "byte-array", "escaped"]
 AWS_CONFIGS = ["region"]
 SCHEMA_REGISTRY_MAGIC_BYTE = 0
+SCHEMA_REGISTRY_HEADER_SIZE = 5
 BOOTSTRAP_SERVERS = "bootstrap.servers"
 AUTO_OFFSET_RESET = "auto.offset.reset"
 EARLIEST = "earliest"

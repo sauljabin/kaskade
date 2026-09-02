@@ -1,11 +1,13 @@
+import json
 import os
 import time
 import uuid
 from collections.abc import Callable
+from dataclasses import dataclass
 from functools import partial
-from pathlib import Path
+from io import BytesIO
 from time import sleep
-from typing import Any, cast
+from typing import Any
 
 import click
 from confluent_kafka import KafkaError, KafkaException, Producer
@@ -17,20 +19,30 @@ from confluent_kafka.schema_registry.json_schema import JSONSerializer
 from confluent_kafka.schema_registry.protobuf import ProtobufSerializer
 from confluent_kafka.serialization import MessageField, SerializationContext
 from faker import Faker
+from fastavro import schemaless_writer
+from google.protobuf.descriptor_pb2 import FieldDescriptorProto, FileDescriptorProto
+from google.protobuf.descriptor_pool import DescriptorPool
+from google.protobuf.message import Message
+from google.protobuf.message_factory import GetMessageClass
 from rich.console import Console
 from rich.status import Status
 
 from kaskade.authentication import configure_aws_msk_iam
 from kaskade.cli_utils import tuple_properties_to_dict, validate_aws_config
 from kaskade.configs import AWS_CONFIGS, BOOTSTRAP_SERVERS, MIN_INSYNC_REPLICAS_CONFIG
-from kaskade.utils import file_to_str, pack_bytes, py_to_avro
-from sandbox.avro_model.user import User as AvroUser
-from sandbox.json_model.user import User as JsonUser
-from sandbox.protobuf_model.user_pb2 import User as ProtobufUser
+from kaskade.utils import pack_bytes
 
-SANDBOX_PATH = Path(__file__).resolve().parent
-JSON_USER_SCHEMA = str(SANDBOX_PATH / "json_model" / "user.schema.json")
-AVRO_USER_SCHEMA = str(SANDBOX_PATH / "avro_model" / "user.avsc")
+AVRO_USER_SCHEMA: dict[str, Any] = {
+    "name": "User",
+    "type": "record",
+    "fields": [{"name": "name", "type": "string"}],
+}
+JSON_USER_SCHEMA: dict[str, Any] = {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "User",
+    "type": "object",
+    "properties": {"name": {"type": "string"}},
+}
 ERRORS_TOPIC = "errors"
 NULL_TOPIC = "null"
 AVAILABLE_TOPICS = (
@@ -59,8 +71,33 @@ FAKE_NUMBER_MIN = 500
 FAKE_NUMBER_MAX = 10000
 
 
-def model_to_dict(value: Any, _: SerializationContext) -> dict[str, Any]:
-    return cast(dict[str, Any], vars(value))
+@dataclass
+class User:
+    name: str
+
+    def __str__(self) -> str:
+        return str(vars(self))
+
+
+def protobuf_user_class() -> type[Message]:
+    descriptor = FileDescriptorProto(name="user.proto", syntax="proto3")
+    user = descriptor.message_type.add(name="User")
+    user.field.add(
+        name="name",
+        number=1,
+        label=FieldDescriptorProto.LABEL_OPTIONAL,
+        type=FieldDescriptorProto.TYPE_STRING,
+    )
+    pool = DescriptorPool()
+    pool.Add(descriptor)
+    return GetMessageClass(pool.FindMessageTypeByName("User"))
+
+
+ProtobufUser = protobuf_user_class()
+
+
+def model_to_dict(value: User, _: SerializationContext) -> dict[str, Any]:
+    return vars(value)
 
 
 def fake_user(model: Callable[..., Any], faker: Faker) -> Any:
@@ -75,12 +112,14 @@ def serialize_with_context(
     return serializer(value, SerializationContext(topic, MessageField.VALUE))
 
 
-def serialize_protobuf(value: ProtobufUser) -> bytes:
+def serialize_protobuf(value: Message) -> bytes:
     return value.SerializeToString()
 
 
-def serialize_avro(value: AvroUser) -> bytes:
-    return py_to_avro(AVRO_USER_SCHEMA, vars(value))
+def serialize_avro(value: User) -> bytes:
+    buffer = BytesIO()
+    schemaless_writer(buffer, AVRO_USER_SCHEMA, vars(value))
+    return buffer.getvalue()
 
 
 class Populator:
@@ -193,7 +232,7 @@ class Populator:
     ) -> None:
         self._populate_schema(
             "json-schema",
-            JsonUser,
+            User,
             serializer,
             faker,
             total_messages,
@@ -224,7 +263,7 @@ class Populator:
     def populate_avro(self, faker: Faker, total_messages: int) -> None:
         self.populate(
             "avro",
-            partial(fake_user, AvroUser, faker),
+            partial(fake_user, User, faker),
             serialize_avro,
             total_messages,
         )
@@ -235,7 +274,7 @@ class Populator:
         faker: Faker,
         total_messages: int,
     ) -> None:
-        self._populate_schema("avro-schema", AvroUser, serializer, faker, total_messages)
+        self._populate_schema("avro-schema", User, serializer, faker, total_messages)
 
     def _populate_schema(
         self,
@@ -261,11 +300,11 @@ class Populator:
         for n in range(total_messages):
             error_case = ERROR_CASES[n % len(ERROR_CASES)]
             key = serializer(
-                JsonUser(name=faker.name()),
+                User(name=faker.name()),
                 SerializationContext(ERRORS_TOPIC, MessageField.KEY),
             )
             value = serializer(
-                JsonUser(name=faker.name()),
+                User(name=faker.name()),
                 SerializationContext(ERRORS_TOPIC, MessageField.VALUE),
             )
             if error_case in MALFORMED_KEY_CASES:
@@ -377,11 +416,11 @@ def main(
     registry_client = SchemaRegistryClient({"url": registry})
     avro_serializer = AvroSerializer(
         registry_client,
-        file_to_str(AVRO_USER_SCHEMA),
+        json.dumps(AVRO_USER_SCHEMA),
         model_to_dict,
     )
     json_serializer = JSONSerializer(
-        file_to_str(JSON_USER_SCHEMA),
+        json.dumps(JSON_USER_SCHEMA),
         registry_client,
         model_to_dict,
     )
