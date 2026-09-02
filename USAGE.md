@@ -289,7 +289,7 @@ Configure explicit BYTES presentation globally or per field:
 --bytes value.encoding=byte-array
 ```
 
-Encodings are `base64`, `hex`, `byte-array`, and `python`; values are
+Encodings are `base64`, `hex`, `byte-array`, and `escaped`; values are
 case-insensitive and underscores normalize to hyphens. Scoped settings override
 the global encoding. `--bytes` does not affect fallbacks, and null BYTES fields
 omit `encoding`.

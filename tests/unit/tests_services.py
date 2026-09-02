@@ -473,7 +473,7 @@ class TestConsumerService(unittest.IsolatedAsyncioTestCase):
                 "key.encoding": "hex",
                 "value.encoding": "byte-array",
             },
-            fallback_config={"encoding": "python"},
+            fallback_config={"encoding": "escaped"},
         )
         service.on_assign(consumer, [TopicPartition("orders", 0)])
 
@@ -498,12 +498,12 @@ class TestConsumerService(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(
             {
                 "key": "binary",
-                "value": "b'\\xff'",
+                "value": "\\xff",
                 "error": {
                     "message": (
                         "'utf-8' codec can't decode byte 0xff in position 0: " "invalid start byte"
                     ),
-                    "fallback": {"type": "BYTES", "encoding": "PYTHON"},
+                    "fallback": {"type": "BYTES", "encoding": "ESCAPED"},
                 },
             },
             record.dict()["headers"][0],
@@ -527,7 +527,7 @@ class TestConsumerService(unittest.IsolatedAsyncioTestCase):
             DeserializerPool(),
             Deserialization.STRING,
             Deserialization.STRING,
-            fallback_config={"encoding": "python"},
+            fallback_config={"encoding": "escaped"},
             page_size=1,
         )
         service.on_assign(consumer, [TopicPartition("orders", 0)])
@@ -536,24 +536,24 @@ class TestConsumerService(unittest.IsolatedAsyncioTestCase):
             record = (await service.consume())[0]
 
         data = record.dict()
-        self.assertEqual("b'\\xff'", data["key"]["content"])
+        self.assertEqual("\\xff", data["key"]["content"])
         self.assertEqual(
-            {"type": "BYTES", "encoding": "PYTHON"},
+            {"type": "BYTES", "encoding": "ESCAPED"},
             data["key"]["error"]["fallback"],
         )
-        self.assertEqual("b'\\xfe'", data["value"]["content"])
+        self.assertEqual("\\xfe", data["value"]["content"])
         self.assertEqual(
-            {"type": "BYTES", "encoding": "PYTHON"},
+            {"type": "BYTES", "encoding": "ESCAPED"},
             data["value"]["error"]["fallback"],
         )
-        self.assertEqual("b'\\xfd'", data["headers"][0]["value"])
+        self.assertEqual("\\xfd", data["headers"][0]["value"])
         self.assertEqual(
-            {"type": "BYTES", "encoding": "PYTHON"},
+            {"type": "BYTES", "encoding": "ESCAPED"},
             data["headers"][0]["error"]["fallback"],
         )
         self.assertEqual(
             2,
-            sum("fallback=BYTES encoding=PYTHON" in log for log in logs.output),
+            sum("fallback=BYTES encoding=ESCAPED" in log for log in logs.output),
         )
 
     @patch("kaskade.services.Consumer")

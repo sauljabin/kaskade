@@ -388,7 +388,7 @@ class TestRecordExportActions(unittest.IsolatedAsyncioTestCase):
             Deserialization.BYTES,
             Deserialization.STRING,
             bytes_config={"key.encoding": "hex"},
-            fallback_config={"encoding": "python"},
+            fallback_config={"encoding": "escaped"},
         )
 
         self.assertEqual(
@@ -396,7 +396,7 @@ class TestRecordExportActions(unittest.IsolatedAsyncioTestCase):
             consumer_service.call_args.kwargs["bytes_config"],
         )
         self.assertEqual(
-            {"encoding": "python"},
+            {"encoding": "escaped"},
             consumer_service.call_args.kwargs["fallback_config"],
         )
 

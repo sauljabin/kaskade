@@ -49,7 +49,7 @@ Bring Kafka along for the terminal ride. Kaskade gives you a stylish, keyboard-f
 - Filter records by key, value, header, or partition
 - Start from the earliest offsets or explicit partition/offset selections
 - Preserve malformed keys, values, and headers with BYTES fallback metadata
-- Present bytes as Base64, hex, byte arrays, or Python byte strings with encoding metadata
+- Present bytes as Base64, hex, byte arrays, or escaped bytes with encoding metadata
 - Copy or export individual records as JSON
 
 ### Terminal experience
