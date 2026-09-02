@@ -3,12 +3,16 @@ import os
 import struct
 import tempfile
 import unittest
+from base64 import b64encode
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 from confluent_kafka.serialization import MessageField
+from google.protobuf.descriptor_pb2 import FieldDescriptorProto, FileDescriptorProto
+from google.protobuf.descriptor_pool import DescriptorPool
 from google.protobuf.message import DecodeError
+from google.protobuf.message_factory import GetMessageClass
 
 from kaskade.deserializers import (
     AvroDeserializer,
@@ -36,6 +40,17 @@ from tests.unit.protobuf_model.user_pb2 import User
 UNIT_TESTS_PATH = Path(__file__).resolve().parent
 DESCRIPTOR_PATH = str(UNIT_TESTS_PATH / "protobuf_model" / "user.desc")
 AVRO_PATH = str(UNIT_TESTS_PATH / "avro_model" / "user.avsc")
+
+
+def registry_protobuf_schema(
+    descriptor: FileDescriptorProto,
+    references: list[SimpleNamespace] | None = None,
+) -> SimpleNamespace:
+    return SimpleNamespace(
+        schema_str=b64encode(descriptor.SerializeToString()).decode("ascii"),
+        schema_type="PROTOBUF",
+        references=references or [],
+    )
 
 
 class TestDeserializer(unittest.TestCase):
@@ -404,6 +419,121 @@ class TestDeserializer(unittest.TestCase):
         )
 
         self.assertEqual(expected_value, result)
+
+    @patch("kaskade.deserializers.SchemaRegistryClient")
+    def test_registry_deserialization_protobuf_without_generated_class(self, mock_sr_client_class):
+        descriptor = FileDescriptorProto.FromString(User.DESCRIPTOR.file.serialized_pb)
+        registry_client = mock_sr_client_class.return_value
+        registry_client.get_schema.return_value = registry_protobuf_schema(descriptor)
+        deserializer = RegistryDeserializer({})
+        user = User(name="Pedro Pascal")
+
+        result = deserializer.deserialize(
+            b"\x00\x00\x00\x00\x0c\x00" + user.SerializeToString(),
+            "users",
+            MessageField.VALUE,
+        )
+
+        self.assertEqual({"name": "Pedro Pascal"}, result)
+        self.assertEqual(
+            [((12,), {}), ((12,), {"fmt": "serialized"})],
+            [(call.args, call.kwargs) for call in registry_client.get_schema.call_args_list],
+        )
+        registry_client.clear_caches.assert_called_once_with()
+
+    @patch("kaskade.deserializers.SchemaRegistryClient")
+    def test_registry_protobuf_uses_message_indexes_for_nested_messages(self, mock_sr_client_class):
+        descriptor = FileDescriptorProto(name="event.proto", package="events", syntax="proto3")
+        outer = descriptor.message_type.add(name="Envelope")
+        nested = outer.nested_type.add(name="Created")
+        nested.field.add(
+            name="id",
+            number=1,
+            label=FieldDescriptorProto.LABEL_OPTIONAL,
+            type=FieldDescriptorProto.TYPE_STRING,
+        )
+        pool = DescriptorPool()
+        pool.Add(descriptor)
+        created_class = GetMessageClass(pool.FindMessageTypeByName("events.Envelope.Created"))
+        created = created_class(id="evt-42")
+        mock_sr_client_class.return_value.get_schema.return_value = registry_protobuf_schema(
+            descriptor
+        )
+
+        result = RegistryDeserializer({}).deserialize(
+            b"\x00\x00\x00\x00\x07\x04\x00\x00" + created.SerializeToString(),
+            "events",
+            MessageField.VALUE,
+        )
+
+        self.assertEqual({"id": "evt-42"}, result)
+
+    @patch("kaskade.deserializers.SchemaRegistryClient")
+    def test_registry_protobuf_resolves_schema_references(self, mock_sr_client_class):
+        address_descriptor = FileDescriptorProto(
+            name="address.proto", package="models", syntax="proto3"
+        )
+        address = address_descriptor.message_type.add(name="Address")
+        address.field.add(
+            name="city",
+            number=1,
+            label=FieldDescriptorProto.LABEL_OPTIONAL,
+            type=FieldDescriptorProto.TYPE_STRING,
+        )
+        user_descriptor = FileDescriptorProto(
+            name="user.proto",
+            package="models",
+            syntax="proto3",
+            dependency=["address.proto"],
+        )
+        user = user_descriptor.message_type.add(name="User")
+        user.field.add(
+            name="address",
+            number=1,
+            label=FieldDescriptorProto.LABEL_OPTIONAL,
+            type=FieldDescriptorProto.TYPE_MESSAGE,
+            type_name=".models.Address",
+        )
+        pool = DescriptorPool()
+        pool.Add(address_descriptor)
+        pool.Add(user_descriptor)
+        user_class = GetMessageClass(pool.FindMessageTypeByName("models.User"))
+        value = user_class()
+        value.address.city = "Quito"
+
+        reference = SimpleNamespace(name="address.proto", subject="address", version=3)
+        registry_client = mock_sr_client_class.return_value
+        registry_client.get_schema.return_value = registry_protobuf_schema(
+            user_descriptor, [reference]
+        )
+        registry_client.get_version.return_value = SimpleNamespace(
+            schema=registry_protobuf_schema(address_descriptor)
+        )
+
+        result = RegistryDeserializer({}).deserialize(
+            b"\x00\x00\x00\x00\x09\x00" + value.SerializeToString(),
+            "users",
+            MessageField.VALUE,
+        )
+
+        self.assertEqual({"address": {"city": "Quito"}}, result)
+        registry_client.get_version.assert_called_once_with(
+            "address", 3, deleted=True, fmt="serialized"
+        )
+
+    @patch("kaskade.deserializers.SchemaRegistryClient")
+    def test_registry_protobuf_rejects_malformed_message_indexes(self, mock_sr_client_class):
+        descriptor = FileDescriptorProto.FromString(User.DESCRIPTOR.file.serialized_pb)
+        mock_sr_client_class.return_value.get_schema.return_value = registry_protobuf_schema(
+            descriptor
+        )
+
+        with self.assertRaisesRegex(DeserializationError, "Unexpected EOF"):
+            RegistryDeserializer({}).deserialize(
+                b"\x00\x00\x00\x00\x01\x02",
+                "users",
+                MessageField.VALUE,
+            )
 
     @patch("kaskade.deserializers.SchemaRegistryClient")
     def test_registry_metadata_uses_a_unique_registration_and_caches_it(self, mock_sr_client_class):

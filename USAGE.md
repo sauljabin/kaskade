@@ -380,6 +380,11 @@ kaskade consumer -b my-kafka:9092 -t my-avro-topic \
         --registry url=http://my-schema-registry:8081
 ```
 
+With Confluent Schema Registry, the Registry deserializer detects Avro, JSON
+Schema, and Protobuf from each record's schema ID. Protobuf messages are resolved
+dynamically from the registry, including referenced schemas, so no local descriptor
+file is required.
+
 See the
 [Confluent Schema Registry client documentation](https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#schemaregistry-client)
 for additional Schema Registry settings.

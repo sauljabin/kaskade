@@ -44,7 +44,7 @@ Bring Kafka along for the terminal ride. Kaskade gives you a stylish, keyboard-f
 ### Record consumption
 
 - Deserialize keys and values as bytes, primitives, JSON, Avro, or Protobuf,
-  including Registry-backed Avro and JSON
+  including Registry-backed Avro, JSON Schema, and Protobuf without generated classes
 - Select raw or Confluent framing independently for local key and value deserializers
 - Filter records by key, value, header, or partition
 - Start from the earliest offsets or explicit partition/offset selections
@@ -61,7 +61,6 @@ Bring Kafka along for the terminal ride. Kaskade gives you a stylish, keyboard-f
 ## Current limitations
 
 - Topic replication factors cannot be changed
-- The Registry deserializer does not support Protobuf schemas
 - Clipboard integration requires an OSC 52-compatible terminal
 
 ## Quick start
