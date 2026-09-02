@@ -23,11 +23,12 @@ from kaskade.consumer import (
 )
 from kaskade.help import HelpableModalScreen, HelpScreen
 from kaskade.keymaps import (
-    CONFIG_ENV_VAR,
+    DEFAULT_THEME,
     KNOWN_BINDING_IDS,
+    SETTINGS_ENV_VAR,
     AppSettings,
     KeymapSettings,
-    default_config_path,
+    default_settings_path,
     load_keymap,
     load_settings,
 )
@@ -40,7 +41,7 @@ from tests import configure_admin_service
 class TestKeymapConfiguration(unittest.TestCase):
     def test_preserves_original_settings_names_as_aliases(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
-            path = Path(temporary_directory) / "config.yaml"
+            path = Path(temporary_directory) / "settings.yaml"
             path.write_text("admin:\n  refresh_interval_seconds: 10\n", encoding="utf-8")
 
             settings = load_settings(path)
@@ -79,28 +80,28 @@ class TestKeymapConfiguration(unittest.TestCase):
         self.assertEqual(binding_ids, KNOWN_BINDING_IDS)
 
     def test_uses_xdg_config_home_on_linux_and_macos(self):
-        path = default_config_path(
+        path = default_settings_path(
             environ={"XDG_CONFIG_HOME": "/tmp/xdg-config"},
             home=Path("/unused-home"),
         )
 
-        self.assertEqual(Path("/tmp/xdg-config/kaskade/config.yaml"), path)
+        self.assertEqual(Path("/tmp/xdg-config/kaskade/settings.yaml"), path)
 
     def test_falls_back_to_dot_config_on_linux_and_macos(self):
-        path = default_config_path(environ={}, home=Path("/users/kaskade"))
+        path = default_settings_path(environ={}, home=Path("/users/kaskade"))
 
-        self.assertEqual(Path("/users/kaskade/.config/kaskade/config.yaml"), path)
+        self.assertEqual(Path("/users/kaskade/.config/kaskade/settings.yaml"), path)
 
-    def test_explicit_config_environment_variable_takes_precedence(self):
-        path = default_config_path(
+    def test_explicit_settings_environment_variable_takes_precedence(self):
+        path = default_settings_path(
             environ={
-                CONFIG_ENV_VAR: "/tmp/kaskade-keymap.yaml",
+                SETTINGS_ENV_VAR: "/tmp/kaskade-settings.yaml",
                 "XDG_CONFIG_HOME": "/tmp/xdg-config",
             },
             home=Path("/unused-home"),
         )
 
-        self.assertEqual(Path("/tmp/kaskade-keymap.yaml"), path)
+        self.assertEqual(Path("/tmp/kaskade-settings.yaml"), path)
 
     def test_missing_and_empty_files_use_defaults(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
@@ -111,13 +112,40 @@ class TestKeymapConfiguration(unittest.TestCase):
             empty = load_keymap(empty_path)
 
         self.assertEqual({}, missing.keymap)
+        self.assertEqual(DEFAULT_THEME, missing.theme)
         self.assertEqual((), missing.warnings)
         self.assertEqual({}, empty.keymap)
+        self.assertEqual(DEFAULT_THEME, empty.theme)
         self.assertEqual((), empty.warnings)
+
+    def test_loads_theme(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            path = Path(temporary_directory) / "settings.yaml"
+            path.write_text("theme: dracula\n", encoding="utf-8")
+
+            settings = load_settings(path)
+
+        self.assertEqual("dracula", settings.theme)
+        self.assertEqual((), settings.warnings)
+
+    def test_invalid_theme_uses_default_without_discarding_other_settings(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            path = Path(temporary_directory) / "settings.yaml"
+            path.write_text(
+                "theme: unknown\nadmin:\n  refresh_interval_seconds: 10\n",
+                encoding="utf-8",
+            )
+
+            settings = load_settings(path)
+
+        self.assertEqual(DEFAULT_THEME, settings.theme)
+        self.assertEqual(10, settings.admin_refresh_interval_seconds)
+        self.assertEqual(1, len(settings.warnings))
+        self.assertIn("unknown theme", settings.warnings[0])
 
     def test_loads_valid_binding_overrides(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
-            path = Path(temporary_directory) / "config.yaml"
+            path = Path(temporary_directory) / "settings.yaml"
             path.write_text(
                 """keymap:
   app.quit: ctrl+c
@@ -141,7 +169,7 @@ class TestKeymapConfiguration(unittest.TestCase):
 
     def test_loads_admin_refresh_interval(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
-            path = Path(temporary_directory) / "config.yaml"
+            path = Path(temporary_directory) / "settings.yaml"
             path.write_text(
                 "admin:\n  refresh_interval_seconds: 10\n",
                 encoding="utf-8",
@@ -154,7 +182,7 @@ class TestKeymapConfiguration(unittest.TestCase):
 
     def test_disables_admin_refresh_with_zero(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
-            path = Path(temporary_directory) / "config.yaml"
+            path = Path(temporary_directory) / "settings.yaml"
             path.write_text(
                 "admin:\n  refresh_interval_seconds: 0\n",
                 encoding="utf-8",
@@ -166,7 +194,7 @@ class TestKeymapConfiguration(unittest.TestCase):
 
     def test_invalid_admin_refresh_uses_default_without_discarding_keymap(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
-            path = Path(temporary_directory) / "config.yaml"
+            path = Path(temporary_directory) / "settings.yaml"
             path.write_text(
                 """admin:
   refresh_interval_seconds: 2
@@ -184,7 +212,7 @@ keymap:
 
     def test_ignores_invalid_entries_without_discarding_valid_ones(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
-            path = Path(temporary_directory) / "config.yaml"
+            path = Path(temporary_directory) / "settings.yaml"
             path.write_text(
                 """keymap:
   app.quit: x
@@ -226,11 +254,20 @@ keymap:
 
 
 class TestConfiguredKeymap(unittest.IsolatedAsyncioTestCase):
+    async def test_app_applies_configured_theme(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            path = Path(temporary_directory) / "settings.yaml"
+            path.write_text("theme: dracula\n", encoding="utf-8")
+
+            app = KaskadeApp(settings_path=path)
+
+        self.assertEqual("dracula", app.theme)
+
     async def test_app_applies_configured_keymap(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
-            path = Path(temporary_directory) / "config.yaml"
+            path = Path(temporary_directory) / "settings.yaml"
             path.write_text("keymap:\n  help.toggle: x,y\n", encoding="utf-8")
-            app = KaskadeApp(keymap_path=path)
+            app = KaskadeApp(settings_path=path)
 
             async with app.run_test() as pilot:
                 await pilot.press("x")
@@ -249,11 +286,11 @@ class TestConfiguredKeymap(unittest.IsolatedAsyncioTestCase):
 
     async def test_app_applies_navigation_override_to_child_widgets(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
-            path = Path(temporary_directory) / "config.yaml"
+            path = Path(temporary_directory) / "settings.yaml"
             path.write_text("keymap:\n  kaskade.navigation.down: x\n", encoding="utf-8")
 
             with (
-                patch.dict(os.environ, {CONFIG_ENV_VAR: str(path)}),
+                patch.dict(os.environ, {SETTINGS_ENV_VAR: str(path)}),
                 patch("kaskade.admin.TopicService") as topic_service,
             ):
                 configure_admin_service(
@@ -284,11 +321,11 @@ class TestConfiguredKeymap(unittest.IsolatedAsyncioTestCase):
 
     async def test_app_applies_copy_override_to_contextual_action(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
-            path = Path(temporary_directory) / "config.yaml"
+            path = Path(temporary_directory) / "settings.yaml"
             path.write_text("keymap:\n  kaskade.topics.copy: x\n", encoding="utf-8")
 
             with (
-                patch.dict(os.environ, {CONFIG_ENV_VAR: str(path)}),
+                patch.dict(os.environ, {SETTINGS_ENV_VAR: str(path)}),
                 patch("kaskade.admin.TopicService") as topic_service,
             ):
                 configure_admin_service(

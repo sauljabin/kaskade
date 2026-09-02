@@ -35,7 +35,7 @@ from kaskade.keymaps import (
 from kaskade.logs import configure_logging
 from kaskade.models import PartitionOffset, PartitionSelection
 from kaskade.services import PartitionSelectionError
-from kaskade.themes import DEFAULT_THEME, available_theme_names
+from kaskade.themes import available_theme_names
 from kaskade.utils import load_ini
 
 KAFKA_CONFIG_HELP = (
@@ -66,7 +66,9 @@ AWS_CONFIG_HELP = (
     "Amazon MSK IAM property. Repeatable; overrides matching properties from "
     f"--config-file. Properties: {', '.join(AWS_CONFIGS)}."
 )
-THEME_HELP = "Textual theme name. See USAGE.md or use the in-application Commands window."
+THEME_HELP = (
+    "Textual theme name; overrides settings.yaml. When omitted, settings.yaml or Eva01 " "is used."
+)
 AVRO_CONFIG_HELP = (
     "Avro deserializer property. Repeatable; required when the key or value format is "
     f"avro. Properties: {', '.join(AVRO_DESERIALIZER_CONFIGS)}. Framing: "
@@ -151,8 +153,7 @@ def theme_option() -> Callable[[CliDecoratorTarget], CliDecoratorTarget]:
     return cloup.option(
         "--theme",
         type=cloup.Choice(available_theme_names(), case_sensitive=False),
-        default=DEFAULT_THEME,
-        show_default=True,
+        default=None,
         help=THEME_HELP,
         metavar="name",
     )
@@ -167,7 +168,7 @@ def admin_application_options() -> Callable[[CliDecoratorTarget], CliDecoratorTa
             type=int,
             callback=validate_admin_refresh_interval,
             metavar="seconds",
-            help="Admin auto-refresh interval. Use 0 to disable; overrides config.yaml.",
+            help="Admin auto-refresh interval. Use 0 to disable; overrides settings.yaml.",
         ),
     )
 
@@ -286,7 +287,7 @@ def admin(
     config_file: str | None,
     kafka_config: dict[str, Any],
     aws_config: dict[str, str],
-    theme: str,
+    theme: str | None,
     refresh_interval: int | None,
 ) -> None:
     """
@@ -309,7 +310,8 @@ def admin(
     kafka_config = configure_aws_msk_iam(kafka_config, aws_config)
 
     kaskade_app = KaskadeAdmin(kafka_config, refresh_interval=refresh_interval)
-    kaskade_app.theme = theme
+    if theme is not None:
+        kaskade_app.theme = theme
     kaskade_app.run()
 
 
@@ -450,7 +452,7 @@ def consumer(
     partitions: tuple[PartitionSelection, ...],
     config_file: str | None,
     aws_config: dict[str, str],
-    theme: str,
+    theme: str | None,
 ) -> None:
     """
     Consumer mode.
@@ -509,7 +511,8 @@ def consumer(
         raise BadParameter(message=str(ex), param_hint="'--partition'") from ex
     except (KafkaException, ValueError) as ex:
         raise ClickException(str(ex)) from ex
-    kaskade_app.theme = theme
+    if theme is not None:
+        kaskade_app.theme = theme
     kaskade_app.run()
 
 

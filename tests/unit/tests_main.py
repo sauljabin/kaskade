@@ -18,7 +18,6 @@ from kaskade.deserializers import Deserialization
 from kaskade.main import PARTITION_SELECTION_METAVAR, cli
 from kaskade.models import PartitionOffset, PartitionSelection
 from kaskade.services import PartitionSelectionError
-from kaskade.themes import DEFAULT_THEME
 from tests import faker
 
 EXPECTED_TOPIC = "my.topic"
@@ -306,10 +305,10 @@ class TestAdminCli(unittest.TestCase):
         self.assertEqual(0, result.exit_code)
 
     @patch("kaskade.main.KaskadeAdmin")
-    def test_default_theme(self, mock_class_kaskade_admin):
+    def test_uses_application_theme_when_option_is_omitted(self, mock_class_kaskade_admin):
         result = self.runner.invoke(cli, [self.command, "-b", EXPECTED_SERVER])
 
-        self.assertEqual(DEFAULT_THEME, mock_class_kaskade_admin.return_value.theme)
+        self.assertNotIn("theme", vars(mock_class_kaskade_admin.return_value))
         self.assertEqual(0, result.exit_code)
 
     @patch("kaskade.main.KaskadeAdmin")
@@ -1063,12 +1062,12 @@ class TestConsumerCli(unittest.TestCase):
         self.assertEqual(0, result.exit_code)
 
     @patch("kaskade.main.KaskadeConsumer")
-    def test_default_theme(self, mock_class_kaskade_consumer):
+    def test_uses_application_theme_when_option_is_omitted(self, mock_class_kaskade_consumer):
         result = self.runner.invoke(
             cli, [self.command, "-b", EXPECTED_SERVER, "-t", EXPECTED_TOPIC]
         )
 
-        self.assertEqual(DEFAULT_THEME, mock_class_kaskade_consumer.return_value.theme)
+        self.assertNotIn("theme", vars(mock_class_kaskade_consumer.return_value))
         self.assertEqual(0, result.exit_code)
 
     @patch("kaskade.main.KaskadeConsumer")

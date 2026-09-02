@@ -18,9 +18,8 @@ from kaskade.help import (
     HelpScreen,
     contextual_help,
 )
-from kaskade.keymaps import NAVIGATION_BINDING_IDS, load_settings
+from kaskade.keymaps import DEFAULT_THEME, NAVIGATION_BINDING_IDS, load_settings
 
-DEFAULT_THEME = "eva01"
 KASKADE_COMMAND_ID_PREFIX = "kaskade."
 EVA01_THEME = Theme(
     name=DEFAULT_THEME,
@@ -112,13 +111,13 @@ class KaskadeApp(App, inherit_bindings=False):
         ),
     ]
 
-    def __init__(self, *, keymap_path: Path | None = None) -> None:
+    def __init__(self, *, settings_path: Path | None = None) -> None:
         self._rich_theme_pushed = False
         super().__init__()
-        self.keymap_settings = load_settings(keymap_path)
+        self.keymap_settings = load_settings(settings_path)
         self.set_keymap(self.keymap_settings.keymap)
         self.register_theme(EVA01_THEME)
-        self.theme = DEFAULT_THEME
+        self.theme = self.keymap_settings.theme
         self._sync_rich_theme()
 
     def on_mount(self) -> None:
@@ -126,7 +125,7 @@ class KaskadeApp(App, inherit_bindings=False):
         for warning_message in self.keymap_settings.warnings:
             self.notify(
                 warning_message,
-                title="Keymap Configuration",
+                title="Settings Configuration",
                 severity="warning",
             )
 

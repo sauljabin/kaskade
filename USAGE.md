@@ -27,24 +27,42 @@ examples below.
 
 ## Application settings and controls
 
+On Linux and macOS, Kaskade reads `$XDG_CONFIG_HOME/kaskade/settings.yaml`. If
+`XDG_CONFIG_HOME` is not set, it reads `~/.config/kaskade/settings.yaml`. Set
+`KASKADE_SETTINGS` to use a different file.
+
+Copy the complete example to the default location before customizing it:
+
+```bash
+mkdir -p ~/.config/kaskade
+cp examples/settings.yaml ~/.config/kaskade/settings.yaml
+```
+
 ### Themes
 
-Kaskade defaults to the `eva01` Unit-01-inspired theme. Choose any Textual theme
-at launch:
+Kaskade defaults to the `eva01` Unit-01-inspired theme. Set another default in
+`settings.yaml`:
+
+```yaml
+theme: dracula
+```
+
+Override the configured theme for one session at launch:
 
 ```bash
 kaskade admin -b my-kafka:9092 --theme dracula
 ```
 
 While Kaskade is running, press `:` (or `Ctrl+P`) and select a theme from the
-Commands window. Theme changes apply only to the current session.
+Commands window. Command-line and in-application theme changes apply only to the
+current session.
 
 ### Admin auto-refresh
 
 Admin mode refreshes every 30 seconds, pauses outside the topic list, and
 refreshes after returning. Press `Ctrl+R` to refresh immediately.
 
-Configure the interval in Kaskade's `config.yaml`:
+Configure the interval in Kaskade's `settings.yaml`:
 
 ```yaml
 admin:
@@ -97,17 +115,6 @@ Plain-character application shortcuts do not intercept typing in filter and
 editor fields.
 
 #### Custom keymap
-
-On Linux and macOS, Kaskade reads `$XDG_CONFIG_HOME/kaskade/config.yaml`. If
-`XDG_CONFIG_HOME` is not set, it reads `~/.config/kaskade/config.yaml`. Set
-`KASKADE_CONFIG` to use a different file.
-
-Copy the complete example to the default location before customizing it:
-
-```bash
-mkdir -p ~/.config/kaskade
-cp examples/config.yaml ~/.config/kaskade/config.yaml
-```
 
 The `keymap` values use Textual key names. Separate keys with commas to assign
 aliases:
@@ -466,7 +473,7 @@ region = us-east-1
 
 The `[kafka]` and `[registry]` sections contain properties for their respective
 `confluent-kafka` clients. Kaskade UI, admin, and keymap settings remain in
-`config.yaml` as documented above. Both commands require a non-empty
+`settings.yaml` as documented above. Both commands require a non-empty
 `bootstrap.servers` after Kafka properties are merged. It can come from
 `--config-file`, an inline property, or the dedicated option:
 

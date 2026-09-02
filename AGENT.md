@@ -32,10 +32,12 @@
 - Forward arbitrary `--kafka` and `--registry` properties to their respective
   `confluent-kafka` clients and let those clients validate names and values.
 - Keep `-k` as the short form of consumer `--key`; `--kafka` has no short form.
-- Kaskade settings come from `KASKADE_CONFIG`, then
-  `$XDG_CONFIG_HOME/kaskade/config.yaml`, then
-  `~/.config/kaskade/config.yaml`. Ignore invalid entries, retain valid ones,
-  warn in-app, and keep `examples/config.yaml` current when bindings change.
+- Kaskade settings come from `KASKADE_SETTINGS`, then
+  `$XDG_CONFIG_HOME/kaskade/settings.yaml`, then
+  `~/.config/kaskade/settings.yaml`. Ignore invalid entries, retain valid ones,
+  warn in-app, and keep `examples/settings.yaml` current when settings change.
+- The theme precedence is `--theme`, then `settings.yaml`, then `eva01`. Accept
+  Textual built-in theme names and Kaskade's custom theme name.
 - Logs use `$XDG_STATE_HOME/kaskade/kaskade.log`, falling back to
   `~/.local/state/kaskade/kaskade.log`, and rotate at 5 MiB with three backups.
 - `--aws region=<region>` enables Amazon MSK IAM in admin, consumer, and sandbox

@@ -6,9 +6,11 @@ from typing import Any
 
 import yaml
 from textual.keys import KEY_NAME_REPLACEMENTS, KEY_TO_UNICODE_NAME, Keys, key_to_character
+from textual.theme import BUILTIN_THEMES
 
-CONFIG_ENV_VAR = "KASKADE_CONFIG"
-CONFIG_FILE_NAME = "config.yaml"
+SETTINGS_ENV_VAR = "KASKADE_SETTINGS"
+SETTINGS_FILE_NAME = "settings.yaml"
+DEFAULT_THEME = "eva01"
 DEFAULT_ADMIN_REFRESH_INTERVAL_SECONDS = 30
 MIN_ADMIN_REFRESH_INTERVAL_SECONDS = 5
 
@@ -84,6 +86,7 @@ class AppSettings:
     path: Path
     keymap: dict[str, str]
     admin_refresh_interval_seconds: int = DEFAULT_ADMIN_REFRESH_INTERVAL_SECONDS
+    theme: str = DEFAULT_THEME
     warnings: tuple[str, ...] = ()
 
 
@@ -91,30 +94,34 @@ class AppSettings:
 KeymapSettings = AppSettings
 
 
-def default_config_path(environ: Mapping[str, str] | None = None, home: Path | None = None) -> Path:
-    """Return Kaskade's config path on Linux and macOS."""
+def default_settings_path(
+    environ: Mapping[str, str] | None = None, home: Path | None = None
+) -> Path:
+    """Return Kaskade's settings path on Linux and macOS."""
     environment = os.environ if environ is None else environ
 
-    if configured_path := environment.get(CONFIG_ENV_VAR):
+    if configured_path := environment.get(SETTINGS_ENV_VAR):
         return Path(configured_path).expanduser()
 
     home_path = Path.home() if home is None else home
     config_home = environment.get("XDG_CONFIG_HOME")
     base_path = Path(config_home).expanduser() if config_home else home_path / ".config"
-    return base_path / "kaskade" / CONFIG_FILE_NAME
+    return base_path / "kaskade" / SETTINGS_FILE_NAME
 
 
 def load_settings(path: Path | None = None) -> AppSettings:
     """Load valid application settings without making startup fragile."""
-    config_path = default_config_path() if path is None else path
-    data, read_warnings = _read_config(config_path)
-    keymap, keymap_warnings = _parse_keymap(data.get("keymap", {}), config_path)
+    settings_path = default_settings_path() if path is None else path
+    data, read_warnings = _read_settings(settings_path)
+    keymap, keymap_warnings = _parse_keymap(data.get("keymap", {}), settings_path)
     refresh_interval, admin_warnings = _parse_admin_settings(data.get("admin", {}))
+    theme, theme_warnings = _parse_theme(data.get("theme", DEFAULT_THEME))
     return AppSettings(
-        config_path,
+        settings_path,
         keymap,
         admin_refresh_interval_seconds=refresh_interval,
-        warnings=(*read_warnings, *keymap_warnings, *admin_warnings),
+        theme=theme,
+        warnings=(*read_warnings, *keymap_warnings, *admin_warnings, *theme_warnings),
     )
 
 
@@ -127,20 +134,29 @@ def is_valid_admin_refresh_interval(value: int) -> bool:
     return value == 0 or value >= MIN_ADMIN_REFRESH_INTERVAL_SECONDS
 
 
-def _read_config(config_path: Path) -> tuple[dict[str, Any], tuple[str, ...]]:
-    if not config_path.exists():
+def _read_settings(settings_path: Path) -> tuple[dict[str, Any], tuple[str, ...]]:
+    if not settings_path.exists():
         return {}, ()
 
     try:
-        data = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+        data = yaml.safe_load(settings_path.read_text(encoding="utf-8"))
     except (OSError, yaml.YAMLError) as ex:
-        return {}, (f"Could not read {config_path}: {ex}",)
+        return {}, (f"Could not read {settings_path}: {ex}",)
 
     if data is None:
         return {}, ()
     if not isinstance(data, dict):
-        return {}, (f"Ignoring {config_path}: the document must be a mapping",)
+        return {}, (f"Ignoring {settings_path}: the document must be a mapping",)
     return data, ()
+
+
+def _parse_theme(configured_theme: Any) -> tuple[str, tuple[str, ...]]:
+    if not isinstance(configured_theme, str) or configured_theme not in {
+        *BUILTIN_THEMES,
+        DEFAULT_THEME,
+    }:
+        return DEFAULT_THEME, (f"Ignoring 'theme': unknown theme {configured_theme!r}",)
+    return configured_theme, ()
 
 
 def _parse_keymap(
