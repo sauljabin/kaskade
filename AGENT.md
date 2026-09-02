@@ -19,15 +19,19 @@
 
 ## CLI and Configuration
 
-- Share admin and consumer Kafka connection declarations. Help groups are
-  `Kafka connection options`, `AWS options`, and `Application options`; consumer
-  also separates `Consumption options` and `Deserialization options`.
+- Share admin and consumer client configuration and Kafka connection
+  declarations. Help groups are `Configuration options`, `Kafka connection
+  options`, `AWS options`, and `Application options`; consumer also separates
+  `Consumption options` and `Deserialization options`.
 - Keep `--earliest` and `--partition` declaratively mutually exclusive. Render
   the theme argument as `name` without weakening choice validation.
-- `--config-file kafka.properties` loads Kafka client `property=value` entries.
-  Merge in this order: file, repeatable `--config`, then
-  `-b/--bootstrap-servers`. Require a non-empty resolved `bootstrap.servers` and
-  update `examples/kafka.properties` when this behavior changes.
+- `--config-file client.ini` loads entries from optional `[kafka]`, `[registry]`,
+  and `[aws]` INI sections. Merge each file section under its matching repeatable
+  CLI option, then apply `-b/--bootstrap-servers`. Require a non-empty resolved
+  `bootstrap.servers` and update `examples/client.ini` when this behavior changes.
+- Forward arbitrary `--kafka` and `--registry` properties to their respective
+  `confluent-kafka` clients and let those clients validate names and values.
+- Keep `-k` as the short form of consumer `--key`; `--kafka` has no short form.
 - Kaskade settings come from `KASKADE_CONFIG`, then
   `$XDG_CONFIG_HOME/kaskade/config.yaml`, then
   `~/.config/kaskade/config.yaml`. Ignore invalid entries, retain valid ones,
