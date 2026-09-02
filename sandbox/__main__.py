@@ -49,10 +49,11 @@ AVAILABLE_TOPICS = (
     "avro-schema",
     ERRORS_TOPIC,
 )
-ERROR_CASES = ("key", "value", "both", "valid")
+ERROR_CASES = ("key", "value", "both", "header", "valid")
 MALFORMED_KEY_CASES = frozenset({"key", "both"})
 MALFORMED_VALUE_CASES = frozenset({"value", "both"})
 MALFORMED_PAYLOAD_BYTES = 32
+INVALID_UTF8_HEADER = ("sandbox-invalid-utf8", b"\xff")
 FAKE_NUMBER_MIN = 500
 FAKE_NUMBER_MAX = 10000
 
@@ -265,11 +266,16 @@ class Populator:
                 key = self._malformed_payload()
             if error_case in MALFORMED_VALUE_CASES:
                 value = self._malformed_payload()
+            headers: list[tuple[str, str | bytes | None]] = [
+                ("sandbox-error-case", error_case.encode("utf-8"))
+            ]
+            if error_case == "header":
+                headers.append(INVALID_UTF8_HEADER)
             self.producer.produce(
                 ERRORS_TOPIC,
                 key=key,
                 value=value,
-                headers=[("sandbox-error-case", error_case.encode("utf-8"))],
+                headers=headers,
             )
         self.producer.flush(5)
 

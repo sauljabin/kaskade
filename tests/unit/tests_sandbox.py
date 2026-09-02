@@ -17,6 +17,7 @@ from kaskade.configs import BOOTSTRAP_SERVERS
 from sandbox.__main__ import (
     AVAILABLE_TOPICS,
     ERRORS_TOPIC,
+    INVALID_UTF8_HEADER,
     NULL_TOPIC,
     Populator,
     main,
@@ -25,6 +26,36 @@ from sandbox.__main__ import (
 
 
 class TestPopulator(unittest.TestCase):
+    @patch("sandbox.__main__.Producer")
+    @patch("sandbox.__main__.AdminClient")
+    def test_errors_topic_includes_invalid_utf8_header(
+        self, _: MagicMock, mock_producer: MagicMock
+    ) -> None:
+        serializer = MagicMock(return_value=b"valid")
+        faker = MagicMock()
+        faker.name.return_value = "Sandbox User"
+        populator = Populator({})
+
+        populator.populate_errors(serializer, faker, 5)
+
+        headers = [
+            produced.kwargs["headers"]
+            for produced in mock_producer.return_value.produce.call_args_list
+        ]
+        self.assertEqual(
+            [
+                [("sandbox-error-case", b"key")],
+                [("sandbox-error-case", b"value")],
+                [("sandbox-error-case", b"both")],
+                [("sandbox-error-case", b"header"), INVALID_UTF8_HEADER],
+                [("sandbox-error-case", b"valid")],
+            ],
+            headers,
+        )
+        self.assertEqual(b"\xff", INVALID_UTF8_HEADER[1])
+        with self.assertRaisesRegex(UnicodeDecodeError, "codec can't decode byte 0xff"):
+            INVALID_UTF8_HEADER[1].decode("utf-8")
+
     @patch("sandbox.__main__.Producer")
     @patch("sandbox.__main__.AdminClient")
     def test_null_topic_contains_only_null_keys_and_values(
