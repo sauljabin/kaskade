@@ -19,7 +19,7 @@ uv sync --locked
 Run commands in that environment with `uv run`, for example:
 
 ```bash
-uv run --locked kaskade
+uv run kaskade
 ```
 
 The project is installed in editable mode, so source changes are available immediately.
@@ -27,21 +27,21 @@ The project is installed in editable mode, so source changes are available immed
 Installing pre-commit hooks:
 
 ```bash
-uv run --locked pre-commit install
+uv run pre-commit install
 ```
 
 Running kaskade:
 
 ```bash
-uv run --locked kaskade
+uv run kaskade
 ```
 
 Run textual console:
 
 ```bash
-uv run --locked textual console --port 7342
-uv run --locked textual run --port 7342 --dev -c kaskade admin -b localhost:19092
-uv run --locked textual run --port 7342 --dev -c kaskade consumer -b localhost:19092 -t my-topic
+uv run textual console --port 7342
+uv run textual run --port 7342 --dev -c kaskade admin -b localhost:19092
+uv run textual run --port 7342 --dev -c kaskade consumer -b localhost:19092 -t my-topic
 ```
 
 ## Scripts
@@ -62,7 +62,7 @@ uv run --locked python -m scripts.tests --e2e
 Applying code styles:
 
 ```bash
-uv run --locked python -m scripts.styles
+uv run python -m scripts.styles
 ```
 
 Running code analysis:
@@ -74,13 +74,13 @@ uv run --locked python -m scripts.analyze
 Generate banner:
 
 ```bash
-uv run --locked python -m scripts.banner
+uv run python -m scripts.banner
 ```
 
 Generate admin and consumer screenshots with mock data (no Kafka broker required):
 
 ```bash
-uv run --locked python -m scripts.screenshots
+uv run python -m scripts.screenshots
 ```
 
 ## Build Artifacts
@@ -203,14 +203,14 @@ The default command creates and populates every available sandbox topic using
 Confluent Schema Registry:
 
 ```bash
-uv run --locked python -m sandbox
+uv run python -m sandbox
 ```
 
 Repeat `--topic` to populate only a subset. The accepted topic names are listed
-by `uv run --locked python -m sandbox --help`:
+by `uv run python -m sandbox --help`:
 
 ```bash
-uv run --locked python -m sandbox --topic string --topic errors
+uv run python -m sandbox --topic string --topic errors
 ```
 
 Topic creation uses 10 partitions and the broker defaults for replication
@@ -218,7 +218,7 @@ factor and minimum in-sync replicas. Override them when testing a specific
 topology:
 
 ```bash
-uv run --locked python -m sandbox \
+uv run python -m sandbox \
     --partitions 6 \
     --replication-factor 3 \
     --min-insync-replicas 2
@@ -228,7 +228,7 @@ To test Apicurio, start from an empty sandbox and populate it through the
 Confluent-compatible API:
 
 ```bash
-uv run --locked python -m sandbox --registry http://localhost:18082/apis/ccompat/v7
+uv run python -m sandbox --registry http://localhost:18082/apis/ccompat/v7
 ```
 
 ### Inspect registry APIs with HTTPie
@@ -272,7 +272,7 @@ a network with access to the brokers and pass the IAM bootstrap servers and AWS
 region. AWS credentials use the standard provider chain:
 
 ```bash
-uv run --locked python -m sandbox \
+uv run python -m sandbox \
     --bootstrap-servers "${AWS_MSK_BOOTSTRAP_SERVERS}" \
     --aws region=us-east-1
 ```
@@ -286,14 +286,14 @@ or [Kafka ACLs](USAGE.md#kafka-acls).
 Confirm both command interfaces render successfully:
 
 ```bash
-uv run --locked kaskade admin --help
-uv run --locked kaskade consumer --help
+uv run kaskade admin --help
+uv run kaskade consumer --help
 ```
 
 Open the Admin application and verify the populated topics and their metadata:
 
 ```bash
-uv run --locked kaskade admin -b localhost:19092
+uv run kaskade admin -b localhost:19092
 ```
 
 #### Primitive and JSON consumers
@@ -301,32 +301,32 @@ uv run --locked kaskade admin -b localhost:19092
 Start with raw bytes:
 
 ```bash
-uv run --locked kaskade consumer -b localhost:19092 --earliest -t string
+uv run kaskade consumer -b localhost:19092 --earliest -t string
 ```
 
 Every record in the `null` topic has a null key, value, and `sandbox-null`
 header:
 
 ```bash
-uv run --locked kaskade consumer -b localhost:19092 --earliest -k string -v string -t null
+uv run kaskade consumer -b localhost:19092 --earliest -k string -v string -t null
 ```
 
 Test every primitive deserializer:
 
 ```bash
-uv run --locked kaskade consumer -b localhost:19092 --earliest -k string -v string -t string
-uv run --locked kaskade consumer -b localhost:19092 --earliest -k string -v integer -t integer
-uv run --locked kaskade consumer -b localhost:19092 --earliest -k string -v long -t long
-uv run --locked kaskade consumer -b localhost:19092 --earliest -k string -v float -t float
-uv run --locked kaskade consumer -b localhost:19092 --earliest -k string -v double -t double
-uv run --locked kaskade consumer -b localhost:19092 --earliest -k string -v boolean -t boolean
+uv run kaskade consumer -b localhost:19092 --earliest -k string -v string -t string
+uv run kaskade consumer -b localhost:19092 --earliest -k string -v integer -t integer
+uv run kaskade consumer -b localhost:19092 --earliest -k string -v long -t long
+uv run kaskade consumer -b localhost:19092 --earliest -k string -v float -t float
+uv run kaskade consumer -b localhost:19092 --earliest -k string -v double -t double
+uv run kaskade consumer -b localhost:19092 --earliest -k string -v boolean -t boolean
 ```
 
 Test raw and Confluent-framed payloads with the local JSON deserializer:
 
 ```bash
-uv run --locked kaskade consumer -b localhost:19092 --earliest -k string -v json -t json
-uv run --locked kaskade consumer -b localhost:19092 --earliest -k string -v json -t json-schema \
+uv run kaskade consumer -b localhost:19092 --earliest -k string -v json -t json
+uv run kaskade consumer -b localhost:19092 --earliest -k string -v json -t json-schema \
         --json framing=confluent
 ```
 
@@ -335,7 +335,7 @@ uv run --locked kaskade consumer -b localhost:19092 --earliest -k string -v json
 Test a JSON Schema payload through Confluent Schema Registry:
 
 ```bash
-uv run --locked kaskade consumer -b localhost:19092 --earliest -t json-schema \
+uv run kaskade consumer -b localhost:19092 --earliest -t json-schema \
         -k string -v registry \
         --registry url=http://localhost:18081
 ```
@@ -343,7 +343,7 @@ uv run --locked kaskade consumer -b localhost:19092 --earliest -t json-schema \
 Test independent key and value deserialization fallbacks:
 
 ```bash
-uv run --locked kaskade consumer -b localhost:19092 --earliest -t errors \
+uv run kaskade consumer -b localhost:19092 --earliest -t errors \
         -k registry -v registry \
         --fallback encoding=hex \
         --registry url=http://localhost:18081
@@ -356,7 +356,7 @@ contain randomized bytes, and `sandbox-error-case` identifies each case.
 Test an Avro payload through Confluent Schema Registry:
 
 ```bash
-uv run --locked kaskade consumer -b localhost:19092 --earliest -t avro-schema \
+uv run kaskade consumer -b localhost:19092 --earliest -t avro-schema \
         -k string -v registry \
         --registry url=http://localhost:18081
 ```
@@ -364,7 +364,7 @@ uv run --locked kaskade consumer -b localhost:19092 --earliest -t avro-schema \
 Test the same Avro payload through Apicurio after populating that registry:
 
 ```bash
-uv run --locked kaskade consumer -b localhost:19092 --earliest -t avro-schema \
+uv run kaskade consumer -b localhost:19092 --earliest -t avro-schema \
         -k string -v registry \
         --registry url=http://localhost:18082/apis/ccompat/v7
 ```
@@ -374,11 +374,11 @@ uv run --locked kaskade consumer -b localhost:19092 --earliest -t avro-schema \
 Test raw and Confluent-framed Avro payloads with a local schema:
 
 ```bash
-uv run --locked kaskade consumer -b localhost:19092 --earliest -t avro \
+uv run kaskade consumer -b localhost:19092 --earliest -t avro \
         -k string -v avro \
         --avro value=sandbox/avro_model/user.avsc
 
-uv run --locked kaskade consumer -b localhost:19092 --earliest -t avro-schema \
+uv run kaskade consumer -b localhost:19092 --earliest -t avro-schema \
         -k string -v avro \
         --avro value=sandbox/avro_model/user.avsc \
         --avro framing=confluent
@@ -387,12 +387,12 @@ uv run --locked kaskade consumer -b localhost:19092 --earliest -t avro-schema \
 Test raw and Confluent-framed Protobuf payloads with the checked-in descriptor:
 
 ```bash
-uv run --locked kaskade consumer -b localhost:19092 --earliest -t protobuf \
+uv run kaskade consumer -b localhost:19092 --earliest -t protobuf \
         -k string -v protobuf \
         --protobuf descriptor=sandbox/protobuf_model/user.desc \
         --protobuf value=User
 
-uv run --locked kaskade consumer -b localhost:19092 --earliest -t protobuf-schema \
+uv run kaskade consumer -b localhost:19092 --earliest -t protobuf-schema \
         -k string -v protobuf \
         --protobuf descriptor=sandbox/protobuf_model/user.desc \
         --protobuf value=User \
