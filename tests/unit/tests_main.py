@@ -56,6 +56,12 @@ class TestAdminCli(unittest.TestCase):
         self.assertIn("Application options:", result.output)
         self.assertIn("--theme name", result.output)
         self.assertNotIn("--theme [ansi-dark|", result.output)
+        examples = [
+            line.strip()
+            for line in result.output.splitlines()
+            if line.strip().startswith("kaskade admin")
+        ]
+        self.assertEqual(4, len(examples))
 
     def test_invalid_extra_kafka_config(self):
         result = self.runner.invoke(cli, [self.command, "-c", "property.name"])
@@ -409,6 +415,18 @@ class TestConsumerCli(unittest.TestCase):
         self.assertIn("--partition", consumption_help)
         self.assertIn("-k, --key", deserialization_help)
         self.assertIn("-v, --value", deserialization_help)
+        self.assertIn("Bytes options:", result.output)
+        self.assertIn("--bytes property=value", result.output)
+        self.assertIn("Fallback options:", result.output)
+        self.assertIn("--fallback property=value", result.output)
+        examples = [
+            line.strip()
+            for line in result.output.splitlines()
+            if line.strip().startswith("kaskade consumer")
+        ]
+        self.assertEqual(4, len(examples))
+        self.assertIn("JSON options:", result.output)
+        self.assertIn("--json property=value", result.output)
         self.assertIn("Constraints:", result.output)
         self.assertIn("mutually exclusive", result.output)
         self.assertIn("--theme name", result.output)
@@ -575,6 +593,24 @@ class TestConsumerCli(unittest.TestCase):
 
         self.assertGreater(result.exit_code, 0)
         self.assertIn("Invalid value for '--protobuf': Should be property=value", result.output)
+
+    def test_invalid_bytes_config(self):
+        result = self.runner.invoke(cli, [self.command, "--bytes", "encoding"])
+
+        self.assertGreater(result.exit_code, 0)
+        self.assertIn("Invalid value for '--bytes': Should be property=value", result.output)
+
+    def test_invalid_fallback_config(self):
+        result = self.runner.invoke(cli, [self.command, "--fallback", "encoding"])
+
+        self.assertGreater(result.exit_code, 0)
+        self.assertIn("Invalid value for '--fallback': Should be property=value", result.output)
+
+    def test_invalid_json_config(self):
+        result = self.runner.invoke(cli, [self.command, "--json", "framing"])
+
+        self.assertGreater(result.exit_code, 0)
+        self.assertIn("Invalid value for '--json': Should be property=value", result.output)
 
     def test_invalid_protobuf_file_exists(self):
         result = self.runner.invoke(
@@ -893,6 +929,199 @@ class TestConsumerCli(unittest.TestCase):
         self.assertEqual(0, result.exit_code)
 
     @patch("kaskade.main.KaskadeConsumer")
+    def test_passes_normalized_bytes_encodings(self, mock_class_kaskade_consumer):
+        result = self.runner.invoke(
+            cli,
+            [
+                self.command,
+                "-b",
+                EXPECTED_SERVER,
+                "-t",
+                EXPECTED_TOPIC,
+                "--bytes",
+                "encoding=BASE64",
+                "--bytes",
+                "key.encoding=HEX",
+                "--bytes",
+                "value.encoding=BYTE_ARRAY",
+            ],
+        )
+
+        self.assertEqual(
+            {
+                "encoding": "base64",
+                "key.encoding": "hex",
+                "value.encoding": "byte-array",
+            },
+            mock_class_kaskade_consumer.call_args.kwargs["bytes_config"],
+        )
+        self.assertEqual(0, result.exit_code)
+
+    @patch("kaskade.main.KaskadeConsumer")
+    def test_passes_normalized_global_fallback_encoding(self, mock_class_kaskade_consumer):
+        result = self.runner.invoke(
+            cli,
+            [
+                self.command,
+                "-b",
+                EXPECTED_SERVER,
+                "-t",
+                EXPECTED_TOPIC,
+                "--fallback",
+                "encoding=BYTE_ARRAY",
+            ],
+        )
+
+        self.assertEqual(
+            {"encoding": "byte-array"},
+            mock_class_kaskade_consumer.call_args.kwargs["fallback_config"],
+        )
+        self.assertEqual(0, result.exit_code)
+
+    @patch("kaskade.main.KaskadeConsumer")
+    def test_passes_scoped_json_framing(self, mock_class_kaskade_consumer):
+        result = self.runner.invoke(
+            cli,
+            [
+                self.command,
+                "-b",
+                EXPECTED_SERVER,
+                "-t",
+                EXPECTED_TOPIC,
+                "-k",
+                "json",
+                "-v",
+                "json",
+                "--json",
+                "framing=CONFLUENT",
+                "--json",
+                "key.framing=RAW",
+            ],
+        )
+
+        self.assertEqual(
+            {"framing": "confluent", "key.framing": "raw"},
+            mock_class_kaskade_consumer.call_args.kwargs["json_config"],
+        )
+        self.assertEqual(0, result.exit_code)
+
+    def test_rejects_invalid_bytes_encoding(self):
+        result = self.runner.invoke(
+            cli,
+            [
+                self.command,
+                "-b",
+                EXPECTED_SERVER,
+                "-t",
+                EXPECTED_TOPIC,
+                "--bytes",
+                "encoding=utf-8",
+            ],
+        )
+
+        self.assertGreater(result.exit_code, 0)
+        self.assertIn(
+            "Bytes encoding should be one of ['base64', 'hex', 'byte-array', 'python']",
+            result.output,
+        )
+
+    def test_rejects_invalid_fallback_encoding(self):
+        result = self.runner.invoke(
+            cli,
+            [
+                self.command,
+                "-b",
+                EXPECTED_SERVER,
+                "-t",
+                EXPECTED_TOPIC,
+                "--fallback",
+                "encoding=utf-8",
+            ],
+        )
+
+        self.assertGreater(result.exit_code, 0)
+        self.assertIn(
+            "Fallback encoding should be one of ['base64', 'hex', 'byte-array', 'python']",
+            result.output,
+        )
+
+    def test_rejects_scoped_fallback_encoding(self):
+        result = self.runner.invoke(
+            cli,
+            [
+                self.command,
+                "-b",
+                EXPECTED_SERVER,
+                "-t",
+                EXPECTED_TOPIC,
+                "--fallback",
+                "key.encoding=hex",
+            ],
+        )
+
+        self.assertGreater(result.exit_code, 0)
+        self.assertIn("Valid properties: ['encoding']", result.output)
+
+    def test_rejects_bytes_encoding_for_inactive_field(self):
+        result = self.runner.invoke(
+            cli,
+            [
+                self.command,
+                "-b",
+                EXPECTED_SERVER,
+                "-t",
+                EXPECTED_TOPIC,
+                "-k",
+                "string",
+                "--bytes",
+                "key.encoding=hex",
+            ],
+        )
+
+        self.assertGreater(result.exit_code, 0)
+        self.assertIn("--bytes key.encoding requires '-k bytes'", result.output)
+
+    def test_rejects_bytes_configuration_without_bytes_deserializer(self):
+        result = self.runner.invoke(
+            cli,
+            [
+                self.command,
+                "-b",
+                EXPECTED_SERVER,
+                "-t",
+                EXPECTED_TOPIC,
+                "-k",
+                "string",
+                "-v",
+                "json",
+                "--bytes",
+                "encoding=hex",
+            ],
+        )
+
+        self.assertGreater(result.exit_code, 0)
+        self.assertIn("Missing option '-k bytes' and/or '-v bytes'", result.output)
+
+    def test_rejects_json_framing_for_inactive_field(self):
+        result = self.runner.invoke(
+            cli,
+            [
+                self.command,
+                "-b",
+                EXPECTED_SERVER,
+                "-t",
+                EXPECTED_TOPIC,
+                "-v",
+                "json",
+                "--json",
+                "key.framing=confluent",
+            ],
+        )
+
+        self.assertGreater(result.exit_code, 0)
+        self.assertIn("--json key.framing requires '-k json'", result.output)
+
+    @patch("kaskade.main.KaskadeConsumer")
     def test_update_kafka_config_with_extra_config(self, mock_class_kaskade_consumer):
         expected_property_name = "property.name"
         expected_property_value = "property.value"
@@ -1166,7 +1395,11 @@ class TestConsumerCli(unittest.TestCase):
         )
 
         self.assertGreater(result.exit_code, 0)
-        self.assertIn("Valid properties: ['descriptor', 'key', 'value'].", result.output)
+        self.assertIn(
+            "Valid properties: ['descriptor', 'key', 'value', 'framing', "
+            "'key.framing', 'value.framing'].",
+            result.output,
+        )
 
     def test_validate_avro_invalid_option(self):
         result = self.runner.invoke(
@@ -1183,7 +1416,10 @@ class TestConsumerCli(unittest.TestCase):
         )
 
         self.assertGreater(result.exit_code, 0)
-        self.assertIn("Valid properties: ['key', 'value', 'framing'].", result.output)
+        self.assertIn(
+            "Valid properties: ['key', 'value', 'framing', 'key.framing', " "'value.framing'].",
+            result.output,
+        )
 
     def test_validate_avro_invalid_framing(self):
         result = self.runner.invoke(
@@ -1205,6 +1441,42 @@ class TestConsumerCli(unittest.TestCase):
 
         self.assertGreater(result.exit_code, 0)
         self.assertIn("Avro framing should be one of ['raw', 'confluent']", result.output)
+
+    @patch("kaskade.main.KaskadeConsumer")
+    def test_passes_scoped_avro_framing(self, mock_class_kaskade_consumer):
+        result = self.runner.invoke(
+            cli,
+            [
+                self.command,
+                "-b",
+                EXPECTED_SERVER,
+                "-t",
+                EXPECTED_TOPIC,
+                "-k",
+                "avro",
+                "-v",
+                "avro",
+                "--avro",
+                f"key={self.temp_avro_path}",
+                "--avro",
+                f"value={self.temp_avro_path}",
+                "--avro",
+                "framing=CONFLUENT",
+                "--avro",
+                "key.framing=RAW",
+            ],
+        )
+
+        self.assertEqual(
+            {
+                "key": str(self.temp_avro_path),
+                "value": str(self.temp_avro_path),
+                "framing": "confluent",
+                "key.framing": "raw",
+            },
+            mock_class_kaskade_consumer.call_args.args[4],
+        )
+        self.assertEqual(0, result.exit_code)
 
     def test_validate_protobuf_descriptor_config(self):
         result = self.runner.invoke(
@@ -1260,6 +1532,8 @@ class TestConsumerCli(unittest.TestCase):
                 f"{expected_descriptor_name}={expected_descriptor_value}",
                 "--protobuf",
                 f"{expected_value_name}={expected_value}",
+                "--protobuf",
+                "value.framing=CONFLUENT",
                 "-v",
                 "protobuf",
             ],
@@ -1274,6 +1548,7 @@ class TestConsumerCli(unittest.TestCase):
             {
                 expected_descriptor_name: expected_descriptor_value,
                 expected_value_name: expected_value,
+                "value.framing": "confluent",
             },
             {},
             Deserialization.BYTES,

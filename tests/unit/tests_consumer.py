@@ -26,6 +26,7 @@ from kaskade.consumer import (
 )
 from kaskade.deserializers import (
     BooleanDeserializer,
+    BytesEncoding,
     Deserialization,
     DeserializationError,
     DeserializationResult,
@@ -83,7 +84,7 @@ class TestRecordExport(unittest.TestCase):
                 ],
                 "key": {
                     "content": "order-1048",
-                    "deserializer": {"type": "STRING", "schema": None},
+                    "deserializer": {"type": "STRING"},
                 },
                 "value": {
                     "content": {
@@ -91,7 +92,7 @@ class TestRecordExport(unittest.TestCase):
                         "customer": "Zoë",
                         "binary": b"\xff",
                     },
-                    "deserializer": {"type": "JSON", "schema": None},
+                    "deserializer": {"type": "JSON"},
                 },
             },
             record.dict(),
@@ -113,7 +114,7 @@ class TestRecordExport(unittest.TestCase):
         self.assertEqual(record_json(exported_record()).rstrip("\n"), renderable.text.plain)
         self.assertIn(
             '  "key": {\n    "content": "order-1048",\n    "deserializer": {\n'
-            '      "type": "STRING",\n      "schema": null\n    }\n  }',
+            '      "type": "STRING"\n    }\n  }',
             renderable.text.plain,
         )
         self.assertFalse(renderable.text.no_wrap)
@@ -133,7 +134,7 @@ class TestRecordExport(unittest.TestCase):
         self.assertIsNone(data["key"]["content"])
         self.assertIsNone(data["value"]["content"])
         self.assertEqual(
-            {"type": "STRING", "schema": None},
+            {"type": "STRING"},
             data["key"]["deserializer"],
         )
 
@@ -163,11 +164,11 @@ class TestRecordExport(unittest.TestCase):
                 ],
                 "key": {
                     "content": None,
-                    "deserializer": {"type": "STRING", "schema": None},
+                    "deserializer": {"type": "STRING"},
                 },
                 "value": {
                     "content": None,
-                    "deserializer": {"type": "JSON", "schema": None},
+                    "deserializer": {"type": "JSON"},
                 },
             },
             record.dict(),
@@ -209,19 +210,16 @@ class TestRecordExport(unittest.TestCase):
                 "timestamp": "2026-08-28T14:12:07.120Z",
                 "headers": [],
                 "key": {
-                    "content": "b'\\xff'",
-                    "deserializer": {
-                        "type": "JSON",
-                        "schema": None,
-                        "error": {
-                            "message": "malformed key",
-                            "fallback": "BYTES",
-                        },
+                    "content": "/w==",
+                    "deserializer": {"type": "JSON"},
+                    "error": {
+                        "message": "malformed key",
+                        "fallback": {"type": "BYTES", "encoding": "BASE64"},
                     },
                 },
                 "value": {
                     "content": "paid",
-                    "deserializer": {"type": "STRING", "schema": None},
+                    "deserializer": {"type": "STRING"},
                 },
             },
             data,
@@ -375,6 +373,33 @@ class TestRecordExport(unittest.TestCase):
 
 
 class TestRecordExportActions(unittest.IsolatedAsyncioTestCase):
+    @patch("kaskade.consumer.ConsumerService")
+    def test_consumer_passes_bytes_and_fallback_configs_independently(
+        self, consumer_service: MagicMock
+    ) -> None:
+        consumer_service.return_value.consume = AsyncMock(return_value=[])
+
+        KaskadeConsumer(
+            "orders",
+            {},
+            {},
+            {},
+            {},
+            Deserialization.BYTES,
+            Deserialization.STRING,
+            bytes_config={"key.encoding": "hex"},
+            fallback_config={"encoding": "python"},
+        )
+
+        self.assertEqual(
+            {"key.encoding": "hex"},
+            consumer_service.call_args.kwargs["bytes_config"],
+        )
+        self.assertEqual(
+            {"encoding": "python"},
+            consumer_service.call_args.kwargs["fallback_config"],
+        )
+
     @patch("kaskade.consumer.ConsumerService")
     async def test_ctrl_e_exports_from_table_and_record_details(
         self, consumer_service: MagicMock
@@ -666,6 +691,7 @@ class TestConsumptionCoordination(unittest.IsolatedAsyncioTestCase):
             value_deserialization=Deserialization.STRING,
             key_deserializer=key_deserializer,
             value_deserializer=StringDeserializer(),
+            fallback_bytes_encoding=BytesEncoding.HEX,
         )
         consumer_service.return_value.consume = AsyncMock(return_value=[record])
         app = KaskadeConsumer(
@@ -686,7 +712,7 @@ class TestConsumptionCoordination(unittest.IsolatedAsyncioTestCase):
 
             self.assertIsInstance(row[0], Text)
             self.assertEqual(
-                f"{WARNING_INDICATOR} b'\\xff'",
+                f"{WARNING_INDICATOR} ff",
                 row[0].plain,
             )
             self.assertEqual(WARNING_STYLE, row[0].style)
@@ -700,6 +726,7 @@ class TestConsumptionCoordination(unittest.IsolatedAsyncioTestCase):
             self.assertIn("Record: orders[1][10]", table.tooltip.plain)
             self.assertIn("Requested: JSON", table.tooltip.plain)
             self.assertIn("Fallback: BYTES", table.tooltip.plain)
+            self.assertIn("Encoding: HEX", table.tooltip.plain)
             self.assertIn("Error: malformed key", table.tooltip.plain)
 
             table.hover_coordinate = Coordinate(0, 1)

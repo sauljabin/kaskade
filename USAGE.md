@@ -20,12 +20,10 @@ kaskade consumer -b my-kafka:9092 -t my-json-topic -k json -v json
 Supported deserializers are `bytes`, `boolean`, `string`, `long`, `integer`,
 `double`, `float`, `json`, `avro`, `protobuf`, and `registry`.
 
-Deserializer-specific settings use repeatable `property=value` options. Use
-`--avro` for local Avro schemas and framing, `--protobuf` for descriptors and
-message names, and `--registry` for Schema Registry client properties. Repeat
-the relevant option once per property; it is required when the selected key or
-value format needs that configuration. See the [Schema Registry](#schema-registry),
-[Avro](#avro-consumer), and [Protobuf](#protobuf-consumer) examples below.
+Deserializer settings are repeatable `property=value` options: `--bytes` and
+`--fallback` control byte encoding, `--json`/`--avro`/`--protobuf` configure local
+deserializers, and `--registry` configures Schema Registry. See the detailed
+examples below.
 
 ## Application settings and controls
 
@@ -43,10 +41,8 @@ Commands window. Theme changes apply only to the current session.
 
 ### Admin auto-refresh
 
-Admin mode refreshes topic metadata and metrics every 30 seconds. Auto-refresh
-pauses while a dialog, topic details, Help, or the command palette is open, then
-refreshes after returning to the topic list. Press `Ctrl+R` to refresh
-immediately.
+Admin mode refreshes every 30 seconds, pauses outside the topic list, and
+refreshes after returning. Press `Ctrl+R` to refresh immediately.
 
 Configure the interval in Kaskade's `config.yaml`:
 
@@ -55,9 +51,8 @@ admin:
   refresh_interval_seconds: 30
 ```
 
-Use `0` to disable auto-refresh. Enabled intervals must be at least 5 seconds.
-Missing or invalid values use the 30-second default; invalid values also
-produce an in-app warning.
+Use `0` to disable auto-refresh. Other values must be at least 5 seconds;
+missing or invalid values use the default, with an in-app warning when invalid.
 
 Override the configured interval for one admin session with `--refresh-interval`:
 
@@ -66,8 +61,7 @@ kaskade admin -b my-kafka:9092 --refresh-interval 10
 kaskade admin -b my-kafka:9092 --refresh-interval 0
 ```
 
-The command-line value takes precedence over `config.yaml` and follows the same
-validation rules.
+The command-line value takes precedence and follows the same validation rules.
 
 ### Keyboard shortcuts
 
@@ -96,10 +90,8 @@ familiar k9s conventions where the applications have equivalent actions.
 | Consume more records | `n` |
 | Change record chunk size | `#` |
 
-Help opens in a contextual window above the current screen and lists every
-effective shortcut alias. Navigate it with `j`/`k`, arrows, Page Up/Down, or
-`g`/`G`, then close it with `Esc`, `q`, `?`, or `F1`. The command palette
-includes this contextual Help window instead of Textual's generic Keys panel.
+Help lists every contextual shortcut alias. Navigate with the standard keys and
+close with `Esc`, `q`, `?`, or `F1`. The Commands palette links to the same Help.
 
 Plain-character application shortcuts do not intercept typing in filter and
 editor fields.
@@ -185,15 +177,14 @@ and browser terminals or other relays may filter OSC 52.
 
 ### Export a consumed record
 
-Select a record in consumer mode or open its details, then press `Ctrl+E` to export it as
-JSON. Kaskade saves the file to the same destination as the Screenshot command: the
-Downloads directory in a local terminal or a browser download when web-hosted. The export
-includes the topic, partition, offset, timestamp, headers, and the deserialized key and value with
-their deserializer types. Export Record is omitted from the Footer; find it in contextual
-Help or Commands.
+Press `Ctrl+E` from the records table or Record Details to export JSON. Local
+terminals save to Downloads; web-hosted sessions use a browser download. Export
+Record appears in Help and Commands, not the Footer.
 
-Record details, clipboard copies, and exports share the same JSON structure. Primitive and
-plain JSON deserializers have no Registry schema metadata:
+Details, clipboard copies, and exports share the contract in
+[`schemas/consumer-record.schema.json`](schemas/consumer-record.schema.json),
+which uses JSON Schema Draft 2020-12. Primitive and plain JSON deserializers omit
+Registry metadata:
 
 ```json
 {
@@ -202,20 +193,23 @@ plain JSON deserializers have no Registry schema metadata:
   "offset": 42,
   "timestamp": "2026-08-28T14:12:05.120Z",
   "headers": [
-    {"key": "source", "value": "storefront"}
+    {
+      "key": "source",
+      "value": "storefront"
+    }
   ],
   "key": {
     "content": "order-1048",
-    "deserializer": {"type": "STRING", "schema": null}
+    "deserializer": {"type": "STRING"}
   },
   "value": {
     "content": {"status": "paid"},
-    "deserializer": {"type": "JSON", "schema": null}
+    "deserializer": {"type": "JSON"}
   }
 }
 ```
 
-Schema Registry metadata is independent for the key and value. Kaskade includes it when
+Schema Registry metadata is independent for key and value and appears only when
 the schema ID resolves to an unambiguous subject and version:
 
 ```json
@@ -247,12 +241,38 @@ the schema ID resolves to an unambiguous subject and version:
 }
 ```
 
-Headers remain an ordered array of `key` and `value` objects because Kafka permits repeated
-header names. JSON timestamps use UTC ISO 8601 with millisecond precision, or `null` when
-Kafka supplies no timestamp. Tombstone keys and values use `content: null`. Local Avro,
-local Protobuf, and non-schema deserializers use `schema: null`.
-In the records table, absent keys and values appear as a colored `null`; hover the cell
-to distinguish an absent key from a tombstone value.
+Headers remain ordered so duplicate names survive; successful values deserialize
+as STRING without extra metadata. Timestamps are UTC ISO 8601 with milliseconds,
+or `null` when unavailable. Tombstones use `content: null`. Local and non-schema
+deserializers omit `schema`; Registry does too when resolution is ambiguous or
+unavailable. The records table renders absent keys and values as colored `null`
+with a distinguishing tooltip.
+
+Byte content stays directly in `content`, and its BYTES deserializer carries the
+presentation encoding. Base64 is the default portable encoding:
+
+```json
+{
+  "content": "SGVsbG8gd29ybGQ=",
+  "deserializer": {
+    "type": "BYTES",
+    "encoding": "BASE64"
+  }
+}
+```
+
+Configure explicit BYTES presentation globally or per field:
+
+```bash
+--bytes encoding=base64 \
+--bytes key.encoding=hex \
+--bytes value.encoding=byte-array
+```
+
+Encodings are `base64`, `hex`, `byte-array`, and `python`; values are
+case-insensitive and underscores normalize to hyphens. Scoped settings override
+the global encoding. `--bytes` does not affect fallbacks, and null BYTES fields
+omit `encoding`.
 
 ## Consumer behavior
 
@@ -279,29 +299,54 @@ cannot be combined.
 
 ### Deserialization failures
 
-If a configured key or value deserializer cannot decode an individual record,
-Kaskade shows `⚠`, displays that field with its BYTES fallback, and keeps
-consuming. The recovered content retains the current Python byte string, while
-the diagnostic is nested inside the requested deserializer:
+On a recognized deserialization failure, Kaskade shows `⚠`, presents the raw
+field through BYTES, and keeps consuming. Configure key, value, and header
+fallback encoding independently from explicit BYTES fields:
+
+```bash
+--fallback encoding=hex
+```
+
+`--fallback` accepts only the global `encoding` property; key and value scopes are
+not supported. It defaults to Base64. The diagnostic is a sibling of the
+requested deserializer:
 
 ```json
 {
-  "content": "b'\\xff'",
+  "content": "/w==",
   "deserializer": {
-    "type": "REGISTRY",
-    "schema": null,
-    "error": {
-      "message": "Unexpected magic byte -1",
-      "fallback": "BYTES"
+    "type": "REGISTRY"
+  },
+  "error": {
+    "message": "Unexpected magic byte -1",
+    "fallback": {
+      "type": "BYTES",
+      "encoding": "BASE64"
     }
   }
 }
 ```
 
-Record details, copy, and export preserve this structure. Hover the warning cell
-to see the same diagnostic in a tooltip. The other field remains decoded normally.
-Registry subject/version lookup is best-effort and cached; missing or ambiguous
-metadata produces `schema: null` without turning successful content into a fallback.
+Every successful header remains a compact `{key, value}` object. If a header is
+not valid UTF-8, its raw content uses the global fallback encoding and the header
+adds the same top-level error metadata:
+
+```json
+{
+  "key": "binary",
+  "value": "/w==",
+  "error": {
+    "message": "Invalid UTF-8 payload",
+    "fallback": {
+      "type": "BYTES",
+      "encoding": "BASE64"
+    }
+  }
+}
+```
+
+Details, copy, export, and warning tooltips preserve the diagnostic while the
+other field remains decoded normally.
 
 ## Connections and security
 
@@ -642,6 +687,30 @@ docker run --rm -it --network my-network sauljabin/kaskade:latest \
 
 ## Format-specific consumers
 
+Local JSON, Avro, and Protobuf deserializers use raw framing by default. Their
+repeatable options accept `framing`, `key.framing`, and `value.framing`. The
+scoped property overrides the global property, allowing key and value framing
+to differ. Framing is explicit; these deserializers do not infer it from payload
+bytes. The Registry deserializer always uses Confluent framing.
+
+### JSON consumer
+
+Consume raw JSON without additional configuration:
+
+```bash
+kaskade consumer -b my-kafka:9092 -t my-json-topic -v json
+```
+
+For a JSON payload with Confluent's magic-byte and schema-ID envelope, select
+Confluent framing explicitly. This removes the envelope and parses the JSON but
+does not query Schema Registry:
+
+```bash
+kaskade consumer -b my-kafka:9092 -t my-json-topic \
+        -k string -v json \
+        --json value.framing=confluent
+```
+
 ### Avro consumer
 
 Consume using a `my-schema.avsc` schema file:
@@ -653,10 +722,9 @@ kaskade consumer -b my-kafka:9092 --earliest \
         --avro value=my-schema.avsc
 ```
 
-Local-schema Avro deserialization treats payloads as raw Avro by default. For
-records produced with Confluent's five-byte framing, add
-`--avro framing=confluent`. Framing is explicit because a valid raw Avro payload
-may also begin with a zero byte.
+For records produced with Confluent's five-byte framing, add
+`--avro value.framing=confluent`. Use the unscoped
+`--avro framing=confluent` when every selected Avro field has the same framing.
 
 ### Protobuf consumer
 
@@ -684,6 +752,16 @@ kaskade consumer -b my-kafka:9092 --earliest \
         -t my-protobuf-topic \
         --protobuf descriptor=my-descriptor.desc \
         --protobuf value=mypackage.MyMessage
+```
+
+For Confluent-framed Protobuf, select its decoder explicitly:
+
+```bash
+kaskade consumer -b my-kafka:9092 -t my-protobuf-topic \
+        -k string -v protobuf \
+        --protobuf descriptor=my-descriptor.desc \
+        --protobuf value=mypackage.MyMessage \
+        --protobuf value.framing=confluent
 ```
 
 See the

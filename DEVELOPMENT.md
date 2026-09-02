@@ -1,6 +1,6 @@
 # Development Instructions
 
-### Setup
+## Setup
 
 Install uv:
 
@@ -44,19 +44,19 @@ uv run textual run --port 7342 --dev -c kaskade admin -b localhost:19092
 uv run textual run --port 7342 --dev -c kaskade consumer -b localhost:19092 -t my-topic
 ```
 
-### Scripts
+## Scripts
 
 Unit test modules live in `tests/unit`:
 
 ```bash
-uv run python -m scripts.tests
+uv run --locked python -m scripts.tests
 ```
 
 E2E test modules live in `tests/e2e` and run against Confluent Kafka through
 Testcontainers:
 
 ```bash
-uv run python -m scripts.tests --e2e
+uv run --locked python -m scripts.tests --e2e
 ```
 
 Applying code styles:
@@ -68,7 +68,7 @@ uv run python -m scripts.styles
 Running code analysis:
 
 ```bash
-uv run python -m scripts.analyze
+uv run --locked python -m scripts.analyze
 ```
 
 Generate banner:
@@ -83,7 +83,7 @@ Generate admin and consumer screenshots with mock data (no Kafka broker required
 uv run python -m scripts.screenshots
 ```
 
-### Build Artifacts
+## Build Artifacts
 
 Build the Python wheel and source distribution:
 
@@ -106,23 +106,21 @@ required source-distribution files, and consistency between the wheel and source
 distribution versions. Use `--expected-version VERSION` when the version must
 also match a release tag.
 
-### Docker
+## Docker
 
-Build docker:
+Build the Docker image:
 
 ```bash
 docker build -t sauljabin/kaskade:latest .
 ```
 
-> Image tag `sauljabin/kaskade:latest`.
-
-Run with docker (create a `config.yml` file):
+Run the image on the sandbox network:
 
 ```bash
 docker run --rm -it --network sandbox sauljabin/kaskade:latest admin -b kafka1:9092
 ```
 
-### Release
+## Release
 
 Git tags are the only source of release versions. Package metadata is derived from
 the nearest semantic version tag by `hatch-vcs`; never edit a version field or a
@@ -165,7 +163,7 @@ Fix the external configuration if necessary and rerun only the failed GitHub
 Actions jobs. PyPI artifacts are immutable; if an incorrect artifact was already
 published, create a new patch version instead of reusing the tag.
 
-### Manual Tests
+## Manual Tests
 
 The standalone `sandbox` package owns its Compose environment, population tools,
 and Avro, JSON Schema, and Protobuf models. These models are intentionally
@@ -179,7 +177,7 @@ Use this sequence for a complete manual test:
 4. Run the Admin and Consumer smoke tests.
 5. Stop the services and remove their volumes.
 
-#### Start the local sandbox
+### Start the local sandbox
 
 Start the three-node Confluent Kafka cluster, Confluent Schema Registry, and
 Apicurio Registry:
@@ -199,7 +197,7 @@ The sandbox exposes:
 
 Image versions and the Kafka cluster ID are defined in `sandbox/.env`.
 
-#### Populate test topics
+### Populate test topics
 
 The default command creates and populates every available sandbox topic using
 Confluent Schema Registry:
@@ -233,7 +231,7 @@ Confluent-compatible API:
 uv run python -m sandbox --registry http://localhost:18082/apis/ccompat/v7
 ```
 
-#### Inspect registry APIs with HTTPie
+### Inspect registry APIs with HTTPie
 
 After populating the sandbox, use [HTTPie](https://httpie.io/) to inspect the
 registered subjects and schemas.
@@ -267,7 +265,7 @@ The `avro-schema-value` subject exists after populating the `avro-schema` topic.
 Substitute another name returned by the `/subjects` request when testing a
 different schema-backed topic.
 
-#### Populate a remote Amazon MSK cluster
+### Populate a remote Amazon MSK cluster
 
 To populate an Amazon MSK cluster that uses IAM authentication, run the tool from
 a network with access to the brokers and pass the IAM bootstrap servers and AWS
@@ -283,7 +281,7 @@ The Schema Registry URL remains independently configurable with `--registry`.
 See the sandbox requirements under [IAM permissions](USAGE.md#iam-permissions)
 or [Kafka ACLs](USAGE.md#kafka-acls).
 
-#### Run application smoke tests
+### Run application smoke tests
 
 Confirm both command interfaces render successfully:
 
@@ -298,7 +296,7 @@ Open the Admin application and verify the populated topics and their metadata:
 uv run kaskade admin -b localhost:19092
 ```
 
-##### Primitive and JSON consumers
+#### Primitive and JSON consumers
 
 Start with raw bytes:
 
@@ -306,8 +304,8 @@ Start with raw bytes:
 uv run kaskade consumer -b localhost:19092 --earliest -t string
 ```
 
-Test null keys and values. Every record in the `null` topic has both fields set
-to Kafka null:
+Every record in the `null` topic has a null key, value, and `sandbox-null`
+header:
 
 ```bash
 uv run kaskade consumer -b localhost:19092 --earliest -k string -v string -t null
@@ -324,14 +322,15 @@ uv run kaskade consumer -b localhost:19092 --earliest -k string -v double -t dou
 uv run kaskade consumer -b localhost:19092 --earliest -k string -v boolean -t boolean
 ```
 
-Test JSON payloads without Schema Registry:
+Test raw and Confluent-framed payloads with the local JSON deserializer:
 
 ```bash
 uv run kaskade consumer -b localhost:19092 --earliest -k string -v json -t json
-uv run kaskade consumer -b localhost:19092 --earliest -k string -v json -t json-schema
+uv run kaskade consumer -b localhost:19092 --earliest -k string -v json -t json-schema \
+        --json framing=confluent
 ```
 
-##### Schema Registry consumers
+#### Schema Registry consumers
 
 Test a JSON Schema payload through Confluent Schema Registry:
 
@@ -346,12 +345,13 @@ Test independent key and value deserialization fallbacks:
 ```bash
 uv run kaskade consumer -b localhost:19092 --earliest -t errors \
         -k registry -v registry \
+        --fallback encoding=hex \
         --registry url=http://localhost:18081
 ```
 
 The `errors` topic cycles through a malformed key, malformed value, both fields
-malformed, and a fully valid record. Malformed fields contain randomized bytes,
-and the `sandbox-error-case` header identifies each case.
+malformed, an invalid UTF-8 header, and a fully valid record. Malformed fields
+contain randomized bytes, and `sandbox-error-case` identifies each case.
 
 Test an Avro payload through Confluent Schema Registry:
 
@@ -369,7 +369,7 @@ uv run kaskade consumer -b localhost:19092 --earliest -t avro-schema \
         --registry url=http://localhost:18082/apis/ccompat/v7
 ```
 
-##### Local-schema consumers
+#### Local-schema consumers
 
 Test raw and Confluent-framed Avro payloads with a local schema:
 
@@ -395,7 +395,8 @@ uv run kaskade consumer -b localhost:19092 --earliest -t protobuf \
 uv run kaskade consumer -b localhost:19092 --earliest -t protobuf-schema \
         -k string -v protobuf \
         --protobuf descriptor=sandbox/protobuf_model/user.desc \
-        --protobuf value=User
+        --protobuf value=User \
+        --protobuf framing=confluent
 ```
 
 The descriptor is generated from `sandbox/protobuf_model/user.proto`. After
@@ -410,7 +411,7 @@ protoc --include_imports \
        sandbox/protobuf_model/user.proto
 ```
 
-#### Stop the local sandbox
+### Stop the local sandbox
 
 Remove the containers, networks, and persisted test data when manual testing is
 complete:

@@ -40,28 +40,28 @@ Bring Kafka along for the terminal ride. Kaskade gives you a stylish, keyboard-f
 - Create, edit, delete, and filter topics
 - Connect to Amazon MSK clusters with AWS IAM authentication
 - Refresh topic metadata and metrics automatically or manually
-- Copy topic names to the clipboard
 
 ### Record consumption
 
-- Deserialize keys and values as bytes, JSON, string, integer, long, float,
-  boolean, or double
+- Deserialize keys and values as bytes, primitives, JSON, Avro, or Protobuf,
+  including Registry-backed Avro and JSON
+- Select raw or Confluent framing independently for local key and value deserializers
 - Filter records by key, value, header, or partition
 - Start from the earliest offsets or explicit partition/offset selections
-- Keep malformed keys or values inspectable with visible BYTES fallback warnings
+- Preserve malformed keys, values, and headers with BYTES fallback metadata
+- Present bytes as Base64, hex, byte arrays, or Python byte strings with encoding metadata
 - Copy or export individual records as JSON
-- Deserialize Avro and JSON data with Schema Registry
-- Deserialize Avro and Protobuf data without Schema Registry
 
 ### Terminal experience
 
+- Navigate entirely by keyboard with arrow and Vim-style shortcuts
 - Customize themes and keybindings
 - Copy data through an [OSC 52-compatible terminal](https://github.com/sauljabin/kaskade/blob/main/USAGE.md#osc-52-compatibility)
 
 ## Current limitations
 
 - Topic replication factors cannot be changed
-- Schema Registry does not support Protobuf
+- The Registry deserializer does not support Protobuf schemas
 - Clipboard integration requires an OSC 52-compatible terminal
 
 ## Quick start

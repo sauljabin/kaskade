@@ -85,6 +85,28 @@ class Deserialization(Enum):
         return [str(name) for name in Deserialization]
 
 
+class BytesEncoding(Enum):
+    BASE64 = auto()
+    HEX = auto()
+    BYTE_ARRAY = auto()
+    PYTHON = auto()
+
+    def __str__(self) -> str:
+        return self.name.lower().replace("_", "-")
+
+    @classmethod
+    def from_str(cls, value: str) -> "BytesEncoding":
+        return cls[value.upper().replace("-", "_")]
+
+    @classmethod
+    def from_config(
+        cls,
+        config: dict[str, str],
+        context: MessageField = MessageField.NONE,
+    ) -> "BytesEncoding":
+        return cls.from_str(_scoped_property(config, "encoding", context, str(cls.BASE64)))
+
+
 @dataclass(frozen=True)
 class RegistrySchema:
     id: int
@@ -124,7 +146,7 @@ class DefaultDeserializer(Deserializer):
     def deserialize(
         self, data: bytes, topic: str | None = None, context: MessageField = MessageField.NONE
     ) -> Any:
-        return str(data)
+        return data
 
 
 class StringDeserializer(Deserializer):
@@ -170,10 +192,13 @@ class IntegerDeserializer(Deserializer):
 
 
 class JsonDeserializer(Deserializer):
+    def __init__(self, json_config: dict[str, str] | None = None):
+        self.config = json_config or {}
+
     def deserialize(
         self, data: bytes, topic: str | None = None, context: MessageField = MessageField.NONE
     ) -> Any:
-        return json.loads(_without_confluent_header(data))
+        return json.loads(_payload(data, self.config, context, "JSON"))
 
 
 class RegistryDeserializer(Deserializer):
@@ -317,9 +342,9 @@ class RegistryDeserializer(Deserializer):
 
 class AvroDeserializer(Deserializer):
     def __init__(self, avro_config: dict[str, str]):
+        self.config = avro_config
         self.key_path = avro_config.get("key")
         self.value_path = avro_config.get("value")
-        self.framing = avro_config.get("framing", "raw")
 
     def deserialize(
         self, data: bytes, topic: str | None = None, context: MessageField = MessageField.NONE
@@ -342,21 +367,13 @@ class AvroDeserializer(Deserializer):
         if schema_path is None:
             raise DeserializationError("Avro schema file not found")
 
-        payload = self._payload(data)
+        payload = _payload(data, self.config, context, "Avro")
         return _deserialize_avro(avro_to_py, schema_path, payload)
-
-    def _payload(self, data: bytes) -> bytes:
-        if self.framing == "raw":
-            return data
-        if self.framing == "confluent" and _has_confluent_header(data):
-            return data[5:]
-        if self.framing == "confluent":
-            raise DeserializationError("Confluent Avro framing header not found")
-        raise DeserializationError(f"Unsupported Avro framing: {self.framing}")
 
 
 class ProtobufDeserializer(Deserializer):
     def __init__(self, protobuf_config: dict[str, str]):
+        self.config = protobuf_config
         self.descriptor_path = protobuf_config.get("descriptor")
         self.key_class = protobuf_config.get("key")
         self.value_class = protobuf_config.get("value")
@@ -368,8 +385,11 @@ class ProtobufDeserializer(Deserializer):
         if topic is None:
             raise DeserializationError("Topic name needed")
         message_class = self._message_class(context)
-        if _has_confluent_header(data):
+        framing = _scoped_property(self.config, "framing", context, "raw")
+        if framing == "confluent":
             return self._deserialize_confluent(data, topic, context, message_class)
+        if framing != "raw":
+            raise DeserializationError(f"Unsupported Protobuf framing: {framing}")
 
         new_message = message_class()
         new_message.ParseFromString(data)
@@ -417,6 +437,7 @@ class DeserializerPool:
         registry_config: dict[str, str] | None = None,
         protobuf_config: dict[str, str] | None = None,
         avro_config: dict[str, str] | None = None,
+        json_config: dict[str, str] | None = None,
     ):
         self.registry_deserializer: RegistryDeserializer | None = None
         self.protobuf_deserializer: ProtobufDeserializer | None = None
@@ -432,7 +453,7 @@ class DeserializerPool:
             self.protobuf_deserializer = ProtobufDeserializer(protobuf_config)
 
         self.string_deserializer = StringDeserializer()
-        self.json_deserializer = JsonDeserializer()
+        self.json_deserializer = JsonDeserializer(json_config)
         self.integer_deserializer = IntegerDeserializer()
         self.float_deserializer = FloatDeserializer()
         self.double_deserializer = DoubleDeserializer()
@@ -477,5 +498,30 @@ def _has_confluent_header(data: bytes) -> bool:
     return magic == SCHEMA_REGISTRY_MAGIC_BYTE
 
 
-def _without_confluent_header(data: bytes) -> bytes:
-    return data[5:] if _has_confluent_header(data) else data
+def _scoped_property(
+    config: dict[str, str],
+    property_name: str,
+    context: MessageField,
+    default: str,
+) -> str:
+    if context != MessageField.NONE:
+        scoped_name = f"{context.name.lower()}.{property_name}"
+        if scoped_name in config:
+            return config[scoped_name]
+    return config.get(property_name, default)
+
+
+def _payload(
+    data: bytes,
+    config: dict[str, str],
+    context: MessageField,
+    deserializer_name: str,
+) -> bytes:
+    framing = _scoped_property(config, "framing", context, "raw")
+    if framing == "raw":
+        return data
+    if framing == "confluent" and _has_confluent_header(data):
+        return data[5:]
+    if framing == "confluent":
+        raise DeserializationError(f"Confluent {deserializer_name} framing header not found")
+    raise DeserializationError(f"Unsupported {deserializer_name} framing: {framing}")

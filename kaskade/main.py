@@ -15,10 +15,15 @@ from kaskade.cli_utils import tuple_properties_to_dict, validate_aws_config
 from kaskade.configs import (
     AUTO_OFFSET_RESET,
     AVRO_DESERIALIZER_CONFIGS,
-    AVRO_FRAMINGS,
     AWS_CONFIGS,
     BOOTSTRAP_SERVERS,
+    BYTES_DESERIALIZER_CONFIGS,
+    BYTES_ENCODINGS,
+    DESERIALIZER_FRAMINGS,
     EARLIEST,
+    FALLBACK_CONFIGS,
+    FRAMING_CONFIGS,
+    JSON_DESERIALIZER_CONFIGS,
     PROTOBUF_DESERIALIZER_CONFIGS,
     SCHEMA_REGISTRY_CONFIGS,
 )
@@ -63,11 +68,28 @@ AWS_CONFIG_HELP = f"Amazon MSK IAM property. Repeatable. Properties: {', '.join(
 THEME_HELP = "Textual theme name. See USAGE.md or use the in-application Commands window."
 AVRO_CONFIG_HELP = (
     "Avro deserializer property. Repeatable; required when the key or value format is "
-    "avro. Properties: key, value, framing."
+    f"avro. Properties: {', '.join(AVRO_DESERIALIZER_CONFIGS)}. Framing: "
+    f"{', '.join(DESERIALIZER_FRAMINGS)}; scoped framing overrides the global value."
 )
 PROTOBUF_CONFIG_HELP = (
     "Protobuf deserializer property. Repeatable; required when the key or value format "
-    "is protobuf. Properties: descriptor, key, value."
+    f"is protobuf. Properties: {', '.join(PROTOBUF_DESERIALIZER_CONFIGS)}. Framing: "
+    f"{', '.join(DESERIALIZER_FRAMINGS)}; scoped framing overrides the global value."
+)
+JSON_CONFIG_HELP = (
+    "JSON deserializer property. Repeatable. "
+    f"Properties: {', '.join(JSON_DESERIALIZER_CONFIGS)}. Framing: "
+    f"{', '.join(DESERIALIZER_FRAMINGS)}; scoped framing overrides the global value."
+)
+BYTES_CONFIG_HELP = (
+    "Byte presentation property for keys and values using the BYTES deserializer. "
+    f"Repeatable. Properties: {', '.join(BYTES_DESERIALIZER_CONFIGS)}. Encodings: "
+    f"{', '.join(BYTES_ENCODINGS)}; scoped encodings override the global value."
+)
+FALLBACK_CONFIG_HELP = (
+    "Global byte presentation property for key, value, and header deserialization errors. "
+    f"Repeatable. Properties: {', '.join(FALLBACK_CONFIGS)}. Encodings: "
+    f"{', '.join(BYTES_ENCODINGS)}."
 )
 REGISTRY_CONFIG_HELP = (
     "Schema Registry client property. Repeatable; required when the key or value format "
@@ -250,8 +272,6 @@ def admin(
     Examples:
       kaskade admin -b localhost:9092
       kaskade admin -b localhost:9092 --refresh-interval 10
-      kaskade admin -b localhost:9092 --config security.protocol=SSL
-      kaskade admin --config bootstrap.servers=localhost:9092
       kaskade admin --config-file kafka.properties
       kaskade admin -b localhost:9092 --aws region=us-east-1
     """
@@ -319,6 +339,39 @@ def admin(
     ),
 )
 @cloup.option_group(
+    "Bytes options",
+    cloup.option(
+        "--bytes",
+        "bytes_config",
+        help=BYTES_CONFIG_HELP,
+        metavar="property=value",
+        multiple=True,
+        callback=tuple_properties_to_dict,
+    ),
+)
+@cloup.option_group(
+    "Fallback options",
+    cloup.option(
+        "--fallback",
+        "fallback_config",
+        help=FALLBACK_CONFIG_HELP,
+        metavar="property=value",
+        multiple=True,
+        callback=tuple_properties_to_dict,
+    ),
+)
+@cloup.option_group(
+    "JSON options",
+    cloup.option(
+        "--json",
+        "json_config",
+        help=JSON_CONFIG_HELP,
+        metavar="property=value",
+        multiple=True,
+        callback=tuple_properties_to_dict,
+    ),
+)
+@cloup.option_group(
     "Avro options",
     cloup.option(
         "--avro",
@@ -358,6 +411,9 @@ def consumer(
     registry_config: dict[str, str],
     protobuf_config: dict[str, str],
     avro_config: dict[str, str],
+    json_config: dict[str, str],
+    bytes_config: dict[str, str],
+    fallback_config: dict[str, str],
     topic: str,
     key_deserialization: Deserialization,
     value_deserialization: Deserialization,
@@ -373,16 +429,9 @@ def consumer(
     \b
     Examples:
       kaskade consumer -b localhost:9092 -t my-topic
-      kaskade consumer -b localhost:9092 -t my-topic --earliest
-      kaskade consumer -b localhost:9092 -t my-topic --partition 1:10 --partition 2:earliest
-      kaskade consumer -b localhost:9092 -t my-topic --config security.protocol=SSL
-      kaskade consumer -t my-topic --config bootstrap.servers=localhost:9092
-      kaskade consumer -t my-topic --config-file kafka.properties
-      kaskade consumer -b localhost:9092 -t my-topic --aws region=us-east-1
-      kaskade consumer -b localhost:9092 -t my-topic -v json
+      kaskade consumer -b localhost:9092 -t my-topic --earliest -k string -v json
+      kaskade consumer -b localhost:9092 -t my-topic -k string --bytes encoding=hex --fallback encoding=python
       kaskade consumer -b localhost:9092 -t my-topic -v registry --registry url=http://localhost:8081
-      kaskade consumer -b localhost:9092 -t my-topic -v avro --avro value=my-schema.avsc
-      kaskade consumer -b localhost:9092 -t my-topic -v protobuf --protobuf descriptor=my-descriptor.desc --protobuf value=MyMessage
     """
 
     kafka_config = resolve_kafka_config(bootstrap_servers, kafka_config_file, kafka_config)
@@ -396,6 +445,9 @@ def consumer(
         registry_config, avro_config, protobuf_config, key_deserialization, value_deserialization
     )
     validate_schema_registry(registry_config, key_deserialization, value_deserialization)
+    validate_bytes(bytes_config, key_deserialization, value_deserialization)
+    validate_fallback(fallback_config)
+    validate_json(json_config, key_deserialization, value_deserialization)
     validate_avro(avro_config, key_deserialization, value_deserialization)
     validate_protobuf(protobuf_config, key_deserialization, value_deserialization)
 
@@ -408,11 +460,17 @@ def consumer(
         key_deserialization,
         value_deserialization,
     )
+    consumer_options: dict[str, Any] = {}
+    if bytes_config:
+        consumer_options["bytes_config"] = bytes_config
+    if fallback_config:
+        consumer_options["fallback_config"] = fallback_config
+    if json_config:
+        consumer_options["json_config"] = json_config
+    if partitions:
+        consumer_options["partitions"] = partitions
     try:
-        if partitions:
-            kaskade_app = KaskadeConsumer(*consumer_args, partitions=partitions)
-        else:
-            kaskade_app = KaskadeConsumer(*consumer_args)
+        kaskade_app = KaskadeConsumer(*consumer_args, **consumer_options)
     except PartitionSelectionError as ex:
         raise BadParameter(message=str(ex), param_hint="'--partition'") from ex
     except KafkaException as ex:
@@ -446,6 +504,111 @@ def validate_deserializer(
         raise MissingParameter(param_hint="'--protobuf'", param_type="option")
 
 
+def validate_properties(
+    config: dict[str, str],
+    valid_properties: list[str],
+) -> None:
+    if [property_name for property_name in config if property_name not in valid_properties]:
+        raise BadParameter(message=f"Valid properties: {valid_properties}.")
+
+
+def normalize_choices(
+    config: dict[str, str],
+    properties: list[str],
+    choices: list[str],
+    label: str,
+) -> None:
+    for property_name in properties:
+        if property_name not in config:
+            continue
+        value = config[property_name].lower().replace("_", "-")
+        if value not in choices:
+            raise BadParameter(message=f"{label} should be one of {choices}.")
+        config[property_name] = value
+
+
+def validate_field_scope(
+    config: dict[str, str],
+    property_name: str,
+    deserialization: Deserialization,
+    key_deserialization: Deserialization,
+    value_deserialization: Deserialization,
+    option: str,
+) -> None:
+    if f"key.{property_name}" in config and key_deserialization != deserialization:
+        raise BadParameter(f"{option} key.{property_name} requires '-k {deserialization}'.")
+    if f"value.{property_name}" in config and value_deserialization != deserialization:
+        raise BadParameter(f"{option} value.{property_name} requires '-v {deserialization}'.")
+
+
+def validate_bytes(
+    bytes_config: dict[str, str],
+    key_deserialization: Deserialization,
+    value_deserialization: Deserialization,
+) -> None:
+    if len(bytes_config) == 0:
+        return
+    validate_properties(bytes_config, BYTES_DESERIALIZER_CONFIGS)
+    normalize_choices(
+        bytes_config,
+        BYTES_DESERIALIZER_CONFIGS,
+        BYTES_ENCODINGS,
+        "Bytes encoding",
+    )
+    if (
+        key_deserialization != Deserialization.BYTES
+        and value_deserialization != Deserialization.BYTES
+    ):
+        raise MissingParameter(param_hint="'-k bytes' and/or '-v bytes'", param_type="option")
+    validate_field_scope(
+        bytes_config,
+        "encoding",
+        Deserialization.BYTES,
+        key_deserialization,
+        value_deserialization,
+        "--bytes",
+    )
+
+
+def validate_fallback(fallback_config: dict[str, str]) -> None:
+    validate_properties(fallback_config, FALLBACK_CONFIGS)
+    normalize_choices(
+        fallback_config,
+        FALLBACK_CONFIGS,
+        BYTES_ENCODINGS,
+        "Fallback encoding",
+    )
+
+
+def validate_json(
+    json_config: dict[str, str],
+    key_deserialization: Deserialization,
+    value_deserialization: Deserialization,
+) -> None:
+    if len(json_config) == 0:
+        return
+    validate_properties(json_config, JSON_DESERIALIZER_CONFIGS)
+    normalize_choices(
+        json_config,
+        JSON_DESERIALIZER_CONFIGS,
+        DESERIALIZER_FRAMINGS,
+        "JSON framing",
+    )
+    if (
+        key_deserialization != Deserialization.JSON
+        and value_deserialization != Deserialization.JSON
+    ):
+        raise MissingParameter(param_hint="'-k json' and/or '-v json'", param_type="option")
+    validate_field_scope(
+        json_config,
+        "framing",
+        Deserialization.JSON,
+        key_deserialization,
+        value_deserialization,
+        "--json",
+    )
+
+
 def validate_avro(
     avro_config: dict[str, str],
     key_deserialization: Deserialization,
@@ -454,12 +617,13 @@ def validate_avro(
     if len(avro_config) == 0:
         return
 
-    if [config for config in avro_config if config not in AVRO_DESERIALIZER_CONFIGS]:
-        raise BadParameter(message=f"Valid properties: {AVRO_DESERIALIZER_CONFIGS}.")
-
-    framing = avro_config.get("framing", "raw")
-    if framing not in AVRO_FRAMINGS:
-        raise BadParameter(message=f"Avro framing should be one of {AVRO_FRAMINGS}.")
+    validate_properties(avro_config, AVRO_DESERIALIZER_CONFIGS)
+    normalize_choices(
+        avro_config,
+        FRAMING_CONFIGS,
+        DESERIALIZER_FRAMINGS,
+        "Avro framing",
+    )
 
     if (
         key_deserialization != Deserialization.AVRO
@@ -481,6 +645,15 @@ def validate_avro(
 
     if key is not None:
         is_file(key)
+
+    validate_field_scope(
+        avro_config,
+        "framing",
+        Deserialization.AVRO,
+        key_deserialization,
+        value_deserialization,
+        "--avro",
+    )
 
 
 def validate_schema_registry(
@@ -517,8 +690,13 @@ def validate_protobuf(
     if len(protobuf_config) == 0:
         return
 
-    if [config for config in protobuf_config if config not in PROTOBUF_DESERIALIZER_CONFIGS]:
-        raise BadParameter(message=f"Valid properties: {PROTOBUF_DESERIALIZER_CONFIGS}.")
+    validate_properties(protobuf_config, PROTOBUF_DESERIALIZER_CONFIGS)
+    normalize_choices(
+        protobuf_config,
+        FRAMING_CONFIGS,
+        DESERIALIZER_FRAMINGS,
+        "Protobuf framing",
+    )
 
     descriptor_path_str = protobuf_config.get("descriptor")
 
@@ -540,6 +718,15 @@ def validate_protobuf(
         and value_deserialization != Deserialization.PROTOBUF
     ):
         raise MissingParameter(param_hint="'-k protobuf' and/or '-v protobuf'", param_type="option")
+
+    validate_field_scope(
+        protobuf_config,
+        "framing",
+        Deserialization.PROTOBUF,
+        key_deserialization,
+        value_deserialization,
+        "--protobuf",
+    )
 
 
 def is_file(file_path_str: str) -> None:
