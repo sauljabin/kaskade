@@ -45,7 +45,14 @@ class TestStretchyDataTable(unittest.IsolatedAsyncioTestCase):
                 delta=0.1,
             )
 
+            initial_region_width = table.scrollable_content_region.width
             await pilot.resize_terminal(120, 30)
+            for _ in range(10):
+                if table.scrollable_content_region.width > initial_region_width:
+                    break
+                await pilot.pause()
+
+            self.assertGreater(table.scrollable_content_region.width, initial_region_width)
             resized_widths = [column.width for column in table.ordered_columns]
             rendered_width = sum(column.get_render_width(table) for column in table.ordered_columns)
             self.assertEqual(table.scrollable_content_region.width, rendered_width)
