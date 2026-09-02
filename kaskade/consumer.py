@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from inspect import isawaitable
 from typing import Any, ClassVar
 
@@ -241,7 +242,12 @@ class TopicScreen(HelpableModalScreen[Record]):
         ),
     )
 
-    def __init__(self, record: Record, records: tuple[Record, ...] = ()):
+    def __init__(
+        self,
+        record: Record,
+        records: tuple[Record, ...] = (),
+        on_record_changed: Callable[[Record], None] | None = None,
+    ):
         super().__init__()
         self.records = records or (record,)
         record_index = next(
@@ -254,6 +260,7 @@ class TopicScreen(HelpableModalScreen[Record]):
         self.record_index = record_index
         self.record = record
         self.data = record.dict()
+        self.on_record_changed = on_record_changed
 
     def _title(self) -> str:
         return (
@@ -292,6 +299,8 @@ class TopicScreen(HelpableModalScreen[Record]):
         details.query_one(".record-json", Static).update(record_json_renderable(data))
         details.scroll_home(animate=False)
         self.refresh_bindings()
+        if self.on_record_changed is not None:
+            self.on_record_changed(record)
 
     def action_previous_record(self) -> None:
         self._show_record(self.record_index - 1)
@@ -516,7 +525,11 @@ class ListRecords(Container):
 
         try:
             self.app.push_screen(
-                TopicScreen(self.current_record, tuple(self.records.values())),
+                TopicScreen(
+                    self.current_record,
+                    tuple(self.records.values()),
+                    on_record_changed=select_record,
+                ),
                 select_record,
             )
         except DESERIALIZATION_EXCEPTIONS as ex:

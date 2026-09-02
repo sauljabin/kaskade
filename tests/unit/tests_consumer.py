@@ -639,6 +639,8 @@ class TestRecordDetailsNavigation(unittest.IsolatedAsyncioTestCase):
             self.assertIs(details, app.screen)
             self.assertIs(consumed_records[2], details.record)
             self.assertEqual(2, details.data["offset"])
+            self.assertEqual(2, table.cursor_row)
+            self.assertIs(consumed_records[2], app.query_one(ListRecords).current_record)
             rendered_record = update_record_json.call_args.args[0]
             self.assertEqual(
                 record_json(consumed_records[2]).rstrip("\n"),
@@ -656,9 +658,11 @@ class TestRecordDetailsNavigation(unittest.IsolatedAsyncioTestCase):
 
             await pilot.press("N")
             self.assertIs(consumed_records[1], details.record)
+            self.assertEqual(1, table.cursor_row)
 
             await pilot.press("p", "n")
             self.assertIs(consumed_records[1], details.record)
+            self.assertEqual(1, table.cursor_row)
 
             await pilot.press("escape")
             await pilot.pause()
