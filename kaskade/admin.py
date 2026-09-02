@@ -9,6 +9,7 @@ from textual.app import ComposeResult
 from textual.binding import Binding, BindingType
 from textual.containers import Container
 from textual.content import Content
+from textual.coordinate import Coordinate
 from textual.validation import Function, Integer
 from textual.widgets import (
     Collapsible,
@@ -651,6 +652,18 @@ class CreateTopicScreen(HelpableModalScreen[CreateTopicCommand]):
         self.dismiss()
 
 
+class TopicDataTable(StretchyDataTable[str]):
+    """An admin topic table that identifies the hovered topic."""
+
+    def watch_hover_coordinate(self, old: Coordinate, value: Coordinate) -> None:
+        super().watch_hover_coordinate(old, value)
+        self.tooltip = (
+            str(self.coordinate_to_cell_key(value).row_key.value)
+            if self.is_valid_coordinate(value)
+            else None
+        )
+
+
 class ListTopics(Container):
     BINDING_GROUP_TITLE = "Topics"
     BINDINGS: ClassVar[list[BindingType]] = [
@@ -731,7 +744,7 @@ class ListTopics(Container):
         self.refresh_coordinator = RefreshCoordinator()
 
     def compose(self) -> ComposeResult:
-        table: StretchyDataTable[str] = StretchyDataTable(id="topics-table", classes="main-table")
+        table = TopicDataTable(id="topics-table", classes="main-table")
         table.cursor_type = "row"
         table.zebra_stripes = True
 
