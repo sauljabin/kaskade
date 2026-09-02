@@ -118,15 +118,29 @@
       ]
     },
     "schemaMetadata": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/confluentSchemaMetadata"
+        },
+        {
+          "$ref": "#/$defs/apicurioSchemaMetadata"
+        }
+      ]
+    },
+    "confluentSchemaMetadata": {
       "type": "object",
       "additionalProperties": false,
       "required": [
+        "provider",
         "id",
         "subject",
         "version",
         "type"
       ],
       "properties": {
+        "provider": {
+          "const": "CONFLUENT"
+        },
         "id": {
           "type": "integer",
           "minimum": 0
@@ -138,6 +152,53 @@
         "version": {
           "type": "integer",
           "minimum": 1
+        },
+        "type": {
+          "enum": [
+            "AVRO",
+            "JSON",
+            "PROTOBUF"
+          ]
+        }
+      }
+    },
+    "apicurioSchemaMetadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "provider",
+        "id",
+        "id_kind",
+        "group",
+        "artifact",
+        "version",
+        "type"
+      ],
+      "properties": {
+        "provider": {
+          "const": "APICURIO"
+        },
+        "id": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "id_kind": {
+          "enum": [
+            "CONTENT_ID",
+            "GLOBAL_ID"
+          ]
+        },
+        "group": {
+          "type": "string",
+          "minLength": 1
+        },
+        "artifact": {
+          "type": "string",
+          "minLength": 1
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
         },
         "type": {
           "enum": [

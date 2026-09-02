@@ -23,6 +23,9 @@ dependencies = [
     "fastavro>=1.12",
     "textual>=8.2",
     "confluent-kafka[avro,json,protobuf]>=2.15",
+    "grpcio-tools>=1.75",
+    "httpx>=0.28",
+    "jsonschema>=4.25",
     "pyyaml>=6.0",
 ]
 

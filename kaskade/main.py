@@ -10,21 +10,25 @@ from confluent_kafka import KafkaException
 
 from kaskade import APP_VERSION
 from kaskade.admin import KaskadeAdmin
+from kaskade.apicurio import APICURIO_PREFIX, ApicurioConfig, ApicurioRegistryError
 from kaskade.authentication import configure_aws_msk_iam
 from kaskade.cli_utils import tuple_properties_to_dict, validate_aws_config
 from kaskade.configs import (
+    APICURIO,
     AUTO_OFFSET_RESET,
     AVRO_DESERIALIZER_CONFIGS,
     AWS_CONFIGS,
     BOOTSTRAP_SERVERS,
     BYTES_DESERIALIZER_CONFIGS,
     BYTES_ENCODINGS,
+    CONFLUENT,
     DESERIALIZER_FRAMINGS,
     EARLIEST,
     FALLBACK_CONFIGS,
     FRAMING_CONFIGS,
     JSON_DESERIALIZER_CONFIGS,
     PROTOBUF_DESERIALIZER_CONFIGS,
+    REGISTRY_PROVIDERS,
 )
 from kaskade.consumer import KaskadeConsumer
 from kaskade.deserializers import Deserialization
@@ -95,8 +99,9 @@ FALLBACK_CONFIG_HELP = (
     f"{', '.join(BYTES_ENCODINGS)}."
 )
 REGISTRY_CONFIG_HELP = (
-    "Schema Registry client property. Repeatable; overrides matching properties from "
-    "--config-file."
+    "Registry provider or client property. Repeatable; overrides matching properties from "
+    f"--config-file. provider defaults to {CONFLUENT}; use provider={APICURIO} with official "
+    "apicurio.registry.* properties for the native API."
 )
 CliDecoratorTarget = TypeVar("CliDecoratorTarget", bound=Callable[..., Any])
 
@@ -481,6 +486,7 @@ def consumer(
         registry_config, avro_config, protobuf_config, key_deserialization, value_deserialization
     )
     validate_schema_registry_usage(registry_config, key_deserialization, value_deserialization)
+    validate_registry_config(registry_config)
     validate_bytes(bytes_config, key_deserialization, value_deserialization)
     validate_fallback(fallback_config)
     validate_json(json_config, key_deserialization, value_deserialization)
@@ -709,6 +715,31 @@ def validate_schema_registry_usage(
         and value_deserialization != Deserialization.REGISTRY
     ):
         raise MissingParameter(param_hint="'-k registry' and/or '-v registry'", param_type="option")
+
+
+def validate_registry_config(registry_config: dict[str, str]) -> None:
+    if not registry_config:
+        return
+    provider_value = registry_config.get("provider", CONFLUENT)
+    provider = provider_value.upper()
+    if provider not in REGISTRY_PROVIDERS:
+        raise BadParameter(
+            message=f"Registry provider must be {CONFLUENT} or {APICURIO}.",
+            param_hint="'--registry provider'",
+        )
+    if "provider" in registry_config:
+        registry_config["provider"] = provider
+    apicurio_properties = [key for key in registry_config if key.startswith(APICURIO_PREFIX)]
+    if provider == CONFLUENT and apicurio_properties:
+        raise BadParameter(
+            message=f"apicurio.registry.* properties require provider={APICURIO}.",
+            param_hint="'--registry'",
+        )
+    if provider == APICURIO:
+        try:
+            ApicurioConfig.from_dict(registry_config)
+        except (ApicurioRegistryError, OSError, ValueError) as ex:
+            raise BadParameter(message=str(ex), param_hint="'--registry'") from ex
 
 
 def validate_protobuf(

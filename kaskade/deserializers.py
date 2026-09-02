@@ -1,15 +1,19 @@
 import json
+import tempfile
 from abc import ABC, abstractmethod
 from base64 import b64decode
 from binascii import Error as BinasciiError
+from collections import OrderedDict
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum, auto
 from io import BytesIO
+from pathlib import Path
 from struct import error as StructError
 from struct import unpack
 from typing import Any
 
+import grpc_tools  # type: ignore[import-untyped]
 from confluent_kafka.schema_registry import Schema, SchemaRegistryClient
 from confluent_kafka.schema_registry.avro import AvroDeserializer as ConfluentAvroDeserializer
 from confluent_kafka.schema_registry.error import SchemaRegistryError
@@ -20,15 +24,33 @@ from confluent_kafka.schema_registry.protobuf import (
     ProtobufDeserializer as ConfluentProtobufDeserializer,
 )
 from confluent_kafka.serialization import MessageField, SerializationContext, SerializationError
+from fastavro import parse_schema, schemaless_reader
 from google.protobuf.descriptor_pb2 import DescriptorProto, FileDescriptorProto, FileDescriptorSet
 from google.protobuf.descriptor_pool import Default as DefaultDescriptorPool
 from google.protobuf.descriptor_pool import DescriptorPool
 from google.protobuf.json_format import MessageToDict
 from google.protobuf.message import DecodeError, Message
 from google.protobuf.message_factory import GetMessageClass, GetMessages
+from grpc_tools import protoc
+from jsonschema.exceptions import SchemaError, ValidationError  # type: ignore[import-untyped]
+from jsonschema.validators import validator_for  # type: ignore[import-untyped]
+from referencing import Registry as JsonSchemaRegistry
+from referencing import Resource
+from referencing.jsonschema import DRAFT202012
 
 from kaskade import logger
-from kaskade.configs import SCHEMA_REGISTRY_HEADER_SIZE, SCHEMA_REGISTRY_MAGIC_BYTE
+from kaskade.apicurio import (
+    APICURIO_CACHE_CAPACITY,
+    ApicurioArtifact,
+    ApicurioClient,
+    ApicurioRegistryError,
+)
+from kaskade.configs import (
+    APICURIO,
+    CONFLUENT,
+    SCHEMA_REGISTRY_HEADER_SIZE,
+    SCHEMA_REGISTRY_MAGIC_BYTE,
+)
 from kaskade.utils import avro_to_py, file_to_bytes, unpack_bytes
 
 
@@ -58,6 +80,7 @@ DESERIALIZATION_EXCEPTIONS: tuple[type[Exception], ...] = (
     SchemaRegistryError,
     SerializationError,
     DecodeError,
+    ApicurioRegistryError,
 )
 SCHEMA_METADATA_EXCEPTIONS = DESERIALIZATION_EXCEPTIONS + (AttributeError, TypeError)
 
@@ -121,6 +144,7 @@ class RegistrySchema:
 
     def dict(self) -> dict[str, int | str]:
         return {
+            "provider": CONFLUENT,
             "id": self.id,
             "subject": self.subject,
             "version": self.version,
@@ -129,9 +153,30 @@ class RegistrySchema:
 
 
 @dataclass(frozen=True)
+class ApicurioRegistrySchema:
+    id: int
+    id_kind: str
+    group: str
+    artifact: str
+    version: str
+    type: str
+
+    def dict(self) -> dict[str, int | str]:
+        return {
+            "provider": APICURIO,
+            "id": self.id,
+            "id_kind": self.id_kind,
+            "group": self.group,
+            "artifact": self.artifact,
+            "version": self.version,
+            "type": self.type,
+        }
+
+
+@dataclass(frozen=True)
 class DeserializationResult:
     content: Any
-    schema: RegistrySchema | None = None
+    schema: RegistrySchema | ApicurioRegistrySchema | None = None
 
 
 class Deserializer(ABC):
@@ -206,9 +251,12 @@ class JsonDeserializer(Deserializer):
         return json.loads(_payload(data, self.config, context, "JSON"))
 
 
-class RegistryDeserializer(Deserializer):
+class ConfluentRegistryDeserializer(Deserializer):
     def __init__(self, registry_config: dict[str, str]):
-        self.registry_client = SchemaRegistryClient(registry_config)
+        confluent_config = {
+            key: value for key, value in registry_config.items() if key != "provider"
+        }
+        self.registry_client = SchemaRegistryClient(confluent_config)
         self.avro_deserializer = ConfluentAvroDeserializer(self.registry_client)
         self.json_deserializer = ConfluentJsonDeserializer(
             None, schema_registry_client=self.registry_client
@@ -516,6 +564,365 @@ class RegistryDeserializer(Deserializer):
             version=selected.version,
             type=schema_type,
         )
+
+
+class ApicurioRegistryDeserializer(Deserializer):
+    HEADER_SIZE = 4
+
+    def __init__(self, registry_config: dict[str, str]):
+        self.registry_client = ApicurioClient(registry_config)
+        self._protobuf_descriptor_cache: OrderedDict[
+            tuple[str, int], tuple[FileDescriptorProto, DescriptorPool]
+        ] = OrderedDict()
+        self._avro_schema_cache: OrderedDict[tuple[str, int], Any] = OrderedDict()
+        self._json_validator_cache: OrderedDict[tuple[str, int], Any] = OrderedDict()
+
+    def deserialize(
+        self, data: bytes, topic: str | None = None, context: MessageField = MessageField.NONE
+    ) -> Any:
+        artifact, payload = self._artifact(data, topic, context)
+        return self._deserialize_content(artifact, payload)
+
+    def deserialize_with_metadata(
+        self, data: bytes, topic: str | None = None, context: MessageField = MessageField.NONE
+    ) -> DeserializationResult:
+        artifact, payload = self._artifact(data, topic, context)
+        content = self._deserialize_content(artifact, payload)
+        assert topic is not None
+        return DeserializationResult(content, self._resolve_schema(artifact, topic, context))
+
+    def _artifact(
+        self, data: bytes, topic: str | None, context: MessageField
+    ) -> tuple[ApicurioArtifact, bytes]:
+        if topic is None:
+            raise DeserializationError("Topic name needed")
+        if context == MessageField.NONE:
+            raise DeserializationError("Context is needed: KEY or VALUE")
+        if len(data) <= self.HEADER_SIZE:
+            raise DeserializationError(
+                "Expecting Apicurio data framing of length 5 bytes or more "
+                f"but total data size is {len(data)} bytes"
+            )
+        artifact_id = _unpack_payload(">I", data[: self.HEADER_SIZE])
+        return self.registry_client.get_artifact(artifact_id), data[self.HEADER_SIZE :]
+
+    def _deserialize_content(self, artifact: ApicurioArtifact, payload: bytes) -> Any:
+        match artifact.type:
+            case "JSON":
+                _, json_payload = self._type_ref(payload)
+                try:
+                    content = json.loads(json_payload)
+                except (UnicodeDecodeError, json.JSONDecodeError):
+                    content = json.loads(payload)
+                try:
+                    self._json_validator(artifact).validate(content)
+                except ValidationError as ex:
+                    raise DeserializationError(
+                        f"JSON Schema validation failed: {ex.message}"
+                    ) from ex
+                return content
+            case "AVRO":
+                schema = self._avro_schema(artifact)
+                return _deserialize_avro(schemaless_reader, BytesIO(payload), schema, None)
+            case "PROTOBUF":
+                return self._deserialize_protobuf(artifact, payload)
+            case _:
+                raise DeserializationError("Schema type not supported")
+
+    def _avro_schema(self, artifact: ApicurioArtifact) -> Any:
+        cache_key = (artifact.id_kind, artifact.id)
+        cached = self._avro_schema_cache.get(cache_key)
+        if cached is not None:
+            self._avro_schema_cache.move_to_end(cache_key)
+            return cached
+        named_schemas: dict[str, Any] = {}
+        visited: set[tuple[str, str, str]] = set()
+
+        def parse_references(current: ApicurioArtifact) -> None:
+            for reference in current.references:
+                key = (reference.group, reference.artifact, reference.version)
+                if key in visited:
+                    continue
+                visited.add(key)
+                referenced = self.registry_client.get_referenced_artifact(reference, "AVRO")
+                parse_references(referenced)
+                parse_schema(json.loads(referenced.content), named_schemas=named_schemas)
+
+        try:
+            parse_references(artifact)
+            schema = parse_schema(json.loads(artifact.content), named_schemas=named_schemas)
+        except (json.JSONDecodeError, TypeError, ValueError) as ex:
+            raise DeserializationError(f"Invalid Avro schema: {ex}") from ex
+        self._avro_schema_cache[cache_key] = schema
+        self._bound_cache(self._avro_schema_cache)
+        return schema
+
+    def _json_validator(self, artifact: ApicurioArtifact) -> Any:
+        cache_key = (artifact.id_kind, artifact.id)
+        cached = self._json_validator_cache.get(cache_key)
+        if cached is not None:
+            self._json_validator_cache.move_to_end(cache_key)
+            return cached
+        registry = JsonSchemaRegistry()
+        visited: set[tuple[str, str, str]] = set()
+
+        def add_references(current: ApicurioArtifact) -> None:
+            nonlocal registry
+            for reference in current.references:
+                key = (reference.group, reference.artifact, reference.version)
+                if key in visited:
+                    continue
+                visited.add(key)
+                referenced = self.registry_client.get_referenced_artifact(reference, "JSON")
+                add_references(referenced)
+                contents = json.loads(referenced.content)
+                registry = registry.with_resource(
+                    reference.name,
+                    Resource.from_contents(contents, default_specification=DRAFT202012),
+                )
+
+        try:
+            add_references(artifact)
+            schema = json.loads(artifact.content)
+            validator_class = validator_for(schema)
+            validator_class.check_schema(schema)
+            validator = validator_class(schema, registry=registry)
+        except (json.JSONDecodeError, SchemaError, TypeError, ValueError) as ex:
+            raise DeserializationError(f"Invalid JSON Schema: {ex}") from ex
+        self._json_validator_cache[cache_key] = validator
+        self._bound_cache(self._json_validator_cache)
+        return validator
+
+    def _deserialize_protobuf(self, artifact: ApicurioArtifact, payload: bytes) -> Any:
+        descriptor, pool = self._protobuf_descriptors(artifact)
+        message_name, message_payload = self._type_ref(payload)
+        if message_name is None:
+            if not descriptor.message_type:
+                raise DeserializationError("Protobuf schema contains no messages")
+            message_name = ".".join(
+                filter(None, (descriptor.package, descriptor.message_type[0].name))
+            )
+            message_payload = payload
+        try:
+            message_descriptor = pool.FindMessageTypeByName(message_name)
+        except KeyError:
+            qualified_name = ".".join(filter(None, (descriptor.package, message_name)))
+            try:
+                message_descriptor = pool.FindMessageTypeByName(qualified_name)
+            except KeyError as ex:
+                raise DeserializationError(f"Protobuf message not found: {message_name}") from ex
+        message_class = GetMessageClass(message_descriptor)
+        message = message_class()
+        message.ParseFromString(message_payload)
+        return MessageToDict(message, always_print_fields_with_no_presence=True)
+
+    def _protobuf_descriptors(
+        self, artifact: ApicurioArtifact
+    ) -> tuple[FileDescriptorProto, DescriptorPool]:
+        cache_key = (artifact.id_kind, artifact.id)
+        cached = self._protobuf_descriptor_cache.get(cache_key)
+        if cached is not None:
+            self._protobuf_descriptor_cache.move_to_end(cache_key)
+            return cached
+
+        sources: dict[str, str] = {"root.proto": artifact.content}
+        self._collect_protobuf_sources(artifact, sources, set())
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for name, content in sources.items():
+                path = self._safe_proto_path(root, name)
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(content, encoding="utf-8")
+            descriptor_path = root / "schema.desc"
+            bundled_protos = Path(grpc_tools.__file__).parent / "_proto"
+            result = protoc.main(
+                [
+                    "grpc_tools.protoc",
+                    f"-I{root}",
+                    f"-I{bundled_protos}",
+                    f"--descriptor_set_out={descriptor_path}",
+                    "--include_imports",
+                    "root.proto",
+                ]
+            )
+            if result != 0:
+                raise DeserializationError("Invalid Protobuf schema")
+            descriptor_set = FileDescriptorSet.FromString(descriptor_path.read_bytes())
+
+        descriptors = {descriptor.name: descriptor for descriptor in descriptor_set.file}
+        root_descriptor = descriptors.get("root.proto")
+        if root_descriptor is None:
+            raise DeserializationError("Compiled Protobuf root descriptor not found")
+        pool = DescriptorPool()
+        added: set[str] = set()
+        visiting: set[str] = set()
+        self._add_protobuf_descriptor(root_descriptor, descriptors, pool, added, visiting)
+        result_pair = (root_descriptor, pool)
+        self._protobuf_descriptor_cache[cache_key] = result_pair
+        self._bound_cache(self._protobuf_descriptor_cache)
+        return result_pair
+
+    @staticmethod
+    def _bound_cache(cache: OrderedDict[Any, Any]) -> None:
+        while len(cache) > APICURIO_CACHE_CAPACITY:
+            cache.popitem(last=False)
+
+    def _collect_protobuf_sources(
+        self,
+        artifact: ApicurioArtifact,
+        sources: dict[str, str],
+        visited: set[tuple[str, str, str]],
+    ) -> None:
+        for reference in artifact.references:
+            key = (reference.group, reference.artifact, reference.version)
+            if key in visited:
+                continue
+            visited.add(key)
+            referenced = self.registry_client.get_referenced_artifact(reference, "PROTOBUF")
+            sources[reference.name] = referenced.content
+            self._collect_protobuf_sources(referenced, sources, visited)
+
+    @staticmethod
+    def _safe_proto_path(root: Path, name: str) -> Path:
+        relative = Path(name)
+        if relative.is_absolute() or ".." in relative.parts:
+            raise DeserializationError(f"Unsafe Protobuf reference name: {name}")
+        return root / relative
+
+    def _add_protobuf_descriptor(
+        self,
+        descriptor: FileDescriptorProto,
+        descriptors: dict[str, FileDescriptorProto],
+        pool: DescriptorPool,
+        added: set[str],
+        visiting: set[str],
+    ) -> None:
+        if descriptor.name in added:
+            return
+        if descriptor.name in visiting:
+            raise DeserializationError("Cyclic Protobuf schema reference")
+        visiting.add(descriptor.name)
+        for dependency in descriptor.dependency:
+            referenced = descriptors.get(dependency)
+            if referenced is None:
+                raise DeserializationError(f"Protobuf schema reference not found: {dependency}")
+            self._add_protobuf_descriptor(referenced, descriptors, pool, added, visiting)
+        try:
+            pool.Add(descriptor)
+        except (TypeError, ValueError) as ex:
+            raise DeserializationError(f"Invalid Protobuf descriptor: {descriptor.name}") from ex
+        visiting.remove(descriptor.name)
+        added.add(descriptor.name)
+
+    @classmethod
+    def _type_ref(cls, payload: bytes) -> tuple[str | None, bytes]:
+        try:
+            message_size, offset = cls._unsigned_varint(payload, 0)
+            end = offset + message_size
+            if message_size <= 0 or end > len(payload):
+                return None, payload
+            ref = payload[offset:end]
+            tag, position = cls._unsigned_varint(ref, 0)
+            if tag != 10:
+                return None, payload
+            name_size, position = cls._unsigned_varint(ref, position)
+            name_end = position + name_size
+            if name_end > len(ref):
+                return None, payload
+            return ref[position:name_end].decode("utf-8"), payload[end:]
+        except (DeserializationError, UnicodeDecodeError):
+            return None, payload
+
+    @staticmethod
+    def _unsigned_varint(data: bytes, offset: int) -> tuple[int, int]:
+        value = 0
+        shift = 0
+        while shift < 35:
+            if offset >= len(data):
+                raise DeserializationError("Unexpected EOF while reading Protobuf varint")
+            current = data[offset]
+            offset += 1
+            value |= (current & 0x7F) << shift
+            if not current & 0x80:
+                return value, offset
+            shift += 7
+        raise DeserializationError("Invalid Protobuf varint")
+
+    def _resolve_schema(
+        self,
+        artifact: ApicurioArtifact,
+        topic: str,
+        context: MessageField,
+    ) -> ApicurioRegistrySchema | None:
+        try:
+            registrations = self.registry_client.get_metadata(artifact.id)
+            candidates = [
+                value
+                for value in registrations
+                if value.get("groupId") and value.get("artifactId") and value.get("version")
+            ]
+            conventional_artifact = f"{topic}-{context.name.lower()}"
+            conventional = [
+                value for value in candidates if value.get("artifactId") == conventional_artifact
+            ]
+            selected = conventional[0] if len(conventional) == 1 else None
+            if selected is None and len(candidates) == 1:
+                selected = candidates[0]
+            result = None
+            if selected is not None:
+                result = ApicurioRegistrySchema(
+                    id=artifact.id,
+                    id_kind=artifact.id_kind,
+                    group=str(selected["groupId"]),
+                    artifact=str(selected["artifactId"]),
+                    version=str(selected["version"]),
+                    type=artifact.type,
+                )
+        except SCHEMA_METADATA_EXCEPTIONS as ex:
+            logger.warning(
+                "schema metadata lookup failed schema_id=%d topic=%s field=%s error=%s",
+                artifact.id,
+                topic,
+                context.name,
+                ex,
+            )
+            result = None
+        return result
+
+
+class RegistryDeserializer(Deserializer):
+    """Provider-dispatching Registry deserializer with a stable public facade."""
+
+    _backend: Deserializer
+
+    def __init__(self, registry_config: dict[str, str]):
+        provider = registry_config.get("provider", CONFLUENT).upper()
+        if provider == CONFLUENT:
+            backend: Deserializer = ConfluentRegistryDeserializer(registry_config)
+        elif provider == APICURIO:
+            backend = ApicurioRegistryDeserializer(registry_config)
+        else:
+            raise DeserializationError(f"Unsupported registry provider: {provider}")
+        object.__setattr__(self, "_backend", backend)
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._backend, name)
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        if name == "_backend":
+            object.__setattr__(self, name, value)
+        else:
+            setattr(self._backend, name, value)
+
+    def deserialize(
+        self, data: bytes, topic: str | None = None, context: MessageField = MessageField.NONE
+    ) -> Any:
+        return self._backend.deserialize(data, topic, context)
+
+    def deserialize_with_metadata(
+        self, data: bytes, topic: str | None = None, context: MessageField = MessageField.NONE
+    ) -> DeserializationResult:
+        return self._backend.deserialize_with_metadata(data, topic, context)
 
 
 class AvroDeserializer(Deserializer):

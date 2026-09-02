@@ -1,0 +1,42 @@
+{
+  "topic": "orders",
+  "partition": 0,
+  "offset": 43,
+  "timestamp": "2026-08-28T14:12:06.120Z",
+  "headers": [
+    {
+      "key": "source",
+      "value": "storefront"
+    }
+  ],
+  "key": {
+    "content": {
+      "id": "order-1049"
+    },
+    "deserializer": {
+      "type": "REGISTRY",
+      "schema": {
+        "provider": "CONFLUENT",
+        "id": 12,
+        "subject": "orders-key",
+        "version": 2,
+        "type": "AVRO"
+      }
+    }
+  },
+  "value": {
+    "content": {
+      "status": "shipped"
+    },
+    "deserializer": {
+      "type": "REGISTRY",
+      "schema": {
+        "provider": "CONFLUENT",
+        "id": 27,
+        "subject": "orders-value",
+        "version": 5,
+        "type": "JSON"
+      }
+    }
+  }
+}

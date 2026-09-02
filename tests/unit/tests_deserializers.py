@@ -18,6 +18,7 @@ from google.protobuf.descriptor_pool import DescriptorPool
 from google.protobuf.message import DecodeError, Message
 from google.protobuf.message_factory import GetMessageClass
 
+from kaskade.configs import CONFLUENT
 from kaskade.deserializers import (
     AvroDeserializer,
     BooleanDeserializer,
@@ -588,6 +589,7 @@ class TestDeserializer(unittest.TestCase):
         self.assertIsNotNone(first.schema)
         self.assertEqual(
             {
+                "provider": CONFLUENT,
                 "id": 12,
                 "subject": "orders-key",
                 "version": 2,

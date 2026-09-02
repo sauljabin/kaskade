@@ -235,8 +235,9 @@ Registry metadata:
 }
 ```
 
-Schema Registry metadata is independent for key and value and appears only when
-the schema ID resolves to an unambiguous subject and version:
+Registry metadata is independent for key and value and appears only when the
+schema ID resolves to an unambiguous registration. Confluent metadata uses a
+subject and numeric version:
 
 ```json
 {
@@ -245,6 +246,7 @@ the schema ID resolves to an unambiguous subject and version:
     "deserializer": {
       "type": "REGISTRY",
       "schema": {
+        "provider": "CONFLUENT",
         "id": 12,
         "subject": "orders-key",
         "version": 2,
@@ -257,6 +259,7 @@ the schema ID resolves to an unambiguous subject and version:
     "deserializer": {
       "type": "REGISTRY",
       "schema": {
+        "provider": "CONFLUENT",
         "id": 27,
         "subject": "orders-value",
         "version": 5,
@@ -266,6 +269,15 @@ the schema ID resolves to an unambiguous subject and version:
   }
 }
 ```
+
+Complete consumed-record examples cover:
+
+- [bytes](examples/consumer-record-byte.json)
+- [deserialization errors and byte fallback](examples/consumer-record-error.json)
+- [strings](examples/consumer-record-string.json)
+- [JSON](examples/consumer-record-json.json)
+- [Confluent Schema Registry](examples/consumer-record-confluent.json)
+- [native Apicurio Registry](examples/consumer-record-apicurio.json)
 
 Headers remain ordered so duplicate names survive; successful values deserialize
 as STRING without extra metadata. Timestamps are UTC ISO 8601 with milliseconds,
@@ -387,6 +399,9 @@ kaskade consumer -b my-kafka:9092 -t my-avro-topic \
         --registry url=http://my-schema-registry:8081
 ```
 
+`provider` defaults to `CONFLUENT`. Confluent client properties retain their
+existing names and are forwarded unchanged.
+
 With Confluent Schema Registry, the Registry deserializer detects Avro, JSON
 Schema, and Protobuf from each record's schema ID. Protobuf messages are resolved
 dynamically from the registry, including referenced schemas, so no local descriptor
@@ -418,13 +433,41 @@ Schema Registry client validates property names, values, and required settings.
 
 #### Apicurio Registry
 
+Use `provider=APICURIO` to select the native Apicurio Registry v3 API. Kaskade
+accepts the corresponding official `apicurio.registry.*` serializer/deserializer properties;
+it does not infer a provider from those names or accept generic aliases:
+
 ```bash
 kaskade consumer -b my-kafka:9092 -t my-avro-topic \
         -k registry -v registry \
-        --registry url=http://my-apicurio-registry:8081/apis/ccompat/v7
+        --registry provider=APICURIO \
+        --registry apicurio.registry.url=http://my-apicurio-registry:8081/apis/registry/v3 \
+        --registry apicurio.registry.use-id=contentId
 ```
 
-Learn more at [Apicurio Registry](https://github.com/apicurio/apicurio-registry).
+OAuth client credentials use Apicurio names as well:
+
+```bash
+kaskade consumer -b my-kafka:9092 -t my-avro-topic \
+        -k registry -v registry \
+        --registry provider=APICURIO \
+        --registry apicurio.registry.url=${APICURIO_REGISTRY_URL} \
+        --registry apicurio.registry.auth.service.token.endpoint=${OAUTH_TOKEN_URL} \
+        --registry apicurio.registry.auth.client.id=${OAUTH_CLIENT_ID} \
+        --registry apicurio.registry.auth.client.secret=${OAUTH_CLIENT_SECRET}
+```
+
+The native client also accepts Apicurio's Basic authentication, retry, cache,
+proxy, and PEM TLS properties. JKS and PKCS12 stores, header-based IDs, custom ID
+handlers, and legacy eight-byte framing are not supported. See the
+[Apicurio Registry client configuration reference](https://www.apicur.io/registry/docs/apicurio-registry/3.3.x/getting-started/assembly-configuring-kafka-client-serdes.html).
+
+To use Apicurio's Confluent-compatible endpoint instead, leave the provider as
+`CONFLUENT` and configure the existing Confluent `url` property:
+
+```bash
+--registry url=http://my-apicurio-registry:8081/apis/ccompat/v7
+```
 
 ### SSL encryption
 
@@ -471,8 +514,9 @@ basic.auth.user.info = replace-with-your-api-key:replace-with-your-api-secret
 region = us-east-1
 ```
 
-The `[kafka]` and `[registry]` sections contain properties for their respective
-`confluent-kafka` clients. Kaskade UI, admin, and keymap settings remain in
+The `[kafka]` section contains `confluent-kafka` properties. The `[registry]`
+section contains Confluent client properties by default or native Apicurio
+properties when `provider=APICURIO`. Kaskade UI, admin, and keymap settings remain in
 `settings.yaml` as documented above. Both commands require a non-empty
 `bootstrap.servers` after Kafka properties are merged. It can come from
 `--config-file`, an inline property, or the dedicated option:

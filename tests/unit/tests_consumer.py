@@ -15,6 +15,7 @@ from textual.widgets import DataTable
 
 from kaskade.colors import NULL as NULL_STYLE
 from kaskade.colors import WARNING as WARNING_STYLE
+from kaskade.configs import CONFLUENT
 from kaskade.consumer import (
     KaskadeConsumer,
     ListRecords,
@@ -282,6 +283,7 @@ class TestRecordExport(unittest.TestCase):
                     "deserializer": {
                         "type": "REGISTRY",
                         "schema": {
+                            "provider": CONFLUENT,
                             "id": 12,
                             "subject": "orders-key",
                             "version": 2,
@@ -294,6 +296,7 @@ class TestRecordExport(unittest.TestCase):
                     "deserializer": {
                         "type": "REGISTRY",
                         "schema": {
+                            "provider": CONFLUENT,
                             "id": 27,
                             "subject": "orders-value",
                             "version": 5,

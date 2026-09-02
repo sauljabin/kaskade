@@ -13,7 +13,7 @@ from kaskade.authentication import (
     SECURITY_PROTOCOL,
     AwsMskOAuthCallback,
 )
-from kaskade.configs import AUTO_OFFSET_RESET, BOOTSTRAP_SERVERS, EARLIEST
+from kaskade.configs import APICURIO, AUTO_OFFSET_RESET, BOOTSTRAP_SERVERS, CONFLUENT, EARLIEST
 from kaskade.deserializers import Deserialization
 from kaskade.main import PARTITION_SELECTION_METAVAR, cli
 from kaskade.models import PartitionOffset, PartitionSelection
@@ -818,6 +818,94 @@ class TestConsumerCli(unittest.TestCase):
 
         self.assertGreater(result.exit_code, 0)
         self.assertIn("Unrecognized properties: not.valid", result.output)
+
+    @patch("kaskade.main.KaskadeConsumer")
+    def test_native_apicurio_provider_uses_official_properties(self, mock_class_kaskade_consumer):
+        result = self.runner.invoke(
+            cli,
+            [
+                self.command,
+                "-b",
+                EXPECTED_SERVER,
+                "-t",
+                EXPECTED_TOPIC,
+                "--registry",
+                "provider=apicurio",
+                "--registry",
+                "apicurio.registry.url=http://registry/apis/registry/v3",
+                "--registry",
+                "apicurio.registry.use-id=globalId",
+                "-v",
+                "registry",
+            ],
+        )
+
+        self.assertEqual(0, result.exit_code, result.output)
+        registry_config = mock_class_kaskade_consumer.call_args.args[2]
+        self.assertEqual(APICURIO, registry_config["provider"])
+        self.assertEqual(
+            "http://registry/apis/registry/v3",
+            registry_config["apicurio.registry.url"],
+        )
+
+    def test_native_apicurio_rejects_generic_aliases(self):
+        result = self.runner.invoke(
+            cli,
+            [
+                self.command,
+                "-b",
+                EXPECTED_SERVER,
+                "-t",
+                EXPECTED_TOPIC,
+                "--registry",
+                f"provider={APICURIO}",
+                "--registry",
+                "url=http://registry",
+                "-v",
+                "registry",
+            ],
+        )
+
+        self.assertGreater(result.exit_code, 0)
+        self.assertIn("Unrecognized Apicurio properties: url", result.output)
+
+    def test_apicurio_properties_do_not_infer_provider(self):
+        result = self.runner.invoke(
+            cli,
+            [
+                self.command,
+                "-b",
+                EXPECTED_SERVER,
+                "-t",
+                EXPECTED_TOPIC,
+                "--registry",
+                "apicurio.registry.url=http://registry/apis/registry/v3",
+                "-v",
+                "registry",
+            ],
+        )
+
+        self.assertGreater(result.exit_code, 0)
+        self.assertIn(f"require provider={APICURIO}", result.output)
+
+    def test_rejects_unknown_registry_provider(self):
+        result = self.runner.invoke(
+            cli,
+            [
+                self.command,
+                "-b",
+                EXPECTED_SERVER,
+                "-t",
+                EXPECTED_TOPIC,
+                "--registry",
+                "provider=OTHER",
+                "-v",
+                "registry",
+            ],
+        )
+
+        self.assertGreater(result.exit_code, 0)
+        self.assertIn(f"must be {CONFLUENT} or {APICURIO}", result.output)
 
     def test_validate_avro_invalid_config(self):
         result = self.runner.invoke(

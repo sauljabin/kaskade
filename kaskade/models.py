@@ -8,6 +8,7 @@ from confluent_kafka.serialization import MessageField
 
 from kaskade.deserializers import (
     DESERIALIZATION_EXCEPTIONS,
+    ApicurioRegistrySchema,
     BytesEncoding,
     Deserialization,
     DeserializationResult,
@@ -331,7 +332,7 @@ class Header:
 class DeserializationOutcome:
     requested: Deserialization
     content: Any
-    schema: RegistrySchema | None = None
+    schema: RegistrySchema | ApicurioRegistrySchema | None = None
     error: Exception | None = None
     bytes_encoding: BytesEncoding = BytesEncoding.BASE64
 

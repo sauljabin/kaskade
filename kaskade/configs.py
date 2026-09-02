@@ -21,3 +21,6 @@ LOGGER = "logger"
 MAX_POLL_INTERVAL_MS = "max.poll.interval.ms"
 ENABLE_AUTO_COMMIT = "enable.auto.commit"
 GROUP_ID = "group.id"
+APICURIO = "APICURIO"
+CONFLUENT = "CONFLUENT"
+REGISTRY_PROVIDERS = frozenset((APICURIO, CONFLUENT))

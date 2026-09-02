@@ -1,0 +1,42 @@
+{
+  "topic": "orders",
+  "partition": 0,
+  "offset": 44,
+  "timestamp": "2026-08-28T14:12:06.120Z",
+  "headers": [
+    {
+      "key": "source",
+      "value": "storefront"
+    },
+    {
+      "key": "binary",
+      "value": "ff",
+      "error": {
+        "message": "'utf-8' codec can't decode byte 0xff in position 0: invalid start byte",
+        "fallback": {
+          "type": "BYTES",
+          "encoding": "HEX"
+        }
+      }
+    }
+  ],
+  "key": {
+    "content": "order-1049",
+    "deserializer": {
+      "type": "STRING"
+    }
+  },
+  "value": {
+    "content": "/w==",
+    "deserializer": {
+      "type": "JSON"
+    },
+    "error": {
+      "message": "'utf-8' codec can't decode byte 0xff in position 0: invalid start byte",
+      "fallback": {
+        "type": "BYTES",
+        "encoding": "BASE64"
+      }
+    }
+  }
+}

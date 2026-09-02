@@ -1,0 +1,24 @@
+{
+  "topic": "order-status",
+  "partition": 0,
+  "offset": 45,
+  "timestamp": "2026-08-28T14:12:06.120Z",
+  "headers": [
+    {
+      "key": "source",
+      "value": "storefront"
+    }
+  ],
+  "key": {
+    "content": "order-1049",
+    "deserializer": {
+      "type": "STRING"
+    }
+  },
+  "value": {
+    "content": "paid",
+    "deserializer": {
+      "type": "STRING"
+    }
+  }
+}
