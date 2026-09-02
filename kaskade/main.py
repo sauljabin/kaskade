@@ -272,8 +272,6 @@ def admin(
     Examples:
       kaskade admin -b localhost:9092
       kaskade admin -b localhost:9092 --refresh-interval 10
-      kaskade admin -b localhost:9092 --config security.protocol=SSL
-      kaskade admin --config bootstrap.servers=localhost:9092
       kaskade admin --config-file kafka.properties
       kaskade admin -b localhost:9092 --aws region=us-east-1
     """
@@ -431,19 +429,9 @@ def consumer(
     \b
     Examples:
       kaskade consumer -b localhost:9092 -t my-topic
-      kaskade consumer -b localhost:9092 -t my-topic --earliest
-      kaskade consumer -b localhost:9092 -t my-topic --partition 1:10 --partition 2:earliest
-      kaskade consumer -b localhost:9092 -t my-topic --config security.protocol=SSL
-      kaskade consumer -t my-topic --config bootstrap.servers=localhost:9092
-      kaskade consumer -t my-topic --config-file kafka.properties
-      kaskade consumer -b localhost:9092 -t my-topic --aws region=us-east-1
-      kaskade consumer -b localhost:9092 -t my-topic -v json
-      kaskade consumer -b localhost:9092 -t my-topic --bytes encoding=hex
-      kaskade consumer -b localhost:9092 -t my-topic --fallback encoding=hex
-      kaskade consumer -b localhost:9092 -t my-topic -v json --json value.framing=confluent
+      kaskade consumer -b localhost:9092 -t my-topic --earliest -k string -v json
+      kaskade consumer -b localhost:9092 -t my-topic -k string --bytes encoding=hex --fallback encoding=python
       kaskade consumer -b localhost:9092 -t my-topic -v registry --registry url=http://localhost:8081
-      kaskade consumer -b localhost:9092 -t my-topic -v avro --avro value=my-schema.avsc --avro value.framing=confluent
-      kaskade consumer -b localhost:9092 -t my-topic -v protobuf --protobuf descriptor=my-descriptor.desc --protobuf value=MyMessage --protobuf value.framing=confluent
     """
 
     kafka_config = resolve_kafka_config(bootstrap_servers, kafka_config_file, kafka_config)

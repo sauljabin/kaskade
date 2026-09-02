@@ -56,6 +56,12 @@ class TestAdminCli(unittest.TestCase):
         self.assertIn("Application options:", result.output)
         self.assertIn("--theme name", result.output)
         self.assertNotIn("--theme [ansi-dark|", result.output)
+        examples = [
+            line.strip()
+            for line in result.output.splitlines()
+            if line.strip().startswith("kaskade admin")
+        ]
+        self.assertEqual(4, len(examples))
 
     def test_invalid_extra_kafka_config(self):
         result = self.runner.invoke(cli, [self.command, "-c", "property.name"])
@@ -413,6 +419,12 @@ class TestConsumerCli(unittest.TestCase):
         self.assertIn("--bytes property=value", result.output)
         self.assertIn("Fallback options:", result.output)
         self.assertIn("--fallback property=value", result.output)
+        examples = [
+            line.strip()
+            for line in result.output.splitlines()
+            if line.strip().startswith("kaskade consumer")
+        ]
+        self.assertEqual(4, len(examples))
         self.assertIn("JSON options:", result.output)
         self.assertIn("--json property=value", result.output)
         self.assertIn("Constraints:", result.output)

@@ -1,293 +1,188 @@
 # Agent Instructions
 
-## Code Quality
+## Engineering and Documentation
 
-- Keep cyclomatic complexity at or below 10. The repository-wide Ruff `C901`
-  check is part of `scripts.analyze`; prefer focused named helpers over lint
-  suppressions.
-- Before considering implementation complete, perform a final refactor review
-  of the entire diff for readability and maintainability. Remove duplicated
-  literals and branches, extract focused helpers where they clarify intent, and
-  rerun the relevant analysis and tests after any cleanup.
-
-## Living Knowledge and Documentation
-
-- Treat this file as living operational knowledge. Record durable conventions,
-  and remove obsolete, redundant, or contradicted guidance instead of only
-  appending. Apply the same rule to all affected documentation and examples.
-- Keep guidance concise and factual. Document stable project knowledge rather
-  than temporary implementation details or a chronological history of changes.
-
-## Supported Platforms
-
-- Kaskade must work consistently on Linux and macOS. Keep paths, terminal key
-  handling, and shell-facing documentation portable across both platforms.
+- Support Linux and macOS; keep paths, terminal input, and shell documentation
+  portable.
+- Keep cyclomatic complexity at or below 10. Ruff `C901` runs through
+  `scripts.analyze`; prefer focused helpers over suppressions.
+- Before finishing, review the complete diff for clarity, duplication, and
+  maintainability, then rerun relevant analysis and tests.
+- Keep this file and affected user documentation concise and current. Record
+  stable conventions, remove obsolete or contradicted guidance, and avoid
+  implementation history.
+- Importing `kaskade` must not create directories, open files, or modify the root
+  logger. Configure the named logger lazily and tolerate an unavailable log
+  destination.
 
 ## CLI and Configuration
 
-- Keep the admin and consumer Kafka connection declarations shared. Their help
-  uses `Kafka connection options`, `AWS options`, and `Application options`;
-  consumer additionally separates `Consumption options` from
-  `Deserialization options`. Keep `--earliest` and `--partition` declaratively
-  mutually exclusive and render the theme argument as `name` without weakening
-  choice validation.
+- Share admin and consumer Kafka connection declarations. Help groups are
+  `Kafka connection options`, `AWS options`, and `Application options`; consumer
+  also separates `Consumption options` and `Deserialization options`.
+- Keep `--earliest` and `--partition` declaratively mutually exclusive. Render
+  the theme argument as `name` without weakening choice validation.
+- `--config-file kafka.properties` loads Kafka client `property=value` entries.
+  Merge in this order: file, repeatable `--config`, then
+  `-b/--bootstrap-servers`. Require a non-empty resolved `bootstrap.servers` and
+  update `examples/kafka.properties` when this behavior changes.
+- Kaskade settings come from `KASKADE_CONFIG`, then
+  `$XDG_CONFIG_HOME/kaskade/config.yaml`, then
+  `~/.config/kaskade/config.yaml`. Ignore invalid entries, retain valid ones,
+  warn in-app, and keep `examples/config.yaml` current when bindings change.
+- `--aws region=<region>` enables Amazon MSK IAM in admin, consumer, and sandbox
+  population. Validate repeatable `--aws property=value` settings before client
+  construction. Do not raise the `aws-msk-iam-sasl-signer-python>=1.0` baseline
+  without using newer functionality.
+- Local JSON, Avro, and Protobuf use raw framing by default. Select Confluent
+  framing explicitly through global or field-scoped properties; never infer it
+  from payload bytes.
 
-Kaskade has two intentionally separate configuration formats:
+## Data Loading and Consumer Records
 
-- `--config-file kafka.properties` loads Kafka client properties in
-  `property=value` format. Merge precedence is file properties, repeatable
-  `--config property=value` entries, then an optional
-  `-b/--bootstrap-servers` override. Require a non-empty resolved
-  `bootstrap.servers` before constructing either application. Keep
-  `examples/kafka.properties` current when this behavior changes.
-- `~/.config/kaskade/config.yaml` configures Kaskade itself. Respect
-  `KASKADE_CONFIG` first, then `XDG_CONFIG_HOME`, and finally fall back to
-  `~/.config/kaskade/config.yaml` on Linux and macOS. Keep
-  `examples/config.yaml` current when configurable bindings change.
+- Render topic metadata before record and consumer-group metrics. Batch
+  partition-offset requests and bound consumer-group offset concurrency; do not
+  create temporary consumers for admin metrics.
+- Preserve the last complete metrics during refresh. Never overlap automatic,
+  manual, resumed, or post-mutation refreshes; coalesce non-periodic requests in
+  the shared refresh coordinator.
+- Admin auto-refresh defaults to 30 seconds, pauses outside the topic list, and
+  is configured by `admin.refresh_interval_seconds` or
+  `admin --refresh-interval`; `0` disables it.
+- `consumer --earliest` subscribes to all partitions with
+  `auto.offset.reset=earliest`. Repeatable
+  `--partition PARTITION[:OFFSET|earliest]` uses manual assignment and must not
+  fetch unlisted partitions. Numeric offsets, including `0`, are absolute.
+- Handle recognized key and value deserialization failures independently per
+  record. Preserve the configured deserializer for later records, expose BYTES
+  fallback diagnostics in details, tooltips, copy, and export, and keep broker
+  failures and unexpected exceptions fatal.
+- Details, copy, and export share the versionless record contract in
+  `schemas/consumer-record.schema.json`. Keep its examples and conformance tests
+  synchronized. In that contract:
+  - Headers are ordered `{key, value}` objects. Add top-level `error` only when
+    STRING header deserialization fails.
+  - Key/value `deserializer` contains `type` and optional resolved Registry
+    `schema`. Registry lookup is best-effort and cached by schema, topic, and
+    field.
+  - A key/value failure adds sibling `error` metadata with a BYTES `fallback`.
+  - BYTES content stays directly in `content`; its deserializer or fallback has
+    `encoding`. `--bytes` configures explicit BYTES fields globally or per field,
+    while global-only `--fallback encoding=...` configures failures. Both default
+    independently to Base64. Null content omits `encoding`.
 
-Missing, empty, malformed, or partially invalid Kaskade YAML configuration must
-not make startup fragile. Ignore invalid entries, retain valid entries, and
-surface warnings in the application.
+## TUI Interaction
 
-Amazon MSK IAM authentication is enabled with `--aws region=<region>` in admin,
-consumer, and the sandbox population tool. Keep AWS-specific CLI settings in
-the repeatable `--aws property=value` form and validate them before constructing
-Kafka clients. The signer dependency baseline is
-`aws-msk-iam-sasl-signer-python>=1.0`; do not raise its minimum version without
-requiring newer functionality.
+- Preserve arrows, `h`/`j`/`k`/`l`, and `g`/`G` navigation. Keep shortcuts safe
+  for tmux and Zellij. Quit is `ctrl+c`; never add `ctrl+q` or a copy alias for
+  `ctrl+c`.
+- Use stable binding IDs represented in `KNOWN_BINDING_IDS`. Visible bindings
+  need concise Title Case descriptions and useful tooltips; update examples and
+  tests when adding or renaming them.
+- Plain-character shortcuts must not intercept input. `?` opens Help normally;
+  `f1` remains available from focused text inputs.
+- Contextual entity copy uses `y` and Textual's OSC 52 API. Keep it out of the
+  Footer but available in Help and Commands. `USAGE.md` owns the compatibility
+  matrix. Selected-text copy is `Cmd+C` on macOS or `Ctrl+Shift+C` on Linux.
+- Keep the command palette on `:` and `ctrl+p`. Include contextual actions,
+  exclude duplicate navigation and maximize/minimize actions, and replace
+  Textual's Keys command with contextual Kaskade Help.
 
-## Runtime Initialization
+### Footer and Help
 
-- Importing `kaskade` must not create directories, open files, or modify the root
-  logger. Configure the named Kaskade logger lazily from the CLI and tolerate an
-  unavailable log destination.
-- Local JSON, Avro, and Protobuf payloads use raw framing by default. Confluent
-  framing must be selected explicitly with the format's global or field-scoped
-  framing property; never infer it from payload bytes.
+Binding declaration order controls the Footer:
 
-## Admin Data Loading
-
-- Render topic metadata before loading record and consumer-group metrics.
-- Fetch partition offsets with batched Admin API requests and consumer-group
-  offsets with bounded concurrency; do not create temporary consumers for admin
-  metrics.
-- Keep the last complete metrics visible during refreshes and never overlap
-  automatic, manual, resumed, or post-mutation refresh work.
-- Coalesce non-periodic refresh requests behind active work and keep refresh
-  state transitions in the shared coordinator rather than adding independent
-  flags to the topic list.
-- Admin auto-refresh defaults to 30 seconds, pauses while another screen is
-  open, and is configured with `admin.refresh_interval_seconds` in Kaskade's
-  YAML configuration or overridden per session with `admin --refresh-interval`.
-  A value of `0` disables it.
-
-## Consumer Positioning and Deserialization
-
-- `consumer --earliest` subscribes to every topic partition with
-  `auto.offset.reset=earliest`. Repeatable `--partition
-  PARTITION[:OFFSET|earliest]` selections instead use manual assignment and must
-  never fetch unlisted partitions. Numeric offsets are absolute, including `0`.
-- Treat recognized key and value deserialization failures independently per
-  record. Cache a BYTES fallback with warning metadata, keep the configured
-  deserializer for subsequent records, and preserve the diagnostics in details,
-  cell tooltips, copy, and export. Broker failures and unexpected exceptions
-  remain fatal.
-- Keep consumed-record JSON consistent across details, copy, and export. Represent
-  headers as ordered `key`/`value` objects, adding a top-level `error` only when
-  STRING header deserialization fails. Put key/value `type` and optional Registry
-  `schema` under `deserializer`; put failure metadata in a sibling `error` with a
-  BYTES `fallback`. Keep Registry metadata resolution best-effort and cached per
-  schema, topic, and field. Keep
-  `schemas/consumer-record.schema.json`, its examples, and conformance tests synchronized
-  with this versionless contract.
-- Represent encoded bytes directly in `content` and put `encoding` on the BYTES
-  deserializer that produced them. `--bytes` configures explicit BYTES key/value
-  deserializers with global and field-scoped encodings. The separate global-only
-  `--fallback encoding=...` configures key, value, and header deserialization errors.
-  Both default independently to Base64. Omit `encoding` for null content.
-
-## TUI Interaction Conventions
-
-Kaskade follows familiar k9s/Vim-style terminal interactions where practical:
-
-- Preserve arrow-key navigation and the Vim alternatives `h`, `j`, `k`, and
-  `l`. Use `g`/`G` for first/last navigation where applicable.
-- Keep shortcuts safe for common terminal multiplexers such as tmux and Zellij.
-  Quit is `ctrl+c` only; do not add `ctrl+q`.
-- Use stable binding IDs so users can override shortcuts through Kaskade's YAML
-  keymap. Every Kaskade binding ID must be represented in `KNOWN_BINDING_IDS`.
-- Every visible binding needs a concise Title Case description and a useful
-  tooltip. Add the corresponding example configuration and tests when adding or
-  renaming a binding.
-- Plain-character shortcuts must not intercept typing in inputs. In particular,
-  `?` opens Help in normal contexts while `f1` remains available from a focused
-  text input.
-- Contextual entity copy uses `y` and Textual's best-effort OSC 52 clipboard
-  API. Keep it hidden from the Footer but available in Help and Commands. Keep
-  the compatibility matrix in `USAGE.md` authoritative and link to it rather
-  than duplicating it. Selected-text copy uses `Cmd+C` on macOS or
-  `Ctrl+Shift+C` on Linux; `Ctrl+C` always quits and is never a copy alias.
-- Keep Textual's command palette on `:` with `ctrl+p` as an alternative. Expose
-  contextual Kaskade actions in it, omit duplicate navigation actions, and do
-  not expose Textual maximize/minimize commands. Replace Textual's generic Keys
-  command with Kaskade's contextual Help window.
-
-### Footer command order
-
-Binding declaration order controls Textual's Footer order. Preserve this order:
-
-- Main screens: contextual actions, then `Quit`, `Help`, and `Commands`.
-- Action modals: primary action, then `Back` or `Cancel`, then `Help`.
+- Main screens: contextual actions, then `Quit`, `Help`, `Commands`.
+- Action modals: primary action, `Back` or `Cancel`, then `Help`.
 - Read-only modals: `Back`, then `Help`.
-- Help: `Back` only, displayed as `esc Back`.
+- Help: only `esc Back`.
 
-Use `modal_bindings(...)` for regular modals so the shared Help binding is
-appended last. Do not put Help on the base modal class: Textual merges inherited
-bindings first, which moves Help ahead of contextual actions. Show implicit
-submit keys such as Enter in the Footer whenever they perform the modal's
-primary action.
+Use `modal_bindings(...)` so Help is appended last. Do not put Help on the base
+modal class, because inherited bindings are merged first. Show implicit primary
+keys such as Enter in the Footer.
 
-## Help Window
+Help is a centered `ModalScreen` that snapshots and groups the underlying
+screen's effective bindings. It must show every alias, focus its command table,
+restore prior focus on close, use `Help — <Context>`, and show application and
+project information above the commands. Use the standard Footer with only
+`esc Back`; `?`, `f1`, and `q` may also close Help without duplicate Footer
+entries.
 
-Help is a dedicated centered `ModalScreen`, not a sidebar. It must:
+## Layout and Themes
 
-- Snapshot the bindings of the screen beneath it and group them by context.
-- Show every effective shortcut alias for each action while leaving compact
-  Footer key displays unchanged.
-- Put keyboard focus on its command table so arrows and page navigation work
-  without a mouse, then restore the previous focus when it closes.
-- Use the contextual border title `Help — <Context>`.
-- Show the application name and version at the top, followed by the About
-  section, project URL, and issue-reporting URL, with spacing before the command
-  table.
-- Show the standard compact Footer with only `esc Back`; do not replace the
-  Footer with custom navigation instructions.
-- Let `?`, `f1`, and `q` close the window without displaying duplicate Footer
-  commands.
-
-## Layout, Modals, and CSS
-
-- Keep all application styling in the shared `kaskade/styles.css`; both admin
-  and consumer applications inherit `KaskadeApp.CSS_PATH`.
-- Keep main-table borders, titles, and subtitles on the shared `TableFrame` so
-  a table's loading indicator replaces only its content inside the frame.
-- Keep the shared one-line root header on both main applications: show the
-  Kaskade version on the left and only Kafka `bootstrap.servers` on the right.
-  Give the name and version contrasting semantic colors, and truncate the Kafka
-  text before allowing the version to disappear. Pad the header by one row in
-  the shared panel background and leave one column on each side of the complete
-  root view.
-- Deliver consumed-record JSON exports through Textual's file-delivery API so
-  they use the same Downloads or browser destination as screenshots. Keep the
-  export available from both the records table and Record Details, expose it in
-  Help and Commands, and keep it hidden from the Footer.
-- Use Title Case for screen titles, border titles, table headings, tabs, command
-  labels, and field labels.
-- Follow the existing centered-modal vocabulary: one visible outer border,
-  `$surface` background, semantic theme colors, constrained width, and a compact
-  Footer. Avoid full-terminal modal widths on wide screens.
-- Keep the command palette at width `72`, capped at `90%`. Forms use the same
-  width convention; smaller selectors may use narrower fixed widths.
-- Use Textual's `-narrow` breakpoint below 80 columns. On narrow terminals,
-  modals and the command palette expand to the available width, and Help expands
-  to the full screen.
-- When a modal contains tabs, put the modal border and contextual title on the
-  outer `TabbedContent`. Do not add borders or border titles to the tables inside
-  the tabs. Put collection counts in tab labels, for example
-  `Partitions [50]`.
-- Keep table backgrounds transparent so they inherit each window's background.
-  Primary tables retain Kaskade's visible focus-aware border, while detail
-  tables embedded inside another bordered component use the borderless
-  `details-table` style.
-- Keep toast notification text concise and omit trailing periods. This applies
-  to informational, warning, and error messages authored by Kaskade; binding
-  tooltips and CLI diagnostics remain complete sentences.
-
-## Themes
-
-- `eva01` is Kaskade's custom default Textual theme. Keep all Textual built-in
-  themes available alongside it through `available_theme_names()` and the
-  `--theme` option on both admin and consumer commands.
-- Style widgets with Textual semantic variables such as `$primary`,
-  `$secondary`, `$surface`, and `$text-muted`; do not couple CSS to Eva01's raw
-  hex values. Changes must remain legible in dark, light, and ANSI themes.
-- Rich renderables must use semantic names such as `primary`, `secondary`,
-  `warning`, `error`, `success`, and `accent`. `KaskadeApp` synchronizes those
-  names from the active Textual theme and must resynchronize on runtime theme
-  changes.
-- Preserve ANSI compatibility when translating Textual colors to Rich colors.
-  Textual `ansi_*` tokens need their prefix removed before Rich consumes them.
-- Use Textual's built-in nested theme provider in the command palette; do not
-  register a duplicate `ThemeProvider` in the app's command providers.
-- Verify visual/theme work against the custom default, at least one Textual
-  light theme, and an ANSI theme. Keep the Rich synchronization, shared CSS,
-  responsive breakpoint, modal geometry, borders, and Footer order covered by
+- Keep shared styling in `kaskade/styles.css`; admin and consumer inherit
+  `KaskadeApp.CSS_PATH`. Put main-table borders, titles, subtitles, and loading
+  state on `TableFrame`.
+- Both root screens use the shared one-line header: version on the left and only
+  Kafka `bootstrap.servers` on the right. Preserve semantic contrast, truncate
+  Kafka text before the version, use one row of panel padding, and leave one
+  column around the root view.
+- Deliver record JSON through Textual's file-delivery API from both the table and
+  Record Details. Expose Export in Help and Commands, not the Footer.
+- Use Title Case for visible titles, headings, tabs, commands, and field labels.
+  Toasts authored by Kaskade are concise and omit final periods; binding
+  tooltips and CLI diagnostics remain sentences.
+- Centered modals have one outer border, `$surface`, semantic colors, constrained
+  width, and a compact Footer. The command palette and forms use width `72`
+  capped at `90%`; smaller selectors may be narrower.
+- Below 80 columns, use Textual's `-narrow` breakpoint: modals and the palette
+  fill available width, and Help fills the screen.
+- For tabbed modals, border and title the outer `TabbedContent`; inner tables
+  remain borderless. Put counts in tab labels such as `Partitions [50]`.
+- Table backgrounds are transparent. Primary tables keep focus-aware borders;
+  nested detail tables use `details-table`.
+- `eva01` is the default custom theme; retain every Textual built-in theme.
+  Style CSS with semantic variables and Rich renderables with semantic names,
+  never Eva01 hex values.
+- `KaskadeApp` synchronizes Rich semantic colors from the active theme and on
+  theme changes. Strip `ansi_` before passing Textual ANSI tokens to Rich. Use
+  Textual's nested theme provider rather than registering another one.
+- Verify visual work with Eva01, a light theme, and an ANSI theme. Keep theme,
+  responsive layout, modal, border, and Footer behavior covered in
   `tests/unit/tests_themes.py`.
 
-## Verification
+## Verification and Repository Structure
 
-README visual assets are generated as SVG files in `images/` with Textual's
-screenshot exporter. Run `uv run python -m scripts.banner` for the banner and
-`uv run python -m scripts.screenshots` for the mock-data admin and consumer
-views; neither command requires a Kafka broker. README image sources must use
-absolute `raw.githubusercontent.com` URLs targeting the `main` branch so they
-render in published package metadata. Keep paired screenshots in equal 50%
-table columns with each image at 100% width so GitHub renders them at the same
-size.
-
-For TUI, keymap, layout, or theme changes, run:
+Run the relevant focused tests plus:
 
 ```text
 uv run --locked python -m scripts.analyze
 uv run --locked python -m scripts.tests
 ```
 
-Add focused assertions to `tests/unit/tests_themes.py` and/or
-`tests/unit/tests_keymaps.py` when changing the conventions above.
+Add focused keymap or theme assertions when changing those conventions. Unit
+fixtures live in `tests/unit`; E2E tests live in `tests/e2e`, use Confluent Kafka
+through Testcontainers, and should rely on conditions and public Textual APIs
+rather than sleeps or private widget state.
 
-Unit tests and their Avro, JSON Schema, and Protobuf fixtures live in
-`tests/unit`. End-to-end tests live in `tests/e2e` and use Confluent Kafka
-through Testcontainers. Keep E2E tests condition-based and use public Textual
-APIs rather than fixed sleeps or private widget state.
+README SVGs in `images/` come from `uv run python -m scripts.banner` and
+`uv run python -m scripts.screenshots`; neither needs Kafka. Use absolute
+`raw.githubusercontent.com` URLs targeting `main`. Paired screenshots use equal
+50% table columns and 100% image width.
 
-The manual Kafka environment lives entirely in `sandbox`, including its own
-schema models, generated Protobuf artifacts, Compose file, and environment
-versions. Never import test fixtures from sandbox utilities or sandbox models
-from tests. Its `errors` topic cycles through valid and deliberately malformed
-Schema Registry key/value payloads and an invalid UTF-8 header case for consumer
-fallback testing. Keep one
-Compose topology: three Confluent Kafka brokers, Apicurio Registry, and
-Confluent Schema Registry, with no web UI.
-Keep the sandbox topic registry lambda-free and route every topic through a
-named `Populator.populate_*` entrypoint.
+Keep the manual Kafka environment self-contained in `sandbox`; never share its
+fixtures or models with tests. Maintain one topology with three Confluent Kafka
+brokers, Apicurio Registry, and Confluent Schema Registry, without a web UI.
+The `errors` topic covers valid and malformed Registry payloads plus invalid
+UTF-8 headers. Keep topic registration lambda-free through named
+`Populator.populate_*` entrypoints.
 
-Reusable script classes and functions belong in `scripts/__init__.py`; keep
-individual script modules focused on executable workflows.
+Reusable script logic belongs in `scripts/__init__.py`; executable modules stay
+focused on workflows.
 
-## Releases and Versions
+## Releases, Commits, and Pull Requests
 
-- Git tags matching `vMAJOR.MINOR.PATCH` are the only release-version source.
-  Hatchling and hatch-vcs derive package metadata from Git; never add or edit a
-  static package version.
-- GitHub Releases are the canonical changelog. Do not add a maintained changelog
-  file or a version-bump commit.
-- Never hard-code Kaskade's current release version in documentation, issue
-  templates, examples, or release commands. Refer to `kaskade --version`, use a
-  `MAJOR.MINOR.PATCH` placeholder, or derive the version from Git metadata so a
-  release does not require follow-up file edits.
-- Release tags must point to commits on `main`. The protected release workflow
-  builds once, verifies the tag against the artifacts, and publishes those same
-  artifacts to PyPI and GitHub after approval.
-- Release notes are generated from squash commit titles. Keep pull request titles
-  and commits in Conventional Commits format and describe user-visible outcomes
-  with `feat`, `fix`, `perf`, `docs`, `fix(security)`, or dependency-scoped
-  `build(deps)`/`chore(deps)` types where applicable.
-
-## Commits and Pull Requests
-
-- Use [Conventional Commits](https://www.conventionalcommits.org/) for commit
-  messages and pull request titles. Use a short, imperative description rather
-  than a list of changes.
-- End commit messages and pull request descriptions with
-  `Assisted-by: <AI model> <version>`, separated from the body by a blank line.
-  Use the actual model and version that generated the change.
+- Tags matching `vMAJOR.MINOR.PATCH` on `main` are the only release-version
+  source. Hatchling and hatch-vcs derive metadata; never add a static version.
+- GitHub Releases are the changelog. Do not add a maintained changelog or
+  version-bump commit, and do not hard-code the current version in documentation
+  or release commands. Use `kaskade --version`, `MAJOR.MINOR.PATCH`, or Git
+  metadata.
+- The protected release workflow builds once, verifies the tag, and publishes
+  those artifacts to PyPI and GitHub after approval.
+- Use Conventional Commits for commit and PR titles, with short imperative
+  descriptions. Release notes derive from squash titles; use accurate user-facing
+  types such as `feat`, `fix`, `perf`, `docs`, `fix(security)`, and dependency
+  `build(deps)` or `chore(deps)`.
+- End commit messages and PR descriptions with
+  `Assisted-by: <AI model> <version>` after a blank line, using the actual model.
