@@ -612,7 +612,7 @@ class TestAdminRefresh(unittest.IsolatedAsyncioTestCase):
         with tempfile.TemporaryDirectory() as temporary_directory:
             config_path = Path(temporary_directory) / "settings.yaml"
             config_path.write_text(
-                "admin:\n  refresh_interval_seconds: 60\n",
+                "admin:\n  refresh-interval: 60\n",
                 encoding="utf-8",
             )
             with patch.dict(os.environ, {SETTINGS_ENV_VAR: str(config_path)}):
@@ -624,7 +624,7 @@ class TestAdminRefresh(unittest.IsolatedAsyncioTestCase):
         with tempfile.TemporaryDirectory() as temporary_directory:
             config_path = Path(temporary_directory) / "settings.yaml"
             config_path.write_text(
-                "admin:\n  refresh_interval_seconds: 0\n",
+                "admin:\n  refresh-interval: 0\n",
                 encoding="utf-8",
             )
             with (

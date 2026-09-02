@@ -5,7 +5,7 @@ theme: eva01
 
 # Set to 0 to disable auto-refresh. Enabled intervals must be at least 5 seconds.
 admin:
-  refresh_interval_seconds: 30
+  refresh-interval: 30
 
 # Values are Textual key names; use commas to assign multiple keys.
 keymap:

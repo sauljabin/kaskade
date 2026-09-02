@@ -59,7 +59,7 @@
   manual, resumed, or post-mutation refreshes; coalesce non-periodic requests in
   the shared refresh coordinator.
 - Admin auto-refresh defaults to 30 seconds, pauses outside the topic list, and
-  is configured by `admin.refresh_interval_seconds` or
+  is configured by `admin.refresh-interval` or
   `admin --refresh-interval`; `0` disables it.
 - `consumer --earliest` subscribes to all partitions with
   `auto.offset.reset=earliest`. Repeatable

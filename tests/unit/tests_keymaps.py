@@ -36,7 +36,7 @@ class TestSettingsConfiguration(unittest.TestCase):
     def test_loads_settings(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
             path = Path(temporary_directory) / "settings.yaml"
-            path.write_text("admin:\n  refresh_interval_seconds: 10\n", encoding="utf-8")
+            path.write_text("admin:\n  refresh-interval: 10\n", encoding="utf-8")
 
             settings = load_settings(path)
 
@@ -124,7 +124,7 @@ class TestSettingsConfiguration(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary_directory:
             path = Path(temporary_directory) / "settings.yaml"
             path.write_text(
-                "theme: []\nadmin:\n  refresh_interval_seconds: 10\n",
+                "theme: []\nadmin:\n  refresh-interval: 10\n",
                 encoding="utf-8",
             )
 
@@ -163,7 +163,7 @@ class TestSettingsConfiguration(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary_directory:
             path = Path(temporary_directory) / "settings.yaml"
             path.write_text(
-                "admin:\n  refresh_interval_seconds: 10\n",
+                "admin:\n  refresh-interval: 10\n",
                 encoding="utf-8",
             )
 
@@ -172,11 +172,26 @@ class TestSettingsConfiguration(unittest.TestCase):
         self.assertEqual(10, settings.admin_refresh_interval_seconds)
         self.assertEqual((), settings.warnings)
 
+    def test_rejects_underscore_admin_setting_names(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            path = Path(temporary_directory) / "settings.yaml"
+            path.write_text(
+                "admin:\n  refresh_interval_seconds: 10\n",
+                encoding="utf-8",
+            )
+
+            settings = load_settings(path)
+
+        self.assertEqual(30, settings.admin_refresh_interval_seconds)
+        self.assertEqual(1, len(settings.warnings))
+        self.assertIn("admin.refresh_interval_seconds", settings.warnings[0])
+        self.assertIn("hyphens, not underscores", settings.warnings[0])
+
     def test_disables_admin_refresh_with_zero(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
             path = Path(temporary_directory) / "settings.yaml"
             path.write_text(
-                "admin:\n  refresh_interval_seconds: 0\n",
+                "admin:\n  refresh-interval: 0\n",
                 encoding="utf-8",
             )
 
@@ -189,7 +204,7 @@ class TestSettingsConfiguration(unittest.TestCase):
             path = Path(temporary_directory) / "settings.yaml"
             path.write_text(
                 """admin:
-  refresh_interval_seconds: 2
+  refresh-interval: 2
 keymap:
   app.quit: x
 """,

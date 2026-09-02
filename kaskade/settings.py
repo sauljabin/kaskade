@@ -12,6 +12,7 @@ SETTINGS_ENV_VAR = "KASKADE_SETTINGS"
 SETTINGS_FILE_NAME = "settings.yaml"
 DEFAULT_ADMIN_REFRESH_INTERVAL_SECONDS = 30
 MIN_ADMIN_REFRESH_INTERVAL_SECONDS = 5
+ADMIN_REFRESH_INTERVAL_SETTING = "refresh-interval"
 
 
 @dataclass(frozen=True)
@@ -87,17 +88,30 @@ def _parse_admin_settings(configured_admin: Any) -> tuple[int, tuple[str, ...]]:
     warning_messages: list[str] = []
     if not isinstance(configured_admin, dict):
         warning_messages.append("Ignoring 'admin': it must be a mapping")
-    elif "refresh_interval_seconds" in configured_admin:
-        configured_interval = configured_admin["refresh_interval_seconds"]
-        if not isinstance(configured_interval, int) or isinstance(configured_interval, bool):
-            warning_messages.append(
-                "Ignoring 'admin.refresh_interval_seconds': it must be an integer"
+        return refresh_interval, tuple(warning_messages)
+
+    for setting_name in configured_admin:
+        if setting_name != ADMIN_REFRESH_INTERVAL_SETTING:
+            reason = (
+                "setting names must use hyphens, not underscores"
+                if isinstance(setting_name, str) and "_" in setting_name
+                else "unknown setting"
             )
-        elif not is_valid_admin_refresh_interval(configured_interval):
-            warning_messages.append(
-                "Ignoring 'admin.refresh_interval_seconds': it must be 0 or at least "
-                f"{MIN_ADMIN_REFRESH_INTERVAL_SECONDS}"
-            )
-        else:
-            refresh_interval = configured_interval
+            warning_messages.append(f"Ignoring 'admin.{setting_name}': {reason}")
+
+    if ADMIN_REFRESH_INTERVAL_SETTING not in configured_admin:
+        return refresh_interval, tuple(warning_messages)
+
+    configured_interval = configured_admin[ADMIN_REFRESH_INTERVAL_SETTING]
+    if not isinstance(configured_interval, int) or isinstance(configured_interval, bool):
+        warning_messages.append(
+            f"Ignoring 'admin.{ADMIN_REFRESH_INTERVAL_SETTING}': it must be an integer"
+        )
+    elif not is_valid_admin_refresh_interval(configured_interval):
+        warning_messages.append(
+            f"Ignoring 'admin.{ADMIN_REFRESH_INTERVAL_SETTING}': it must be 0 or at least "
+            f"{MIN_ADMIN_REFRESH_INTERVAL_SECONDS}"
+        )
+    else:
+        refresh_interval = configured_interval
     return refresh_interval, tuple(warning_messages)

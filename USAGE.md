@@ -66,7 +66,7 @@ Configure the interval in Kaskade's `settings.yaml`:
 
 ```yaml
 admin:
-  refresh_interval_seconds: 30
+  refresh-interval: 30
 ```
 
 Use `0` to disable auto-refresh. Other values must be at least 5 seconds;
