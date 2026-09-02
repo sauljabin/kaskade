@@ -8,7 +8,7 @@ from confluent_kafka.serialization import MessageField
 
 from kaskade.deserializers import (
     DESERIALIZATION_EXCEPTIONS,
-    BytesFormat,
+    BytesEncoding,
     Deserialization,
     DeserializationResult,
     Deserializer,
@@ -18,36 +18,36 @@ from kaskade.deserializers import (
 _NOT_DESERIALIZED = object()
 
 
-def bytes_data(data: bytes, bytes_format: BytesFormat) -> str | list[int]:
-    match bytes_format:
-        case BytesFormat.BASE64:
+def bytes_data(data: bytes, bytes_encoding: BytesEncoding) -> str | list[int]:
+    match bytes_encoding:
+        case BytesEncoding.BASE64:
             return base64.b64encode(data).decode("ascii")
-        case BytesFormat.HEX:
+        case BytesEncoding.HEX:
             return data.hex()
-        case BytesFormat.BYTE_ARRAY:
+        case BytesEncoding.BYTE_ARRAY:
             return list(data)
-        case BytesFormat.PYTHON:
+        case BytesEncoding.PYTHON:
             return str(data)
 
 
-def content_str(content: Any, bytes_format: BytesFormat) -> str:
+def content_str(content: Any, bytes_encoding: BytesEncoding) -> str:
     if isinstance(content, bytes):
-        return str(bytes_data(content, bytes_format))
+        return str(bytes_data(content, bytes_encoding))
     if isinstance(content, bool):
         return str(content).lower()
     return str(content)
 
 
-def json_content(content: Any, bytes_format: BytesFormat) -> Any:
+def json_content(content: Any, bytes_encoding: BytesEncoding) -> Any:
     if isinstance(content, bytes):
-        return bytes_data(content, bytes_format)
+        return bytes_data(content, bytes_encoding)
     return content
 
 
-def bytes_deserializer(bytes_format: BytesFormat) -> dict[str, str]:
+def bytes_deserializer(bytes_encoding: BytesEncoding) -> dict[str, str]:
     return {
         "type": Deserialization.BYTES.name,
-        "format": bytes_format.name,
+        "encoding": bytes_encoding.name,
     }
 
 
@@ -262,7 +262,7 @@ class Header:
     key: str = ""
     value: bytes | None = None
     value_deserializer: Deserializer | None = None
-    bytes_format: BytesFormat = BytesFormat.BASE64
+    fallback_bytes_encoding: BytesEncoding = BytesEncoding.BASE64
     _deserialized: Any = field(default=_NOT_DESERIALIZED, init=False, repr=False)
     _error: Exception | None = field(default=None, init=False, repr=False)
 
@@ -297,21 +297,18 @@ class Header:
         return self._deserialized
 
     def value_str(self) -> str:
-        return content_str(self.value_deserialized(), self.bytes_format)
+        return content_str(self.value_deserialized(), self.fallback_bytes_encoding)
 
     def dict(self) -> dict[str, Any]:
         value = self.value_deserialized()
         result: dict[str, Any] = {
             "key": self.key,
-            "value": json_content(value, self.bytes_format),
+            "value": json_content(value, self.fallback_bytes_encoding),
         }
         if self._error is not None:
-            result["deserializer"] = {
-                "type": Deserialization.STRING.name,
-                "error": {
-                    "message": str(self._error),
-                    "deserializer": bytes_deserializer(self.bytes_format),
-                },
+            result["error"] = {
+                "message": str(self._error),
+                "fallback": bytes_deserializer(self.fallback_bytes_encoding),
             }
         return result
 
@@ -322,7 +319,7 @@ class DeserializationOutcome:
     content: Any
     schema: RegistrySchema | None = None
     error: Exception | None = None
-    bytes_format: BytesFormat = BytesFormat.BASE64
+    bytes_encoding: BytesEncoding = BytesEncoding.BASE64
 
     @property
     def used_fallback(self) -> bool:
@@ -337,19 +334,20 @@ class DeserializationOutcome:
             and self.requested == Deserialization.BYTES
             and isinstance(self.content, bytes)
         ):
-            deserializer["format"] = self.bytes_format.name
-        if self.error is not None:
-            deserializer["error"] = {
-                "message": str(self.error),
-                "deserializer": bytes_deserializer(self.bytes_format),
-            }
-        return {
-            "content": json_content(self.content, self.bytes_format),
+            deserializer["encoding"] = self.bytes_encoding.name
+        result = {
+            "content": json_content(self.content, self.bytes_encoding),
             "deserializer": deserializer,
         }
+        if self.error is not None:
+            result["error"] = {
+                "message": str(self.error),
+                "fallback": bytes_deserializer(self.bytes_encoding),
+            }
+        return result
 
     def content_str(self) -> str:
-        return content_str(self.content, self.bytes_format)
+        return content_str(self.content, self.bytes_encoding)
 
 
 @dataclass(eq=False)
@@ -365,8 +363,9 @@ class Record:
     value_deserialization: Deserialization = Deserialization.BYTES
     key_deserializer: Deserializer | None = None
     value_deserializer: Deserializer | None = None
-    key_bytes_format: BytesFormat = BytesFormat.BASE64
-    value_bytes_format: BytesFormat = BytesFormat.BASE64
+    key_bytes_encoding: BytesEncoding = BytesEncoding.BASE64
+    value_bytes_encoding: BytesEncoding = BytesEncoding.BASE64
+    fallback_bytes_encoding: BytesEncoding = BytesEncoding.BASE64
     _key_outcome: DeserializationOutcome | object = field(
         default=_NOT_DESERIALIZED, init=False, repr=False
     )
@@ -410,7 +409,8 @@ class Record:
                 self.key_deserialization,
                 self.key_deserializer,
                 MessageField.KEY,
-                self.key_bytes_format,
+                self.key_bytes_encoding,
+                self.fallback_bytes_encoding,
             )
         assert isinstance(self._key_outcome, DeserializationOutcome)
         return self._key_outcome
@@ -422,7 +422,8 @@ class Record:
                 self.value_deserialization,
                 self.value_deserializer,
                 MessageField.VALUE,
-                self.value_bytes_format,
+                self.value_bytes_encoding,
+                self.fallback_bytes_encoding,
             )
         assert isinstance(self._value_outcome, DeserializationOutcome)
         return self._value_outcome
@@ -433,22 +434,28 @@ class Record:
         requested: Deserialization,
         deserializer: Deserializer | None,
         field: MessageField,
-        bytes_format: BytesFormat,
+        bytes_encoding: BytesEncoding,
+        fallback_bytes_encoding: BytesEncoding,
     ) -> DeserializationOutcome:
         if raw is None:
-            return DeserializationOutcome(requested, None, bytes_format=bytes_format)
+            return DeserializationOutcome(requested, None, bytes_encoding=bytes_encoding)
         if deserializer is None:
-            return DeserializationOutcome(requested, raw, bytes_format=bytes_format)
+            return DeserializationOutcome(requested, raw, bytes_encoding=bytes_encoding)
         try:
             result = self._deserialize_result(deserializer, raw, field)
             return DeserializationOutcome(
                 requested,
                 result.content,
                 result.schema,
-                bytes_format=bytes_format,
+                bytes_encoding=bytes_encoding,
             )
         except DESERIALIZATION_EXCEPTIONS as ex:
-            return DeserializationOutcome(requested, raw, error=ex, bytes_format=bytes_format)
+            return DeserializationOutcome(
+                requested,
+                raw,
+                error=ex,
+                bytes_encoding=fallback_bytes_encoding,
+            )
 
     def _deserialize_result(
         self,

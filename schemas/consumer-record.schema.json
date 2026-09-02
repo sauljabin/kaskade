@@ -79,7 +79,7 @@
         "PROTOBUF"
       ]
     },
-    "bytesFormat": {
+    "bytesEncoding": {
       "enum": [
         "BASE64",
         "HEX",
@@ -152,14 +152,14 @@
       "additionalProperties": false,
       "required": [
         "type",
-        "format"
+        "encoding"
       ],
       "properties": {
         "type": {
           "const": "BYTES"
         },
-        "format": {
-          "$ref": "#/$defs/bytesFormat"
+        "encoding": {
+          "$ref": "#/$defs/bytesEncoding"
         }
       }
     },
@@ -168,30 +168,14 @@
       "additionalProperties": false,
       "required": [
         "message",
-        "deserializer"
+        "fallback"
       ],
       "properties": {
         "message": {
           "type": "string"
         },
-        "deserializer": {
+        "fallback": {
           "$ref": "#/$defs/bytesDeserializer"
-        }
-      }
-    },
-    "errorDeserializer": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "type",
-        "error"
-      ],
-      "properties": {
-        "type": {
-          "$ref": "#/$defs/deserializerType"
-        },
-        "error": {
-          "$ref": "#/$defs/errorMetadata"
         }
       }
     },
@@ -243,10 +227,18 @@
       ],
       "properties": {
         "content": {},
-        "deserializer": {}
+        "deserializer": {},
+        "error": {
+          "$ref": "#/$defs/errorMetadata"
+        }
       },
       "oneOf": [
         {
+          "not": {
+            "required": [
+              "error"
+            ]
+          },
           "properties": {
             "content": {
               "type": "null"
@@ -257,6 +249,11 @@
           }
         },
         {
+          "not": {
+            "required": [
+              "error"
+            ]
+          },
           "properties": {
             "content": {
               "$ref": "#/$defs/encodedBytes"
@@ -267,6 +264,11 @@
           }
         },
         {
+          "not": {
+            "required": [
+              "error"
+            ]
+          },
           "properties": {
             "content": {
               "not": {
@@ -279,6 +281,11 @@
           }
         },
         {
+          "not": {
+            "required": [
+              "error"
+            ]
+          },
           "properties": {
             "content": {
               "not": {
@@ -291,26 +298,32 @@
           }
         },
         {
+          "required": [
+            "error"
+          ],
           "properties": {
             "content": {
               "$ref": "#/$defs/encodedBytes"
             },
             "deserializer": {
-              "$ref": "#/$defs/errorDeserializer"
+              "$ref": "#/$defs/nullDeserializer"
+            },
+            "error": {
+              "$ref": "#/$defs/errorMetadata"
             }
           }
         }
       ],
       "allOf": [
         {
-          "$ref": "#/$defs/successfulBytesFormatRules"
+          "$ref": "#/$defs/successfulBytesEncodingRules"
         },
         {
-          "$ref": "#/$defs/errorBytesFormatRules"
+          "$ref": "#/$defs/errorBytesEncodingRules"
         }
       ]
     },
-    "successfulBytesFormatRules": {
+    "successfulBytesEncodingRules": {
       "allOf": [
         {
           "if": {
@@ -318,13 +331,13 @@
               "deserializer": {
                 "required": [
                   "type",
-                  "format"
+                  "encoding"
                 ],
                 "properties": {
                   "type": {
                     "const": "BYTES"
                   },
-                  "format": {
+                  "encoding": {
                     "const": "BASE64"
                   }
                 }
@@ -345,13 +358,13 @@
               "deserializer": {
                 "required": [
                   "type",
-                  "format"
+                  "encoding"
                 ],
                 "properties": {
                   "type": {
                     "const": "BYTES"
                   },
-                  "format": {
+                  "encoding": {
                     "const": "HEX"
                   }
                 }
@@ -372,13 +385,13 @@
               "deserializer": {
                 "required": [
                   "type",
-                  "format"
+                  "encoding"
                 ],
                 "properties": {
                   "type": {
                     "const": "BYTES"
                   },
-                  "format": {
+                  "encoding": {
                     "const": "BYTE_ARRAY"
                   }
                 }
@@ -399,13 +412,13 @@
               "deserializer": {
                 "required": [
                   "type",
-                  "format"
+                  "encoding"
                 ],
                 "properties": {
                   "type": {
                     "const": "BYTES"
                   },
-                  "format": {
+                  "encoding": {
                     "const": "PYTHON"
                   }
                 }
@@ -422,7 +435,7 @@
         }
       ]
     },
-    "errorBytesFormatRules": {
+    "errorBytesEncodingRules": {
       "allOf": [
         {
           "$ref": "#/$defs/errorBase64Rule"
@@ -440,7 +453,7 @@
     },
     "errorBase64Rule": {
       "if": {
-        "$ref": "#/$defs/errorFormatBase64Condition"
+        "$ref": "#/$defs/errorEncodingBase64Condition"
       },
       "then": {
         "properties": {
@@ -452,7 +465,7 @@
     },
     "errorHexRule": {
       "if": {
-        "$ref": "#/$defs/errorFormatHexCondition"
+        "$ref": "#/$defs/errorEncodingHexCondition"
       },
       "then": {
         "properties": {
@@ -464,7 +477,7 @@
     },
     "errorByteArrayRule": {
       "if": {
-        "$ref": "#/$defs/errorFormatByteArrayCondition"
+        "$ref": "#/$defs/errorEncodingByteArrayCondition"
       },
       "then": {
         "properties": {
@@ -476,7 +489,7 @@
     },
     "errorPythonRule": {
       "if": {
-        "$ref": "#/$defs/errorFormatPythonCondition"
+        "$ref": "#/$defs/errorEncodingPythonCondition"
       },
       "then": {
         "properties": {
@@ -486,19 +499,15 @@
         }
       }
     },
-    "errorFormatBase64Condition": {
-      "$ref": "#/$defs/errorFormatConditionBase",
+    "errorEncodingBase64Condition": {
+      "$ref": "#/$defs/errorEncodingConditionBase",
       "properties": {
-        "deserializer": {
+        "error": {
           "properties": {
-            "error": {
+            "fallback": {
               "properties": {
-                "deserializer": {
-                  "properties": {
-                    "format": {
-                      "const": "BASE64"
-                    }
-                  }
+                "encoding": {
+                  "const": "BASE64"
                 }
               }
             }
@@ -506,19 +515,15 @@
         }
       }
     },
-    "errorFormatHexCondition": {
-      "$ref": "#/$defs/errorFormatConditionBase",
+    "errorEncodingHexCondition": {
+      "$ref": "#/$defs/errorEncodingConditionBase",
       "properties": {
-        "deserializer": {
+        "error": {
           "properties": {
-            "error": {
+            "fallback": {
               "properties": {
-                "deserializer": {
-                  "properties": {
-                    "format": {
-                      "const": "HEX"
-                    }
-                  }
+                "encoding": {
+                  "const": "HEX"
                 }
               }
             }
@@ -526,19 +531,15 @@
         }
       }
     },
-    "errorFormatByteArrayCondition": {
-      "$ref": "#/$defs/errorFormatConditionBase",
+    "errorEncodingByteArrayCondition": {
+      "$ref": "#/$defs/errorEncodingConditionBase",
       "properties": {
-        "deserializer": {
+        "error": {
           "properties": {
-            "error": {
+            "fallback": {
               "properties": {
-                "deserializer": {
-                  "properties": {
-                    "format": {
-                      "const": "BYTE_ARRAY"
-                    }
-                  }
+                "encoding": {
+                  "const": "BYTE_ARRAY"
                 }
               }
             }
@@ -546,19 +547,15 @@
         }
       }
     },
-    "errorFormatPythonCondition": {
-      "$ref": "#/$defs/errorFormatConditionBase",
+    "errorEncodingPythonCondition": {
+      "$ref": "#/$defs/errorEncodingConditionBase",
       "properties": {
-        "deserializer": {
+        "error": {
           "properties": {
-            "error": {
+            "fallback": {
               "properties": {
-                "deserializer": {
-                  "properties": {
-                    "format": {
-                      "const": "PYTHON"
-                    }
-                  }
+                "encoding": {
+                  "const": "PYTHON"
                 }
               }
             }
@@ -566,27 +563,20 @@
         }
       }
     },
-    "errorFormatConditionBase": {
+    "errorEncodingConditionBase": {
       "required": [
-        "deserializer"
+        "error"
       ],
       "properties": {
-        "deserializer": {
+        "error": {
           "required": [
-            "error"
+            "fallback"
           ],
           "properties": {
-            "error": {
+            "fallback": {
               "required": [
-                "deserializer"
-              ],
-              "properties": {
-                "deserializer": {
-                  "required": [
-                    "format"
-                  ]
-                }
-              }
+                "encoding"
+              ]
             }
           }
         }
@@ -604,10 +594,17 @@
           "type": "string"
         },
         "value": {},
-        "deserializer": {}
+        "error": {
+          "$ref": "#/$defs/errorMetadata"
+        }
       },
       "oneOf": [
         {
+          "not": {
+            "required": [
+              "error"
+            ]
+          },
           "properties": {
             "value": {
               "type": [
@@ -615,51 +612,33 @@
                 "null"
               ]
             }
-          },
-          "not": {
-            "required": [
-              "deserializer"
-            ]
           }
         },
         {
           "required": [
-            "deserializer"
+            "error"
           ],
           "properties": {
             "value": {
               "$ref": "#/$defs/encodedBytes"
             },
-            "deserializer": {
-              "type": "object",
-              "additionalProperties": false,
-              "required": [
-                "type",
-                "error"
-              ],
-              "properties": {
-                "type": {
-                  "const": "STRING"
-                },
-                "error": {
-                  "$ref": "#/$defs/errorMetadata"
-                }
-              }
+            "error": {
+              "$ref": "#/$defs/errorMetadata"
             }
           }
         }
       ],
       "allOf": [
         {
-          "$ref": "#/$defs/errorBytesFormatRulesForHeader"
+          "$ref": "#/$defs/headerErrorBytesEncodingRules"
         }
       ]
     },
-    "errorBytesFormatRulesForHeader": {
+    "headerErrorBytesEncodingRules": {
       "allOf": [
         {
           "if": {
-            "$ref": "#/$defs/errorFormatBase64Condition"
+            "$ref": "#/$defs/errorEncodingBase64Condition"
           },
           "then": {
             "properties": {
@@ -671,7 +650,7 @@
         },
         {
           "if": {
-            "$ref": "#/$defs/errorFormatHexCondition"
+            "$ref": "#/$defs/errorEncodingHexCondition"
           },
           "then": {
             "properties": {
@@ -683,7 +662,7 @@
         },
         {
           "if": {
-            "$ref": "#/$defs/errorFormatByteArrayCondition"
+            "$ref": "#/$defs/errorEncodingByteArrayCondition"
           },
           "then": {
             "properties": {
@@ -695,7 +674,7 @@
         },
         {
           "if": {
-            "$ref": "#/$defs/errorFormatPythonCondition"
+            "$ref": "#/$defs/errorEncodingPythonCondition"
           },
           "then": {
             "properties": {

@@ -320,6 +320,7 @@ class ListRecords(Container):
         value_deserialization: Deserialization,
         *,
         bytes_config: dict[str, str] | None = None,
+        fallback_config: dict[str, str] | None = None,
         partitions: tuple[PartitionSelection, ...] = (),
         consumer: ConsumerService | None = None,
     ):
@@ -330,6 +331,7 @@ class ListRecords(Container):
         self.key_deserialization = key_deserialization
         self.value_deserialization = value_deserialization
         self.bytes_config = bytes_config or {}
+        self.fallback_config = fallback_config or {}
         self.partitions = partitions
         self.consumer = consumer or self._new_consumer()
         self.records: dict[str, Record] = {}
@@ -345,6 +347,7 @@ class ListRecords(Container):
             self.key_deserialization,
             self.value_deserialization,
             bytes_config=self.bytes_config,
+            fallback_config=self.fallback_config,
             partitions=self.partitions,
         )
 
@@ -520,8 +523,8 @@ class ListRecords(Container):
         )
         tooltip.append(f"\nRecord: {record.topic}[{record.partition}][{record.offset}]")
         tooltip.append(f"\nRequested: {outcome.requested.name}")
-        tooltip.append(f"\nError Deserializer: {Deserialization.BYTES.name}")
-        tooltip.append(f"\nFormat: {outcome.bytes_format.name}")
+        tooltip.append(f"\nFallback: {Deserialization.BYTES.name}")
+        tooltip.append(f"\nEncoding: {outcome.bytes_encoding.name}")
         tooltip.append(f"\nError: {outcome.error}")
         return tooltip
 
@@ -594,6 +597,7 @@ class KaskadeConsumer(KaskadeApp):
         value_deserialization: Deserialization,
         *,
         bytes_config: dict[str, str] | None = None,
+        fallback_config: dict[str, str] | None = None,
         json_config: dict[str, str] | None = None,
         partitions: tuple[PartitionSelection, ...] = (),
     ):
@@ -604,6 +608,7 @@ class KaskadeConsumer(KaskadeApp):
         self.protobuf_config = protobuf_config
         self.avro_config = avro_config
         self.bytes_config = bytes_config or {}
+        self.fallback_config = fallback_config or {}
         self.json_config = json_config or {}
         self.key_deserialization = key_deserialization
         self.value_deserialization = value_deserialization
@@ -621,6 +626,7 @@ class KaskadeConsumer(KaskadeApp):
             self.key_deserialization,
             self.value_deserialization,
             bytes_config=self.bytes_config,
+            fallback_config=self.fallback_config,
             partitions=self.partitions,
         )
 
@@ -633,6 +639,7 @@ class KaskadeConsumer(KaskadeApp):
             self.key_deserialization,
             self.value_deserialization,
             bytes_config=self.bytes_config,
+            fallback_config=self.fallback_config,
             partitions=self.partitions,
             consumer=self.consumer,
         )

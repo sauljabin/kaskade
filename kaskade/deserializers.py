@@ -85,7 +85,7 @@ class Deserialization(Enum):
         return [str(name) for name in Deserialization]
 
 
-class BytesFormat(Enum):
+class BytesEncoding(Enum):
     BASE64 = auto()
     HEX = auto()
     BYTE_ARRAY = auto()
@@ -95,7 +95,7 @@ class BytesFormat(Enum):
         return self.name.lower().replace("_", "-")
 
     @classmethod
-    def from_str(cls, value: str) -> "BytesFormat":
+    def from_str(cls, value: str) -> "BytesEncoding":
         return cls[value.upper().replace("-", "_")]
 
     @classmethod
@@ -103,8 +103,8 @@ class BytesFormat(Enum):
         cls,
         config: dict[str, str],
         context: MessageField = MessageField.NONE,
-    ) -> "BytesFormat":
-        return cls.from_str(_scoped_property(config, "format", context, str(cls.BASE64)))
+    ) -> "BytesEncoding":
+        return cls.from_str(_scoped_property(config, "encoding", context, str(cls.BASE64)))
 
 
 @dataclass(frozen=True)

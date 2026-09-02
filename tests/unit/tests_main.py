@@ -411,6 +411,8 @@ class TestConsumerCli(unittest.TestCase):
         self.assertIn("-v, --value", deserialization_help)
         self.assertIn("Bytes options:", result.output)
         self.assertIn("--bytes property=value", result.output)
+        self.assertIn("Fallback options:", result.output)
+        self.assertIn("--fallback property=value", result.output)
         self.assertIn("JSON options:", result.output)
         self.assertIn("--json property=value", result.output)
         self.assertIn("Constraints:", result.output)
@@ -581,10 +583,16 @@ class TestConsumerCli(unittest.TestCase):
         self.assertIn("Invalid value for '--protobuf': Should be property=value", result.output)
 
     def test_invalid_bytes_config(self):
-        result = self.runner.invoke(cli, [self.command, "--bytes", "format"])
+        result = self.runner.invoke(cli, [self.command, "--bytes", "encoding"])
 
         self.assertGreater(result.exit_code, 0)
         self.assertIn("Invalid value for '--bytes': Should be property=value", result.output)
+
+    def test_invalid_fallback_config(self):
+        result = self.runner.invoke(cli, [self.command, "--fallback", "encoding"])
+
+        self.assertGreater(result.exit_code, 0)
+        self.assertIn("Invalid value for '--fallback': Should be property=value", result.output)
 
     def test_invalid_json_config(self):
         result = self.runner.invoke(cli, [self.command, "--json", "framing"])
@@ -909,7 +917,7 @@ class TestConsumerCli(unittest.TestCase):
         self.assertEqual(0, result.exit_code)
 
     @patch("kaskade.main.KaskadeConsumer")
-    def test_passes_normalized_bytes_formats(self, mock_class_kaskade_consumer):
+    def test_passes_normalized_bytes_encodings(self, mock_class_kaskade_consumer):
         result = self.runner.invoke(
             cli,
             [
@@ -919,21 +927,42 @@ class TestConsumerCli(unittest.TestCase):
                 "-t",
                 EXPECTED_TOPIC,
                 "--bytes",
-                "format=BASE64",
+                "encoding=BASE64",
                 "--bytes",
-                "key.format=HEX",
+                "key.encoding=HEX",
                 "--bytes",
-                "value.format=BYTE_ARRAY",
+                "value.encoding=BYTE_ARRAY",
             ],
         )
 
         self.assertEqual(
             {
-                "format": "base64",
-                "key.format": "hex",
-                "value.format": "byte-array",
+                "encoding": "base64",
+                "key.encoding": "hex",
+                "value.encoding": "byte-array",
             },
             mock_class_kaskade_consumer.call_args.kwargs["bytes_config"],
+        )
+        self.assertEqual(0, result.exit_code)
+
+    @patch("kaskade.main.KaskadeConsumer")
+    def test_passes_normalized_global_fallback_encoding(self, mock_class_kaskade_consumer):
+        result = self.runner.invoke(
+            cli,
+            [
+                self.command,
+                "-b",
+                EXPECTED_SERVER,
+                "-t",
+                EXPECTED_TOPIC,
+                "--fallback",
+                "encoding=BYTE_ARRAY",
+            ],
+        )
+
+        self.assertEqual(
+            {"encoding": "byte-array"},
+            mock_class_kaskade_consumer.call_args.kwargs["fallback_config"],
         )
         self.assertEqual(0, result.exit_code)
 
@@ -964,7 +993,7 @@ class TestConsumerCli(unittest.TestCase):
         )
         self.assertEqual(0, result.exit_code)
 
-    def test_rejects_invalid_bytes_format(self):
+    def test_rejects_invalid_bytes_encoding(self):
         result = self.runner.invoke(
             cli,
             [
@@ -974,15 +1003,92 @@ class TestConsumerCli(unittest.TestCase):
                 "-t",
                 EXPECTED_TOPIC,
                 "--bytes",
-                "format=utf-8",
+                "encoding=utf-8",
             ],
         )
 
         self.assertGreater(result.exit_code, 0)
         self.assertIn(
-            "Bytes format should be one of ['base64', 'hex', 'byte-array', 'python']",
+            "Bytes encoding should be one of ['base64', 'hex', 'byte-array', 'python']",
             result.output,
         )
+
+    def test_rejects_invalid_fallback_encoding(self):
+        result = self.runner.invoke(
+            cli,
+            [
+                self.command,
+                "-b",
+                EXPECTED_SERVER,
+                "-t",
+                EXPECTED_TOPIC,
+                "--fallback",
+                "encoding=utf-8",
+            ],
+        )
+
+        self.assertGreater(result.exit_code, 0)
+        self.assertIn(
+            "Fallback encoding should be one of ['base64', 'hex', 'byte-array', 'python']",
+            result.output,
+        )
+
+    def test_rejects_scoped_fallback_encoding(self):
+        result = self.runner.invoke(
+            cli,
+            [
+                self.command,
+                "-b",
+                EXPECTED_SERVER,
+                "-t",
+                EXPECTED_TOPIC,
+                "--fallback",
+                "key.encoding=hex",
+            ],
+        )
+
+        self.assertGreater(result.exit_code, 0)
+        self.assertIn("Valid properties: ['encoding']", result.output)
+
+    def test_rejects_bytes_encoding_for_inactive_field(self):
+        result = self.runner.invoke(
+            cli,
+            [
+                self.command,
+                "-b",
+                EXPECTED_SERVER,
+                "-t",
+                EXPECTED_TOPIC,
+                "-k",
+                "string",
+                "--bytes",
+                "key.encoding=hex",
+            ],
+        )
+
+        self.assertGreater(result.exit_code, 0)
+        self.assertIn("--bytes key.encoding requires '-k bytes'", result.output)
+
+    def test_rejects_bytes_configuration_without_bytes_deserializer(self):
+        result = self.runner.invoke(
+            cli,
+            [
+                self.command,
+                "-b",
+                EXPECTED_SERVER,
+                "-t",
+                EXPECTED_TOPIC,
+                "-k",
+                "string",
+                "-v",
+                "json",
+                "--bytes",
+                "encoding=hex",
+            ],
+        )
+
+        self.assertGreater(result.exit_code, 0)
+        self.assertIn("Missing option '-k bytes' and/or '-v bytes'", result.output)
 
     def test_rejects_json_framing_for_inactive_field(self):
         result = self.runner.invoke(

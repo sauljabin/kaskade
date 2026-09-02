@@ -40,7 +40,7 @@ from kaskade.configs import (
     MIN_INSYNC_REPLICAS_CONFIG,
     RETENTION_MS_CONFIG,
 )
-from kaskade.deserializers import BytesFormat, Deserialization, DeserializerPool
+from kaskade.deserializers import BytesEncoding, Deserialization, DeserializerPool
 from kaskade.models import (
     Group,
     GroupMember,
@@ -79,6 +79,7 @@ class ConsumerService:
         value_deserialization: Deserialization,
         *,
         bytes_config: dict[str, str] | None = None,
+        fallback_config: dict[str, str] | None = None,
         partitions: tuple[PartitionSelection, ...] = (),
         page_size: int = 25,
         poll_retries: int = 5,
@@ -93,9 +94,10 @@ class ConsumerService:
         self.key_deserialization = key_deserialization
         self.value_deserialization = value_deserialization
         self.bytes_config = bytes_config or {}
-        self.key_bytes_format = BytesFormat.from_config(self.bytes_config, MessageField.KEY)
-        self.value_bytes_format = BytesFormat.from_config(self.bytes_config, MessageField.VALUE)
-        self.header_bytes_format = BytesFormat.from_config(self.bytes_config)
+        self.fallback_config = fallback_config or {}
+        self.key_bytes_encoding = BytesEncoding.from_config(self.bytes_config, MessageField.KEY)
+        self.value_bytes_encoding = BytesEncoding.from_config(self.bytes_config, MessageField.VALUE)
+        self.fallback_bytes_encoding = BytesEncoding.from_config(self.fallback_config)
         self.partitions = partitions
         self.stable = False
         self.started_at = perf_counter()
@@ -278,7 +280,7 @@ class ConsumerService:
                     key=key,
                     value=value,
                     value_deserializer=self.header_deserializer,
-                    bytes_format=self.header_bytes_format,
+                    fallback_bytes_encoding=self.fallback_bytes_encoding,
                 )
                 for key, value in message.headers() or []
             ],
@@ -286,8 +288,9 @@ class ConsumerService:
             value_deserialization=self.value_deserialization,
             key_deserializer=self.key_deserializer,
             value_deserializer=self.value_deserializer,
-            key_bytes_format=self.key_bytes_format,
-            value_bytes_format=self.value_bytes_format,
+            key_bytes_encoding=self.key_bytes_encoding,
+            value_bytes_encoding=self.value_bytes_encoding,
+            fallback_bytes_encoding=self.fallback_bytes_encoding,
         )
         record.resolve_deserializations()
         self._log_deserialization_fallbacks(record)
@@ -302,14 +305,14 @@ class ConsumerService:
                 continue
             logger.warning(
                 "record deserialization fallback topic=%s partition=%d offset=%d "
-                "field=%s requested=%s error_deserializer=%s format=%s error=%s",
+                "field=%s requested=%s fallback=%s encoding=%s error=%s",
                 record.topic,
                 record.partition,
                 record.offset,
                 field_name,
                 outcome.requested.name,
                 Deserialization.BYTES.name,
-                outcome.bytes_format.name,
+                outcome.bytes_encoding.name,
                 outcome.error,
             )
 

@@ -433,12 +433,12 @@ class TestConsumerService(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(records[1].value_outcome().used_fallback)
         self.assertFalse(records[2].has_deserialization_errors())
         self.assertEqual(
-            {"type": "BYTES", "format": "BASE64"},
-            records[1].dict()["key"]["deserializer"]["error"]["deserializer"],
+            {"type": "BYTES", "encoding": "BASE64"},
+            records[1].dict()["key"]["error"]["fallback"],
         )
 
     @patch("kaskade.services.Consumer")
-    async def test_byte_formats_are_scoped_per_field_and_global_for_headers(
+    async def test_byte_and_fallback_encodings_are_independent(
         self, mock_class_consumer: MagicMock
     ) -> None:
         consumer = mock_class_consumer.return_value
@@ -456,10 +456,11 @@ class TestConsumerService(unittest.IsolatedAsyncioTestCase):
             Deserialization.BYTES,
             Deserialization.BYTES,
             bytes_config={
-                "format": "python",
-                "key.format": "hex",
-                "value.format": "byte-array",
+                "encoding": "base64",
+                "key.encoding": "hex",
+                "value.encoding": "byte-array",
             },
+            fallback_config={"encoding": "python"},
         )
         service.on_assign(consumer, [TopicPartition("orders", 0)])
 
@@ -470,7 +471,7 @@ class TestConsumerService(unittest.IsolatedAsyncioTestCase):
             record.dict()["key"]["content"],
         )
         self.assertEqual(
-            {"type": "BYTES", "format": "HEX"},
+            {"type": "BYTES", "encoding": "HEX"},
             record.dict()["key"]["deserializer"],
         )
         self.assertEqual(
@@ -478,29 +479,25 @@ class TestConsumerService(unittest.IsolatedAsyncioTestCase):
             record.dict()["value"]["content"],
         )
         self.assertEqual(
-            {"type": "BYTES", "format": "BYTE_ARRAY"},
+            {"type": "BYTES", "encoding": "BYTE_ARRAY"},
             record.dict()["value"]["deserializer"],
         )
         self.assertEqual(
             {
                 "key": "binary",
                 "value": "b'\\xff'",
-                "deserializer": {
-                    "type": "STRING",
-                    "error": {
-                        "message": (
-                            "'utf-8' codec can't decode byte 0xff in position 0: "
-                            "invalid start byte"
-                        ),
-                        "deserializer": {"type": "BYTES", "format": "PYTHON"},
-                    },
+                "error": {
+                    "message": (
+                        "'utf-8' codec can't decode byte 0xff in position 0: " "invalid start byte"
+                    ),
+                    "fallback": {"type": "BYTES", "encoding": "PYTHON"},
                 },
             },
             record.dict()["headers"][0],
         )
 
     @patch("kaskade.services.Consumer")
-    async def test_byte_formats_use_field_scope_for_deserialization_errors(
+    async def test_fallback_encoding_is_global_for_deserialization_errors(
         self, mock_class_consumer: MagicMock
     ) -> None:
         consumer = mock_class_consumer.return_value
@@ -517,11 +514,8 @@ class TestConsumerService(unittest.IsolatedAsyncioTestCase):
             DeserializerPool(),
             Deserialization.STRING,
             Deserialization.STRING,
-            bytes_config={
-                "format": "python",
-                "key.format": "hex",
-                "value.format": "byte-array",
-            },
+            fallback_config={"encoding": "python"},
+            page_size=1,
         )
         service.on_assign(consumer, [TopicPartition("orders", 0)])
 
@@ -529,24 +523,24 @@ class TestConsumerService(unittest.IsolatedAsyncioTestCase):
             record = (await service.consume())[0]
 
         data = record.dict()
-        self.assertEqual("ff", data["key"]["content"])
+        self.assertEqual("b'\\xff'", data["key"]["content"])
         self.assertEqual(
-            {"type": "BYTES", "format": "HEX"},
-            data["key"]["deserializer"]["error"]["deserializer"],
+            {"type": "BYTES", "encoding": "PYTHON"},
+            data["key"]["error"]["fallback"],
         )
-        self.assertEqual([254], data["value"]["content"])
+        self.assertEqual("b'\\xfe'", data["value"]["content"])
         self.assertEqual(
-            {"type": "BYTES", "format": "BYTE_ARRAY"},
-            data["value"]["deserializer"]["error"]["deserializer"],
+            {"type": "BYTES", "encoding": "PYTHON"},
+            data["value"]["error"]["fallback"],
         )
         self.assertEqual("b'\\xfd'", data["headers"][0]["value"])
         self.assertEqual(
-            {"type": "BYTES", "format": "PYTHON"},
-            data["headers"][0]["deserializer"]["error"]["deserializer"],
+            {"type": "BYTES", "encoding": "PYTHON"},
+            data["headers"][0]["error"]["fallback"],
         )
-        self.assertTrue(any("error_deserializer=BYTES format=HEX" in log for log in logs.output))
-        self.assertTrue(
-            any("error_deserializer=BYTES format=BYTE_ARRAY" in log for log in logs.output)
+        self.assertEqual(
+            2,
+            sum("fallback=BYTES encoding=PYTHON" in log for log in logs.output),
         )
 
     @patch("kaskade.services.Consumer")

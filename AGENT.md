@@ -93,15 +93,18 @@ requiring newer functionality.
   cell tooltips, copy, and export. Broker failures and unexpected exceptions
   remain fatal.
 - Keep consumed-record JSON consistent across details, copy, and export. Represent
-  headers as ordered `key`/`value` objects, nest `type`, optional Registry `schema`,
-  and error-deserializer metadata under `deserializer`, and keep Registry metadata
-  resolution best-effort and cached per schema, topic, and field. Keep
+  headers as ordered `key`/`value` objects, adding a top-level `error` only when
+  STRING header deserialization fails. Put key/value `type` and optional Registry
+  `schema` under `deserializer`; put failure metadata in a sibling `error` with a
+  BYTES `fallback`. Keep Registry metadata resolution best-effort and cached per
+  schema, topic, and field. Keep
   `schemas/consumer-record.schema.json`, its examples, and conformance tests synchronized
   with this versionless contract.
-- Represent encoded bytes directly in `content` and put `format` on the BYTES
-  deserializer that produced them. Apply the configured global byte format to
-  keys, values, header errors, and deserialization errors, with field-scoped
-  key/value overrides. Omit `format` for null content.
+- Represent encoded bytes directly in `content` and put `encoding` on the BYTES
+  deserializer that produced them. `--bytes` configures explicit BYTES key/value
+  deserializers with global and field-scoped encodings. The separate global-only
+  `--fallback encoding=...` configures key, value, and header deserialization errors.
+  Both default independently to Base64. Omit `encoding` for null content.
 
 ## TUI Interaction Conventions
 
@@ -251,7 +254,8 @@ The manual Kafka environment lives entirely in `sandbox`, including its own
 schema models, generated Protobuf artifacts, Compose file, and environment
 versions. Never import test fixtures from sandbox utilities or sandbox models
 from tests. Its `errors` topic cycles through valid and deliberately malformed
-Schema Registry key/value payloads for consumer fallback testing. Keep one
+Schema Registry key/value payloads and an invalid UTF-8 header case for consumer
+fallback testing. Keep one
 Compose topology: three Confluent Kafka brokers, Apicurio Registry, and
 Confluent Schema Registry, with no web UI.
 Keep the sandbox topic registry lambda-free and route every topic through a

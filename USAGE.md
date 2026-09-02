@@ -21,8 +21,9 @@ Supported deserializers are `bytes`, `boolean`, `string`, `long`, `integer`,
 `double`, `float`, `json`, `avro`, `protobuf`, and `registry`.
 
 Deserializer-specific settings use repeatable `property=value` options. Use
-`--bytes` for byte presentation, `--json` for local JSON framing, `--avro` for
-local Avro schemas and framing, `--protobuf` for descriptors, message names,
+`--bytes` for explicit BYTES deserializer presentation, `--fallback` for global
+deserialization-error byte presentation, `--json` for local JSON framing, `--avro`
+for local Avro schemas and framing, `--protobuf` for descriptors, message names,
 and framing, and `--registry` for Schema Registry client properties. Repeat the
 relevant option once per property. See the [Schema Registry](#schema-registry)
 and [format-specific consumer](#format-specific-consumers) examples below.
@@ -206,7 +207,13 @@ Schema Draft 2020-12 and intentionally has no separate contract-version property
   "offset": 42,
   "timestamp": "2026-08-28T14:12:05.120Z",
   "headers": [
-    {"key": "source", "value": "storefront"}
+    {
+      "key": "source",
+      "value": {
+        "content": "storefront",
+        "deserializer": {"type": "STRING"}
+      }
+    }
   ],
   "key": {
     "content": "order-1048",
@@ -252,22 +259,23 @@ the schema ID resolves to an unambiguous subject and version:
 ```
 
 Headers remain an ordered array of `key` and `value` objects because Kafka permits repeated
-header names. JSON timestamps use UTC ISO 8601 with millisecond precision, or `null` when
-Kafka supplies no timestamp. Tombstone keys and values use `content: null`. Local Avro,
-local Protobuf, and non-schema deserializers omit `schema`. A Registry deserializer also
-omits `schema` when its metadata cannot be resolved unambiguously.
+header names. Header values are deserialized as STRING and remain compact when successful.
+JSON timestamps use UTC ISO 8601 with millisecond
+precision, or `null` when Kafka supplies no timestamp. Tombstone keys and values use
+`content: null`. Local Avro, local Protobuf, and non-schema deserializers omit `schema`. A
+Registry deserializer also omits `schema` when its metadata cannot be resolved unambiguously.
 In the records table, absent keys and values appear as a colored `null`; hover the cell
 to distinguish an absent key from a tombstone value.
 
 Byte content stays directly in `content`, and its BYTES deserializer carries the
-presentation format. Base64 is the default portable format:
+presentation encoding. Base64 is the default portable encoding:
 
 ```json
 {
   "content": "SGVsbG8gd29ybGQ=",
   "deserializer": {
     "type": "BYTES",
-    "format": "BASE64"
+    "encoding": "BASE64"
   }
 }
 ```
@@ -275,17 +283,16 @@ presentation format. Base64 is the default portable format:
 Configure byte presentation globally or override it for one field:
 
 ```bash
---bytes format=base64 \
---bytes key.format=hex \
---bytes value.format=byte-array
+--bytes encoding=base64 \
+--bytes key.encoding=hex \
+--bytes value.encoding=byte-array
 ```
 
-Supported formats are `base64`, `hex`, `byte-array`, and `python`. Values are
+Supported encodings are `base64`, `hex`, `byte-array`, and `python`. Values are
 case-insensitive, and underscores such as `BYTE_ARRAY` normalize to `byte-array`.
-For a key or value, its scoped property overrides `format`; header fallbacks use
-only the global format. The same resolved format applies to explicitly selected
-BYTES fields and error BYTES deserializers. Null BYTES fields omit `format` because
-they contain no bytes to interpret.
+For an explicitly selected BYTES key or value, its scoped property overrides
+`encoding`. `--bytes` does not configure deserialization errors. Null BYTES fields
+omit `encoding` because they contain no bytes to interpret.
 
 ## Consumer behavior
 
@@ -313,42 +320,47 @@ cannot be combined.
 ### Deserialization failures
 
 If a configured key or value deserializer cannot decode an individual record,
-Kaskade shows `⚠`, displays that field using a BYTES error deserializer, and keeps
-consuming. The recovered content uses the configured byte format, while the
-diagnostic is nested inside the requested deserializer:
+Kaskade shows `⚠`, displays that field using a BYTES fallback, and keeps
+consuming. Configure the global presentation of recovered key, value, and header
+bytes independently from explicit BYTES fields:
+
+```bash
+--fallback encoding=hex
+```
+
+`--fallback` accepts only the global `encoding` property; key and value scopes are
+not supported. It defaults to Base64. The diagnostic is a sibling of the
+requested deserializer:
 
 ```json
 {
   "content": "/w==",
   "deserializer": {
-    "type": "REGISTRY",
-    "error": {
-      "message": "Unexpected magic byte -1",
-      "deserializer": {
-        "type": "BYTES",
-        "format": "BASE64"
-      }
+    "type": "REGISTRY"
+  },
+  "error": {
+    "message": "Unexpected magic byte -1",
+    "fallback": {
+      "type": "BYTES",
+      "encoding": "BASE64"
     }
   }
 }
 ```
 
-Valid headers remain `{key, value}` objects. If a header is not valid UTF-8,
-its raw value uses the global byte format and the header includes the same
-nested error-deserializer metadata:
+Every successful header remains a compact `{key, value}` object. If a header is
+not valid UTF-8, its raw content uses the global fallback encoding and the header
+adds the same top-level error metadata:
 
 ```json
 {
   "key": "binary",
   "value": "/w==",
-  "deserializer": {
-    "type": "STRING",
-    "error": {
-      "message": "Invalid UTF-8 payload",
-      "deserializer": {
-        "type": "BYTES",
-        "format": "BASE64"
-      }
+  "error": {
+    "message": "Invalid UTF-8 payload",
+    "fallback": {
+      "type": "BYTES",
+      "encoding": "BASE64"
     }
   }
 }

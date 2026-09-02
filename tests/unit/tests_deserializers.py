@@ -13,7 +13,7 @@ from google.protobuf.message import DecodeError
 from kaskade.deserializers import (
     AvroDeserializer,
     BooleanDeserializer,
-    BytesFormat,
+    BytesEncoding,
     DefaultDeserializer,
     Deserialization,
     DeserializationError,
@@ -73,12 +73,9 @@ class TestDeserializer(unittest.TestCase):
             {
                 "key": "",
                 "value": "aW52YWxpZA==",
-                "deserializer": {
-                    "type": "STRING",
-                    "error": {
-                        "message": "invalid data",
-                        "deserializer": {"type": "BYTES", "format": "BASE64"},
-                    },
+                "error": {
+                    "message": "invalid data",
+                    "fallback": {"type": "BYTES", "encoding": "BASE64"},
                 },
             },
             header.dict(),
@@ -137,28 +134,28 @@ class TestDeserializer(unittest.TestCase):
         self.assertIs(record.dict()["key"]["content"], False)
         self.assertIs(record.dict()["value"]["content"], True)
 
-    def test_record_bytes_support_every_output_format(self):
+    def test_record_bytes_support_every_output_encoding(self):
         data = b"Hello world"
-        formats = {
-            BytesFormat.BASE64: ("SGVsbG8gd29ybGQ=", "SGVsbG8gd29ybGQ="),
-            BytesFormat.HEX: ("48656c6c6f20776f726c64", "48656c6c6f20776f726c64"),
-            BytesFormat.BYTE_ARRAY: (
+        encodings = {
+            BytesEncoding.BASE64: ("SGVsbG8gd29ybGQ=", "SGVsbG8gd29ybGQ="),
+            BytesEncoding.HEX: ("48656c6c6f20776f726c64", "48656c6c6f20776f726c64"),
+            BytesEncoding.BYTE_ARRAY: (
                 [72, 101, 108, 108, 111, 32, 119, 111, 114, 108, 100],
                 "[72, 101, 108, 108, 111, 32, 119, 111, 114, 108, 100]",
             ),
-            BytesFormat.PYTHON: ("b'Hello world'", "b'Hello world'"),
+            BytesEncoding.PYTHON: ("b'Hello world'", "b'Hello world'"),
         }
 
-        for bytes_format, (json_data, display) in formats.items():
-            record = Record(key=data, key_bytes_format=bytes_format)
+        for bytes_encoding, (json_data, display) in encodings.items():
+            record = Record(key=data, key_bytes_encoding=bytes_encoding)
 
-            with self.subTest(bytes_format=bytes_format):
+            with self.subTest(bytes_encoding=bytes_encoding):
                 self.assertEqual(
                     json_data,
                     record.dict()["key"]["content"],
                 )
                 self.assertEqual(
-                    {"type": "BYTES", "format": bytes_format.name},
+                    {"type": "BYTES", "encoding": bytes_encoding.name},
                     record.dict()["key"]["deserializer"],
                 )
                 self.assertEqual(
@@ -167,7 +164,7 @@ class TestDeserializer(unittest.TestCase):
                 )
                 self.assertEqual(display, record.key_str())
 
-    def test_null_content_omits_schema_and_bytes_format_for_every_deserializer(self):
+    def test_null_content_omits_schema_and_bytes_encoding_for_every_deserializer(self):
         for deserialization in Deserialization:
             with self.subTest(deserialization=deserialization):
                 field = Record(key_deserialization=deserialization).dict()["key"]
@@ -198,17 +195,16 @@ class TestDeserializer(unittest.TestCase):
             key=b"586",
             key_deserialization=Deserialization.INTEGER,
             key_deserializer=IntegerDeserializer(),
+            key_bytes_encoding=BytesEncoding.HEX,
         )
 
         self.assertEqual(
             {
                 "content": "NTg2",
-                "deserializer": {
-                    "type": "INTEGER",
-                    "error": {
-                        "message": "unpack requires a buffer of 4 bytes",
-                        "deserializer": {"type": "BYTES", "format": "BASE64"},
-                    },
+                "deserializer": {"type": "INTEGER"},
+                "error": {
+                    "message": "unpack requires a buffer of 4 bytes",
+                    "fallback": {"type": "BYTES", "encoding": "BASE64"},
                 },
             },
             record.dict()["key"],
