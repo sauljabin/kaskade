@@ -12,6 +12,7 @@ from confluent_kafka import (
     OFFSET_INVALID,
     Consumer,
     ConsumerGroupTopicPartitions,
+    KafkaError,
     KafkaException,
     TopicPartition,
 )
@@ -32,7 +33,9 @@ from confluent_kafka.serialization import MessageField
 from kaskade import logger
 from kaskade.commands import EMPTY_RECORD_FILTERS, CreateTopicCommand, RecordFilters
 from kaskade.configs import (
+    AUTO_OFFSET_RESET,
     CLEANUP_POLICY_CONFIG,
+    EARLIEST,
     ENABLE_AUTO_COMMIT,
     GROUP_ID,
     MAX_POLL_INTERVAL_MS,
@@ -63,6 +66,11 @@ ADMIN_EXCEPTIONS: tuple[type[Exception], ...] = (
     TypeError,
     ValueError,
 )
+CONSUMER_AUTHORIZATION_ERROR_CODES = {
+    KafkaError.GROUP_AUTHORIZATION_FAILED,
+    KafkaError.SASL_AUTHENTICATION_FAILED,
+    KafkaError.TOPIC_AUTHORIZATION_FAILED,
+}
 
 
 class PartitionSelectionError(ValueError):
@@ -99,18 +107,19 @@ class ConsumerService:
         self.value_bytes_encoding = BytesEncoding.from_config(self.bytes_config, MessageField.VALUE)
         self.fallback_bytes_encoding = BytesEncoding.from_config(self.fallback_config)
         self.partitions = partitions
+        self.manually_assigned = bool(partitions) or kafka_config.get(AUTO_OFFSET_RESET) == EARLIEST
         self.stable = False
         self.started_at = perf_counter()
         self.assigned_at: float | None = None
-        self.consumer = Consumer(
-            kafka_config
-            | {
-                GROUP_ID: f"kaskade-{uuid.uuid4()}",
-                ENABLE_AUTO_COMMIT: False,
-                MAX_POLL_INTERVAL_MS: MILLISECONDS_24H,
-            },
-            logger=logger,
-        )
+        self._consumer_error: KafkaError | None = None
+        default_group_id = f"kaskade-{uuid.uuid4()}"
+        consumer_config = kafka_config | {
+            ENABLE_AUTO_COMMIT: False,
+            MAX_POLL_INTERVAL_MS: MILLISECONDS_24H,
+            "error_cb": self._on_consumer_error,
+        }
+        consumer_config.setdefault(GROUP_ID, default_group_id)
+        self.consumer = Consumer(consumer_config, logger=logger)
         try:
             self._start_consuming()
             self.deserializer_factory = deserializer_factory
@@ -123,13 +132,17 @@ class ConsumerService:
         self._operation_lock = asyncio.Lock()
 
     def _start_consuming(self) -> None:
-        if not self.partitions:
+        if not self.manually_assigned:
             self.consumer.subscribe([self.topic], on_assign=self.on_assign)
             return
 
         available_partitions = self._available_partitions()
+        selections = self.partitions or tuple(
+            PartitionSelection(partition, PartitionOffset.EARLIEST)
+            for partition in sorted(available_partitions)
+        )
         assignments = [
-            self._assignment(selection, available_partitions) for selection in self.partitions
+            self._assignment(selection, available_partitions) for selection in selections
         ]
         self.consumer.assign(assignments)
         self.on_assign(self.consumer, assignments)
@@ -185,8 +198,20 @@ class ConsumerService:
             self.assigned_at - self.started_at,
         )
 
+    def _on_consumer_error(self, error: KafkaError) -> None:
+        logger.error("consumer error: %s", error)
+        if error.code() in CONSUMER_AUTHORIZATION_ERROR_CODES:
+            self._consumer_error = error
+
+    def _raise_consumer_error(self) -> None:
+        if self._consumer_error is None:
+            return
+        error = self._consumer_error
+        self._consumer_error = None
+        raise KafkaException(error)
+
     def close(self) -> None:
-        if self.partitions:
+        if self.manually_assigned:
             self.consumer.unassign()
         else:
             self.consumer.unsubscribe()
@@ -222,6 +247,7 @@ class ConsumerService:
                 self.page_size - len(records),
                 timeout=self.timeout,
             )
+            self._raise_consumer_error()
 
             if not self.stable:
                 stabilization_retries += 1

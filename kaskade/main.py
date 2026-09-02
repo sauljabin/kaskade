@@ -56,7 +56,10 @@ BOOTSTRAP_SERVERS_REQUIRED = (
     "bootstrap.servers with --kafka or --config-file."
 )
 EPILOG_HELP = "More information at https://github.com/sauljabin/kaskade."
-EARLIEST_HELP = "Read all partitions from their earliest available offsets."
+EARLIEST_HELP = (
+    "Read all partitions from their earliest available offsets, ignoring committed "
+    "consumer-group offsets."
+)
 PARTITION_SELECTION_METAVAR = "partition[:offset|earliest]"
 PARTITION_SELECTION_SYNTAX = "<partition>[:<absolute-offset|earliest>]"
 PARTITION_SELECTION_HELP = (

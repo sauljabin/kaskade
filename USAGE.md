@@ -624,8 +624,11 @@ and narrow the topic wildcard when appropriate.
 }
 ```
 
-Consumer group access can be limited to `kaskade-*` because Kaskade creates
-ephemeral groups named `kaskade-<uuid>`. For read-only admin access, remove
+Kaskade honors `group.id` from Kafka client configuration. When it is omitted,
+Kaskade creates an ephemeral `kaskade-<uuid>` group.
+`--earliest` and explicit `--partition` reads use direct partition assignment;
+they do not use committed offsets. Set `group.id` explicitly when the Kafka
+principal is restricted to a specific consumer group. For read-only admin access, remove
 `CreateTopic`, `AlterTopic`, `DeleteTopic`, `AlterTopicDynamicConfiguration`,
 and `ReadData` from the topic statement, then remove the
 `UseKaskadeConsumerGroups` statement.
@@ -642,7 +645,7 @@ For SASL/SCRAM and mTLS connections, grant the Kafka principal these operations:
 | --- | --- | --- | --- |
 | Admin (read only) | `Describe`, `DescribeConfigs` | `Describe` on groups to display | `Describe` |
 | Admin (full access) | `Describe`, `DescribeConfigs`, `Create`, `Alter`, `Delete`, `AlterConfigs` | `Describe` on groups to display | `Describe` |
-| Consumer | `Read`, `Describe` on topics to consume | `Read`, `Describe` on the `kaskade-` prefix | — |
+| Consumer | `Read`, `Describe` on topics to consume | `Read`, `Describe` on the configured `group.id` or `kaskade-` prefix | — |
 
 Use `User:<username>` for SASL/SCRAM or the certificate principal for mTLS, such
 as `User:CN=kaskade`. Run the commands as an ACL administrator and configure

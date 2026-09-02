@@ -9,6 +9,7 @@ from confluent_kafka import (
     OFFSET_BEGINNING,
     OFFSET_END,
     ConsumerGroupTopicPartitions,
+    KafkaError,
     KafkaException,
     Node,
 )
@@ -26,6 +27,7 @@ from confluent_kafka.admin import (
 from confluent_kafka.cimpl import CONSUMER_GROUP_STATE_STABLE, TopicPartition
 
 from kaskade.commands import CreateTopicCommand, RecordFilters
+from kaskade.configs import AUTO_OFFSET_RESET, EARLIEST, GROUP_ID
 from kaskade.deserializers import (
     Deserialization,
     Deserializer,
@@ -351,6 +353,85 @@ class TestConsumerService(unittest.IsolatedAsyncioTestCase):
         service.close()
         consumer.unassign.assert_called_once_with()
         consumer.unsubscribe.assert_not_called()
+
+    @patch("kaskade.services.Consumer")
+    async def test_earliest_assigns_every_partition_without_committed_offsets(
+        self, mock_class_consumer: MagicMock
+    ) -> None:
+        consumer = mock_class_consumer.return_value
+        topic = MagicMock(error=None, partitions={0: object(), 1: object(), 2: object()})
+        consumer.list_topics.return_value.topics = {"orders": topic}
+
+        service = ConsumerService(
+            "orders",
+            {
+                "bootstrap.servers": "localhost:9092",
+                AUTO_OFFSET_RESET: EARLIEST,
+            },
+            DeserializerPool(),
+            Deserialization.STRING,
+            Deserialization.STRING,
+        )
+
+        assignments = consumer.assign.call_args.args[0]
+        self.assertEqual(
+            [(0, OFFSET_BEGINNING), (1, OFFSET_BEGINNING), (2, OFFSET_BEGINNING)],
+            [(assignment.partition, assignment.offset) for assignment in assignments],
+        )
+        self.assertRegex(
+            mock_class_consumer.call_args.args[0][GROUP_ID],
+            r"^kaskade-[0-9a-f-]+$",
+        )
+        consumer.subscribe.assert_not_called()
+        self.assertTrue(service.stable)
+
+        service.close()
+        consumer.unassign.assert_called_once_with()
+
+    @patch("kaskade.services.Consumer")
+    async def test_honors_configured_group_id(self, mock_class_consumer: MagicMock) -> None:
+        consumer = mock_class_consumer.return_value
+        service = ConsumerService(
+            "orders",
+            {
+                "bootstrap.servers": "localhost:9092",
+                GROUP_ID: "authorized-reader",
+            },
+            DeserializerPool(),
+            Deserialization.STRING,
+            Deserialization.STRING,
+        )
+
+        self.assertEqual(
+            "authorized-reader",
+            mock_class_consumer.call_args.args[0][GROUP_ID],
+        )
+
+        service.close()
+        consumer.unsubscribe.assert_called_once_with()
+
+    @patch("kaskade.services.Consumer")
+    async def test_surfaces_group_authorization_callback(
+        self, mock_class_consumer: MagicMock
+    ) -> None:
+        consumer = mock_class_consumer.return_value
+        consumer.consume.return_value = []
+        service = ConsumerService(
+            "orders",
+            {"bootstrap.servers": "localhost:9092"},
+            DeserializerPool(),
+            Deserialization.STRING,
+            Deserialization.STRING,
+        )
+        error = KafkaError(
+            KafkaError.GROUP_AUTHORIZATION_FAILED,
+            "Group authorization failed",
+        )
+        error_callback = mock_class_consumer.call_args.args[0]["error_cb"]
+        error_callback(error)
+
+        with self.assertRaisesRegex(KafkaException, "Group authorization failed"):
+            await service.consume()
 
     @patch("kaskade.services.Consumer")
     async def test_rejects_nonexistent_explicit_partition(
