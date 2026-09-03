@@ -1,0 +1,82 @@
+name: Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "site/**"
+      - "images/banner.svg"
+      - "images/banner-borderless.svg"
+      - "images/admin.svg"
+      - "images/admin-borderless.svg"
+      - "images/consumer.svg"
+      - "images/consumer-borderless.svg"
+      - "images/littlehorse-badge.svg"
+      - "images/textual-badge.svg"
+      - ".github/workflows/pages.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "site/**"
+      - "images/banner.svg"
+      - "images/banner-borderless.svg"
+      - "images/admin.svg"
+      - "images/admin-borderless.svg"
+      - "images/consumer.svg"
+      - "images/consumer-borderless.svg"
+      - "images/littlehorse-badge.svg"
+      - "images/textual-badge.svg"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build site
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - name: Configure Pages
+        uses: actions/configure-pages@v6.0.0
+      - name: Assemble site
+        run: |
+          mkdir -p _site/assets
+          cp -R site/. _site/
+          cp \
+            images/banner-borderless.svg \
+            images/admin-borderless.svg \
+            images/consumer-borderless.svg \
+            images/littlehorse-badge.svg \
+            images/textual-badge.svg \
+            _site/assets/
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v5.0.0
+        with:
+          path: _site
+
+  deploy:
+    name: Deploy site
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5.0.0

@@ -23,7 +23,7 @@ from kaskade.models import (
 )
 from kaskade.services import ConsumerService, EnrichmentResult, GroupSnapshot, TopicService
 from kaskade.widgets import KaskadeHeader
-from scripts import normalize_svg
+from scripts import normalize_svg, remove_svg_terminal_chrome
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 IMAGES_DIRECTORY = PROJECT_ROOT / "images"
@@ -196,24 +196,26 @@ class ConsumerScreenshotApp(KaskadeConsumer):
         yield Footer(compact=True)
 
 
-async def _export(app: KaskadeAdmin | KaskadeConsumer, filename: str) -> Path:
+async def _export(app: KaskadeAdmin | KaskadeConsumer, name: str) -> tuple[Path, Path]:
     async with app.run_test(size=SCREENSHOT_SIZE) as pilot:
         await app.workers.wait_for_complete()
         await pilot.pause()
         svg = app.export_screenshot(title=app.TITLE, simplify=True)
 
-    path = IMAGES_DIRECTORY / filename
-    path.write_text(normalize_svg(svg), encoding="utf-8")
-    return path
+    framed_path = IMAGES_DIRECTORY / f"{name}.svg"
+    borderless_path = IMAGES_DIRECTORY / f"{name}-borderless.svg"
+    framed_path.write_text(normalize_svg(svg), encoding="utf-8")
+    borderless_path.write_text(normalize_svg(remove_svg_terminal_chrome(svg)), encoding="utf-8")
+    return framed_path, borderless_path
 
 
-async def generate_screenshots() -> tuple[Path, Path]:
-    """Render admin and consumer README screenshots as SVG files."""
+async def generate_screenshots() -> tuple[Path, Path, Path, Path]:
+    """Render framed and borderless admin and consumer screenshots as SVG files."""
     IMAGES_DIRECTORY.mkdir(parents=True, exist_ok=True)
     admin, consumer = _new_apps()
-    admin_path = await _export(admin, "admin.svg")
-    consumer_path = await _export(consumer, "consumer.svg")
-    return admin_path, consumer_path
+    admin_paths = await _export(admin, "admin")
+    consumer_paths = await _export(consumer, "consumer")
+    return *admin_paths, *consumer_paths
 
 
 def _new_apps() -> tuple[AdminScreenshotApp, ConsumerScreenshotApp]:

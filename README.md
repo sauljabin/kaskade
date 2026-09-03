@@ -12,7 +12,8 @@
 <a href="https://hub.docker.com/r/sauljabin/kaskade/tags"><img alt="Docker version" src="https://img.shields.io/docker/v/sauljabin/kaskade?style=flat-square&logo=docker&logoColor=white&label=docker"></a>
 </p>
 
-Bring Kafka along for the terminal ride. Kaskade gives you a stylish, keyboard-friendly way to explore clusters, manage topics, and consume records.
+Stay in flow while Kafka streams by. Kaskade puts topic management and record
+consumption in a fast, keyboard-driven terminal interface.
 
 ## Screenshots
 
@@ -57,11 +58,6 @@ Bring Kafka along for the terminal ride. Kaskade gives you a stylish, keyboard-f
 - Navigate entirely by keyboard with arrow and Vim-style shortcuts
 - Customize themes and keybindings
 - Copy data through an [OSC 52-compatible terminal](https://github.com/sauljabin/kaskade/blob/main/USAGE.md#osc-52-compatibility)
-
-## Current limitations
-
-- Topic replication factors cannot be changed
-- Clipboard integration requires an OSC 52-compatible terminal
 
 ## Quick start
 

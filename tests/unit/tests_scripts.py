@@ -24,32 +24,52 @@ class TestReadmeVisualScripts(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(view_width, root.attrib["width"])
         self.assertEqual(view_height, root.attrib["height"])
 
-    async def test_banner_uses_eva01_colors_and_keeps_both_borders(self) -> None:
+    async def test_banner_generates_framed_and_borderless_eva01_variants(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
-            output = Path(temporary_directory) / "banner.svg"
+            output = Path(temporary_directory)
             with (
                 patch.dict(os.environ, {"NO_COLOR": "1"}),
-                patch.object(banner, "IMAGES_DIRECTORY", output.parent),
-                patch.object(banner, "BANNER_PATH", output),
+                patch.object(banner, "IMAGES_DIRECTORY", output),
+                patch.object(banner, "BANNER_PATH", output / "banner.svg"),
+                patch.object(banner, "BORDERLESS_BANNER_PATH", output / "banner-borderless.svg"),
             ):
-                await banner.generate_banner()
+                paths = await banner.generate_banner()
 
-            svg = output.read_text(encoding="utf-8")
-            self.assert_eva01_colors(svg.lower())
-            self.assert_intrinsic_dimensions(svg)
-            self.assertIn("╗", svg)
-            self.assertIn("╝", svg)
+            self.assertEqual({path.name for path in paths}, {"banner.svg", "banner-borderless.svg"})
+            for path in paths:
+                with self.subTest(path=path.name):
+                    svg = path.read_text(encoding="utf-8")
+                    self.assert_eva01_colors(svg.lower())
+                    self.assert_intrinsic_dimensions(svg)
+                    self.assertIn("╗", svg)
+                    self.assertIn("╝", svg)
+                    circles = sum(
+                        child.tag.endswith("circle") for child in ElementTree.fromstring(svg).iter()
+                    )
+                    self.assertEqual(circles, 0 if "borderless" in path.stem else 3)
 
-    async def test_screenshots_use_eva01_colors_when_no_color_is_set(self) -> None:
+            borderless_svg = paths[1].read_text(encoding="utf-8").lower()
+            self.assertIn(EVA01_THEME.background.lower(), borderless_svg)
+
+    async def test_screenshots_generate_framed_and_borderless_eva01_variants(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             output = Path(temporary_directory)
             with (
                 patch.dict(os.environ, {"NO_COLOR": "1"}),
                 patch.object(screenshots, "IMAGES_DIRECTORY", output),
             ):
-                admin_path, consumer_path = await screenshots.generate_screenshots()
+                paths = await screenshots.generate_screenshots()
 
-            for path in (admin_path, consumer_path):
+            self.assertEqual(
+                {path.name for path in paths},
+                {
+                    "admin.svg",
+                    "admin-borderless.svg",
+                    "consumer.svg",
+                    "consumer-borderless.svg",
+                },
+            )
+            for path in paths:
                 with self.subTest(path=path.name):
                     svg = path.read_text(encoding="utf-8")
                     self.assert_eva01_colors(svg.lower())
@@ -57,3 +77,19 @@ class TestReadmeVisualScripts(unittest.IsolatedAsyncioTestCase):
                     self.assertIn(f"v{screenshots.SCREENSHOT_VERSION}", svg)
                     if APP_VERSION != screenshots.SCREENSHOT_VERSION:
                         self.assertNotIn(f"v{APP_VERSION}", svg)
+
+                    root = ElementTree.fromstring(svg)
+                    terminal_groups = [
+                        child
+                        for child in root
+                        if child.tag.endswith("g") and "clip-terminal" in child.get("clip-path", "")
+                    ]
+                    self.assertEqual(len(terminal_groups), 1)
+                    if "borderless" in path.stem:
+                        self.assertNotIn("transform", terminal_groups[0].attrib)
+                        self.assertFalse(any(child.tag.endswith("circle") for child in root.iter()))
+                    else:
+                        self.assertIn("transform", terminal_groups[0].attrib)
+                        self.assertEqual(
+                            sum(child.tag.endswith("circle") for child in root.iter()), 3
+                        )

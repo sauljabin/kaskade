@@ -167,10 +167,11 @@ fixtures live in `tests/unit`; E2E tests live in `tests/e2e`, use Confluent Kafk
 and Schema Registry through Testcontainers, and should rely on conditions and
 public Textual APIs rather than sleeps or private widget state.
 
-README SVGs in `images/` come from `uv run python -m scripts.banner` and
-`uv run python -m scripts.screenshots`; neither needs Kafka. Use absolute
-`raw.githubusercontent.com` URLs targeting `main`. Paired screenshots use equal
-50% table columns and 100% image width.
+Generated SVGs in `images/` come from `uv run python -m scripts.banner` and
+`uv run python -m scripts.screenshots`; neither needs Kafka. The screenshot
+commands emit framed README images and borderless site variants. Use absolute
+`raw.githubusercontent.com` URLs targeting `main`. Paired README screenshots
+use equal 50% table columns and 100% image width.
 
 Keep the manual Kafka environment self-contained in `sandbox`; never share its
 fixtures or models with tests. Maintain one topology with three Confluent Kafka

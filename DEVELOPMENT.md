@@ -75,13 +75,14 @@ Running code analysis:
 uv run --locked python -m scripts.analyze
 ```
 
-Generate banner:
+Generate the framed README banner and borderless site variant:
 
 ```bash
 uv run python -m scripts.banner
 ```
 
-Generate admin and consumer screenshots with mock data (no Kafka broker required):
+Generate framed README screenshots and borderless site variants with mock data
+(no Kafka broker required):
 
 ```bash
 uv run python -m scripts.screenshots
