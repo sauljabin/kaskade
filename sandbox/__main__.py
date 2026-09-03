@@ -1,5 +1,6 @@
 import json
 import os
+import struct
 import time
 import uuid
 from collections.abc import Callable
@@ -10,6 +11,7 @@ from time import sleep
 from typing import Any
 
 import click
+import httpx
 from confluent_kafka import KafkaError, KafkaException, Producer
 from confluent_kafka.admin import AdminClient
 from confluent_kafka.cimpl import NewTopic
@@ -43,8 +45,12 @@ JSON_USER_SCHEMA: dict[str, Any] = {
     "type": "object",
     "properties": {"name": {"type": "string"}},
 }
+PROTOBUF_USER_SCHEMA = 'syntax = "proto3"; message User { string name = 1; }'
 ERRORS_TOPIC = "errors"
 NULL_TOPIC = "null"
+APICURIO_JSON_TOPIC = "json-schema-apicurio"
+APICURIO_PROTOBUF_TOPIC = "protobuf-schema-apicurio"
+APICURIO_AVRO_TOPIC = "avro-schema-apicurio"
 AVAILABLE_TOPICS = (
     "string",
     "integer",
@@ -59,6 +65,9 @@ AVAILABLE_TOPICS = (
     "protobuf-schema",
     "avro",
     "avro-schema",
+    APICURIO_JSON_TOPIC,
+    APICURIO_PROTOBUF_TOPIC,
+    APICURIO_AVRO_TOPIC,
     ERRORS_TOPIC,
 )
 ERROR_CASES = ("key", "value", "both", "header", "valid")
@@ -77,6 +86,10 @@ class User:
 
     def __str__(self) -> str:
         return str(vars(self))
+
+
+def apicurio_frame(artifact_id: int, payload: bytes) -> bytes:
+    return struct.pack(">bI", 0, artifact_id) + payload
 
 
 def protobuf_user_class() -> type[Message]:
@@ -122,6 +135,12 @@ def serialize_avro(value: User) -> bytes:
     return buffer.getvalue()
 
 
+def apicurio_type_ref(name: str) -> bytes:
+    encoded = name.encode()
+    message = b"\x0a" + bytes([len(encoded)]) + encoded
+    return bytes([len(message)]) + message
+
+
 class Populator:
     def __init__(
         self,
@@ -129,6 +148,7 @@ class Populator:
         partitions: int = 10,
         replication_factor: int | None = None,
         min_insync_replicas: int | None = None,
+        apicurio_registry: str = "http://localhost:18082/apis/registry/v3",
     ) -> None:
         self.producer = Producer(
             kafka_config
@@ -140,6 +160,7 @@ class Populator:
         self.partitions = partitions
         self.replication_factor = replication_factor
         self.min_insync_replicas = min_insync_replicas
+        self.apicurio_registry = apicurio_registry.rstrip("/")
 
     def create_topic(self, topic: str) -> None:
         topic_config = {}
@@ -276,6 +297,67 @@ class Populator:
     ) -> None:
         self._populate_schema("avro-schema", User, serializer, faker, total_messages)
 
+    def populate_apicurio_json(self, faker: Faker, total_messages: int) -> None:
+        schema_id = self._register_apicurio_schema(
+            APICURIO_JSON_TOPIC, "JSON", json.dumps(JSON_USER_SCHEMA), "application/json"
+        )
+        self.populate(
+            APICURIO_JSON_TOPIC,
+            partial(fake_user, User, faker),
+            lambda value: apicurio_frame(schema_id, json.dumps(vars(value)).encode()),
+            total_messages,
+        )
+
+    def populate_apicurio_protobuf(self, faker: Faker, total_messages: int) -> None:
+        schema_id = self._register_apicurio_schema(
+            APICURIO_PROTOBUF_TOPIC, "PROTOBUF", PROTOBUF_USER_SCHEMA, "text/plain"
+        )
+        self.populate(
+            APICURIO_PROTOBUF_TOPIC,
+            partial(fake_user, ProtobufUser, faker),
+            lambda value: (
+                apicurio_frame(schema_id, apicurio_type_ref("User") + value.SerializeToString())
+            ),
+            total_messages,
+        )
+
+    def populate_apicurio_avro(self, faker: Faker, total_messages: int) -> None:
+        schema_id = self._register_apicurio_schema(
+            APICURIO_AVRO_TOPIC, "AVRO", json.dumps(AVRO_USER_SCHEMA), "application/json"
+        )
+        self.populate(
+            APICURIO_AVRO_TOPIC,
+            partial(fake_user, User, faker),
+            lambda value: apicurio_frame(schema_id, serialize_avro(value)),
+            total_messages,
+        )
+
+    def _register_apicurio_schema(
+        self, topic: str, artifact_type: str, content: str, content_type: str
+    ) -> int:
+        response = httpx.post(
+            f"{self.apicurio_registry}/groups/default/artifacts",
+            json={
+                "artifactId": f"{topic}-value",
+                "artifactType": artifact_type,
+                "firstVersion": {"content": {"content": content, "contentType": content_type}},
+            },
+        )
+        if response.status_code == 409:
+            response = httpx.get(
+                f"{self.apicurio_registry}/search/versions",
+                params={"groupId": "default", "artifactId": f"{topic}-value", "limit": 100},
+            )
+            response.raise_for_status()
+            body = response.json()
+            versions = body.get("artifacts", body.get("versions", []))
+            if not versions:
+                raise ValueError(f"Apicurio artifact exists without a version: {topic}-value")
+            return int(versions[-1]["contentId"])
+        response.raise_for_status()
+        body = response.json()
+        return int(body.get("version", body)["contentId"])
+
     def _populate_schema(
         self,
         topic: str,
@@ -395,6 +477,12 @@ def validate_topics(
     show_default=True,
 )
 @click.option(
+    "--apicurio-registry",
+    default="http://localhost:18082/apis/registry/v3",
+    help="Native Apicurio Core Registry API v3 URL.",
+    show_default=True,
+)
+@click.option(
     "--aws",
     "aws_config",
     help=f"Amazon MSK IAM property. Multiple are allowed. Valid properties: {AWS_CONFIGS}.",
@@ -410,6 +498,7 @@ def main(
     min_insync_replicas: int | None,
     bootstrap_servers: str,
     registry: str,
+    apicurio_registry: str,
     aws_config: dict[str, str],
 ) -> None:
     kafka_config = sandbox_kafka_config(bootstrap_servers, aws_config)
@@ -433,6 +522,7 @@ def main(
         partitions=partitions,
         replication_factor=replication_factor,
         min_insync_replicas=min_insync_replicas,
+        apicurio_registry=apicurio_registry,
     )
 
     def topic_population(
@@ -466,6 +556,9 @@ def main(
             avro_serializer,
             faker,
         ),
+        topic_population(APICURIO_JSON_TOPIC, populator.populate_apicurio_json, faker),
+        topic_population(APICURIO_PROTOBUF_TOPIC, populator.populate_apicurio_protobuf, faker),
+        topic_population(APICURIO_AVRO_TOPIC, populator.populate_apicurio_avro, faker),
         topic_population(ERRORS_TOPIC, populator.populate_errors, json_serializer, faker),
     ]
     if selected_topics is not None:

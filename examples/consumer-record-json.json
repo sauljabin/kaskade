@@ -1,0 +1,35 @@
+{
+  "topic": "orders",
+  "partition": 0,
+  "offset": 46,
+  "timestamp": "2026-08-28T14:12:06.120Z",
+  "headers": [
+    {
+      "key": "source",
+      "value": "storefront"
+    }
+  ],
+  "key": {
+    "content": {
+      "id": "order-1049"
+    },
+    "deserializer": {
+      "type": "JSON"
+    }
+  },
+  "value": {
+    "content": {
+      "customer": "customer-27",
+      "items": [
+        {
+          "quantity": 2,
+          "sku": "coffee-1kg"
+        }
+      ],
+      "status": "paid"
+    },
+    "deserializer": {
+      "type": "JSON"
+    }
+  }
+}

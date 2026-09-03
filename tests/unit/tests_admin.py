@@ -6,6 +6,7 @@ from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from confluent_kafka import KafkaException
+from textual.coordinate import Coordinate
 from textual.widgets import Collapsible, DataTable, Input, RadioButton, RadioSet
 
 from kaskade.admin import (
@@ -17,6 +18,7 @@ from kaskade.admin import (
     ListTopics,
     RefreshCoordinator,
     RefreshReason,
+    TopicDataTable,
 )
 from kaskade.commands import CreateTopicCommand, UpdateTopicCommand
 from kaskade.configs import MIN_INSYNC_REPLICAS_CONFIG
@@ -95,6 +97,32 @@ class TestInitialLoadingFrame(unittest.IsolatedAsyncioTestCase):
                 finally:
                     release.set()
                 await app.workers.wait_for_complete()
+
+    async def test_shows_only_truncated_topic_name_in_table_tooltip(self) -> None:
+        long_topic = Topic(name="example-streamlet.sl.example-streamlet")
+        short_topic = Topic(name="orders")
+        with patch("kaskade.admin.TopicService") as topic_service:
+            configure_admin_service(
+                topic_service.return_value,
+                {long_topic.name: long_topic, short_topic.name: short_topic},
+            )
+            app = KaskadeAdmin({})
+
+            async with app.run_test() as pilot:
+                await app.workers.wait_for_complete()
+                table = app.query_one(TopicDataTable)
+
+                table.hover_coordinate = Coordinate(0, 0)
+                await pilot.pause()
+                self.assertEqual(long_topic.name, table.tooltip)
+
+                table.hover_coordinate = Coordinate(0, 1)
+                await pilot.pause()
+                self.assertIsNone(table.tooltip)
+
+                table.hover_coordinate = Coordinate(1, 0)
+                await pilot.pause()
+                self.assertIsNone(table.tooltip)
 
 
 class TestCreateTopic(unittest.IsolatedAsyncioTestCase):

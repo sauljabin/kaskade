@@ -10,21 +10,25 @@ from confluent_kafka import KafkaException
 
 from kaskade import APP_VERSION
 from kaskade.admin import KaskadeAdmin
+from kaskade.apicurio import APICURIO_PREFIX, ApicurioConfig, ApicurioRegistryError
 from kaskade.authentication import configure_aws_msk_iam
 from kaskade.cli_utils import tuple_properties_to_dict, validate_aws_config
 from kaskade.configs import (
+    APICURIO_OPTION,
     AUTO_OFFSET_RESET,
     AVRO_DESERIALIZER_CONFIGS,
     AWS_CONFIGS,
     BOOTSTRAP_SERVERS,
     BYTES_DESERIALIZER_CONFIGS,
     BYTES_ENCODINGS,
+    CONFLUENT_OPTION,
     DESERIALIZER_FRAMINGS,
     EARLIEST,
     FALLBACK_CONFIGS,
     FRAMING_CONFIGS,
     JSON_DESERIALIZER_CONFIGS,
     PROTOBUF_DESERIALIZER_CONFIGS,
+    REGISTRY_PROVIDERS,
 )
 from kaskade.consumer import KaskadeConsumer
 from kaskade.deserializers import Deserialization
@@ -52,7 +56,10 @@ BOOTSTRAP_SERVERS_REQUIRED = (
     "bootstrap.servers with --kafka or --config-file."
 )
 EPILOG_HELP = "More information at https://github.com/sauljabin/kaskade."
-EARLIEST_HELP = "Read all partitions from their earliest available offsets."
+EARLIEST_HELP = (
+    "Read all partitions from their earliest available offsets, ignoring committed "
+    "consumer-group offsets."
+)
 PARTITION_SELECTION_METAVAR = "partition[:offset|earliest]"
 PARTITION_SELECTION_SYNTAX = "<partition>[:<absolute-offset|earliest>]"
 PARTITION_SELECTION_HELP = (
@@ -72,17 +79,20 @@ THEME_HELP = (
 AVRO_CONFIG_HELP = (
     "Avro deserializer property. Repeatable; required when the key or value format is "
     f"avro. Properties: {', '.join(AVRO_DESERIALIZER_CONFIGS)}. Framing: "
-    f"{', '.join(DESERIALIZER_FRAMINGS)}; scoped framing overrides the global value."
+    f"{', '.join(DESERIALIZER_FRAMINGS)} (case-insensitive); scoped framing overrides "
+    "the global value."
 )
 PROTOBUF_CONFIG_HELP = (
     "Protobuf deserializer property. Repeatable; required when the key or value format "
     f"is protobuf. Properties: {', '.join(PROTOBUF_DESERIALIZER_CONFIGS)}. Framing: "
-    f"{', '.join(DESERIALIZER_FRAMINGS)}; scoped framing overrides the global value."
+    f"{', '.join(DESERIALIZER_FRAMINGS)} (case-insensitive); scoped framing overrides "
+    "the global value."
 )
 JSON_CONFIG_HELP = (
     "JSON deserializer property. Repeatable. "
     f"Properties: {', '.join(JSON_DESERIALIZER_CONFIGS)}. Framing: "
-    f"{', '.join(DESERIALIZER_FRAMINGS)}; scoped framing overrides the global value."
+    f"{', '.join(DESERIALIZER_FRAMINGS)} (case-insensitive); scoped framing overrides "
+    "the global value."
 )
 BYTES_CONFIG_HELP = (
     "Byte presentation property for keys and values using the BYTES deserializer. "
@@ -95,8 +105,10 @@ FALLBACK_CONFIG_HELP = (
     f"{', '.join(BYTES_ENCODINGS)}."
 )
 REGISTRY_CONFIG_HELP = (
-    "Schema Registry client property. Repeatable; overrides matching properties from "
-    "--config-file."
+    "Registry provider or client property. Repeatable; overrides matching properties from "
+    f"--config-file. provider choices: {', '.join(REGISTRY_PROVIDERS)} (case-insensitive); "
+    f"defaults to {CONFLUENT_OPTION}. Use provider={APICURIO_OPTION} with supported official "
+    "Apicurio deserializer properties."
 )
 CliDecoratorTarget = TypeVar("CliDecoratorTarget", bound=Callable[..., Any])
 
@@ -353,7 +365,7 @@ def admin(
         "--key",
         "key_deserialization",
         type=cloup.Choice(Deserialization.str_list(), False),
-        help="Key deserializer.",
+        help="Key deserializer (case-insensitive).",
         default=str(Deserialization.BYTES),
         show_default=True,
         callback=string_to_deserializer_type,
@@ -363,7 +375,7 @@ def admin(
         "--value",
         "value_deserialization",
         type=cloup.Choice(Deserialization.str_list(), False),
-        help="Value deserializer.",
+        help="Value deserializer (case-insensitive).",
         default=str(Deserialization.BYTES),
         show_default=True,
         callback=string_to_deserializer_type,
@@ -481,6 +493,7 @@ def consumer(
         registry_config, avro_config, protobuf_config, key_deserialization, value_deserialization
     )
     validate_schema_registry_usage(registry_config, key_deserialization, value_deserialization)
+    validate_registry_config(registry_config)
     validate_bytes(bytes_config, key_deserialization, value_deserialization)
     validate_fallback(fallback_config)
     validate_json(json_config, key_deserialization, value_deserialization)
@@ -709,6 +722,31 @@ def validate_schema_registry_usage(
         and value_deserialization != Deserialization.REGISTRY
     ):
         raise MissingParameter(param_hint="'-k registry' and/or '-v registry'", param_type="option")
+
+
+def validate_registry_config(registry_config: dict[str, str]) -> None:
+    if not registry_config:
+        return
+    provider_value = registry_config.get("provider", CONFLUENT_OPTION)
+    provider = provider_value.lower()
+    if provider not in REGISTRY_PROVIDERS:
+        raise BadParameter(
+            message=f"Registry provider should be one of {REGISTRY_PROVIDERS}.",
+            param_hint="'--registry provider'",
+        )
+    if "provider" in registry_config:
+        registry_config["provider"] = provider
+    apicurio_properties = [key for key in registry_config if key.startswith(APICURIO_PREFIX)]
+    if provider == CONFLUENT_OPTION and apicurio_properties:
+        raise BadParameter(
+            message=f"apicurio.registry.* properties require provider={APICURIO_OPTION}.",
+            param_hint="'--registry'",
+        )
+    if provider == APICURIO_OPTION:
+        try:
+            ApicurioConfig.from_dict(registry_config)
+        except (ApicurioRegistryError, OSError, ValueError) as ex:
+            raise BadParameter(message=str(ex), param_hint="'--registry'") from ex
 
 
 def validate_protobuf(

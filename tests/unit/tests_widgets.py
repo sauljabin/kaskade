@@ -1,5 +1,6 @@
 import unittest
 
+from rich.text import Text
 from textual.app import App, ComposeResult
 from textual.widgets import OptionList
 
@@ -26,6 +27,33 @@ class StretchyTableApp(App):
 
 
 class TestStretchyDataTable(unittest.IsolatedAsyncioTestCase):
+    async def test_renders_ellipsis_when_row_text_exceeds_column_width(self):
+        class TruncatedCellApp(App):
+            def compose(self) -> ComposeResult:
+                table = StretchyDataTable[str | Text]()
+                table.add_column("Value", width=4)
+                table.add_row("abcdefgh")
+                table.add_row(Text("styled text", style="red"))
+                yield table
+
+        app = TruncatedCellApp()
+        async with app.run_test(size=(20, 10)) as pilot:
+            table = app.query_one(StretchyDataTable)
+            await pilot.pause()
+            column_width = table.ordered_columns[0].get_render_width(table)
+
+            rendered_rows = []
+            for row_index in range(2):
+                lines = table._render_cell(
+                    row_index,
+                    0,
+                    table.rich_style,
+                    column_width,
+                )
+                rendered_rows.append("".join(segment.text for segment in lines[0]).strip())
+
+            self.assertEqual(["abc…", "sty…"], rendered_rows)
+
     async def test_fills_available_width_and_resizes_proportionally(self):
         app = StretchyTableApp(rows=100)
 

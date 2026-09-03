@@ -15,6 +15,9 @@ from kaskade.authentication import (
 )
 from kaskade.configs import BOOTSTRAP_SERVERS
 from sandbox.__main__ import (
+    APICURIO_AVRO_TOPIC,
+    APICURIO_JSON_TOPIC,
+    APICURIO_PROTOBUF_TOPIC,
     AVAILABLE_TOPICS,
     ERRORS_TOPIC,
     INVALID_UTF8_HEADER,
@@ -27,6 +30,36 @@ from sandbox.__main__ import (
 
 
 class TestPopulator(unittest.TestCase):
+    def test_native_apicurio_topics_are_available(self) -> None:
+        self.assertTrue(
+            {APICURIO_JSON_TOPIC, APICURIO_PROTOBUF_TOPIC, APICURIO_AVRO_TOPIC}.issubset(
+                AVAILABLE_TOPICS
+            )
+        )
+
+    @patch("sandbox.__main__.httpx.post")
+    @patch("sandbox.__main__.Producer")
+    @patch("sandbox.__main__.AdminClient")
+    def test_populates_native_apicurio_json(
+        self, _: MagicMock, mock_producer: MagicMock, post: MagicMock
+    ) -> None:
+        post.return_value.json.return_value = {"version": {"contentId": 42}}
+        faker = MagicMock()
+        faker.name.return_value = "Ada"
+        populator = Populator({})
+
+        populator.populate_apicurio_json(faker, 1)
+
+        request = post.call_args
+        self.assertEqual(
+            "http://localhost:18082/apis/registry/v3/groups/default/artifacts",
+            request.args[0],
+        )
+        self.assertEqual(f"{APICURIO_JSON_TOPIC}-value", request.kwargs["json"]["artifactId"])
+        payload = mock_producer.return_value.produce.call_args.kwargs["value"]
+        self.assertEqual(b"\x00\x00\x00\x00*", payload[:5])
+        self.assertIn(b'"name": "Ada"', payload)
+
     @patch("sandbox.__main__.Producer")
     @patch("sandbox.__main__.AdminClient")
     def test_errors_topic_includes_invalid_utf8_header(
@@ -152,6 +185,7 @@ class TestSandboxKafkaConfig(unittest.TestCase):
                 "partitions": 10,
                 "replication_factor": None,
                 "min_insync_replicas": None,
+                "apicurio_registry": "http://localhost:18082/apis/registry/v3",
             },
             mock_populator.call_args.kwargs,
         )
@@ -181,10 +215,11 @@ class TestSandboxKafkaConfig(unittest.TestCase):
                 "partitions": 6,
                 "replication_factor": 3,
                 "min_insync_replicas": 2,
+                "apicurio_registry": "http://localhost:18082/apis/registry/v3",
             },
             mock_populator.call_args.kwargs,
         )
-        self.assertEqual(14, mock_run_population.call_count)
+        self.assertEqual(17, mock_run_population.call_count)
         self.assertEqual(ERRORS_TOPIC, mock_run_population.call_args.args[3])
 
         actions = [
@@ -206,6 +241,9 @@ class TestSandboxKafkaConfig(unittest.TestCase):
                 mock_populator.return_value.populate_protobuf_schema,
                 mock_populator.return_value.populate_avro,
                 mock_populator.return_value.populate_avro_schema,
+                mock_populator.return_value.populate_apicurio_json,
+                mock_populator.return_value.populate_apicurio_protobuf,
+                mock_populator.return_value.populate_apicurio_avro,
                 mock_populator.return_value.populate_errors,
             ],
             [action.func for action in actions],

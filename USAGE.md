@@ -235,8 +235,9 @@ Registry metadata:
 }
 ```
 
-Schema Registry metadata is independent for key and value and appears only when
-the schema ID resolves to an unambiguous subject and version:
+Registry metadata is independent for key and value. Confluent metadata appears
+when the schema ID resolves to an unambiguous registration and uses a subject
+and numeric version:
 
 ```json
 {
@@ -245,6 +246,7 @@ the schema ID resolves to an unambiguous subject and version:
     "deserializer": {
       "type": "REGISTRY",
       "schema": {
+        "provider": "CONFLUENT",
         "id": 12,
         "subject": "orders-key",
         "version": 2,
@@ -257,6 +259,7 @@ the schema ID resolves to an unambiguous subject and version:
     "deserializer": {
       "type": "REGISTRY",
       "schema": {
+        "provider": "CONFLUENT",
         "id": 27,
         "subject": "orders-value",
         "version": 5,
@@ -267,13 +270,28 @@ the schema ID resolves to an unambiguous subject and version:
 }
 ```
 
+Complete consumed-record examples cover:
+
+- [bytes](examples/consumer-record-byte.json)
+- [deserialization errors and byte fallback](examples/consumer-record-error.json)
+- [strings](examples/consumer-record-string.json)
+- [JSON](examples/consumer-record-json.json)
+- [Confluent Schema Registry](examples/consumer-record-confluent.json)
+- [native Apicurio Registry](examples/consumer-record-apicurio.json)
+
+Native Apicurio metadata always includes `provider`, `id`, `id_kind`, and
+`type` after the schema content is resolved. `group`, `artifact`, and `version`
+are included when the Registry exposes `/search/versions` and the ID maps to an
+unambiguous registration. Restricted Registry gateways can omit those three
+enrichment fields while still allowing schema-aware deserialization.
+
 Headers remain ordered so duplicate names survive; successful values deserialize
 as STRING without extra metadata. Timestamps are UTC ISO 8601 with milliseconds,
 or `null` when unavailable. Tombstones use `content: null`. Local and non-schema
-deserializers omit `schema`; Registry does too when resolution is ambiguous or
-unavailable. The records table renders absent keys and values as colored `null`
-with a distinguishing tooltip. Enter lowercase `null` in a key, value, or header
-filter to match null content.
+deserializers omit `schema`; Confluent Registry does too when registration
+resolution is ambiguous or unavailable. The records table renders absent keys
+and values as colored `null` with a distinguishing tooltip. Enter lowercase
+`null` in a key, value, or header filter to match null content.
 
 Byte content stays directly in `content`, and its BYTES deserializer carries the
 presentation encoding. Base64 is the default portable encoding:
@@ -387,6 +405,10 @@ kaskade consumer -b my-kafka:9092 -t my-avro-topic \
         --registry url=http://my-schema-registry:8081
 ```
 
+`provider` accepts `confluent` or `apicurio` case-insensitively and defaults to
+`confluent`. Confluent client properties retain their existing names and are
+forwarded unchanged.
+
 With Confluent Schema Registry, the Registry deserializer detects Avro, JSON
 Schema, and Protobuf from each record's schema ID. Protobuf messages are resolved
 dynamically from the registry, including referenced schemas, so no local descriptor
@@ -418,13 +440,43 @@ Schema Registry client validates property names, values, and required settings.
 
 #### Apicurio Registry
 
+Use `provider=apicurio` to select the native Apicurio Registry v3 API. Kaskade
+accepts the applicable official `apicurio.registry.*` deserializer properties;
+it does not infer a provider from those names or accept generic aliases:
+
 ```bash
 kaskade consumer -b my-kafka:9092 -t my-avro-topic \
         -k registry -v registry \
-        --registry url=http://my-apicurio-registry:8081/apis/ccompat/v7
+        --registry provider=apicurio \
+        --registry apicurio.registry.url=http://my-apicurio-registry:8081/apis/registry/v3 \
+        --registry apicurio.registry.use-id=contentId
 ```
 
-Learn more at [Apicurio Registry](https://github.com/apicurio/apicurio-registry).
+OAuth client credentials use Apicurio names as well:
+
+```bash
+kaskade consumer -b my-kafka:9092 -t my-avro-topic \
+        -k registry -v registry \
+        --registry provider=apicurio \
+        --registry apicurio.registry.url=${APICURIO_REGISTRY_URL} \
+        --registry apicurio.registry.auth.service.token.endpoint=${OAUTH_TOKEN_URL} \
+        --registry apicurio.registry.auth.client.id=${OAUTH_CLIENT_ID} \
+        --registry apicurio.registry.auth.client.secret=${OAUTH_CLIENT_SECRET}
+```
+
+The native client also accepts Apicurio's Basic authentication, retry, cache,
+proxy, and PEM TLS properties. Serializer-only properties, including artifact
+selection and auto-registration settings, are rejected. JKS and PKCS12 stores,
+header-based IDs, custom ID handlers, and legacy eight-byte framing are not
+supported. See the
+[Apicurio Registry client configuration reference](https://www.apicur.io/registry/docs/apicurio-registry/3.3.x/getting-started/assembly-configuring-kafka-client-serdes.html).
+
+To use Apicurio's Confluent-compatible endpoint instead, leave the provider as
+`confluent` and configure the existing Confluent `url` property:
+
+```bash
+--registry url=http://my-apicurio-registry:8081/apis/ccompat/v7
+```
 
 ### SSL encryption
 
@@ -471,8 +523,9 @@ basic.auth.user.info = replace-with-your-api-key:replace-with-your-api-secret
 region = us-east-1
 ```
 
-The `[kafka]` and `[registry]` sections contain properties for their respective
-`confluent-kafka` clients. Kaskade UI, admin, and keymap settings remain in
+The `[kafka]` section contains `confluent-kafka` properties. The `[registry]`
+section contains Confluent client properties by default or native Apicurio
+properties when `provider=apicurio`. Kaskade UI, admin, and keymap settings remain in
 `settings.yaml` as documented above. Both commands require a non-empty
 `bootstrap.servers` after Kafka properties are merged. It can come from
 `--config-file`, an inline property, or the dedicated option:
@@ -577,8 +630,11 @@ and narrow the topic wildcard when appropriate.
 }
 ```
 
-Consumer group access can be limited to `kaskade-*` because Kaskade creates
-ephemeral groups named `kaskade-<uuid>`. For read-only admin access, remove
+Kaskade honors `group.id` from Kafka client configuration. When it is omitted,
+Kaskade creates an ephemeral `kaskade-<uuid>` group.
+`--earliest` and explicit `--partition` reads use direct partition assignment;
+they do not use committed offsets. Set `group.id` explicitly when the Kafka
+principal is restricted to a specific consumer group. For read-only admin access, remove
 `CreateTopic`, `AlterTopic`, `DeleteTopic`, `AlterTopicDynamicConfiguration`,
 and `ReadData` from the topic statement, then remove the
 `UseKaskadeConsumerGroups` statement.
@@ -595,7 +651,7 @@ For SASL/SCRAM and mTLS connections, grant the Kafka principal these operations:
 | --- | --- | --- | --- |
 | Admin (read only) | `Describe`, `DescribeConfigs` | `Describe` on groups to display | `Describe` |
 | Admin (full access) | `Describe`, `DescribeConfigs`, `Create`, `Alter`, `Delete`, `AlterConfigs` | `Describe` on groups to display | `Describe` |
-| Consumer | `Read`, `Describe` on topics to consume | `Read`, `Describe` on the `kaskade-` prefix | — |
+| Consumer | `Read`, `Describe` on topics to consume | `Read`, `Describe` on the configured `group.id` or `kaskade-` prefix | — |
 
 Use `User:<username>` for SASL/SCRAM or the certificate principal for mTLS, such
 as `User:CN=kaskade`. Run the commands as an ACL administrator and configure
@@ -708,11 +764,15 @@ docker run --rm -it --network my-network sauljabin/kaskade:latest \
 
 ## Format-specific consumers
 
-Local JSON, Avro, and Protobuf deserializers use raw framing by default. Their
-repeatable options accept `framing`, `key.framing`, and `value.framing`. The
-scoped property overrides the global property, allowing key and value framing
-to differ. Framing is explicit; these deserializers do not infer it from payload
-bytes. The Registry deserializer always uses Confluent framing.
+The `--key` and `--value` format names are case-insensitive and normalize to the
+lowercase choices shown in CLI help.
+
+Local JSON, Avro, and Protobuf deserializers use `raw` framing by default. Their
+repeatable options accept `framing`, `key.framing`, and `value.framing`, with
+case-insensitive values `raw`, `apicurio`, or `confluent`. The scoped property
+overrides the global property, allowing key and value framing to differ. Framing
+is explicit; these deserializers do not infer it from payload bytes. The Registry
+deserializer selects framing from its configured provider.
 
 ### JSON consumer
 
@@ -732,6 +792,15 @@ kaskade consumer -b my-kafka:9092 -t my-json-topic \
         --json value.framing=confluent
 ```
 
+For an Apicurio-produced JSON payload, use the corresponding framing without
+querying the registry:
+
+```bash
+kaskade consumer -b my-kafka:9092 -t my-json-topic \
+        -k string -v json \
+        --json value.framing=apicurio
+```
+
 ### Avro consumer
 
 Consume using a `my-schema.avsc` schema file:
@@ -746,6 +815,7 @@ kaskade consumer -b my-kafka:9092 --earliest \
 For records produced with Confluent's five-byte framing, add
 `--avro value.framing=confluent`. Use the unscoped
 `--avro framing=confluent` when every selected Avro field has the same framing.
+Use `apicurio` instead for records produced by Apicurio serializers.
 
 ### Protobuf consumer
 
@@ -784,6 +854,10 @@ kaskade consumer -b my-kafka:9092 -t my-protobuf-topic \
         --protobuf value=mypackage.MyMessage \
         --protobuf value.framing=confluent
 ```
+
+Use `--protobuf value.framing=apicurio` for Apicurio-produced Protobuf. It
+removes both the registry ID envelope and Apicurio's message-type reference
+before decoding with the local descriptor.
 
 See the
 [Protocol Buffers documentation](https://protobuf.dev/programming-guides/techniques/#self-description)

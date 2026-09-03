@@ -57,7 +57,7 @@ and Schema Registry containers through Testcontainers. Docker must be running;
 the first run may pull the required images. Registry coverage creates separate
 JSON Schema, Avro, and Protobuf topics and consumes each through the Registry
 deserializer, then consumes the same records through the corresponding local
-deserializers with `framing=confluent`:
+deserializers with `framing=confluent` or `framing=apicurio`:
 
 ```bash
 uv run --locked python -m scripts.tests --e2e
@@ -203,8 +203,9 @@ Image versions and the Kafka cluster ID are defined in `sandbox/.env`.
 
 ### Populate test topics
 
-The default command creates and populates every available sandbox topic using
-Confluent Schema Registry:
+The default command creates and populates every available sandbox topic. It
+registers separate Avro, JSON Schema, and Protobuf fixtures in both Confluent
+Schema Registry and the native Apicurio Core Registry API:
 
 ```bash
 uv run python -m sandbox
@@ -228,11 +229,12 @@ uv run python -m sandbox \
     --min-insync-replicas 2
 ```
 
-To test Apicurio, start from an empty sandbox and populate it through the
-Confluent-compatible API:
+Override either registry URL when the sandbox services are hosted elsewhere:
 
 ```bash
-uv run python -m sandbox --registry http://localhost:18082/apis/ccompat/v7
+uv run python -m sandbox \
+    --registry http://localhost:18081 \
+    --apicurio-registry http://localhost:18082/apis/registry/v3
 ```
 
 ### Inspect registry APIs with HTTPie
@@ -376,6 +378,13 @@ uv run kaskade consumer -b localhost:19092 --earliest -k string -v json -t json-
         --json framing=confluent
 ```
 
+Test an Apicurio-produced payload without querying the registry:
+
+```bash
+uv run kaskade consumer -b localhost:19092 --earliest -k string -v json \
+        -t json-schema-apicurio --json framing=apicurio
+```
+
 #### Schema Registry consumers
 
 Test a JSON Schema payload through Confluent Schema Registry:
@@ -416,13 +425,18 @@ uv run kaskade consumer -b localhost:19092 --earliest -t protobuf-schema \
         --registry url=http://localhost:18081
 ```
 
-Test the same Avro payload through Apicurio after populating that registry:
+Test the native Apicurio Avro payload:
 
 ```bash
-uv run kaskade consumer -b localhost:19092 --earliest -t avro-schema \
+uv run kaskade consumer -b localhost:19092 --earliest -t avro-schema-apicurio \
         -k string -v registry \
-        --registry url=http://localhost:18082/apis/ccompat/v7
+        --registry provider=apicurio \
+        --registry apicurio.registry.url=http://localhost:18082/apis/registry/v3
 ```
+
+Use `json-schema-apicurio` or `protobuf-schema-apicurio` to exercise the other
+native formats with the same registry configuration. Apicurio's ccompat endpoint
+remains available through the default Confluent provider and `--registry url=...`.
 
 #### Local-schema consumers
 

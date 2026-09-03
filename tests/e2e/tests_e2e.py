@@ -1,9 +1,12 @@
 import asyncio
 import json
+import struct
 import tempfile
 import unittest
+from io import BytesIO
 from pathlib import Path
 
+import httpx
 from confluent_kafka import Producer
 from confluent_kafka.admin import AdminClient
 from confluent_kafka.cimpl import NewTopic
@@ -12,6 +15,7 @@ from confluent_kafka.schema_registry.avro import AvroSerializer
 from confluent_kafka.schema_registry.json_schema import JSONSerializer
 from confluent_kafka.schema_registry.protobuf import ProtobufSerializer
 from confluent_kafka.serialization import MessageField, SerializationContext
+from fastavro import schemaless_writer
 from google.protobuf.descriptor_pb2 import (
     FieldDescriptorProto,
     FileDescriptorProto,
@@ -27,8 +31,14 @@ from testcontainers.core.wait_strategies import HttpWaitStrategy
 from textual.widgets import DataTable
 
 from kaskade.admin import KaskadeAdmin
-from kaskade.configs import AUTO_OFFSET_RESET, BOOTSTRAP_SERVERS, EARLIEST
-from kaskade.consumer import KaskadeConsumer
+from kaskade.configs import (
+    APICURIO,
+    APICURIO_OPTION,
+    AUTO_OFFSET_RESET,
+    BOOTSTRAP_SERVERS,
+    EARLIEST,
+)
+from kaskade.consumer import KaskadeConsumer, ListRecords
 from kaskade.deserializers import Deserialization
 from kaskade.models import PartitionOffset, PartitionSelection
 
@@ -41,6 +51,9 @@ CONFLUENT_VERSION = "8.1.0"
 KAFKA_IMAGE = f"confluentinc/cp-kafka:{CONFLUENT_VERSION}"
 SCHEMA_REGISTRY_IMAGE = f"confluentinc/cp-schema-registry:{CONFLUENT_VERSION}"
 SCHEMA_REGISTRY_PORT = 8081
+APICURIO_VERSION = "3.1.2"
+APICURIO_IMAGE = f"apicurio/apicurio-registry:{APICURIO_VERSION}"
+APICURIO_PORT = 8080
 JSON_TOPIC = "json-schema"
 AVRO_TOPIC = "avro-schema"
 PROTOBUF_TOPIC = "protobuf-schema"
@@ -60,6 +73,7 @@ JSON_SCHEMA = json.dumps(
         "required": ["name"],
     }
 )
+PROTOBUF_SCHEMA = 'syntax = "proto3"; message User { string name = 1; }'
 
 
 def protobuf_user_model() -> tuple[FileDescriptorProto, type[Message]]:
@@ -105,6 +119,54 @@ def schema_registry_url(container: DockerContainer) -> str:
     return f"http://{host}:{port}"
 
 
+def apicurio_container() -> DockerContainer:
+    wait_strategy = HttpWaitStrategy(APICURIO_PORT, "/apis/registry/v3/system/info")
+    wait_strategy.with_startup_timeout(60)
+    return (
+        DockerContainer(APICURIO_IMAGE)
+        .with_exposed_ports(APICURIO_PORT)
+        .with_env("QUARKUS_HTTP_PORT", str(APICURIO_PORT))
+        .waiting_for(wait_strategy)
+    )
+
+
+def apicurio_url(container: DockerContainer) -> str:
+    host = container.get_container_host_ip()
+    port = container.get_exposed_port(APICURIO_PORT)
+    return f"http://{host}:{port}/apis/registry/v3"
+
+
+def register_apicurio_schema(url: str, artifact: str, artifact_type: str, content: str) -> int:
+    response = httpx.post(
+        f"{url}/groups/default/artifacts",
+        json={
+            "artifactId": artifact,
+            "artifactType": artifact_type,
+            "firstVersion": {
+                "content": {
+                    "content": content,
+                    "contentType": (
+                        "text/plain" if artifact_type == "PROTOBUF" else "application/json"
+                    ),
+                }
+            },
+        },
+    )
+    response.raise_for_status()
+    body = response.json()
+    return int(body.get("version", body)["contentId"])
+
+
+def apicurio_type_ref(name: str) -> bytes:
+    encoded = name.encode()
+    message = b"\x0a" + bytes([len(encoded)]) + encoded
+    return bytes([len(message)]) + message
+
+
+def apicurio_frame(artifact_id: int, payload: bytes) -> bytes:
+    return struct.pack(">bI", 0, artifact_id) + payload
+
+
 def create_topic(config, topic: str = MY_TOPIC, partitions: int = 1):
     admin_client = AdminClient(config)
     futures = admin_client.create_topics(
@@ -139,6 +201,7 @@ class TestE2E(unittest.IsolatedAsyncioTestCase):
         protobuf_config: dict[str, str] | None = None,
         avro_config: dict[str, str] | None = None,
         json_config: dict[str, str] | None = None,
+        expected_registry_provider: str | None = None,
     ) -> None:
         consumer_app = KaskadeConsumer(
             topic,
@@ -155,7 +218,20 @@ class TestE2E(unittest.IsolatedAsyncioTestCase):
             await self.wait_for_rows(table, 1)
             first_row = table.get_row("0/0")
             self.assertEqual(MY_KEY, first_row[0])
-            self.assertEqual("{'name': 'Ada'}", first_row[1])
+            records = consumer_app.query_one(ListRecords).records
+            record = next(iter(records.values())) if records else None
+            self.assertEqual(
+                "{'name': 'Ada'}",
+                first_row[1],
+                record.dict() if record else None,
+            )
+            if expected_registry_provider is not None:
+                assert record is not None
+                schema = record.dict()["value"]["deserializer"].get("schema")
+                self.assertIsNotNone(schema, record.dict())
+                self.assertEqual(expected_registry_provider, schema["provider"])
+                self.assertEqual("default", schema["group"])
+                self.assertEqual(f"{topic}-value", schema["artifact"])
 
     async def test_admin(self):
         with kafka_container() as kafka:
@@ -291,6 +367,98 @@ class TestE2E(unittest.IsolatedAsyncioTestCase):
                 )
                 for topic, deserialization, configs in confluent_framing_cases:
                     with self.subTest(topic=topic, framing="confluent"):
+                        await self.assert_consumed_user(
+                            topic,
+                            kafka_config,
+                            deserialization,
+                            **configs,
+                        )
+
+    async def test_consumer_deserializes_native_apicurio_formats(self):
+        with kafka_container() as kafka, apicurio_container() as registry:
+            kafka_config = {BOOTSTRAP_SERVERS: kafka.get_bootstrap_server()}
+            registry_url = apicurio_url(registry)
+            json_id = register_apicurio_schema(
+                registry_url, f"{JSON_TOPIC}-value", "JSON", JSON_SCHEMA
+            )
+            avro_id = register_apicurio_schema(
+                registry_url, f"{AVRO_TOPIC}-value", "AVRO", AVRO_SCHEMA
+            )
+            protobuf_id = register_apicurio_schema(
+                registry_url, f"{PROTOBUF_TOPIC}-value", "PROTOBUF", PROTOBUF_SCHEMA
+            )
+            avro_payload = BytesIO()
+            schemaless_writer(avro_payload, json.loads(AVRO_SCHEMA), {"name": "Ada"})
+            cases = (
+                (
+                    JSON_TOPIC,
+                    apicurio_frame(json_id, b'{"name":"Ada"}'),
+                ),
+                (AVRO_TOPIC, apicurio_frame(avro_id, avro_payload.getvalue())),
+                (
+                    PROTOBUF_TOPIC,
+                    apicurio_frame(
+                        protobuf_id,
+                        apicurio_type_ref("User") + ProtobufUser(name="Ada").SerializeToString(),
+                    ),
+                ),
+            )
+            producer = Producer(kafka_config)
+            for topic, payload in cases:
+                create_topic(kafka_config, topic)
+                producer.produce(topic, key=MY_KEY, value=payload)
+            producer.flush()
+
+            registry_config = {
+                "provider": APICURIO_OPTION,
+                "apicurio.registry.url": registry_url,
+            }
+            for topic, _ in cases:
+                with self.subTest(topic=topic):
+                    await self.assert_consumed_user(
+                        topic,
+                        kafka_config,
+                        Deserialization.REGISTRY,
+                        registry_config=registry_config,
+                        expected_registry_provider=APICURIO,
+                    )
+
+            with tempfile.TemporaryDirectory() as directory:
+                avro_path = Path(directory) / "user.avsc"
+                avro_path.write_text(AVRO_SCHEMA, encoding="utf-8")
+                descriptor_path = Path(directory) / "user.desc"
+                descriptor_set = FileDescriptorSet(file=[PROTOBUF_DESCRIPTOR])
+                descriptor_path.write_bytes(descriptor_set.SerializeToString())
+                local_cases = (
+                    (
+                        JSON_TOPIC,
+                        Deserialization.JSON,
+                        {"json_config": {"framing": "apicurio"}},
+                    ),
+                    (
+                        AVRO_TOPIC,
+                        Deserialization.AVRO,
+                        {
+                            "avro_config": {
+                                "value": str(avro_path),
+                                "framing": "apicurio",
+                            }
+                        },
+                    ),
+                    (
+                        PROTOBUF_TOPIC,
+                        Deserialization.PROTOBUF,
+                        {
+                            "protobuf_config": {
+                                "descriptor": str(descriptor_path),
+                                "value": "User",
+                                "framing": "apicurio",
+                            }
+                        },
+                    ),
+                )
+                for topic, deserialization, configs in local_cases:
+                    with self.subTest(topic=topic, framing="apicurio"):
                         await self.assert_consumed_user(
                             topic,
                             kafka_config,

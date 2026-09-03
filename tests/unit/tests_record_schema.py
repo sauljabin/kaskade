@@ -22,6 +22,14 @@ from kaskade.models import Header, Record
 
 PROJECT_PATH = Path(__file__).resolve().parents[2]
 SCHEMA_PATH = PROJECT_PATH / "schemas" / "consumer-record.schema.json"
+EXAMPLE_PATHS = (
+    PROJECT_PATH / "examples" / "consumer-record-byte.json",
+    PROJECT_PATH / "examples" / "consumer-record-error.json",
+    PROJECT_PATH / "examples" / "consumer-record-string.json",
+    PROJECT_PATH / "examples" / "consumer-record-json.json",
+    PROJECT_PATH / "examples" / "consumer-record-confluent.json",
+    PROJECT_PATH / "examples" / "consumer-record-apicurio.json",
+)
 
 
 class MetadataDeserializer(Deserializer):
@@ -64,6 +72,23 @@ class TestConsumerRecordSchema(unittest.TestCase):
             self.schema["$schema"],
         )
         self.assertNotIn("contract_version", self.schema["properties"])
+
+    def test_checked_in_examples_validate(self) -> None:
+        for path in EXAMPLE_PATHS:
+            with self.subTest(path=path.name):
+                self.validator.validate(json.loads(path.read_text(encoding="utf-8")))
+
+    def test_partial_apicurio_metadata_validates_when_registration_is_unavailable(self) -> None:
+        record = json.loads(
+            (PROJECT_PATH / "examples" / "consumer-record-apicurio.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        schema = record["value"]["deserializer"]["schema"]
+        for field in ("group", "artifact", "version"):
+            schema.pop(field)
+
+        self.validator.validate(record)
 
     def test_all_byte_encodings_validate_for_content_errors_and_headers(self) -> None:
         for bytes_encoding in BytesEncoding:

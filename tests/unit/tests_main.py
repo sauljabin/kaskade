@@ -13,7 +13,14 @@ from kaskade.authentication import (
     SECURITY_PROTOCOL,
     AwsMskOAuthCallback,
 )
-from kaskade.configs import AUTO_OFFSET_RESET, BOOTSTRAP_SERVERS, EARLIEST
+from kaskade.configs import (
+    APICURIO,
+    APICURIO_OPTION,
+    AUTO_OFFSET_RESET,
+    BOOTSTRAP_SERVERS,
+    EARLIEST,
+    REGISTRY_PROVIDERS,
+)
 from kaskade.deserializers import Deserialization
 from kaskade.main import PARTITION_SELECTION_METAVAR, cli
 from kaskade.models import PartitionOffset, PartitionSelection
@@ -525,6 +532,8 @@ class TestConsumerCli(unittest.TestCase):
         self.assertNotIn("-k, --kafka", connection_help)
         self.assertIn("--kafka", connection_help)
         self.assertIn("-v, --value", deserialization_help)
+        self.assertIn("Key deserializer (case-insensitive)", deserialization_help)
+        self.assertIn("Value deserializer (case-insensitive)", deserialization_help)
         self.assertIn("Bytes options:", result.output)
         self.assertIn("--bytes property=value", result.output)
         self.assertIn("Fallback options:", result.output)
@@ -818,6 +827,117 @@ class TestConsumerCli(unittest.TestCase):
 
         self.assertGreater(result.exit_code, 0)
         self.assertIn("Unrecognized properties: not.valid", result.output)
+
+    @patch("kaskade.main.KaskadeConsumer")
+    def test_native_apicurio_provider_uses_official_properties(self, mock_class_kaskade_consumer):
+        result = self.runner.invoke(
+            cli,
+            [
+                self.command,
+                "-b",
+                EXPECTED_SERVER,
+                "-t",
+                EXPECTED_TOPIC,
+                "--registry",
+                "provider=APICURIO",
+                "--registry",
+                "apicurio.registry.url=http://registry/apis/registry/v3",
+                "--registry",
+                "apicurio.registry.use-id=globalId",
+                "-v",
+                "registry",
+            ],
+        )
+
+        self.assertEqual(0, result.exit_code, result.output)
+        registry_config = mock_class_kaskade_consumer.call_args.args[2]
+        self.assertEqual(APICURIO_OPTION, registry_config["provider"])
+        self.assertEqual(
+            "http://registry/apis/registry/v3",
+            registry_config["apicurio.registry.url"],
+        )
+
+    def test_native_apicurio_rejects_serializer_only_properties(self):
+        result = self.runner.invoke(
+            cli,
+            [
+                self.command,
+                "-b",
+                EXPECTED_SERVER,
+                "-t",
+                EXPECTED_TOPIC,
+                "--registry",
+                "provider=apicurio",
+                "--registry",
+                "apicurio.registry.url=http://registry/apis/registry/v3",
+                "--registry",
+                "apicurio.registry.artifact.artifact-id=orders-value",
+                "-v",
+                "registry",
+            ],
+        )
+
+        self.assertGreater(result.exit_code, 0)
+        self.assertIn("Unrecognized Apicurio properties", result.output)
+
+    def test_native_apicurio_rejects_generic_aliases(self):
+        result = self.runner.invoke(
+            cli,
+            [
+                self.command,
+                "-b",
+                EXPECTED_SERVER,
+                "-t",
+                EXPECTED_TOPIC,
+                "--registry",
+                f"provider={APICURIO}",
+                "--registry",
+                "url=http://registry",
+                "-v",
+                "registry",
+            ],
+        )
+
+        self.assertGreater(result.exit_code, 0)
+        self.assertIn("Unrecognized Apicurio properties: url", result.output)
+
+    def test_apicurio_properties_do_not_infer_provider(self):
+        result = self.runner.invoke(
+            cli,
+            [
+                self.command,
+                "-b",
+                EXPECTED_SERVER,
+                "-t",
+                EXPECTED_TOPIC,
+                "--registry",
+                "apicurio.registry.url=http://registry/apis/registry/v3",
+                "-v",
+                "registry",
+            ],
+        )
+
+        self.assertGreater(result.exit_code, 0)
+        self.assertIn(f"require provider={APICURIO_OPTION}", result.output)
+
+    def test_rejects_unknown_registry_provider(self):
+        result = self.runner.invoke(
+            cli,
+            [
+                self.command,
+                "-b",
+                EXPECTED_SERVER,
+                "-t",
+                EXPECTED_TOPIC,
+                "--registry",
+                "provider=OTHER",
+                "-v",
+                "registry",
+            ],
+        )
+
+        self.assertGreater(result.exit_code, 0)
+        self.assertIn(f"one of {REGISTRY_PROVIDERS}", result.output)
 
     def test_validate_avro_invalid_config(self):
         result = self.runner.invoke(
@@ -1113,6 +1233,33 @@ class TestConsumerCli(unittest.TestCase):
         self.assertEqual(0, result.exit_code)
 
     @patch("kaskade.main.KaskadeConsumer")
+    def test_key_and_value_formats_are_case_insensitive(self, mock_class_kaskade_consumer):
+        result = self.runner.invoke(
+            cli,
+            [
+                self.command,
+                "-b",
+                EXPECTED_SERVER,
+                "-t",
+                EXPECTED_TOPIC,
+                "--key",
+                "STRING",
+                "--value",
+                "BYTES",
+            ],
+        )
+
+        self.assertEqual(0, result.exit_code, result.output)
+        self.assertEqual(
+            Deserialization.STRING,
+            mock_class_kaskade_consumer.call_args.args[5],
+        )
+        self.assertEqual(
+            Deserialization.BYTES,
+            mock_class_kaskade_consumer.call_args.args[6],
+        )
+
+    @patch("kaskade.main.KaskadeConsumer")
     def test_passes_normalized_bytes_encodings(self, mock_class_kaskade_consumer):
         result = self.runner.invoke(
             cli,
@@ -1179,12 +1326,12 @@ class TestConsumerCli(unittest.TestCase):
                 "--json",
                 "framing=CONFLUENT",
                 "--json",
-                "key.framing=RAW",
+                "key.framing=APICURIO",
             ],
         )
 
         self.assertEqual(
-            {"framing": "confluent", "key.framing": "raw"},
+            {"framing": "confluent", "key.framing": "apicurio"},
             mock_class_kaskade_consumer.call_args.kwargs["json_config"],
         )
         self.assertEqual(0, result.exit_code)
@@ -1655,7 +1802,10 @@ class TestConsumerCli(unittest.TestCase):
         )
 
         self.assertGreater(result.exit_code, 0)
-        self.assertIn("Avro framing should be one of ['raw', 'confluent']", result.output)
+        self.assertIn(
+            "Avro framing should be one of ['raw', 'apicurio', 'confluent']",
+            result.output,
+        )
 
     @patch("kaskade.main.KaskadeConsumer")
     def test_passes_scoped_avro_framing(self, mock_class_kaskade_consumer):
