@@ -13,34 +13,30 @@
     "content": {
       "id": "order-1049"
     },
-    "deserializer": {
-      "type": "REGISTRY",
-      "schema": {
-        "provider": "APICURIO",
-        "id": 41,
-        "id_kind": "CONTENT_ID",
-        "group": "default",
-        "artifact": "orders-key",
-        "version": "1",
-        "type": "AVRO"
-      }
+    "deserializer": "REGISTRY",
+    "schema": {
+      "provider": "APICURIO",
+      "id": 41,
+      "id_kind": "CONTENT_ID",
+      "group": "default",
+      "artifact": "orders-key",
+      "version": "1",
+      "type": "AVRO"
     }
   },
   "value": {
     "content": {
       "status": "shipped"
     },
-    "deserializer": {
-      "type": "REGISTRY",
-      "schema": {
-        "provider": "APICURIO",
-        "id": 42,
-        "id_kind": "CONTENT_ID",
-        "group": "default",
-        "artifact": "orders-value",
-        "version": "1",
-        "type": "JSON"
-      }
+    "deserializer": "REGISTRY",
+    "schema": {
+      "provider": "APICURIO",
+      "id": 42,
+      "id_kind": "CONTENT_ID",
+      "group": "default",
+      "artifact": "orders-value",
+      "version": "1",
+      "type": "JSON"
     }
   }
 }

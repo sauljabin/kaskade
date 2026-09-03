@@ -13,9 +13,7 @@
     "content": {
       "id": "order-1049"
     },
-    "deserializer": {
-      "type": "JSON"
-    }
+    "deserializer": "JSON"
   },
   "value": {
     "content": {
@@ -28,8 +26,6 @@
       ],
       "status": "paid"
     },
-    "deserializer": {
-      "type": "JSON"
-    }
+    "deserializer": "JSON"
   }
 }

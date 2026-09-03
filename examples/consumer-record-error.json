@@ -13,30 +13,22 @@
       "value": "ff",
       "error": {
         "message": "'utf-8' codec can't decode byte 0xff in position 0: invalid start byte",
-        "fallback": {
-          "type": "BYTES",
-          "encoding": "HEX"
-        }
+        "fallback": "BYTES",
+        "encoding": "HEX"
       }
     }
   ],
   "key": {
     "content": "order-1049",
-    "deserializer": {
-      "type": "STRING"
-    }
+    "deserializer": "STRING"
   },
   "value": {
     "content": "/w==",
-    "deserializer": {
-      "type": "JSON"
-    },
+    "deserializer": "JSON",
     "error": {
       "message": "'utf-8' codec can't decode byte 0xff in position 0: invalid start byte",
-      "fallback": {
-        "type": "BYTES",
-        "encoding": "BASE64"
-      }
+      "fallback": "BYTES",
+      "encoding": "BASE64"
     }
   }
 }

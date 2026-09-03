@@ -11,14 +11,10 @@
   ],
   "key": {
     "content": "order-1049",
-    "deserializer": {
-      "type": "STRING"
-    }
+    "deserializer": "STRING"
   },
   "value": {
     "content": "paid",
-    "deserializer": {
-      "type": "STRING"
-    }
+    "deserializer": "STRING"
   }
 }

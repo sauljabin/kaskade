@@ -59,9 +59,9 @@ def json_content(content: Any, bytes_encoding: BytesEncoding) -> Any:
     return content
 
 
-def bytes_deserializer(bytes_encoding: BytesEncoding) -> dict[str, str]:
+def bytes_fallback(bytes_encoding: BytesEncoding) -> dict[str, str]:
     return {
-        "type": Deserialization.BYTES.name,
+        "fallback": Deserialization.BYTES.name,
         "encoding": bytes_encoding.name,
     }
 
@@ -323,7 +323,7 @@ class Header:
         if self._error is not None:
             result["error"] = {
                 "message": str(self._error),
-                "fallback": bytes_deserializer(self.fallback_bytes_encoding),
+                **bytes_fallback(self.fallback_bytes_encoding),
             }
         return result
 
@@ -341,23 +341,22 @@ class DeserializationOutcome:
         return self.error is not None
 
     def dict(self) -> dict[str, Any]:
-        deserializer: dict[str, Any] = {"type": self.requested.name}
+        result = {
+            "content": json_content(self.content, self.bytes_encoding),
+            "deserializer": self.requested.name,
+        }
         if self.schema is not None:
-            deserializer["schema"] = self.schema.dict()
+            result["schema"] = self.schema.dict()
         if (
             self.error is None
             and self.requested == Deserialization.BYTES
             and isinstance(self.content, bytes)
         ):
-            deserializer["encoding"] = self.bytes_encoding.name
-        result = {
-            "content": json_content(self.content, self.bytes_encoding),
-            "deserializer": deserializer,
-        }
+            result["encoding"] = self.bytes_encoding.name
         if self.error is not None:
             result["error"] = {
                 "message": str(self.error),
-                "fallback": bytes_deserializer(self.bytes_encoding),
+                **bytes_fallback(self.bytes_encoding),
             }
         return result
 

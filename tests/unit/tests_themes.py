@@ -327,6 +327,12 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 help_about = help_screen.query_one("#help-about", Static)
                 help_footer = help_screen.query_one(Footer)
                 self.assertEqual(help_screen.size.width, help_dialog.region.width)
+                await pilot.resize_terminal(120, 30)
+                await pilot.pause()
+                self.assertEqual(72, help_dialog.region.width)
+                await pilot.resize_terminal(70, 18)
+                await pilot.pause()
+                self.assertEqual(help_screen.size.width, help_dialog.region.width)
                 self.assertEqual(app.current_theme.background, help_dialog.styles.background.hex)
                 self.assertEqual(
                     [help_heading, help_about, help_table],

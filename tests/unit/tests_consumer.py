@@ -85,7 +85,7 @@ class TestRecordExport(unittest.TestCase):
                 ],
                 "key": {
                     "content": "order-1048",
-                    "deserializer": {"type": "STRING"},
+                    "deserializer": "STRING",
                 },
                 "value": {
                     "content": {
@@ -93,7 +93,7 @@ class TestRecordExport(unittest.TestCase):
                         "customer": "Zoë",
                         "binary": b"\xff",
                     },
-                    "deserializer": {"type": "JSON"},
+                    "deserializer": "JSON",
                 },
             },
             record.dict(),
@@ -114,8 +114,7 @@ class TestRecordExport(unittest.TestCase):
 
         self.assertEqual(record_json(exported_record()).rstrip("\n"), renderable.text.plain)
         self.assertIn(
-            '  "key": {\n    "content": "order-1048",\n    "deserializer": {\n'
-            '      "type": "STRING"\n    }\n  }',
+            '  "key": {\n    "content": "order-1048",\n' '    "deserializer": "STRING"\n  }',
             renderable.text.plain,
         )
         self.assertFalse(renderable.text.no_wrap)
@@ -134,10 +133,7 @@ class TestRecordExport(unittest.TestCase):
         self.assertIsNone(data["timestamp"])
         self.assertIsNone(data["key"]["content"])
         self.assertIsNone(data["value"]["content"])
-        self.assertEqual(
-            {"type": "STRING"},
-            data["key"]["deserializer"],
-        )
+        self.assertEqual("STRING", data["key"]["deserializer"])
 
     def test_record_dict_preserves_tombstones_and_repeated_headers(self) -> None:
         string_deserializer = StringDeserializer()
@@ -165,11 +161,11 @@ class TestRecordExport(unittest.TestCase):
                 ],
                 "key": {
                     "content": None,
-                    "deserializer": {"type": "STRING"},
+                    "deserializer": "STRING",
                 },
                 "value": {
                     "content": None,
-                    "deserializer": {"type": "JSON"},
+                    "deserializer": "JSON",
                 },
             },
             record.dict(),
@@ -182,7 +178,7 @@ class TestRecordExport(unittest.TestCase):
 
                 self.assertEqual(
                     deserialization.name,
-                    data["key"]["deserializer"]["type"],
+                    data["key"]["deserializer"],
                 )
 
     def test_record_dict_preserves_deserialization_warning_metadata(self) -> None:
@@ -212,15 +208,16 @@ class TestRecordExport(unittest.TestCase):
                 "headers": [],
                 "key": {
                     "content": "/w==",
-                    "deserializer": {"type": "JSON"},
+                    "deserializer": "JSON",
                     "error": {
                         "message": "malformed key",
-                        "fallback": {"type": "BYTES", "encoding": "BASE64"},
+                        "fallback": "BYTES",
+                        "encoding": "BASE64",
                     },
                 },
                 "value": {
                     "content": "paid",
-                    "deserializer": {"type": "STRING"},
+                    "deserializer": "STRING",
                 },
             },
             data,
@@ -280,28 +277,24 @@ class TestRecordExport(unittest.TestCase):
                 "headers": [],
                 "key": {
                     "content": {"id": "order-1049"},
-                    "deserializer": {
-                        "type": "REGISTRY",
-                        "schema": {
-                            "provider": CONFLUENT,
-                            "id": 12,
-                            "subject": "orders-key",
-                            "version": 2,
-                            "type": "AVRO",
-                        },
+                    "deserializer": "REGISTRY",
+                    "schema": {
+                        "provider": CONFLUENT,
+                        "id": 12,
+                        "subject": "orders-key",
+                        "version": 2,
+                        "type": "AVRO",
                     },
                 },
                 "value": {
                     "content": {"status": "shipped"},
-                    "deserializer": {
-                        "type": "REGISTRY",
-                        "schema": {
-                            "provider": CONFLUENT,
-                            "id": 27,
-                            "subject": "orders-value",
-                            "version": 5,
-                            "type": "JSON",
-                        },
+                    "deserializer": "REGISTRY",
+                    "schema": {
+                        "provider": CONFLUENT,
+                        "id": 27,
+                        "subject": "orders-value",
+                        "version": 5,
+                        "type": "JSON",
                     },
                 },
             },
