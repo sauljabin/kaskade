@@ -134,7 +134,8 @@ class TestDeserializer(unittest.TestCase):
                 "value": "aW52YWxpZA==",
                 "error": {
                     "message": "invalid data",
-                    "fallback": {"type": "BYTES", "encoding": "BASE64"},
+                    "fallback": "BYTES",
+                    "encoding": "BASE64",
                 },
             },
             header.dict(),
@@ -223,9 +224,10 @@ class TestDeserializer(unittest.TestCase):
                     record.dict()["key"]["content"],
                 )
                 self.assertEqual(
-                    {"type": "BYTES", "encoding": bytes_encoding.name},
+                    "BYTES",
                     record.dict()["key"]["deserializer"],
                 )
+                self.assertEqual(bytes_encoding.name, record.dict()["key"]["encoding"])
                 self.assertEqual(
                     record.dict(),
                     json.loads(record_json(record)),
@@ -249,7 +251,7 @@ class TestDeserializer(unittest.TestCase):
                 self.assertEqual(
                     {
                         "content": None,
-                        "deserializer": {"type": deserialization.name},
+                        "deserializer": deserialization.name,
                     },
                     field,
                 )
@@ -278,10 +280,11 @@ class TestDeserializer(unittest.TestCase):
         self.assertEqual(
             {
                 "content": "NTg2",
-                "deserializer": {"type": "INTEGER"},
+                "deserializer": "INTEGER",
                 "error": {
                     "message": "unpack requires a buffer of 4 bytes",
-                    "fallback": {"type": "BYTES", "encoding": "BASE64"},
+                    "fallback": "BYTES",
+                    "encoding": "BASE64",
                 },
             },
             record.dict()["key"],

@@ -11,10 +11,8 @@
   ],
   "key": {
     "content": "6f726465722d31303439",
-    "deserializer": {
-      "type": "BYTES",
-      "encoding": "HEX"
-    }
+    "deserializer": "BYTES",
+    "encoding": "HEX"
   },
   "value": {
     "content": [
@@ -23,9 +21,7 @@
       127,
       255
     ],
-    "deserializer": {
-      "type": "BYTES",
-      "encoding": "BYTE_ARRAY"
-    }
+    "deserializer": "BYTES",
+    "encoding": "BYTE_ARRAY"
   }
 }

@@ -84,7 +84,7 @@ class TestConsumerRecordSchema(unittest.TestCase):
                 encoding="utf-8"
             )
         )
-        schema = record["value"]["deserializer"]["schema"]
+        schema = record["value"]["schema"]
         for field in ("group", "artifact", "version"):
             schema.pop(field)
 
@@ -161,12 +161,12 @@ class TestConsumerRecordSchema(unittest.TestCase):
             self.validator.validate(old_wrapper)
 
         nullable_schema = deepcopy(valid)
-        nullable_schema["value"]["deserializer"]["schema"] = None
+        nullable_schema["value"]["schema"] = None
         with self.assertRaises(ValidationError):
             self.validator.validate(nullable_schema)
 
         mismatched_encoding = deepcopy(valid)
-        mismatched_encoding["key"]["deserializer"]["encoding"] = "BYTE_ARRAY"
+        mismatched_encoding["key"]["encoding"] = "BYTE_ARRAY"
         with self.assertRaises(ValidationError):
             self.validator.validate(mismatched_encoding)
 
@@ -199,6 +199,9 @@ class TestConsumerRecordSchema(unittest.TestCase):
             key_deserializer=error_deserializer,
         ).dict()
         error = old_fallback["key"]["error"]
-        error["fallback"] = error["fallback"]["type"]
+        error["fallback"] = {
+            "type": error["fallback"],
+            "encoding": error.pop("encoding"),
+        }
         with self.assertRaises(ValidationError):
             self.validator.validate(old_fallback)

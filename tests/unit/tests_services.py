@@ -583,8 +583,12 @@ class TestConsumerService(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(records[1].value_outcome().used_fallback)
         self.assertFalse(records[2].has_deserialization_errors())
         self.assertEqual(
-            {"type": "BYTES", "encoding": "BASE64"},
-            records[1].dict()["key"]["error"]["fallback"],
+            {
+                "message": "'utf-8' codec can't decode byte 0xff in position 0: invalid start byte",
+                "fallback": "BYTES",
+                "encoding": "BASE64",
+            },
+            records[1].dict()["key"]["error"],
         )
 
     @patch("kaskade.services.Consumer")
@@ -621,17 +625,19 @@ class TestConsumerService(unittest.IsolatedAsyncioTestCase):
             record.dict()["key"]["content"],
         )
         self.assertEqual(
-            {"type": "BYTES", "encoding": "HEX"},
+            "BYTES",
             record.dict()["key"]["deserializer"],
         )
+        self.assertEqual("HEX", record.dict()["key"]["encoding"])
         self.assertEqual(
             [72, 101, 108, 108, 111, 32, 119, 111, 114, 108, 100],
             record.dict()["value"]["content"],
         )
         self.assertEqual(
-            {"type": "BYTES", "encoding": "BYTE_ARRAY"},
+            "BYTES",
             record.dict()["value"]["deserializer"],
         )
+        self.assertEqual("BYTE_ARRAY", record.dict()["value"]["encoding"])
         self.assertEqual(
             {
                 "key": "binary",
@@ -640,7 +646,8 @@ class TestConsumerService(unittest.IsolatedAsyncioTestCase):
                     "message": (
                         "'utf-8' codec can't decode byte 0xff in position 0: " "invalid start byte"
                     ),
-                    "fallback": {"type": "BYTES", "encoding": "ESCAPED"},
+                    "fallback": "BYTES",
+                    "encoding": "ESCAPED",
                 },
             },
             record.dict()["headers"][0],
@@ -675,18 +682,24 @@ class TestConsumerService(unittest.IsolatedAsyncioTestCase):
         data = record.dict()
         self.assertEqual("\\xff", data["key"]["content"])
         self.assertEqual(
-            {"type": "BYTES", "encoding": "ESCAPED"},
-            data["key"]["error"]["fallback"],
+            ("BYTES", "ESCAPED"),
+            (data["key"]["error"]["fallback"], data["key"]["error"]["encoding"]),
         )
         self.assertEqual("\\xfe", data["value"]["content"])
         self.assertEqual(
-            {"type": "BYTES", "encoding": "ESCAPED"},
-            data["value"]["error"]["fallback"],
+            ("BYTES", "ESCAPED"),
+            (
+                data["value"]["error"]["fallback"],
+                data["value"]["error"]["encoding"],
+            ),
         )
         self.assertEqual("\\xfd", data["headers"][0]["value"])
         self.assertEqual(
-            {"type": "BYTES", "encoding": "ESCAPED"},
-            data["headers"][0]["error"]["fallback"],
+            ("BYTES", "ESCAPED"),
+            (
+                data["headers"][0]["error"]["fallback"],
+                data["headers"][0]["error"]["encoding"],
+            ),
         )
         self.assertEqual(
             2,

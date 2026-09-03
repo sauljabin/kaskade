@@ -206,15 +206,19 @@
         }
       }
     },
-    "bytesDeserializer": {
+    "errorMetadata": {
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "type",
+        "message",
+        "fallback",
         "encoding"
       ],
       "properties": {
-        "type": {
+        "message": {
+          "type": "string"
+        },
+        "fallback": {
           "const": "BYTES"
         },
         "encoding": {
@@ -222,62 +226,26 @@
         }
       }
     },
-    "errorMetadata": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "message",
-        "fallback"
-      ],
-      "properties": {
-        "message": {
-          "type": "string"
-        },
-        "fallback": {
-          "$ref": "#/$defs/bytesDeserializer"
-        }
-      }
-    },
-    "nullDeserializer": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "type"
-      ],
-      "properties": {
-        "type": {
-          "$ref": "#/$defs/deserializerType"
-        }
-      }
-    },
-    "nonBytesDeserializer": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "type"
-      ],
-      "properties": {
-        "type": {
-          "$ref": "#/$defs/nonBytesDeserializerType"
-        }
-      }
-    },
-    "registryDeserializer": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "type"
-      ],
-      "properties": {
-        "type": {
-          "const": "REGISTRY"
-        },
-        "schema": {
-          "$ref": "#/$defs/schemaMetadata"
-        }
-      }
-    },
     "deserializedField": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/nullDeserializedField"
+        },
+        {
+          "$ref": "#/$defs/bytesDeserializedField"
+        },
+        {
+          "$ref": "#/$defs/nonBytesDeserializedField"
+        },
+        {
+          "$ref": "#/$defs/registryDeserializedField"
+        },
+        {
+          "$ref": "#/$defs/errorDeserializedField"
+        }
+      ]
+    },
+    "nullDeserializedField": {
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -285,117 +253,178 @@
         "deserializer"
       ],
       "properties": {
-        "content": {},
-        "deserializer": {},
+        "content": {
+          "type": "null"
+        },
+        "deserializer": {
+          "$ref": "#/$defs/deserializerType"
+        }
+      }
+    },
+    "bytesDeserializedField": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "content",
+        "deserializer",
+        "encoding"
+      ],
+      "properties": {
+        "content": {
+          "$ref": "#/$defs/encodedBytes"
+        },
+        "deserializer": {
+          "const": "BYTES"
+        },
+        "encoding": {
+          "$ref": "#/$defs/bytesEncoding"
+        }
+      },
+      "allOf": [
+        {
+          "$ref": "#/$defs/fieldEncodingRules"
+        }
+      ]
+    },
+    "nonBytesDeserializedField": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "content",
+        "deserializer"
+      ],
+      "properties": {
+        "content": {
+          "not": {
+            "type": "null"
+          }
+        },
+        "deserializer": {
+          "$ref": "#/$defs/nonBytesDeserializerType"
+        }
+      }
+    },
+    "registryDeserializedField": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "content",
+        "deserializer"
+      ],
+      "properties": {
+        "content": {
+          "not": {
+            "type": "null"
+          }
+        },
+        "deserializer": {
+          "const": "REGISTRY"
+        },
+        "schema": {
+          "$ref": "#/$defs/schemaMetadata"
+        }
+      }
+    },
+    "errorDeserializedField": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "content",
+        "deserializer",
+        "error"
+      ],
+      "properties": {
+        "content": {
+          "$ref": "#/$defs/encodedBytes"
+        },
+        "deserializer": {
+          "$ref": "#/$defs/deserializerType"
+        },
         "error": {
           "$ref": "#/$defs/errorMetadata"
         }
       },
-      "oneOf": [
-        {
-          "not": {
-            "required": [
-              "error"
-            ]
-          },
-          "properties": {
-            "content": {
-              "type": "null"
-            },
-            "deserializer": {
-              "$ref": "#/$defs/nullDeserializer"
-            }
-          }
-        },
-        {
-          "not": {
-            "required": [
-              "error"
-            ]
-          },
-          "properties": {
-            "content": {
-              "$ref": "#/$defs/encodedBytes"
-            },
-            "deserializer": {
-              "$ref": "#/$defs/bytesDeserializer"
-            }
-          }
-        },
-        {
-          "not": {
-            "required": [
-              "error"
-            ]
-          },
-          "properties": {
-            "content": {
-              "not": {
-                "type": "null"
-              }
-            },
-            "deserializer": {
-              "$ref": "#/$defs/nonBytesDeserializer"
-            }
-          }
-        },
-        {
-          "not": {
-            "required": [
-              "error"
-            ]
-          },
-          "properties": {
-            "content": {
-              "not": {
-                "type": "null"
-              }
-            },
-            "deserializer": {
-              "$ref": "#/$defs/registryDeserializer"
-            }
-          }
-        },
-        {
-          "required": [
-            "error"
-          ],
-          "properties": {
-            "content": {
-              "$ref": "#/$defs/encodedBytes"
-            },
-            "deserializer": {
-              "$ref": "#/$defs/nullDeserializer"
-            },
-            "error": {
-              "$ref": "#/$defs/errorMetadata"
-            }
-          }
-        }
-      ],
       "allOf": [
         {
-          "$ref": "#/$defs/successfulBytesEncodingRules"
-        },
-        {
-          "$ref": "#/$defs/errorBytesEncodingRules"
+          "$ref": "#/$defs/errorEncodingRules"
         }
       ]
     },
-    "successfulBytesEncodingRules": {
+    "fieldEncodingRules": {
       "allOf": [
         {
           "if": {
             "properties": {
-              "deserializer": {
-                "required": [
-                  "type",
-                  "encoding"
-                ],
+              "encoding": {
+                "const": "BASE64"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "content": {
+                "$ref": "#/$defs/base64Content"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "encoding": {
+                "const": "HEX"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "content": {
+                "$ref": "#/$defs/hexContent"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "encoding": {
+                "const": "BYTE_ARRAY"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "content": {
+                "$ref": "#/$defs/byteArrayContent"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "encoding": {
+                "const": "ESCAPED"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "content": {
+                "$ref": "#/$defs/escapedContent"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "errorEncodingRules": {
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "error": {
                 "properties": {
-                  "type": {
-                    "const": "BYTES"
-                  },
                   "encoding": {
                     "const": "BASE64"
                   }
@@ -414,15 +443,8 @@
         {
           "if": {
             "properties": {
-              "deserializer": {
-                "required": [
-                  "type",
-                  "encoding"
-                ],
+              "error": {
                 "properties": {
-                  "type": {
-                    "const": "BYTES"
-                  },
                   "encoding": {
                     "const": "HEX"
                   }
@@ -441,15 +463,8 @@
         {
           "if": {
             "properties": {
-              "deserializer": {
-                "required": [
-                  "type",
-                  "encoding"
-                ],
+              "error": {
                 "properties": {
-                  "type": {
-                    "const": "BYTES"
-                  },
                   "encoding": {
                     "const": "BYTE_ARRAY"
                   }
@@ -468,15 +483,8 @@
         {
           "if": {
             "properties": {
-              "deserializer": {
-                "required": [
-                  "type",
-                  "encoding"
-                ],
+              "error": {
                 "properties": {
-                  "type": {
-                    "const": "BYTES"
-                  },
                   "encoding": {
                     "const": "ESCAPED"
                   }
@@ -494,177 +502,19 @@
         }
       ]
     },
-    "errorBytesEncodingRules": {
-      "allOf": [
-        {
-          "$ref": "#/$defs/errorBase64Rule"
-        },
-        {
-          "$ref": "#/$defs/errorHexRule"
-        },
-        {
-          "$ref": "#/$defs/errorByteArrayRule"
-        },
-        {
-          "$ref": "#/$defs/errorEscapedRule"
-        }
-      ]
-    },
-    "errorBase64Rule": {
-      "if": {
-        "$ref": "#/$defs/errorEncodingBase64Condition"
-      },
-      "then": {
-        "properties": {
-          "content": {
-            "$ref": "#/$defs/base64Content"
-          }
-        }
-      }
-    },
-    "errorHexRule": {
-      "if": {
-        "$ref": "#/$defs/errorEncodingHexCondition"
-      },
-      "then": {
-        "properties": {
-          "content": {
-            "$ref": "#/$defs/hexContent"
-          }
-        }
-      }
-    },
-    "errorByteArrayRule": {
-      "if": {
-        "$ref": "#/$defs/errorEncodingByteArrayCondition"
-      },
-      "then": {
-        "properties": {
-          "content": {
-            "$ref": "#/$defs/byteArrayContent"
-          }
-        }
-      }
-    },
-    "errorEscapedRule": {
-      "if": {
-        "$ref": "#/$defs/errorEncodingEscapedCondition"
-      },
-      "then": {
-        "properties": {
-          "content": {
-            "$ref": "#/$defs/escapedContent"
-          }
-        }
-      }
-    },
-    "errorEncodingBase64Condition": {
-      "$ref": "#/$defs/errorEncodingConditionBase",
-      "properties": {
-        "error": {
-          "properties": {
-            "fallback": {
-              "properties": {
-                "encoding": {
-                  "const": "BASE64"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "errorEncodingHexCondition": {
-      "$ref": "#/$defs/errorEncodingConditionBase",
-      "properties": {
-        "error": {
-          "properties": {
-            "fallback": {
-              "properties": {
-                "encoding": {
-                  "const": "HEX"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "errorEncodingByteArrayCondition": {
-      "$ref": "#/$defs/errorEncodingConditionBase",
-      "properties": {
-        "error": {
-          "properties": {
-            "fallback": {
-              "properties": {
-                "encoding": {
-                  "const": "BYTE_ARRAY"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "errorEncodingEscapedCondition": {
-      "$ref": "#/$defs/errorEncodingConditionBase",
-      "properties": {
-        "error": {
-          "properties": {
-            "fallback": {
-              "properties": {
-                "encoding": {
-                  "const": "ESCAPED"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "errorEncodingConditionBase": {
-      "required": [
-        "error"
-      ],
-      "properties": {
-        "error": {
-          "required": [
-            "fallback"
-          ],
-          "properties": {
-            "fallback": {
-              "required": [
-                "encoding"
-              ]
-            }
-          }
-        }
-      }
-    },
     "header": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "key",
-        "value"
-      ],
-      "properties": {
-        "key": {
-          "type": "string"
-        },
-        "value": {},
-        "error": {
-          "$ref": "#/$defs/errorMetadata"
-        }
-      },
       "oneOf": [
         {
-          "not": {
-            "required": [
-              "error"
-            ]
-          },
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "key",
+            "value"
+          ],
           "properties": {
+            "key": {
+              "type": "string"
+            },
             "value": {
               "type": [
                 "string",
@@ -674,30 +524,48 @@
           }
         },
         {
-          "required": [
-            "error"
-          ],
-          "properties": {
-            "value": {
-              "$ref": "#/$defs/encodedBytes"
-            },
-            "error": {
-              "$ref": "#/$defs/errorMetadata"
-            }
-          }
-        }
-      ],
-      "allOf": [
-        {
-          "$ref": "#/$defs/headerErrorBytesEncodingRules"
+          "$ref": "#/$defs/errorHeader"
         }
       ]
     },
-    "headerErrorBytesEncodingRules": {
+    "errorHeader": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "key",
+        "value",
+        "error"
+      ],
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "value": {
+          "$ref": "#/$defs/encodedBytes"
+        },
+        "error": {
+          "$ref": "#/$defs/errorMetadata"
+        }
+      },
+      "allOf": [
+        {
+          "$ref": "#/$defs/headerErrorEncodingRules"
+        }
+      ]
+    },
+    "headerErrorEncodingRules": {
       "allOf": [
         {
           "if": {
-            "$ref": "#/$defs/errorEncodingBase64Condition"
+            "properties": {
+              "error": {
+                "properties": {
+                  "encoding": {
+                    "const": "BASE64"
+                  }
+                }
+              }
+            }
           },
           "then": {
             "properties": {
@@ -709,7 +577,15 @@
         },
         {
           "if": {
-            "$ref": "#/$defs/errorEncodingHexCondition"
+            "properties": {
+              "error": {
+                "properties": {
+                  "encoding": {
+                    "const": "HEX"
+                  }
+                }
+              }
+            }
           },
           "then": {
             "properties": {
@@ -721,7 +597,15 @@
         },
         {
           "if": {
-            "$ref": "#/$defs/errorEncodingByteArrayCondition"
+            "properties": {
+              "error": {
+                "properties": {
+                  "encoding": {
+                    "const": "BYTE_ARRAY"
+                  }
+                }
+              }
+            }
           },
           "then": {
             "properties": {
@@ -733,7 +617,15 @@
         },
         {
           "if": {
-            "$ref": "#/$defs/errorEncodingEscapedCondition"
+            "properties": {
+              "error": {
+                "properties": {
+                  "encoding": {
+                    "const": "ESCAPED"
+                  }
+                }
+              }
+            }
           },
           "then": {
             "properties": {

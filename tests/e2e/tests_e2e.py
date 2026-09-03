@@ -227,7 +227,7 @@ class TestE2E(unittest.IsolatedAsyncioTestCase):
             )
             if expected_registry_provider is not None:
                 assert record is not None
-                schema = record.dict()["value"]["deserializer"].get("schema")
+                schema = record.dict()["value"].get("schema")
                 self.assertIsNotNone(schema, record.dict())
                 self.assertEqual(expected_registry_provider, schema["provider"])
                 self.assertEqual("default", schema["group"])
