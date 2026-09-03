@@ -5,11 +5,8 @@ on:
     branches: [main]
     paths:
       - "site/**"
-      - "images/banner.svg"
       - "images/banner-borderless.svg"
-      - "images/admin.svg"
       - "images/admin-borderless.svg"
-      - "images/consumer.svg"
       - "images/consumer-borderless.svg"
       - "images/littlehorse-badge.svg"
       - "images/textual-badge.svg"
@@ -18,11 +15,8 @@ on:
     branches: [main]
     paths:
       - "site/**"
-      - "images/banner.svg"
       - "images/banner-borderless.svg"
-      - "images/admin.svg"
       - "images/admin-borderless.svg"
-      - "images/consumer.svg"
       - "images/consumer-borderless.svg"
       - "images/littlehorse-badge.svg"
       - "images/textual-badge.svg"
