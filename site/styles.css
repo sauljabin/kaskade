@@ -381,10 +381,46 @@ h1 span {
   padding: clamp(1.25rem, 3vw, 2.3rem);
 }
 
+.hero-terminal-content {
+  display: grid;
+  place-items: center;
+  gap: 1rem;
+  width: 100%;
+}
+
 .hero-terminal-body img {
   display: block;
   width: min(100%, 31rem);
   margin: 0;
+}
+
+.hero-release {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  min-height: 1.75rem;
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.68rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.hero-release[data-release-state="loading"] {
+  visibility: hidden;
+}
+
+.hero-release a {
+  padding: 0.15rem 0.45rem;
+  border: 1px solid var(--purple-dark);
+  color: var(--green);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.hero-release a:hover {
+  border-color: var(--green);
 }
 
 .hero-footnote {

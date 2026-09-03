@@ -1,5 +1,38 @@
 const statusRegion = document.querySelector(".copy-status");
+const releaseRegion = document.querySelector(".hero-release");
+const releaseLink = document.querySelector("[data-latest-release]");
+const releasesUrl = "https://github.com/sauljabin/kaskade/releases";
 let resetTimer;
+
+async function loadLatestRelease() {
+  if (!releaseRegion || !releaseLink) {
+    return;
+  }
+
+  try {
+    const response = await fetch(
+      "https://api.github.com/repos/sauljabin/kaskade/releases/latest",
+      { headers: { Accept: "application/vnd.github+json" } },
+    );
+
+    if (!response.ok) {
+      throw new Error(`GitHub returned ${response.status}`);
+    }
+
+    const release = await response.json();
+    if (typeof release.tag_name !== "string" || release.tag_name.length === 0) {
+      throw new Error("The latest release did not include a tag");
+    }
+
+    releaseLink.textContent = `${release.tag_name} ↗`;
+    releaseLink.href = `${releasesUrl}/tag/${encodeURIComponent(release.tag_name)}`;
+    releaseRegion.dataset.releaseState = "ready";
+  } catch {
+    releaseLink.textContent = "View releases ↗";
+    releaseLink.href = releasesUrl;
+    releaseRegion.dataset.releaseState = "unavailable";
+  }
+}
 
 async function writeToClipboard(value) {
   if (navigator.clipboard && window.isSecureContext) {
@@ -61,3 +94,5 @@ document.querySelectorAll("[data-copy-target]").forEach((button) => {
     }, 2000);
   });
 });
+
+loadLatestRelease();

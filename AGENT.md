@@ -168,7 +168,9 @@ use equal 50% table columns and 100% image width.
 The static site source lives in `site/`. Keep its slogan and capability claims
 aligned with `README.md`, assemble its generated SVG dependencies exactly as the
 Pages workflow does, and validate pull requests without requiring a deployment.
-Only pushes to `main` deploy the uploaded artifact.
+Only pushes to `main` deploy the uploaded artifact. The hero resolves the latest
+stable version from GitHub Releases at runtime; never hard-code a release tag,
+and retain a link to the releases index when the request is unavailable.
 
 Keep the manual Kafka environment self-contained in `sandbox`; never share its
 fixtures or models with tests. Maintain one topology with three Confluent Kafka
