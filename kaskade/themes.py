@@ -22,9 +22,24 @@ from kaskade.help import (
 from kaskade.keymaps import NAVIGATION_BINDING_IDS
 from kaskade.settings import AppSettings, load_settings
 
-DEFAULT_THEME = "eva01"
+DEFAULT_THEME = "eva01-berserk"
 KASKADE_COMMAND_ID_PREFIX = "kaskade."
 EVA01_THEME = Theme(
+    name="eva01",
+    primary="#9B4DCA",
+    secondary="#A6FF4D",
+    warning="#FF9D1C",
+    error="#FF4D5A",
+    success="#A6FF4D",
+    accent="#FF7A00",
+    foreground="#F3ECFF",
+    background="#2A1845",
+    surface="#1F0E36",
+    panel="#0E0024",
+    boost="#341B55",
+    dark=True,
+)
+EVA01_BERSERK_THEME = Theme(
     name=DEFAULT_THEME,
     primary="#9B4DCA",
     secondary="#A6FF4D",
@@ -33,17 +48,18 @@ EVA01_THEME = Theme(
     success="#A6FF4D",
     accent="#FF7A00",
     foreground="#F3ECFF",
-    background="#100A1C",
+    background="#0E0024",
     surface="#1C1030",
     panel="#2A1845",
     boost="#341B55",
     dark=True,
 )
+KASKADE_THEMES = (EVA01_THEME, EVA01_BERSERK_THEME)
 
 
 def available_theme_names() -> tuple[str, ...]:
-    """Return every Textual built-in theme plus Kaskade's default theme."""
-    return tuple(sorted((*BUILTIN_THEMES, EVA01_THEME.name)))
+    """Return every Textual built-in theme plus Kaskade's custom themes."""
+    return tuple(sorted((*BUILTIN_THEMES, *(theme.name for theme in KASKADE_THEMES))))
 
 
 def _resolve_theme(settings: AppSettings) -> AppSettings:
@@ -132,7 +148,8 @@ class KaskadeApp(App, inherit_bindings=False):
         super().__init__()
         self.settings = _resolve_theme(load_settings(settings_path))
         self.set_keymap(self.settings.keymap)
-        self.register_theme(EVA01_THEME)
+        for theme in KASKADE_THEMES:
+            self.register_theme(theme)
         assert self.settings.theme is not None
         self.theme = self.settings.theme
         self._sync_rich_theme()
@@ -225,6 +242,7 @@ class KaskadeApp(App, inherit_bindings=False):
             "primary": _rich_color(theme.primary),
             "secondary": _rich_color(theme.secondary or theme.primary),
             "warning": _rich_color(theme.warning or theme.primary),
+            "text-warning": _rich_color(self.get_css_variables()["text-warning"]),
             "error": _rich_color(theme.error or theme.primary),
             "success": _rich_color(theme.success or theme.primary),
             "accent": _rich_color(theme.accent or theme.primary),

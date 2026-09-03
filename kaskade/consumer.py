@@ -56,6 +56,7 @@ class RecordDataTable(StretchyDataTable[str | Text]):
     """A records table with diagnostic tooltips for individual cells."""
 
     def __init__(self, **kwargs: Any) -> None:
+        kwargs.setdefault("cursor_foreground_priority", "renderable")
         super().__init__(**kwargs)
         self._cell_tooltips: dict[Coordinate, Text] = {}
 
@@ -450,7 +451,6 @@ class ListRecords(Container):
     def compose(self) -> ComposeResult:
         table = RecordDataTable(id="records-table", classes="main-table")
         table.cursor_type = "row"
-        table.zebra_stripes = True
 
         table.add_column("Key", stretch=2)
         table.add_column("Value", stretch=3)

@@ -40,8 +40,8 @@ cp examples/settings.yaml ~/.config/kaskade/settings.yaml
 
 ### Themes
 
-Kaskade defaults to the `eva01` Unit-01-inspired theme. Set another default in
-`settings.yaml`:
+Kaskade includes the original `eva01` Unit-01-inspired theme and the darker
+`eva01-berserk` variant, which is the default. Set another default in `settings.yaml`:
 
 ```yaml
 theme: dracula

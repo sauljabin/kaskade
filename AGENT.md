@@ -36,8 +36,8 @@
 - Keep settings loading in `settings.py`, key binding parsing in `keymaps.py`,
   and supported-theme resolution in `themes.py`. Settings failures retain valid
   values and produce an in-app warning; keep `examples/settings.yaml`
-  synchronized. Theme precedence is CLI, settings, then `eva01`, with all
-  Textual built-in themes available.
+  synchronized. Theme precedence is CLI, settings, then `eva01-berserk`, with
+  the original `eva01` and all Textual built-in themes available.
 - `--aws region=<region>` enables Amazon MSK IAM in admin, consumer, and sandbox
   population. Validate repeatable `--aws property=value` settings before client
   construction. Do not raise the `aws-msk-iam-sasl-signer-python>=1.0` baseline
@@ -126,22 +126,23 @@ entries.
 - Use Title Case for visible titles, headings, tabs, commands, and field labels.
   Toasts authored by Kaskade are concise and omit final periods; binding
   tooltips and CLI diagnostics remain sentences.
-- Centered modals have one outer border, `$surface`, semantic colors, constrained
-  width, and a compact Footer. The command palette and forms use width `72`
-  capped at `90%`; smaller selectors may be narrower.
+- Centered modals have one outer border, semantic theme backgrounds and colors,
+  constrained width, and a compact Footer. The command palette and forms use
+  width `72` capped at `90%`; smaller selectors may be narrower.
 - Below 80 columns, use Textual's `-narrow` breakpoint: modals and the palette
   fill available width, and Help fills the screen.
 - For tabbed modals, border and title the outer `TabbedContent`; inner tables
   remain borderless. Put counts in tab labels such as `Partitions [50]`.
 - Table backgrounds are transparent. Primary tables keep focus-aware borders;
   nested detail tables use `details-table`.
-- `eva01` is the default custom theme; retain every Textual built-in theme.
+- `eva01-berserk` is the default custom theme; retain the original `eva01` and
+  every Textual built-in theme.
   Style CSS with semantic variables and Rich renderables with semantic names,
   never Eva01 hex values.
 - `KaskadeApp` synchronizes Rich semantic colors from the active theme and on
   theme changes. Strip `ansi_` before passing Textual ANSI tokens to Rich. Use
   Textual's nested theme provider rather than registering another one.
-- Verify visual work with Eva01, a light theme, and an ANSI theme. Keep theme,
+- Verify visual work with both Eva01 variants, a light theme, and an ANSI theme. Keep theme,
   responsive layout, modal, border, and Footer behavior covered in
   `tests/unit/tests_themes.py`.
 

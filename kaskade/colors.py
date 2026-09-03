@@ -1,4 +1,4 @@
 PRIMARY = "primary"
 SECONDARY = "secondary"
-WARNING = "warning"
+WARNING = "text-warning"
 NULL = "json.null"

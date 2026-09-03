@@ -1,6 +1,6 @@
 Screen.main-view-screen {
     padding: 0 1;
-    background: $panel;
+    background: $background;
 }
 
 KaskadeHeader {
@@ -8,7 +8,7 @@ KaskadeHeader {
     width: 100%;
     height: 3;
     padding: 1 0;
-    background: $panel;
+    background: $background;
     color: $foreground;
 }
 
@@ -29,13 +29,25 @@ DataTable {
     background: transparent;
 }
 
+DataTable:focus > .datatable--cursor {
+    background: $primary-darken-3 85%;
+}
+
 DataTable > .datatable--header {
-    background: $panel-darken-2;
+    background: transparent;
     color: $text-secondary;
+}
+
+DataTable > .datatable--header-hover {
+    background: transparent;
 }
 
 DataTable:focus > .datatable--header {
     background-tint: transparent;
+}
+
+Footer {
+    background: $background;
 }
 
 .kaskade-table {
@@ -58,7 +70,7 @@ DataTable.details-table {
 }
 
 .-textual-loading-indicator {
-    background: $surface;
+    background: transparent;
     color: $primary;
 }
 
@@ -82,7 +94,7 @@ HelpScreen > #help-dialog {
     width: 80%;
     max-width: 110;
     height: 80%;
-    background: $surface;
+    background: $background;
     padding: 0 1;
 }
 
@@ -109,6 +121,11 @@ HelpScreen #help-about {
 CommandPalette > #--container {
     width: 72;
     max-width: 90%;
+    background: $background;
+}
+
+CommandPalette CommandList > .option-list--option-highlighted {
+    background: $primary-darken-3 85%;
 }
 
 FilterTopicsScreen > Input,
@@ -124,7 +141,7 @@ DeleteTopicScreen > Input {
     max-width: 90%;
     height: auto;
     max-height: 90%;
-    background: $surface;
+    background: $background;
     padding: 0 1;
 }
 
@@ -135,20 +152,41 @@ DeleteTopicScreen > Input {
 Input.kaskade-input {
     padding: 0 0 0 1;
     border: solid $secondary 50%;
+    background: transparent;
+    background-tint: transparent;
 }
 
 Input.kaskade-input:focus {
     border: $secondary;
+    background: transparent;
+    background-tint: transparent;
 }
 
 RadioSet.kaskade-radio {
     border: solid $secondary 50%;
     width: 100%;
     height: auto;
+    background: transparent;
+    background-tint: transparent;
 }
 
 RadioSet.kaskade-radio:focus {
     border: $secondary;
+    background: transparent;
+    background-tint: transparent;
+}
+
+Collapsible,
+Collapsible:focus-within,
+CollapsibleTitle {
+    background: transparent;
+    background-tint: transparent;
+}
+
+CollapsibleTitle:focus {
+    background: $block-cursor-background;
+    color: $block-cursor-foreground;
+    text-style: $block-cursor-text-style;
 }
 
 ChunkSizeScreen > OptionList {
@@ -156,8 +194,18 @@ ChunkSizeScreen > OptionList {
     width: 40;
     max-width: 90%;
     height: 8;
-    background: $surface;
+    background: transparent;
+    background-tint: transparent;
     padding: 0 1;
+}
+
+ChunkSizeScreen > OptionList:focus {
+    background: transparent;
+    background-tint: transparent;
+}
+
+ChunkSizeScreen > OptionList:focus > .option-list--option-highlighted {
+    background: $primary-darken-3 85%;
 }
 
 TopicScreen > .record-details {
@@ -165,7 +213,7 @@ TopicScreen > .record-details {
     width: 100;
     max-width: 95%;
     height: 80%;
-    background: $surface;
+    background: $background;
 }
 
 TopicScreen .record-json {
@@ -178,7 +226,7 @@ DescribeTopicScreen > TabbedContent {
     border: $secondary;
     width: 95%;
     height: 90%;
-    background: $surface;
+    background: $background;
     padding: 0 1;
 }
 

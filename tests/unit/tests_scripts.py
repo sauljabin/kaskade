@@ -6,16 +6,16 @@ from unittest.mock import patch
 from xml.etree import ElementTree
 
 from kaskade import APP_VERSION
-from kaskade.themes import EVA01_THEME
+from kaskade.themes import EVA01_BERSERK_THEME
 from scripts import banner, screenshots
 
 
 class TestReadmeVisualScripts(unittest.IsolatedAsyncioTestCase):
-    def assert_eva01_colors(self, svg: str) -> None:
-        secondary = EVA01_THEME.secondary
+    def assert_default_theme_colors(self, svg: str) -> None:
+        secondary = EVA01_BERSERK_THEME.secondary
         self.assertIsNotNone(secondary)
         assert secondary is not None
-        self.assertIn(EVA01_THEME.primary.lower(), svg)
+        self.assertIn(EVA01_BERSERK_THEME.primary.lower(), svg)
         self.assertIn(secondary.lower(), svg)
 
     def assert_intrinsic_dimensions(self, svg: str) -> None:
@@ -24,7 +24,7 @@ class TestReadmeVisualScripts(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(view_width, root.attrib["width"])
         self.assertEqual(view_height, root.attrib["height"])
 
-    async def test_banner_generates_framed_and_borderless_eva01_variants(self) -> None:
+    async def test_banner_generates_framed_and_borderless_default_theme_variants(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             output = Path(temporary_directory)
             with (
@@ -39,7 +39,7 @@ class TestReadmeVisualScripts(unittest.IsolatedAsyncioTestCase):
             for path in paths:
                 with self.subTest(path=path.name):
                     svg = path.read_text(encoding="utf-8")
-                    self.assert_eva01_colors(svg.lower())
+                    self.assert_default_theme_colors(svg.lower())
                     self.assert_intrinsic_dimensions(svg)
                     self.assertIn("╗", svg)
                     self.assertIn("╝", svg)
@@ -49,9 +49,9 @@ class TestReadmeVisualScripts(unittest.IsolatedAsyncioTestCase):
                     self.assertEqual(circles, 0 if "borderless" in path.stem else 3)
 
             borderless_svg = paths[1].read_text(encoding="utf-8").lower()
-            self.assertIn(EVA01_THEME.background.lower(), borderless_svg)
+            self.assertIn(EVA01_BERSERK_THEME.background.lower(), borderless_svg)
 
-    async def test_screenshots_generate_framed_and_borderless_eva01_variants(self) -> None:
+    async def test_screenshots_generate_framed_and_borderless_default_theme_variants(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             output = Path(temporary_directory)
             with (
@@ -72,7 +72,7 @@ class TestReadmeVisualScripts(unittest.IsolatedAsyncioTestCase):
             for path in paths:
                 with self.subTest(path=path.name):
                     svg = path.read_text(encoding="utf-8")
-                    self.assert_eva01_colors(svg.lower())
+                    self.assert_default_theme_colors(svg.lower())
                     self.assert_intrinsic_dimensions(svg)
                     self.assertIn(f"v{screenshots.SCREENSHOT_VERSION}", svg)
                     if APP_VERSION != screenshots.SCREENSHOT_VERSION:

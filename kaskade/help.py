@@ -169,7 +169,6 @@ class HelpScreen(ModalScreen[None]):
             table: StretchyDataTable[str] = StretchyDataTable(
                 id="help-table",
                 cursor_type="row",
-                zebra_stripes=True,
             )
             table.add_column("Context", width=12, stretch=1)
             table.add_column("Key", width=14, stretch=1)

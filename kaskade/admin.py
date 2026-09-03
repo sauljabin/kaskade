@@ -267,7 +267,6 @@ class DescribeTopicScreen(HelpableModalScreen):
     def _new_table(self, table_id: str) -> StretchyDataTable[str]:
         table: StretchyDataTable[str] = StretchyDataTable(id=table_id, classes="details-table")
         table.cursor_type = "row"
-        table.zebra_stripes = True
         return table
 
     def _partitions_table(self) -> StretchyDataTable[str]:
@@ -750,7 +749,6 @@ class ListTopics(Container):
     def compose(self) -> ComposeResult:
         table = TopicDataTable(id="topics-table", classes="main-table")
         table.cursor_type = "row"
-        table.zebra_stripes = True
 
         table.add_column("Name", key="name", stretch=1)
         table.add_column("Partitions", key="partitions")
