@@ -235,9 +235,9 @@ Registry metadata:
 }
 ```
 
-Registry metadata is independent for key and value and appears only when the
-schema ID resolves to an unambiguous registration. Confluent metadata uses a
-subject and numeric version:
+Registry metadata is independent for key and value. Confluent metadata appears
+when the schema ID resolves to an unambiguous registration and uses a subject
+and numeric version:
 
 ```json
 {
@@ -279,13 +279,19 @@ Complete consumed-record examples cover:
 - [Confluent Schema Registry](examples/consumer-record-confluent.json)
 - [native Apicurio Registry](examples/consumer-record-apicurio.json)
 
+Native Apicurio metadata always includes `provider`, `id`, `id_kind`, and
+`type` after the schema content is resolved. `group`, `artifact`, and `version`
+are included when the Registry exposes `/search/versions` and the ID maps to an
+unambiguous registration. Restricted Registry gateways can omit those three
+enrichment fields while still allowing schema-aware deserialization.
+
 Headers remain ordered so duplicate names survive; successful values deserialize
 as STRING without extra metadata. Timestamps are UTC ISO 8601 with milliseconds,
 or `null` when unavailable. Tombstones use `content: null`. Local and non-schema
-deserializers omit `schema`; Registry does too when resolution is ambiguous or
-unavailable. The records table renders absent keys and values as colored `null`
-with a distinguishing tooltip. Enter lowercase `null` in a key, value, or header
-filter to match null content.
+deserializers omit `schema`; Confluent Registry does too when registration
+resolution is ambiguous or unavailable. The records table renders absent keys
+and values as colored `null` with a distinguishing tooltip. Enter lowercase
+`null` in a key, value, or header filter to match null content.
 
 Byte content stays directly in `content`, and its BYTES deserializer carries the
 presentation encoding. Base64 is the default portable encoding:

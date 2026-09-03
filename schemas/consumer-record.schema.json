@@ -169,9 +169,6 @@
         "provider",
         "id",
         "id_kind",
-        "group",
-        "artifact",
-        "version",
         "type"
       ],
       "properties": {

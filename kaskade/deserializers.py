@@ -159,21 +159,25 @@ class RegistrySchema:
 class ApicurioRegistrySchema:
     id: int
     id_kind: str
-    group: str
-    artifact: str
-    version: str
     type: str
+    group: str | None = None
+    artifact: str | None = None
+    version: str | None = None
 
     def dict(self) -> dict[str, int | str]:
-        return {
+        result: dict[str, int | str] = {
             "provider": APICURIO,
             "id": self.id,
             "id_kind": self.id_kind,
-            "group": self.group,
-            "artifact": self.artifact,
-            "version": self.version,
             "type": self.type,
         }
+        if self.group is not None:
+            result["group"] = self.group
+        if self.artifact is not None:
+            result["artifact"] = self.artifact
+        if self.version is not None:
+            result["version"] = self.version
+        return result
 
 
 @dataclass(frozen=True)
@@ -862,7 +866,12 @@ class ApicurioRegistryDeserializer(Deserializer):
         artifact: ApicurioArtifact,
         topic: str,
         context: MessageField,
-    ) -> ApicurioRegistrySchema | None:
+    ) -> ApicurioRegistrySchema:
+        result = ApicurioRegistrySchema(
+            id=artifact.id,
+            id_kind=artifact.id_kind,
+            type=artifact.type,
+        )
         try:
             registrations = self.registry_client.get_metadata(artifact.id)
             candidates = [
@@ -875,15 +884,14 @@ class ApicurioRegistryDeserializer(Deserializer):
             selected = conventional[0] if len(conventional) == 1 else None
             if selected is None and len(candidates) == 1:
                 selected = candidates[0]
-            result = None
             if selected is not None:
                 result = ApicurioRegistrySchema(
                     id=artifact.id,
                     id_kind=artifact.id_kind,
+                    type=artifact.type,
                     group=str(selected.get("groupId") or "default"),
                     artifact=str(selected["artifactId"]),
                     version=str(selected["version"]),
-                    type=artifact.type,
                 )
         except SCHEMA_METADATA_EXCEPTIONS as ex:
             logger.warning(
@@ -893,7 +901,6 @@ class ApicurioRegistryDeserializer(Deserializer):
                 context.name,
                 ex,
             )
-            result = None
         return result
 
 

@@ -547,6 +547,26 @@ class TestApicurioDeserializer(unittest.TestCase):
             result.schema.dict(),
         )
 
+    def test_retains_apicurio_id_metadata_when_registration_lookup_fails(self) -> None:
+        self.client.get_artifact.return_value = ApicurioArtifact(42, "CONTENT_ID", "{}", "JSON", ())
+        self.client.get_metadata.side_effect = ApicurioRegistryError("search unavailable")
+
+        with self.assertLogs("kaskade", level="WARNING"):
+            result = self.deserializer.deserialize_with_metadata(
+                apicurio_frame(42, b"{}"), "orders", MessageField.VALUE
+            )
+
+        self.assertIsNotNone(result.schema)
+        self.assertEqual(
+            {
+                "provider": APICURIO,
+                "id": 42,
+                "id_kind": "CONTENT_ID",
+                "type": "JSON",
+            },
+            result.schema.dict(),
+        )
+
     def test_rejects_short_native_framing(self) -> None:
         with self.assertRaisesRegex(DeserializationError, "Apicurio data framing"):
             self.deserializer.deserialize(b"\x00\x00\x00\x00\x01", "orders", MessageField.VALUE)

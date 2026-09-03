@@ -78,6 +78,18 @@ class TestConsumerRecordSchema(unittest.TestCase):
             with self.subTest(path=path.name):
                 self.validator.validate(json.loads(path.read_text(encoding="utf-8")))
 
+    def test_partial_apicurio_metadata_validates_when_registration_is_unavailable(self) -> None:
+        record = json.loads(
+            (PROJECT_PATH / "examples" / "consumer-record-apicurio.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        schema = record["value"]["deserializer"]["schema"]
+        for field in ("group", "artifact", "version"):
+            schema.pop(field)
+
+        self.validator.validate(record)
+
     def test_all_byte_encodings_validate_for_content_errors_and_headers(self) -> None:
         for bytes_encoding in BytesEncoding:
             key_deserializer = MagicMock()
