@@ -8,11 +8,13 @@
   `scripts.analyze`; prefer focused helpers over suppressions.
 - Before finishing, review the complete diff for clarity, duplication, and
   maintainability, then rerun relevant analysis and tests.
-- Keep this file and affected user documentation concise and current. Record
-  stable conventions, remove obsolete or contradicted guidance, and avoid
-  implementation history.
-- Keep `USAGE.md` focused on end users. Document the development-only sandbox,
-  its population tool, and its access requirements in `DEVELOPMENT.md` only.
+- Keep each document authoritative for one audience: `README.md` and `site/`
+  share the product slogan and capability summary, `USAGE.md` owns user-facing
+  commands and behavior, and `DEVELOPMENT.md` owns contributor workflows and the
+  sandbox. This file records implementation invariants; link to the canonical
+  document instead of repeating its examples or reference material.
+- Keep affected documentation concise and current. Remove obsolete or
+  contradicted guidance rather than recording implementation history.
 - Importing `kaskade` must not create directories, open files, or modify the root
   logger. Configure the named logger lazily and tolerate an unavailable log
   destination.
@@ -25,23 +27,17 @@
   `Consumption options` and `Deserialization options`.
 - Keep `--earliest` and `--partition` declaratively mutually exclusive. Render
   the theme argument as `name` without weakening choice validation.
-- `--config-file client.ini` loads entries from optional `[kafka]`, `[registry]`,
-  and `[aws]` INI sections. Merge each file section under its matching repeatable
-  CLI option, then apply `-b/--bootstrap-servers`. Require a non-empty resolved
-  `bootstrap.servers` and update `examples/client.ini` when this behavior changes.
-- Forward arbitrary `--kafka` and `--registry` properties to their respective
-  `confluent-kafka` clients and let those clients validate names and values.
+- `--config-file client.ini` loads optional `[kafka]`, `[registry]`, and `[aws]`
+  sections. Merge file values before matching repeatable CLI properties, then
+  apply `-b/--bootstrap-servers`; require a non-empty resolved
+  `bootstrap.servers`. Forward client properties for downstream validation and
+  keep `examples/client.ini` synchronized.
 - Keep `-k` as the short form of consumer `--key`; `--kafka` has no short form.
-- Kaskade settings come from `KASKADE_SETTINGS`, then
-  `$XDG_CONFIG_HOME/kaskade/settings.yaml`, then
-  `~/.config/kaskade/settings.yaml`. Ignore invalid entries, retain valid ones,
-  warn in-app, and keep `examples/settings.yaml` current when settings change.
 - Keep settings loading in `settings.py`, key binding parsing in `keymaps.py`,
-  and supported-theme resolution in `themes.py`.
-- The theme precedence is `--theme`, then `settings.yaml`, then `eva01`. Accept
-  Textual built-in theme names and Kaskade's custom theme name.
-- Logs use `$XDG_STATE_HOME/kaskade/kaskade.log`, falling back to
-  `~/.local/state/kaskade/kaskade.log`, and rotate at 5 MiB with three backups.
+  and supported-theme resolution in `themes.py`. Settings failures retain valid
+  values and produce an in-app warning; keep `examples/settings.yaml`
+  synchronized. Theme precedence is CLI, settings, then `eva01`, with all
+  Textual built-in themes available.
 - `--aws region=<region>` enables Amazon MSK IAM in admin, consumer, and sandbox
   population. Validate repeatable `--aws property=value` settings before client
   construction. Do not raise the `aws-msk-iam-sasl-signer-python>=1.0` baseline
@@ -49,6 +45,9 @@
 - Local JSON, Avro, and Protobuf use raw framing by default. Select Confluent
   framing explicitly through global or field-scoped properties; never infer it
   from payload bytes.
+- Registry provider selection is explicit and defaults to Confluent. Native
+  Apicurio uses supported official deserializer properties and its v3 API; keep
+  provider-specific validation, framing, and metadata behavior isolated.
 
 ## Data Loading and Consumer Records
 
@@ -69,19 +68,12 @@
   record. Preserve the configured deserializer for later records, expose BYTES
   fallback diagnostics in details, tooltips, copy, and export, and keep broker
   failures and unexpected exceptions fatal.
-- Details, copy, and export share the versionless record contract in
-  `schemas/consumer-record.schema.json`. Keep its examples and conformance tests
-  synchronized. In that contract:
-  - Headers are ordered `{key, value}` objects. Add top-level `error` only when
-    STRING header deserialization fails.
-  - Key/value `deserializer` contains `type` and optional resolved Registry
-    `schema`. Registry lookup is best-effort and cached by schema, topic, and
-    field.
-  - A key/value failure adds sibling `error` metadata with a BYTES `fallback`.
-  - BYTES content stays directly in `content`; its deserializer or fallback has
-    `encoding`. `--bytes` configures explicit BYTES fields globally or per field,
-    while global-only `--fallback encoding=...` configures failures. Both default
-    independently to Base64. Null content omits `encoding`.
+- Details, copy, and export share the versionless contract in
+  `schemas/consumer-record.schema.json`; treat the schema as authoritative and
+  keep its examples and conformance tests synchronized. Preserve ordered
+  headers, independent key/value Registry metadata, sibling error and BYTES
+  fallback metadata, and null-content semantics without restating the full
+  contract here.
 
 ## TUI Interaction
 
@@ -172,6 +164,11 @@ Generated SVGs in `images/` come from `uv run python -m scripts.banner` and
 commands emit framed README images and borderless site variants. Use absolute
 `raw.githubusercontent.com` URLs targeting `main`. Paired README screenshots
 use equal 50% table columns and 100% image width.
+
+The static site source lives in `site/`. Keep its slogan and capability claims
+aligned with `README.md`, assemble its generated SVG dependencies exactly as the
+Pages workflow does, and validate pull requests without requiring a deployment.
+Only pushes to `main` deploy the uploaded artifact.
 
 Keep the manual Kafka environment self-contained in `sandbox`; never share its
 fixtures or models with tests. Maintain one topology with three Confluent Kafka

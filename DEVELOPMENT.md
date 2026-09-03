@@ -88,6 +88,27 @@ Generate framed README screenshots and borderless site variants with mock data
 uv run python -m scripts.screenshots
 ```
 
+## Website
+
+The static landing page lives in `site/`. Assemble a local preview with the same
+generated assets used by GitHub Pages:
+
+```bash
+mkdir -p /tmp/kaskade-site-preview/assets
+cp -R site/. /tmp/kaskade-site-preview/
+cp images/banner-borderless.svg \
+   images/admin-borderless.svg \
+   images/consumer-borderless.svg \
+   images/littlehorse-badge.svg \
+   images/textual-badge.svg \
+   /tmp/kaskade-site-preview/assets/
+uv run python -m http.server 8000 --directory /tmp/kaskade-site-preview
+```
+
+Open `http://localhost:8000/`. The Pages workflow assembles and uploads the same
+artifact for pull requests, but deploys only from `main`. The repository's Pages
+publishing source must be **GitHub Actions**.
+
 ## Build Artifacts
 
 Build the Python wheel and source distribution:

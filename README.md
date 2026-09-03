@@ -12,8 +12,9 @@
 <a href="https://hub.docker.com/r/sauljabin/kaskade/tags"><img alt="Docker version" src="https://img.shields.io/docker/v/sauljabin/kaskade?style=flat-square&logo=docker&logoColor=white&label=docker"></a>
 </p>
 
-Stay in flow while Kafka streams by. Kaskade puts topic management and record
-consumption in a fast, keyboard-driven terminal interface.
+Kafka work stays in the terminal. Kaskade brings topic administration and record
+inspection into one fast, keyboard-driven interface, with flexible
+deserialization and secure connections built in.
 
 ## Screenshots
 
@@ -37,21 +38,29 @@ consumption in a fast, keyboard-driven terminal interface.
 ### Kafka administration
 
 - Browse topics, partitions, consumer groups, and group members
-- Inspect topic lag, replicas, and record counts
-- Create, edit, delete, and filter topics
-- Connect to Amazon MSK clusters with AWS IAM authentication
+- Inspect topic configuration, lag, replicas, and record counts
+- Create, edit, delete, and filter topics without leaving the TUI
 - Refresh topic metadata and metrics automatically or manually
 
 ### Record consumption
 
 - Deserialize keys and values as bytes, primitives, JSON, Avro, or Protobuf,
-  including Confluent Schema Registry and native Apicurio Registry v3 without generated classes
+  including Confluent Schema Registry and native Apicurio Registry v3
+- Resolve Registry Protobuf messages and referenced schemas without generated classes
 - Select raw, Apicurio, or Confluent framing independently for local key and value deserializers
 - Filter records by key, value, header, or partition
 - Start from the earliest offsets or explicit partition/offset selections
 - Preserve malformed keys, values, and headers with BYTES fallback metadata
 - Present bytes as Base64, hex, byte arrays, or escaped bytes with encoding metadata
 - Copy or export individual records as JSON
+
+### Connections and configuration
+
+- Reuse Kafka, Registry, and AWS settings from an INI client profile
+- Pass Kafka and Registry client properties directly from the command line
+- Connect through TLS, SASL, Confluent Cloud, or Amazon MSK IAM authentication
+- Use Confluent Schema Registry, native Apicurio Registry, or Apicurio's
+  Confluent-compatible API
 
 ### Terminal experience
 

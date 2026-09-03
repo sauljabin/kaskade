@@ -3,10 +3,10 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Kaskade — Kafka from your terminal</title>
+    <title>Kaskade — Kafka work stays in the terminal</title>
     <meta
       name="description"
-      content="A keyboard-friendly Kafka TUI for exploring clusters, managing topics, and consuming records."
+      content="A keyboard-driven Kafka TUI for topic administration, record inspection, flexible deserialization, and secure connections."
     >
     <meta name="theme-color" content="#0e0024">
     <link rel="canonical" href="https://sauljabin.github.io/kaskade/">
@@ -17,29 +17,30 @@
 
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="Kaskade">
-    <meta property="og:title" content="Kaskade — Kafka from your terminal">
+    <meta property="og:title" content="Kaskade — Kafka work stays in the terminal">
     <meta
       property="og:description"
-      content="Explore clusters, manage topics, and consume records without leaving your terminal."
+      content="Administer topics, inspect records, decode schemas, and connect securely without leaving your terminal."
     >
     <meta property="og:url" content="https://sauljabin.github.io/kaskade/">
     <meta
       property="og:image"
-      content="https://sauljabin.github.io/kaskade/assets/social-preview.png"
+      content="https://sauljabin.github.io/kaskade/assets/social-preview.jpg"
     >
+    <meta property="og:image:type" content="image/jpeg">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
     <meta property="og:image:alt" content="Kaskade, a keyboard-friendly Kafka terminal interface">
 
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="Kaskade — Kafka from your terminal">
+    <meta name="twitter:title" content="Kaskade — Kafka work stays in the terminal">
     <meta
       name="twitter:description"
-      content="Explore clusters, manage topics, and consume records without leaving your terminal."
+      content="Administer topics, inspect records, decode schemas, and connect securely without leaving your terminal."
     >
     <meta
       name="twitter:image"
-      content="https://sauljabin.github.io/kaskade/assets/social-preview.png"
+      content="https://sauljabin.github.io/kaskade/assets/social-preview.jpg"
     >
     <meta name="twitter:image:alt" content="Kaskade, a keyboard-friendly Kafka terminal interface">
 
@@ -66,10 +67,11 @@
         <div class="hero-grid">
           <div class="hero-copy">
             <p class="eyebrow"><span aria-hidden="true">//</span> Kafka, terminal-first</p>
-            <h1 id="hero-title">Stay in flow while <span>Kafka streams by.</span></h1>
+            <h1 id="hero-title">Kafka work stays <span>in the terminal.</span></h1>
             <p class="hero-description">
-              Kaskade puts topic management and record consumption in a fast,
-              keyboard-driven terminal interface.
+              Kaskade brings topic administration and record inspection into one fast,
+              keyboard-driven interface, with flexible deserialization and secure
+              connections built in.
             </p>
 
             <div class="install-prompt" aria-label="Homebrew installation command">
@@ -119,42 +121,42 @@
       <section class="features section-shell" id="features" aria-labelledby="features-title">
         <div class="section-heading">
           <p class="eyebrow"><span aria-hidden="true">01.</span> One tool, the whole flow</p>
-          <h2 id="features-title">From cluster overview to record detail.</h2>
-          <p>Work quickly with Kafka using a focused interface built for the keyboard.</p>
+          <h2 id="features-title">From topic operations to record detail.</h2>
+          <p>Administer Kafka, consume precisely, and decode data without breaking terminal flow.</p>
         </div>
 
         <div class="feature-grid">
           <article class="feature-card feature-card--wide">
             <p class="feature-icon" aria-hidden="true">[01]</p>
-            <h3>Explore your cluster</h3>
-            <p>Browse topics, partitions, consumer groups, lag, replicas, and record counts at a glance.</p>
+            <h3>Operate topics</h3>
+            <p>See topic metadata, partitions, consumer groups, lag, replicas, record counts, and live refreshes.</p>
             <span class="feature-command" aria-hidden="true">kaskade admin</span>
           </article>
           <article class="feature-card">
             <p class="feature-icon" aria-hidden="true">[02]</p>
-            <h3>Administer topics</h3>
-            <p>Create, edit, delete, and filter topics without memorizing another set of commands.</p>
+            <h3>Change topics safely</h3>
+            <p>Create, edit, delete, filter, and inspect topic configuration without memorizing another command set.</p>
           </article>
           <article class="feature-card">
             <p class="feature-icon" aria-hidden="true">[03]</p>
-            <h3>Consume records</h3>
-            <p>Read from the latest, earliest, or a precise partition and offset.</p>
+            <h3>Consume precisely</h3>
+            <p>Read from the latest or earliest records, or target exact partitions and offsets.</p>
           </article>
           <article class="feature-card">
             <p class="feature-icon" aria-hidden="true">[04]</p>
-            <h3>Deserialize data</h3>
-            <p>Inspect bytes, primitives, JSON, Avro, Protobuf, and Schema Registry payloads.</p>
+            <h3>Decode every payload</h3>
+            <p>Inspect bytes, primitives, JSON, Avro, and Protobuf through Confluent or native Apicurio Registry.</p>
           </article>
           <article class="feature-card">
             <p class="feature-icon" aria-hidden="true">[05]</p>
-            <h3>Find the signal</h3>
-            <p>Filter records by key, value, header, or partition as messages arrive.</p>
+            <h3>Keep imperfect data visible</h3>
+            <p>Filter nulls and live records while malformed fields remain inspectable through explicit byte fallbacks.</p>
           </article>
           <article class="feature-card feature-card--wide">
             <p class="feature-icon" aria-hidden="true">[06]</p>
-            <h3>Take data with you</h3>
-            <p>Copy contextual values through OSC 52 or export a complete record as structured JSON.</p>
-            <span class="feature-command" aria-hidden="true">y copy &nbsp;·&nbsp; : export</span>
+            <h3>Connect your way</h3>
+            <p>Reuse client profiles and connect through TLS, SASL, Confluent Cloud, or Amazon MSK IAM.</p>
+            <span class="feature-command" aria-hidden="true">client.ini &nbsp;·&nbsp; TLS &nbsp;·&nbsp; IAM</span>
           </article>
         </div>
       </section>
@@ -215,9 +217,9 @@
         <div class="section-heading section-heading--row">
           <div>
             <p class="eyebrow"><span aria-hidden="true">03.</span> Up and running</p>
-            <h2 id="quick-start-title">Install. Connect. Explore.</h2>
+            <h2 id="quick-start-title">Install. Connect. Work.</h2>
           </div>
-          <p>Pick your installer, then point Kaskade at a broker. That’s the whole ceremony.</p>
+          <p>Pick your installer, then point Kaskade at a broker or reuse a client profile.</p>
         </div>
 
         <div class="install-grid">
@@ -276,6 +278,10 @@
               <span class="command-label">Consumer</span>
               <code><span aria-hidden="true">$ </span>kaskade consumer -b my-kafka:9092 -t my-topic</code>
             </div>
+            <div>
+              <span class="command-label">Profile</span>
+              <code><span aria-hidden="true">$ </span>kaskade admin --config-file client.ini</code>
+            </div>
           </div>
           <a
             class="button button--primary"
@@ -316,7 +322,7 @@
 
     <footer class="site-footer section-shell">
       <a class="wordmark" href="#top"><span aria-hidden="true">&gt;_</span> kaskade</a>
-      <p>Kafka from your terminal. Open source under the MIT License.</p>
+      <p>Kafka work stays in the terminal. Open source under the MIT License.</p>
       <a href="https://github.com/sauljabin/kaskade">github.com/sauljabin/kaskade <span aria-hidden="true">↗</span></a>
     </footer>
 
