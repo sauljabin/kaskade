@@ -2,10 +2,13 @@ import re
 import shlex
 import subprocess
 import sys
+from xml.etree import ElementTree
 
 from rich.console import Console
 
 SVG_VIEWBOX = re.compile(r'(<svg\b)(?![^>]*\bwidth=)(?=[^>]*\bviewBox="0 0 ([\d.]+) ([\d.]+)")')
+SVG_NAMESPACE = "http://www.w3.org/2000/svg"
+SVG = f"{{{SVG_NAMESPACE}}}"
 
 
 def normalize_svg(svg: str) -> str:
@@ -16,6 +19,41 @@ def normalize_svg(svg: str) -> str:
         count=1,
     )
     return "\n".join(line.rstrip() for line in svg.splitlines()) + "\n"
+
+
+def remove_svg_terminal_chrome(svg: str) -> str:
+    """Remove Rich's window frame while retaining the rendered terminal content."""
+    root = ElementTree.fromstring(svg)
+    terminal_group = next(
+        (
+            child
+            for child in root
+            if child.tag == f"{SVG}g" and "clip-terminal" in child.get("clip-path", "")
+        ),
+        None,
+    )
+    terminal_clip = next(
+        (element for element in root.iter() if element.get("id", "").endswith("-clip-terminal")),
+        None,
+    )
+    if terminal_group is None or terminal_clip is None:
+        raise ValueError("Rich terminal content was not found in the exported SVG")
+
+    clip_rect = terminal_clip.find(f"{SVG}rect")
+    if clip_rect is None:
+        raise ValueError("Rich terminal clip dimensions were not found in the exported SVG")
+
+    for child in list(root):
+        if child.tag not in {f"{SVG}style", f"{SVG}defs"} and child is not terminal_group:
+            root.remove(child)
+
+    terminal_group.attrib.pop("transform", None)
+    root.attrib.pop("width", None)
+    root.attrib.pop("height", None)
+    root.set("viewBox", f'0 0 {clip_rect.get("width")} {clip_rect.get("height")}')
+    ElementTree.register_namespace("", SVG_NAMESPACE)
+    ElementTree.indent(root, space="    ")
+    return ElementTree.tostring(root, encoding="unicode")
 
 
 class CommandProcessor:

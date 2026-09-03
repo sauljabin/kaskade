@@ -8,10 +8,12 @@ from textual.geometry import Offset
 from textual.selection import Selection
 from textual.theme import BUILTIN_THEMES, ThemeProvider
 from textual.widgets import (
+    Collapsible,
     DataTable,
     Footer,
     Input,
     OptionList,
+    RadioSet,
     Static,
     Tab,
     TabbedContent,
@@ -43,6 +45,7 @@ from kaskade.help import KASKADE_ISSUES_URL, KASKADE_URL, HelpableModalScreen, H
 from kaskade.models import Record, Topic, TopicConfiguration
 from kaskade.themes import (
     DEFAULT_THEME,
+    EVA01_BERSERK_THEME,
     EVA01_THEME,
     SELECTED_TEXT_COPY_KEY_DISPLAY,
     SELECTED_TEXT_COPY_SHORTCUT,
@@ -60,18 +63,33 @@ from tests import configure_admin_service
 
 
 class TestThemes(unittest.TestCase):
-    def test_registers_textual_themes_and_eva01_by_default(self):
+    def test_registers_kaskade_themes_and_uses_eva01_berserk_by_default(self):
         app = KaskadeApp()
 
         self.assertEqual(DEFAULT_THEME, app.theme)
-        self.assertEqual(set(BUILTIN_THEMES) | {DEFAULT_THEME}, set(available_theme_names()))
+        self.assertEqual("eva01-berserk", DEFAULT_THEME)
+        self.assertEqual(
+            set(BUILTIN_THEMES) | {EVA01_THEME.name, EVA01_BERSERK_THEME.name},
+            set(available_theme_names()),
+        )
+        self.assertIn(EVA01_THEME.name, app.available_themes)
         self.assertIn(DEFAULT_THEME, app.available_themes)
+        self.assertEqual("#9B4DCA", EVA01_THEME.primary)
+        self.assertEqual("#2A1845", EVA01_THEME.background)
+        self.assertEqual("#1F0E36", EVA01_THEME.surface)
+        self.assertEqual("#0E0024", EVA01_THEME.panel)
+        self.assertEqual("#0E0024", EVA01_BERSERK_THEME.background)
 
     def test_updates_rich_semantic_styles_when_theme_changes(self):
         app = KaskadeApp()
 
         self.assertEqual(
-            EVA01_THEME.primary.lower(), app.console.get_style("primary").color.get_truecolor().hex
+            EVA01_BERSERK_THEME.primary.lower(),
+            app.console.get_style("primary").color.get_truecolor().hex,
+        )
+        self.assertEqual(
+            app.get_css_variables()["text-warning"].lower(),
+            app.console.get_style("text-warning").color.get_truecolor().hex,
         )
 
         app.theme = "dracula"
@@ -153,6 +171,43 @@ class TestThemes(unittest.TestCase):
 
 
 class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
+    async def test_themes_use_one_shared_semantic_surface_treatment(self):
+        with patch("kaskade.admin.TopicService") as topic_service:
+            configure_admin_service(topic_service.return_value, {})
+            app = KaskadeAdmin({})
+
+            async with app.run_test() as pilot:
+                header = app.query_one(KaskadeHeader)
+                table = app.query_one("#topics-table", DataTable)
+                footer = app.query_one(Footer)
+
+                for theme in (
+                    EVA01_THEME.name,
+                    EVA01_BERSERK_THEME.name,
+                    "textual-light",
+                    "dracula",
+                ):
+                    with self.subTest(theme=theme):
+                        app.theme = theme
+                        await pilot.pause()
+
+                        self.assertEqual(
+                            app.current_theme.background,
+                            app.screen.styles.background.hex,
+                        )
+                        self.assertEqual(
+                            app.current_theme.background,
+                            header.styles.background.hex,
+                        )
+                        self.assertEqual(
+                            0,
+                            table.get_component_styles("datatable--header").background.a,
+                        )
+                        self.assertEqual(
+                            app.current_theme.background,
+                            footer.styles.background.hex,
+                        )
+
     async def test_header_updates_semantic_colors_when_theme_changes(self):
         with patch("kaskade.admin.TopicService") as topic_service:
             configure_admin_service(topic_service.return_value, {})
@@ -208,16 +263,29 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(1, app.screen.styles.padding.right)
                 self.assertEqual(1, header.styles.padding.top)
                 self.assertEqual(1, header.styles.padding.bottom)
-                self.assertEqual(app.current_theme.panel, header.styles.background.hex)
+                self.assertEqual(app.current_theme.background, header.styles.background.hex)
                 self.assertEqual(header.styles.background, app.screen.styles.background)
                 self.assertEqual(0, table.styles.background.a)
+                self.assertFalse(table.zebra_stripes)
                 self.assertEqual(
-                    app.get_css_variables()["panel-darken-2"].lower(),
-                    table.get_component_styles("datatable--header").background.hex.lower(),
+                    app.get_css_variables()["primary-darken-3"].lower(),
+                    table.get_component_styles("datatable--cursor").background.hex6.lower(),
+                )
+                self.assertEqual(
+                    0.85,
+                    table.get_component_styles("datatable--cursor").background.a,
+                )
+                self.assertEqual(
+                    0,
+                    table.get_component_styles("datatable--header").background.a,
                 )
                 self.assertEqual(
                     app.get_css_variables()["text-secondary"].lower(),
                     table.get_component_styles("datatable--header").color.hex.lower(),
+                )
+                self.assertEqual(
+                    0,
+                    table.get_component_styles("datatable--header-hover").background.a,
                 )
                 self.assertEqual(
                     0,
@@ -228,6 +296,7 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 self.assertGreater(frame.styles.border_top[1].a, 0)
                 footer = app.query_one(Footer)
                 self.assertIsInstance(footer, Footer)
+                self.assertEqual(app.current_theme.background, footer.styles.background.hex)
                 for widget in (header, frame, footer):
                     self.assertEqual(1, widget.region.x)
                     self.assertEqual(app.screen.region.right - 1, widget.region.right)
@@ -258,6 +327,7 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 help_about = help_screen.query_one("#help-about", Static)
                 help_footer = help_screen.query_one(Footer)
                 self.assertEqual(help_screen.size.width, help_dialog.region.width)
+                self.assertEqual(app.current_theme.background, help_dialog.styles.background.hex)
                 self.assertEqual(
                     [help_heading, help_about, help_table],
                     list(help_dialog.children)[:3],
@@ -275,12 +345,10 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 self.assertIn(KASKADE_URL, about_text)
                 self.assertIn(KASKADE_ISSUES_URL, about_text)
                 self.assertIs(help_table, help_screen.focused)
+                self.assertFalse(help_table.zebra_stripes)
                 self.assertEqual(0, help_table.cursor_row)
                 help_header_styles = help_table.get_component_styles("datatable--header")
-                self.assertEqual(
-                    app.get_css_variables()["panel-darken-2"].lower(),
-                    help_header_styles.background.hex.lower(),
-                )
+                self.assertEqual(0, help_header_styles.background.a)
                 self.assertEqual(
                     app.get_css_variables()["text-secondary"].lower(),
                     help_header_styles.color.hex.lower(),
@@ -338,7 +406,12 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 self.assertIsInstance(app.screen, CommandPalette)
                 app.screen.add_class("-ready")
                 await pilot.pause()
+                palette_container = app.screen.query_one("#--container")
                 palette_input = app.screen.query_one("#--input")
+                self.assertEqual(
+                    app.current_theme.background,
+                    palette_container.styles.background.hex,
+                )
                 self.assertEqual(70, palette_input.region.width)
 
                 await pilot.resize_terminal(120, 30)
@@ -353,6 +426,14 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                     for index in range(command_list.option_count)
                     if command_list.get_option_at_index(index).hit.text == "Help"
                 )
+                palette_selection = command_list.get_component_styles(
+                    "option-list--option-highlighted"
+                )
+                self.assertEqual(
+                    app.get_css_variables()["primary-darken-3"].lower(),
+                    palette_selection.background.hex6.lower(),
+                )
+                self.assertEqual(0.85, palette_selection.background.a)
                 await pilot.press("enter")
                 await pilot.pause()
 
@@ -453,6 +534,17 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
 
                 app.push_screen(ChunkSizeScreen(100), results.append)
                 await pilot.pause()
+                chunk_sizes = app.screen.query_one(OptionList)
+                self.assertEqual(0, chunk_sizes.styles.background.a)
+                self.assertEqual(0, chunk_sizes.styles.background_tint.a)
+                chunk_selection = chunk_sizes.get_component_styles(
+                    "option-list--option-highlighted"
+                )
+                self.assertEqual(
+                    app.get_css_variables()["primary-darken-3"].lower(),
+                    chunk_selection.background.hex6.lower(),
+                )
+                self.assertEqual(0.85, chunk_selection.background.a)
                 self.assertEqual(
                     [("⏎", "Select"), ("esc", "Back"), ("?", "Help")],
                     footer_commands(),
@@ -466,6 +558,19 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                     [("^s", "Create Topic"), ("esc", "Back"), ("?", "Help")],
                     footer_commands(),
                 )
+                fields = list(app.screen.query(Input))
+                radio_set = app.screen.query_one(RadioSet)
+                collapsible = app.screen.query_one(Collapsible)
+                collapsible_title = collapsible.query_one("CollapsibleTitle")
+                self.assertTrue(fields)
+                self.assertTrue(all(field.styles.background.a == 0 for field in fields))
+                self.assertEqual(0, radio_set.styles.background.a)
+                self.assertEqual(0, collapsible.styles.background.a)
+                self.assertEqual(0, collapsible_title.styles.background.a)
+                await pilot.click(collapsible_title)
+                await pilot.pause()
+                self.assertIs(collapsible_title, app.screen.focused)
+                self.assertGreater(collapsible_title.styles.background.a, 0)
                 await pilot.press("f1")
                 create_binding = next(
                     binding
@@ -614,6 +719,7 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                     header.query_one("#kaskade-kafka", Static).render().plain,
                 )
                 self.assertIsInstance(table, StretchyDataTable)
+                self.assertFalse(table.zebra_stripes)
                 self.assertIs(table, app.screen.focused)
                 self.assertEqual(
                     ["Key", "Value", "Timestamp", "Partition", "Offset", "Headers"],
@@ -669,6 +775,7 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 details = app.screen.query_one(".record-details", ScrollableContainer)
                 self.assertIs(details, app.screen.focused)
                 self.assertEqual(100, details.styles.width.value)
+                self.assertEqual(app.current_theme.background, details.styles.background.hex)
 
                 await pilot.press("escape")
                 self.assertIs(records_table, app.screen.focused)
@@ -691,6 +798,7 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 configuration_table = app.screen.query_one("#configurations-table", DataTable)
                 detail_tables = list(app.screen.query(StretchyDataTable))
                 self.assertEqual("partitions", tabs.active)
+                self.assertEqual(app.current_theme.background, tabs.styles.background.hex)
                 self.assertEqual(
                     [
                         "Partitions [0]",
@@ -708,6 +816,7 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(4, len(app.screen.query(TabPane)))
                 self.assertEqual(4, len(app.screen.query(DataTable)))
                 self.assertEqual(4, len(detail_tables))
+                self.assertTrue(all(not table.zebra_stripes for table in detail_tables))
                 self.assertEqual(
                     ["Name", "Value"],
                     [column.label.plain for column in configuration_table.ordered_columns],

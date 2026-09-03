@@ -74,7 +74,8 @@ AWS_CONFIG_HELP = (
     f"--config-file. Properties: {', '.join(AWS_CONFIGS)}."
 )
 THEME_HELP = (
-    "Textual theme name; overrides settings.yaml. When omitted, settings.yaml or Eva01 " "is used."
+    "Textual theme name; overrides settings.yaml. When omitted, settings.yaml or "
+    "Eva01 Berserk is used."
 )
 AVRO_CONFIG_HELP = (
     "Avro deserializer property. Repeatable; required when the key or value format is "

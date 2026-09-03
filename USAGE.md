@@ -40,8 +40,8 @@ cp examples/settings.yaml ~/.config/kaskade/settings.yaml
 
 ### Themes
 
-Kaskade defaults to the `eva01` Unit-01-inspired theme. Set another default in
-`settings.yaml`:
+Kaskade includes the original `eva01` Unit-01-inspired theme and the darker
+`eva01-berserk` variant, which is the default. Set another default in `settings.yaml`:
 
 ```yaml
 theme: dracula
@@ -107,12 +107,18 @@ familiar k9s conventions where the applications have equivalent actions.
 | Export selected record | `Ctrl+E` |
 | Consume more records | `n` |
 | Change record chunk size | `#` |
+| Previous or next record in Record Details | `N`/`p` or `n` |
+| Save Create Topic or Edit Topic | `Ctrl+S`, `Ctrl+Shift+S`, or `F2` |
 
 Help lists every contextual shortcut alias. Navigate with the standard keys and
 close with `Esc`, `q`, `?`, or `F1`. The Commands palette links to the same Help.
 
 Plain-character application shortcuts do not intercept typing in filter and
 editor fields.
+
+Terminals without distinct shifted-control key encoding may treat
+`Ctrl+Shift+S` as `Ctrl+S`; both bindings save. Enter keeps its normal submission
+or selection behavior within form controls.
 
 #### Custom keymap
 
@@ -154,20 +160,12 @@ The active log rotates at 5 MiB, and Kaskade retains three backups named
 `kaskade.log.1` through `kaskade.log.3`. This bounds total log storage to
 approximately 20 MiB.
 
-### Copy topics and consumed records
+### Clipboard and record export
 
 Select a topic in Admin mode or a consumed record in Consumer mode, then press
 `y` to copy the topic name or readable record JSON. Copy is also available in
 Topic Details, Record Details, contextual Help, and Commands, but is omitted
 from the Footer.
-
-While Record Details is open, press `n` for the next record or `N`/`p` for the
-previous record. The modal stays open and renders the newly selected record.
-
-Create Topic and Edit Topic forms save with `Ctrl+S`, `Ctrl+Shift+S`, or `F2`.
-Terminals without distinct shifted-control key encoding may treat Ctrl+Shift+S
-as Ctrl+S; both bindings save. Enter keeps its normal submission or selection
-behavior within form controls.
 
 Selecting screen text is separate: use `Cmd+C` on macOS or `Ctrl+Shift+C` on
 Linux. `Ctrl+C` always quits Kaskade, even while text is selected.
@@ -201,7 +199,7 @@ multiplexers such as tmux may require
 [additional clipboard configuration](https://github.com/tmux/tmux/wiki/Clipboard#quick-summary),
 and browser terminals or other relays may filter OSC 52.
 
-### Export a consumed record
+#### Export a consumed record
 
 Press `Ctrl+E` from the records table or Record Details to export JSON. Local
 terminals save to Downloads; web-hosted sessions use a browser download. Export
@@ -209,68 +207,7 @@ Record appears in Help and Commands, not the Footer.
 
 Details, clipboard copies, and exports share the contract in
 [`schemas/consumer-record.schema.json`](schemas/consumer-record.schema.json),
-which uses JSON Schema Draft 2020-12. Primitive and plain JSON deserializers omit
-Registry metadata:
-
-```json
-{
-  "topic": "orders",
-  "partition": 0,
-  "offset": 42,
-  "timestamp": "2026-08-28T14:12:05.120Z",
-  "headers": [
-    {
-      "key": "source",
-      "value": "storefront"
-    }
-  ],
-  "key": {
-    "content": "order-1048",
-    "deserializer": {"type": "STRING"}
-  },
-  "value": {
-    "content": {"status": "paid"},
-    "deserializer": {"type": "JSON"}
-  }
-}
-```
-
-Registry metadata is independent for key and value. Confluent metadata appears
-when the schema ID resolves to an unambiguous registration and uses a subject
-and numeric version:
-
-```json
-{
-  "key": {
-    "content": {"id": "order-1049"},
-    "deserializer": {
-      "type": "REGISTRY",
-      "schema": {
-        "provider": "CONFLUENT",
-        "id": 12,
-        "subject": "orders-key",
-        "version": 2,
-        "type": "AVRO"
-      }
-    }
-  },
-  "value": {
-    "content": {"status": "shipped"},
-    "deserializer": {
-      "type": "REGISTRY",
-      "schema": {
-        "provider": "CONFLUENT",
-        "id": 27,
-        "subject": "orders-value",
-        "version": 5,
-        "type": "JSON"
-      }
-    }
-  }
-}
-```
-
-Complete consumed-record examples cover:
+which uses JSON Schema Draft 2020-12. Examples cover:
 
 - [bytes](examples/consumer-record-byte.json)
 - [deserialization errors and byte fallback](examples/consumer-record-error.json)
@@ -279,34 +216,17 @@ Complete consumed-record examples cover:
 - [Confluent Schema Registry](examples/consumer-record-confluent.json)
 - [native Apicurio Registry](examples/consumer-record-apicurio.json)
 
-Native Apicurio metadata always includes `provider`, `id`, `id_kind`, and
-`type` after the schema content is resolved. `group`, `artifact`, and `version`
-are included when the Registry exposes `/search/versions` and the ID maps to an
-unambiguous registration. Restricted Registry gateways can omit those three
-enrichment fields while still allowing schema-aware deserialization.
-
-Headers remain ordered so duplicate names survive; successful values deserialize
-as STRING without extra metadata. Timestamps are UTC ISO 8601 with milliseconds,
-or `null` when unavailable. Tombstones use `content: null`. Local and non-schema
-deserializers omit `schema`; Confluent Registry does too when registration
-resolution is ambiguous or unavailable. The records table renders absent keys
-and values as colored `null` with a distinguishing tooltip. Enter lowercase
+Registry metadata is resolved independently for keys and values. Native Apicurio
+metadata always contains its provider and ID; registration details appear when
+the Registry can resolve them unambiguously. Headers remain ordered, timestamps
+use UTC ISO 8601 milliseconds, and tombstones use `content: null`. Enter lowercase
 `null` in a key, value, or header filter to match null content.
 
-Byte content stays directly in `content`, and its BYTES deserializer carries the
-presentation encoding. Base64 is the default portable encoding:
+## Consumer behavior
 
-```json
-{
-  "content": "SGVsbG8gd29ybGQ=",
-  "deserializer": {
-    "type": "BYTES",
-    "encoding": "BASE64"
-  }
-}
-```
+### Configure byte presentation
 
-Configure explicit BYTES presentation globally or per field:
+BYTES content defaults to Base64. Configure it globally or per field:
 
 ```bash
 --bytes encoding=base64 \
@@ -316,10 +236,8 @@ Configure explicit BYTES presentation globally or per field:
 
 Encodings are `base64`, `hex`, `byte-array`, and `escaped`; values are
 case-insensitive and underscores normalize to hyphens. Scoped settings override
-the global encoding. `--bytes` does not affect fallbacks, and null BYTES fields
-omit `encoding`.
-
-## Consumer behavior
+the global encoding. `--bytes` does not affect deserialization fallbacks, and
+null BYTES fields omit encoding metadata.
 
 ### Choose the starting position
 

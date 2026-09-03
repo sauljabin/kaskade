@@ -1,7 +1,7 @@
 # Copy this file to ~/.config/kaskade/settings.yaml on Linux or macOS.
 
 # Use any theme listed by the in-application Commands window or --theme help.
-theme: eva01
+theme: eva01-berserk
 
 # Set to 0 to disable auto-refresh. Enabled intervals must be at least 5 seconds.
 admin:

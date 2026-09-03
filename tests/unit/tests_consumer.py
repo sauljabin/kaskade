@@ -787,6 +787,7 @@ class TestConsumptionCoordination(unittest.IsolatedAsyncioTestCase):
             table = app.query_one(RecordDataTable)
             row = table.get_row_at(0)
 
+            self.assertEqual("renderable", table.cursor_foreground_priority)
             self.assertIsInstance(row[0], Text)
             self.assertEqual(
                 f"{WARNING_INDICATOR} ff",

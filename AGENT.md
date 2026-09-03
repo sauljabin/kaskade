@@ -8,11 +8,13 @@
   `scripts.analyze`; prefer focused helpers over suppressions.
 - Before finishing, review the complete diff for clarity, duplication, and
   maintainability, then rerun relevant analysis and tests.
-- Keep this file and affected user documentation concise and current. Record
-  stable conventions, remove obsolete or contradicted guidance, and avoid
-  implementation history.
-- Keep `USAGE.md` focused on end users. Document the development-only sandbox,
-  its population tool, and its access requirements in `DEVELOPMENT.md` only.
+- Keep each document authoritative for one audience: `README.md` and `site/`
+  share the product slogan and capability summary, `USAGE.md` owns user-facing
+  commands and behavior, and `DEVELOPMENT.md` owns contributor workflows and the
+  sandbox. This file records implementation invariants; link to the canonical
+  document instead of repeating its examples or reference material.
+- Keep affected documentation concise and current. Remove obsolete or
+  contradicted guidance rather than recording implementation history.
 - Importing `kaskade` must not create directories, open files, or modify the root
   logger. Configure the named logger lazily and tolerate an unavailable log
   destination.
@@ -25,23 +27,17 @@
   `Consumption options` and `Deserialization options`.
 - Keep `--earliest` and `--partition` declaratively mutually exclusive. Render
   the theme argument as `name` without weakening choice validation.
-- `--config-file client.ini` loads entries from optional `[kafka]`, `[registry]`,
-  and `[aws]` INI sections. Merge each file section under its matching repeatable
-  CLI option, then apply `-b/--bootstrap-servers`. Require a non-empty resolved
-  `bootstrap.servers` and update `examples/client.ini` when this behavior changes.
-- Forward arbitrary `--kafka` and `--registry` properties to their respective
-  `confluent-kafka` clients and let those clients validate names and values.
+- `--config-file client.ini` loads optional `[kafka]`, `[registry]`, and `[aws]`
+  sections. Merge file values before matching repeatable CLI properties, then
+  apply `-b/--bootstrap-servers`; require a non-empty resolved
+  `bootstrap.servers`. Forward client properties for downstream validation and
+  keep `examples/client.ini` synchronized.
 - Keep `-k` as the short form of consumer `--key`; `--kafka` has no short form.
-- Kaskade settings come from `KASKADE_SETTINGS`, then
-  `$XDG_CONFIG_HOME/kaskade/settings.yaml`, then
-  `~/.config/kaskade/settings.yaml`. Ignore invalid entries, retain valid ones,
-  warn in-app, and keep `examples/settings.yaml` current when settings change.
 - Keep settings loading in `settings.py`, key binding parsing in `keymaps.py`,
-  and supported-theme resolution in `themes.py`.
-- The theme precedence is `--theme`, then `settings.yaml`, then `eva01`. Accept
-  Textual built-in theme names and Kaskade's custom theme name.
-- Logs use `$XDG_STATE_HOME/kaskade/kaskade.log`, falling back to
-  `~/.local/state/kaskade/kaskade.log`, and rotate at 5 MiB with three backups.
+  and supported-theme resolution in `themes.py`. Settings failures retain valid
+  values and produce an in-app warning; keep `examples/settings.yaml`
+  synchronized. Theme precedence is CLI, settings, then `eva01-berserk`, with
+  the original `eva01` and all Textual built-in themes available.
 - `--aws region=<region>` enables Amazon MSK IAM in admin, consumer, and sandbox
   population. Validate repeatable `--aws property=value` settings before client
   construction. Do not raise the `aws-msk-iam-sasl-signer-python>=1.0` baseline
@@ -49,6 +45,9 @@
 - Local JSON, Avro, and Protobuf use raw framing by default. Select Confluent
   framing explicitly through global or field-scoped properties; never infer it
   from payload bytes.
+- Registry provider selection is explicit and defaults to Confluent. Native
+  Apicurio uses supported official deserializer properties and its v3 API; keep
+  provider-specific validation, framing, and metadata behavior isolated.
 
 ## Data Loading and Consumer Records
 
@@ -69,19 +68,12 @@
   record. Preserve the configured deserializer for later records, expose BYTES
   fallback diagnostics in details, tooltips, copy, and export, and keep broker
   failures and unexpected exceptions fatal.
-- Details, copy, and export share the versionless record contract in
-  `schemas/consumer-record.schema.json`. Keep its examples and conformance tests
-  synchronized. In that contract:
-  - Headers are ordered `{key, value}` objects. Add top-level `error` only when
-    STRING header deserialization fails.
-  - Key/value `deserializer` contains `type` and optional resolved Registry
-    `schema`. Registry lookup is best-effort and cached by schema, topic, and
-    field.
-  - A key/value failure adds sibling `error` metadata with a BYTES `fallback`.
-  - BYTES content stays directly in `content`; its deserializer or fallback has
-    `encoding`. `--bytes` configures explicit BYTES fields globally or per field,
-    while global-only `--fallback encoding=...` configures failures. Both default
-    independently to Base64. Null content omits `encoding`.
+- Details, copy, and export share the versionless contract in
+  `schemas/consumer-record.schema.json`; treat the schema as authoritative and
+  keep its examples and conformance tests synchronized. Preserve ordered
+  headers, independent key/value Registry metadata, sibling error and BYTES
+  fallback metadata, and null-content semantics without restating the full
+  contract here.
 
 ## TUI Interaction
 
@@ -134,22 +126,23 @@ entries.
 - Use Title Case for visible titles, headings, tabs, commands, and field labels.
   Toasts authored by Kaskade are concise and omit final periods; binding
   tooltips and CLI diagnostics remain sentences.
-- Centered modals have one outer border, `$surface`, semantic colors, constrained
-  width, and a compact Footer. The command palette and forms use width `72`
-  capped at `90%`; smaller selectors may be narrower.
+- Centered modals have one outer border, semantic theme backgrounds and colors,
+  constrained width, and a compact Footer. The command palette and forms use
+  width `72` capped at `90%`; smaller selectors may be narrower.
 - Below 80 columns, use Textual's `-narrow` breakpoint: modals and the palette
   fill available width, and Help fills the screen.
 - For tabbed modals, border and title the outer `TabbedContent`; inner tables
   remain borderless. Put counts in tab labels such as `Partitions [50]`.
 - Table backgrounds are transparent. Primary tables keep focus-aware borders;
   nested detail tables use `details-table`.
-- `eva01` is the default custom theme; retain every Textual built-in theme.
+- `eva01-berserk` is the default custom theme; retain the original `eva01` and
+  every Textual built-in theme.
   Style CSS with semantic variables and Rich renderables with semantic names,
   never Eva01 hex values.
 - `KaskadeApp` synchronizes Rich semantic colors from the active theme and on
   theme changes. Strip `ansi_` before passing Textual ANSI tokens to Rich. Use
   Textual's nested theme provider rather than registering another one.
-- Verify visual work with Eva01, a light theme, and an ANSI theme. Keep theme,
+- Verify visual work with both Eva01 variants, a light theme, and an ANSI theme. Keep theme,
   responsive layout, modal, border, and Footer behavior covered in
   `tests/unit/tests_themes.py`.
 
@@ -167,10 +160,18 @@ fixtures live in `tests/unit`; E2E tests live in `tests/e2e`, use Confluent Kafk
 and Schema Registry through Testcontainers, and should rely on conditions and
 public Textual APIs rather than sleeps or private widget state.
 
-README SVGs in `images/` come from `uv run python -m scripts.banner` and
-`uv run python -m scripts.screenshots`; neither needs Kafka. Use absolute
-`raw.githubusercontent.com` URLs targeting `main`. Paired screenshots use equal
-50% table columns and 100% image width.
+Generated SVGs in `images/` come from `uv run python -m scripts.banner` and
+`uv run python -m scripts.screenshots`; neither needs Kafka. The screenshot
+commands emit framed README images and borderless site variants. Use absolute
+`raw.githubusercontent.com` URLs targeting `main`. Paired README screenshots
+use equal 50% table columns and 100% image width.
+
+The static site source lives in `site/`. Keep its slogan and capability claims
+aligned with `README.md`, assemble its generated SVG dependencies exactly as the
+Pages workflow does, and validate pull requests without requiring a deployment.
+Only pushes to `main` deploy the uploaded artifact. The hero resolves the latest
+stable version from GitHub Releases at runtime; never hard-code a release tag,
+and retain a link to the releases index when the request is unavailable.
 
 Keep the manual Kafka environment self-contained in `sandbox`; never share its
 fixtures or models with tests. Maintain one topology with three Confluent Kafka
