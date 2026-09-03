@@ -12,7 +12,7 @@
 <a href="https://hub.docker.com/r/sauljabin/kaskade/tags"><img alt="Docker version" src="https://img.shields.io/docker/v/sauljabin/kaskade?style=flat-square&logo=docker&logoColor=white&label=docker"></a>
 </p>
 
-Kafka work stays in the terminal. Kaskade brings topic administration and record
+Kafka flows through your terminal. Kaskade brings topic administration and record
 inspection into one fast, keyboard-driven interface, with flexible
 deserialization and secure connections built in.
 
