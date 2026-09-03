@@ -653,15 +653,19 @@ class CreateTopicScreen(HelpableModalScreen[CreateTopicCommand]):
 
 
 class TopicDataTable(StretchyDataTable[str]):
-    """An admin topic table that identifies the hovered topic."""
+    """An admin topic table that reveals truncated topic names."""
 
     def watch_hover_coordinate(self, old: Coordinate, value: Coordinate) -> None:
         super().watch_hover_coordinate(old, value)
-        self.tooltip = (
-            str(self.coordinate_to_cell_key(value).row_key.value)
-            if self.is_valid_coordinate(value)
-            else None
-        )
+        self.tooltip = None
+        if not self.is_valid_coordinate(value):
+            return
+        cell_key = self.coordinate_to_cell_key(value)
+        if cell_key.column_key.value != "name":
+            return
+        topic_name = str(cell_key.row_key.value)
+        if len(topic_name) > self.columns[cell_key.column_key].width:
+            self.tooltip = topic_name
 
 
 class ListTopics(Container):

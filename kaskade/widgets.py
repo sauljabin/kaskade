@@ -8,6 +8,7 @@ from textual.binding import Binding, BindingType
 from textual.containers import Container, Horizontal, ScrollableContainer
 from textual.geometry import Size
 from textual.widgets import DataTable, OptionList, Static
+from textual.widgets._data_table import RowRenderables
 from textual.widgets.data_table import CellType, ColumnKey
 
 from kaskade import APP_NAME, APP_VERSION
@@ -175,6 +176,14 @@ class StretchyDataTable(DataTable[CellType]):
         super().__init__(**kwargs)
         self._column_minimums: dict[ColumnKey, int] = {}
         self._column_stretches: dict[ColumnKey, int] = {}
+
+    def _compute_row_renderables(self, row_index: int) -> RowRenderables:
+        renderables = super()._compute_row_renderables(row_index)
+        if row_index >= 0:
+            for cell in renderables.cells:
+                if isinstance(cell, Text) and cell.overflow is None:
+                    cell.overflow = "ellipsis"
+        return renderables
 
     def add_column(
         self,

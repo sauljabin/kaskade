@@ -98,20 +98,31 @@ class TestInitialLoadingFrame(unittest.IsolatedAsyncioTestCase):
                     release.set()
                 await app.workers.wait_for_complete()
 
-    async def test_shows_topic_name_in_table_tooltip(self) -> None:
-        topic = Topic(name="example-streamlet.sl.example-streamlet")
+    async def test_shows_only_truncated_topic_name_in_table_tooltip(self) -> None:
+        long_topic = Topic(name="example-streamlet.sl.example-streamlet")
+        short_topic = Topic(name="orders")
         with patch("kaskade.admin.TopicService") as topic_service:
-            configure_admin_service(topic_service.return_value, {topic.name: topic})
+            configure_admin_service(
+                topic_service.return_value,
+                {long_topic.name: long_topic, short_topic.name: short_topic},
+            )
             app = KaskadeAdmin({})
 
             async with app.run_test() as pilot:
                 await app.workers.wait_for_complete()
                 table = app.query_one(TopicDataTable)
 
-                table.hover_coordinate = Coordinate(0, 7)
+                table.hover_coordinate = Coordinate(0, 0)
                 await pilot.pause()
+                self.assertEqual(long_topic.name, table.tooltip)
 
-                self.assertEqual(topic.name, table.tooltip)
+                table.hover_coordinate = Coordinate(0, 1)
+                await pilot.pause()
+                self.assertIsNone(table.tooltip)
+
+                table.hover_coordinate = Coordinate(1, 0)
+                await pilot.pause()
+                self.assertIsNone(table.tooltip)
 
 
 class TestCreateTopic(unittest.IsolatedAsyncioTestCase):
