@@ -1,6 +1,6 @@
 x-kafka-common: &kafka-common
   image: confluentinc/cp-kafka:${CONFLUENT_VERSION}
-  restart: on-failure
+  restart: unless-stopped
   environment: &kafka-environment
     CLUSTER_ID: ${CLUSTER_ID}
     KAFKA_PROCESS_ROLES: broker,controller
@@ -15,9 +15,7 @@ x-kafka-common: &kafka-common
     KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: "2"
     KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: "3"
   healthcheck:
-    test:
-      - CMD-SHELL
-      - kafka-topics --bootstrap-server localhost:9092 --list >/dev/null 2>&1
+    test: [CMD-SHELL, "kafka-topics --bootstrap-server localhost:9092 --list >/dev/null 2>&1"]
     interval: 10s
     timeout: 10s
     retries: 10
@@ -56,15 +54,32 @@ services:
 
   apicurio:
     image: apicurio/apicurio-registry:${APICURIO_VERSION}
-    restart: on-failure
+    restart: unless-stopped
+    depends_on:
+      kafka1:
+        condition: service_healthy
+      kafka2:
+        condition: service_healthy
+      kafka3:
+        condition: service_healthy
     environment:
+      APICURIO_STORAGE_KIND: kafkasql
+      APICURIO_KAFKASQL_BOOTSTRAP_SERVERS: kafka1:9092,kafka2:9092,kafka3:9092
+      APICURIO_KAFKASQL_TOPIC: _apicurio-registry-journal
+      APICURIO_KAFKASQL_SNAPSHOTS_TOPIC: _apicurio-registry-snapshots
       QUARKUS_HTTP_PORT: "8080"
     ports:
       - "18082:8080"
+    healthcheck:
+      test: [CMD-SHELL, "curl --fail --silent http://localhost:8080/apis/registry/v3/system/info >/dev/null"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
 
   schema-registry:
     image: confluentinc/cp-schema-registry:${CONFLUENT_VERSION}
-    restart: on-failure
+    restart: unless-stopped
     depends_on:
       kafka1:
         condition: service_healthy
