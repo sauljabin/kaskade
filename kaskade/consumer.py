@@ -766,10 +766,11 @@ class ListRecords(Container):
 
         table.add_column("Key", stretch=2)
         table.add_column("Value", stretch=3)
+        table.add_column("Size", width=10)
         table.add_column("Timestamp", width=23)
         table.add_column("Partition", width=9)
-        table.add_column("Offset", width=9)
-        table.add_column("Headers", width=9)
+        table.add_column("Offset", width=6)
+        table.add_column("Headers", width=7)
 
         frame = TableFrame(table, id="records-frame", classes="kaskade-table")
         frame.border_title = self._get_title()
@@ -915,6 +916,7 @@ class ListRecords(Container):
         return [
             cls._content_cell(record.key_outcome()),
             cls._content_cell(record.value_outcome()),
+            format_payload_size(record_payload_size(record)),
             record.timestamp_str(),
             str(record.partition),
             str(record.offset),

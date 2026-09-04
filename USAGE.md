@@ -173,6 +173,9 @@ the border title. In that modal, `y` copies the active tab's headers array, key
 object, value object, or complete record object. Copy is also available in Topic
 Details, contextual Help, and Commands, but is omitted from the Footer.
 
+The Consumer records table shows the same total raw message size in its Size
+column.
+
 Key, value, and the selected header show compact deserializer, schema, and
 original payload-size diagnostics above their complete content. Explicit BYTES
 encoding appears beside the deserializer. Payload size appears in KB below 1 MB

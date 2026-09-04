@@ -714,7 +714,7 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 Deserialization.STRING,
             )
 
-            async with app.run_test(size=(80, 24)) as pilot:
+            async with app.run_test(size=(100, 24)) as pilot:
                 await pilot.pause()
                 table = app.query_one("#records-table", DataTable)
                 header = app.query_one(KaskadeHeader)
@@ -731,11 +731,11 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 self.assertFalse(table.zebra_stripes)
                 self.assertIs(table, app.screen.focused)
                 self.assertEqual(
-                    ["Key", "Value", "Timestamp", "Partition", "Offset", "Headers"],
+                    ["Key", "Value", "Size", "Timestamp", "Partition", "Offset", "Headers"],
                     [column.label.plain for column in table.ordered_columns],
                 )
                 self.assertEqual(
-                    [23, 9, 9, 9],
+                    [10, 23, 9, 6, 7],
                     [column.width for column in table.ordered_columns[2:]],
                 )
                 self.assertFalse(table.show_horizontal_scrollbar)

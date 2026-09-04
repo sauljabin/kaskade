@@ -1085,6 +1085,7 @@ class TestConsumptionCoordination(unittest.IsolatedAsyncioTestCase):
             )
             self.assertEqual(WARNING_STYLE, row[0].style)
             self.assertEqual("paid", row[1])
+            self.assertEqual("0.005 KB", row[2])
 
             table.hover_coordinate = Coordinate(0, 0)
             await pilot.pause()
@@ -1134,6 +1135,7 @@ class TestConsumptionCoordination(unittest.IsolatedAsyncioTestCase):
                 self.assertIsInstance(cell, Text)
                 self.assertEqual("null", cell.plain)
                 self.assertEqual(NULL_STYLE, cell.style)
+            self.assertEqual("0.00 KB", row[2])
 
             table.hover_coordinate = Coordinate(0, 0)
             await pilot.pause()
