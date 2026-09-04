@@ -4,6 +4,8 @@ from time import perf_counter
 from typing import Any, ClassVar
 
 from confluent_kafka import KafkaException
+from rich.cells import cell_len
+from rich.text import Text
 from textual import work
 from textual.app import ComposeResult
 from textual.binding import Binding, BindingType
@@ -76,6 +78,21 @@ def metric_value(state: MetricState, value: str) -> str:
     if state is MetricState.UNAVAILABLE:
         return UNAVAILABLE_METRIC
     return LOADING_METRIC
+
+
+class TopicDetailsDataTable(StretchyDataTable[str]):
+    """A topic details table that reveals truncated cells."""
+
+    def watch_hover_coordinate(self, old: Coordinate, value: Coordinate) -> None:
+        super().watch_hover_coordinate(old, value)
+        self.tooltip = None
+        if not self.is_valid_coordinate(value):
+            return
+        cell = self.get_cell_at(value)
+        text = cell.plain if isinstance(cell, Text) else str(cell)
+        cell_key = self.coordinate_to_cell_key(value)
+        if cell_len(text) > self.columns[cell_key.column_key].width:
+            self.tooltip = text
 
 
 def _valid_topic_name(name: str) -> bool:
@@ -311,8 +328,8 @@ class DescribeTopicScreen(HelpableModalScreen):
             ),
         )
 
-    def _new_table(self, table_id: str) -> StretchyDataTable[str]:
-        table: StretchyDataTable[str] = StretchyDataTable(id=table_id, classes="details-table")
+    def _new_table(self, table_id: str) -> TopicDetailsDataTable:
+        table = TopicDetailsDataTable(id=table_id, classes="details-table")
         table.cursor_type = "row"
         return table
 
@@ -348,8 +365,8 @@ class DescribeTopicScreen(HelpableModalScreen):
 
     def _groups_table(self) -> StretchyDataTable[str]:
         table = self._new_table("groups-table")
-        table.add_column("ID", stretch=1)
-        table.add_column("Coordinator", stretch=1)
+        table.add_column("ID", width=18, stretch=3)
+        table.add_column("Coordinator", width=16, stretch=2)
         table.add_column("State", stretch=1)
         table.add_column("Assignor", stretch=1)
         table.add_column("Partitions", stretch=1)
@@ -370,11 +387,11 @@ class DescribeTopicScreen(HelpableModalScreen):
 
     def _group_members_table(self) -> StretchyDataTable[str]:
         table = self._new_table("group-members-table")
-        table.add_column("Group", stretch=1)
-        table.add_column("Client ID", stretch=1)
-        table.add_column("Member ID", stretch=1)
-        table.add_column("Host", stretch=1)
-        table.add_column("Assignment", stretch=1)
+        table.add_column("Group", stretch=2)
+        table.add_column("Client ID", stretch=2)
+        table.add_column("Member ID", stretch=3)
+        table.add_column("Host", stretch=2)
+        table.add_column("Assignment")
 
         for group in self.topic.groups:
             for member in group.members:
