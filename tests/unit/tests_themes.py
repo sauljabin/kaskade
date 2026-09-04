@@ -882,12 +882,18 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 app.push_screen(DescribeTopicScreen(Topic(name="orders"), configurations))
                 await pilot.pause()
 
+                details = app.screen.query_one(".topic-details", Container)
                 tabs = app.screen.query_one(TabbedContent)
+                metadata = app.screen.query_one("#topic-metadata", Grid)
                 partitions = app.screen.query_one("#partitions-table", DataTable)
                 configuration_table = app.screen.query_one("#configurations-table", DataTable)
                 detail_tables = list(app.screen.query(StretchyDataTable))
                 self.assertEqual("partitions", tabs.active)
-                self.assertEqual(app.current_theme.background, tabs.styles.background.hex)
+                self.assertEqual(app.current_theme.background, details.styles.background.hex)
+                self.assertEqual(0, tabs.styles.background.a)
+                self.assertEqual(7, metadata.styles.grid_size_columns)
+                self.assertEqual(1, metadata.styles.grid_size_rows)
+                self.assertEqual(7, len(metadata.query(".topic-metadata-cell")))
                 self.assertEqual(
                     [
                         "Partitions [0]",
@@ -898,10 +904,11 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                     [tab.label_text for tab in app.screen.query(Tab)],
                 )
                 self.assertEqual(
-                    "[primary]Describe Topic[/primary] [[primary]orders[/primary]]",
-                    tabs.border_title,
+                    "[primary]Topic Details[/primary] [[primary]orders[/primary]]",
+                    details.border_title,
                 )
-                self.assertNotEqual("none", tabs.styles.border_top[0])
+                self.assertNotEqual("none", details.styles.border_top[0])
+                self.assertEqual("", tabs.styles.border_top[0])
                 self.assertEqual(4, len(app.screen.query(TabPane)))
                 self.assertEqual(4, len(app.screen.query(DataTable)))
                 self.assertEqual(4, len(detail_tables))
@@ -942,6 +949,28 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual("groups", tabs.active)
                 await pilot.press("h")
                 self.assertEqual("configurations", tabs.active)
+
+    async def test_topic_details_metadata_wraps_on_narrow_screens(self):
+        with patch("kaskade.admin.TopicService") as topic_service:
+            configure_admin_service(topic_service.return_value, {})
+            app = KaskadeAdmin({})
+
+            async with app.run_test(size=(60, 30)) as pilot:
+                app.push_screen(DescribeTopicScreen(Topic(name="orders"), ()))
+                await pilot.pause()
+
+                details = app.screen.query_one(".topic-details", Container)
+                metadata = app.screen.query_one("#topic-metadata", Grid)
+                cells = list(metadata.query(".topic-metadata-cell"))
+                self.assertEqual(app.screen.content_region.width, details.region.width)
+                self.assertEqual(4, metadata.styles.grid_size_columns)
+                self.assertEqual(2, metadata.styles.grid_size_rows)
+                self.assertEqual(cells[0].region.y, cells[3].region.y)
+                self.assertGreater(cells[4].region.y, cells[0].region.y)
+                self.assertGreater(
+                    app.screen.query_one("#partitions-table", DataTable).content_region.height,
+                    0,
+                )
 
     async def test_topic_details_help_excludes_ctrl_c_from_selected_text_copy(self):
         with patch("kaskade.admin.TopicService") as topic_service:

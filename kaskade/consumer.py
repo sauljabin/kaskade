@@ -47,6 +47,7 @@ from kaskade.widgets import (
     KaskadeScrollableContainer,
     StretchyDataTable,
     TableFrame,
+    labelled_value,
 )
 
 CHUNKS_SHORTCUT = "#"
@@ -236,14 +237,6 @@ class RecordFieldDetails(Container):
         self.payload_size = payload_size
         self.field_name = field_name
 
-    @staticmethod
-    def _labelled_value(label: str, value: str) -> Text:
-        content = Text()
-        content.append(label.upper(), style="muted")
-        content.append("\n")
-        content.append(value)
-        return content
-
     def _deserializer(self) -> str:
         deserializer = self.outcome.requested.name
         if self.outcome.schema is not None:
@@ -287,24 +280,24 @@ class RecordFieldDetails(Container):
         field_name = Static(classes="record-field-name")
         field_name.display = self.field_name is not None
         if self.field_name is not None:
-            field_name.update(self._labelled_value("Header", self.field_name))
+            field_name.update(labelled_value("Header", self.field_name))
         yield field_name
 
         with Grid(classes="record-diagnostics"):
             yield Static(
-                self._labelled_value("Deserializer", self._deserializer()),
+                labelled_value("Deserializer", self._deserializer()),
                 classes="record-diagnostic record-deserializer",
             )
             yield Static(
-                self._labelled_value("Schema", self._schema()),
+                labelled_value("Schema", self._schema()),
                 classes="record-diagnostic record-schema",
             )
             yield Static(
-                self._labelled_value("Encoding", self._encoding()),
+                labelled_value("Encoding", self._encoding()),
                 classes="record-diagnostic record-encoding",
             )
             yield Static(
-                self._labelled_value("Size", format_payload_size(self.payload_size)),
+                labelled_value("Size", format_payload_size(self.payload_size)),
                 classes="record-diagnostic record-size",
             )
 
@@ -336,18 +329,16 @@ class RecordFieldDetails(Container):
         name = self.query_one(".record-field-name", Static)
         name.display = field_name is not None
         if field_name is not None:
-            name.update(self._labelled_value("Header", field_name))
+            name.update(labelled_value("Header", field_name))
         self.query_one(".record-deserializer", Static).update(
-            self._labelled_value("Deserializer", self._deserializer())
+            labelled_value("Deserializer", self._deserializer())
         )
-        self.query_one(".record-schema", Static).update(
-            self._labelled_value("Schema", self._schema())
-        )
+        self.query_one(".record-schema", Static).update(labelled_value("Schema", self._schema()))
         self.query_one(".record-encoding", Static).update(
-            self._labelled_value("Encoding", self._encoding())
+            labelled_value("Encoding", self._encoding())
         )
         self.query_one(".record-size", Static).update(
-            self._labelled_value("Size", format_payload_size(self.payload_size))
+            labelled_value("Size", format_payload_size(self.payload_size))
         )
         error = self.query_one(".record-error", Static)
         error.display = outcome.error is not None
@@ -430,7 +421,7 @@ class TopicScreen(HelpableModalScreen[Record]):
 
     def _title(self) -> str:
         return (
-            rf"[{PRIMARY}]Record[/] "
+            rf"[{PRIMARY}]Record Details[/] "
             rf"\[[{PRIMARY}]{self.record.topic}[/]]"
             rf"\[[{PRIMARY}]{self.record.partition}[/]]"
             rf"\[[{PRIMARY}]{self.record.offset}[/]]"
@@ -450,7 +441,7 @@ class TopicScreen(HelpableModalScreen[Record]):
 
     @staticmethod
     def _metadata_content(label: str, value: str) -> Text:
-        return RecordFieldDetails._labelled_value(label, value)
+        return labelled_value(label, value)
 
     def _headers_list(self) -> KaskadeOptionList:
         headers = KaskadeOptionList(

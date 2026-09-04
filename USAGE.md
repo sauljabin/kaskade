@@ -81,6 +81,9 @@ kaskade admin -b my-kafka:9092 --refresh-interval 0
 
 The command-line value takes precedence and follows the same validation rules.
 
+Topic Details keeps partition, replica, in-sync replica, approximate record,
+consumer-group, member, and approximate lag totals visible above its tabs.
+
 ### Keyboard shortcuts
 
 Kaskade supports arrow keys and Vim-style navigation. The defaults follow

@@ -10,7 +10,7 @@ from unittest.mock import AsyncMock, MagicMock, call, patch
 from confluent_kafka.serialization import MessageField
 from rich.text import Text
 from textual import events
-from textual.containers import Grid
+from textual.containers import Container, Grid
 from textual.coordinate import Coordinate
 from textual.widgets import DataTable, OptionList, Static, Tab, TabbedContent, TabPane
 
@@ -689,6 +689,11 @@ class TestRecordDetailsTabs(unittest.IsolatedAsyncioTestCase):
             headers = details.query_one("#record-headers-list", OptionList)
 
             self.assertEqual("key", tabs.active)
+            self.assertEqual(
+                "[primary]Record Details[/primary] [[primary]orders[/primary]]"
+                "[[primary]2[/primary]][[primary]42[/primary]]",
+                details.query_one(".record-details", Container).border_title,
+            )
             self.assertEqual(
                 4,
                 details.query_one("#record-metadata", Grid).styles.grid_size_columns,

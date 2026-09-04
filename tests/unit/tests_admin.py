@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from confluent_kafka import KafkaException
 from textual.coordinate import Coordinate
-from textual.widgets import Collapsible, DataTable, Input, RadioButton, RadioSet
+from textual.widgets import Collapsible, DataTable, Input, RadioButton, RadioSet, Static
 
 from kaskade.admin import (
     CreateTopicScreen,
@@ -22,7 +22,15 @@ from kaskade.admin import (
 )
 from kaskade.commands import CreateTopicCommand, UpdateTopicCommand
 from kaskade.configs import MIN_INSYNC_REPLICAS_CONFIG
-from kaskade.models import MetricState, Partition, Topic, TopicConfiguration
+from kaskade.models import (
+    Group,
+    GroupMember,
+    GroupPartition,
+    MetricState,
+    Partition,
+    Topic,
+    TopicConfiguration,
+)
 from kaskade.services import EnrichmentResult, GroupSnapshot
 from kaskade.settings import SETTINGS_ENV_VAR
 from kaskade.widgets import TableFrame
@@ -475,6 +483,54 @@ class TestUpdateTopic(unittest.IsolatedAsyncioTestCase):
 
 
 class TestDescribeTopic(unittest.IsolatedAsyncioTestCase):
+    async def test_displays_topic_summary_metadata(self) -> None:
+        topic = Topic(
+            name="orders",
+            partitions=[
+                Partition(id=0, replicas=[1, 2, 3], isrs=[1, 2], low=5, high=20),
+                Partition(id=1, replicas=[1, 2, 3], isrs=[1, 2], low=0, high=10),
+            ],
+            groups=[
+                Group(
+                    id="shipping",
+                    members=[GroupMember(id="member-1"), GroupMember(id="member-2")],
+                    partitions=[
+                        GroupPartition(id=0, offset=15, low=5, high=20),
+                        GroupPartition(id=1, offset=8, low=0, high=10),
+                    ],
+                )
+            ],
+            records_state=MetricState.READY,
+            groups_state=MetricState.READY,
+        )
+
+        with patch("kaskade.admin.TopicService") as topic_service:
+            configure_admin_service(topic_service.return_value, {})
+            app = KaskadeAdmin({})
+            async with app.run_test() as pilot:
+                app.push_screen(DescribeTopicScreen(topic, ()))
+                await pilot.pause()
+
+                self.assertEqual(
+                    "[primary]Topic Details[/primary] [[primary]orders[/primary]]",
+                    app.screen.query_one(".topic-details").border_title,
+                )
+                self.assertEqual(
+                    [
+                        "PARTITIONS\n2",
+                        "REPLICAS\n3",
+                        "IN SYNC\n2",
+                        "RECORDS\n≈25",
+                        "GROUPS\n1",
+                        "MEMBERS\n2",
+                        "LAG\n≈7",
+                    ],
+                    [
+                        cell.render().plain
+                        for cell in app.screen.query(".topic-metadata-cell").results(Static)
+                    ],
+                )
+
     async def test_loads_configurations_before_opening_topic_details(self) -> None:
         topic = Topic(name="orders")
         configurations = (TopicConfiguration("cleanup.policy", "compact"),)

@@ -7,7 +7,7 @@ from confluent_kafka import KafkaException
 from textual import work
 from textual.app import ComposeResult
 from textual.binding import Binding, BindingType
-from textual.containers import Container
+from textual.containers import Container, Grid
 from textual.content import Content
 from textual.coordinate import Coordinate
 from textual.validation import Function, Integer
@@ -18,6 +18,7 @@ from textual.widgets import (
     Input,
     RadioButton,
     RadioSet,
+    Static,
     TabbedContent,
     TabPane,
     Tabs,
@@ -42,7 +43,7 @@ from kaskade.services import (
 from kaskade.themes import KaskadeApp
 from kaskade.unicodes import APPROXIMATION
 from kaskade.utils import copy_text, make_it_async, notify_error
-from kaskade.widgets import KaskadeHeader, StretchyDataTable, TableFrame
+from kaskade.widgets import KaskadeHeader, StretchyDataTable, TableFrame, labelled_value
 
 REFRESH_TABLE_DELAY = 1
 FILTER_TOPICS_SHORTCUT = "/,ctrl+f"
@@ -67,6 +68,14 @@ TOPIC_COLUMN_KEYS = (
     "records",
     "lag",
 )
+
+
+def metric_value(state: MetricState, value: str) -> str:
+    if state is MetricState.READY:
+        return value
+    if state is MetricState.UNAVAILABLE:
+        return UNAVAILABLE_METRIC
+    return LOADING_METRIC
 
 
 def _valid_topic_name(name: str) -> bool:
@@ -242,27 +251,65 @@ class DescribeTopicScreen(HelpableModalScreen):
         self.configurations = configurations
 
     def compose(self) -> ComposeResult:
-        details = TabbedContent(initial="partitions", id="topic-details")
-        details.border_title = rf"[{PRIMARY}]Describe Topic[/] \[[{PRIMARY}]{self.topic.name}[/]]"
+        details = Container(classes="topic-details")
+        details.border_title = rf"[{PRIMARY}]Topic Details[/] \[[{PRIMARY}]{self.topic.name}[/]]"
         with details:
-            with TabPane(
-                Content(f"Partitions [{self.topic.partitions_count()}]"),
-                id="partitions",
-            ):
-                yield self._partitions_table()
-            with TabPane(
-                Content(f"Configurations [{len(self.configurations)}]"),
-                id="configurations",
-            ):
-                yield self._configurations_table()
-            with TabPane(Content(f"Groups [{self.topic.groups_count()}]"), id="groups"):
-                yield self._groups_table()
-            with TabPane(
-                Content(f"Group Members [{self.topic.group_members_count()}]"),
-                id="group-members",
-            ):
-                yield self._group_members_table()
+            with Grid(id="topic-metadata"):
+                for metadata_id, label, value in self._metadata():
+                    yield Static(
+                        labelled_value(label, value),
+                        id=metadata_id,
+                        classes="topic-metadata-cell",
+                    )
+            with TabbedContent(initial="partitions", id="topic-details-tabs"):
+                with TabPane(
+                    Content(f"Partitions [{self.topic.partitions_count()}]"),
+                    id="partitions",
+                ):
+                    yield self._partitions_table()
+                with TabPane(
+                    Content(f"Configurations [{len(self.configurations)}]"),
+                    id="configurations",
+                ):
+                    yield self._configurations_table()
+                with TabPane(Content(f"Groups [{self.topic.groups_count()}]"), id="groups"):
+                    yield self._groups_table()
+                with TabPane(
+                    Content(f"Group Members [{self.topic.group_members_count()}]"),
+                    id="group-members",
+                ):
+                    yield self._group_members_table()
         yield Footer(compact=True)
+
+    def _metadata(self) -> tuple[tuple[str, str, str], ...]:
+        return (
+            ("topic-partitions", "Partitions", str(self.topic.partitions_count())),
+            ("topic-replicas", "Replicas", str(self.topic.replicas_count())),
+            ("topic-isrs", "In Sync", str(self.topic.isrs_count())),
+            (
+                "topic-records",
+                "Records",
+                metric_value(
+                    self.topic.records_state,
+                    f"{APPROXIMATION}{self.topic.records_count()}",
+                ),
+            ),
+            (
+                "topic-groups",
+                "Groups",
+                metric_value(self.topic.groups_state, str(self.topic.groups_count())),
+            ),
+            (
+                "topic-members",
+                "Members",
+                metric_value(self.topic.groups_state, str(self.topic.group_members_count())),
+            ),
+            (
+                "topic-lag",
+                "Lag",
+                metric_value(self.topic.groups_state, f"{APPROXIMATION}{self.topic.lag()}"),
+            ),
+        )
 
     def _new_table(self, table_id: str) -> StretchyDataTable[str]:
         table: StretchyDataTable[str] = StretchyDataTable(id=table_id, classes="details-table")
@@ -1185,22 +1232,14 @@ class ListTopics(Container):
             str(topic.partitions_count()),
             str(topic.replicas_count()),
             str(topic.isrs_count()),
-            self._metric(topic.groups_state, str(topic.groups_count())),
-            self._metric(topic.groups_state, str(topic.group_members_count())),
-            self._metric(
+            metric_value(topic.groups_state, str(topic.groups_count())),
+            metric_value(topic.groups_state, str(topic.group_members_count())),
+            metric_value(
                 topic.records_state,
                 f"{APPROXIMATION}{topic.records_count()}",
             ),
-            self._metric(topic.groups_state, f"{APPROXIMATION}{topic.lag()}"),
+            metric_value(topic.groups_state, f"{APPROXIMATION}{topic.lag()}"),
         ]
-
-    @staticmethod
-    def _metric(state: MetricState, value: str) -> str:
-        if state is MetricState.READY:
-            return value
-        if state is MetricState.UNAVAILABLE:
-            return UNAVAILABLE_METRIC
-        return LOADING_METRIC
 
     def _update_status(self, *, refreshing: bool) -> None:
         interval = getattr(self.app, "auto_refresh_interval", 0)
