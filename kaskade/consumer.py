@@ -246,10 +246,16 @@ class RecordFieldDetails(Container):
         self.field_name = field_name
 
     def _deserializer(self) -> str:
-        deserializer = self.outcome.requested.name
+        parts = [self.outcome.requested.name]
         if self.outcome.schema is not None:
-            deserializer = f"{deserializer} · {self.outcome.schema.type}"
-        return deserializer
+            parts.append(self.outcome.schema.type)
+        if (
+            not self.outcome.used_fallback
+            and self.outcome.requested == Deserialization.BYTES
+            and isinstance(self.outcome.content, bytes)
+        ):
+            parts.append(self.outcome.bytes_encoding.name)
+        return " · ".join(parts)
 
     def _schema(self) -> str:
         if self.outcome.schema is None:
@@ -268,20 +274,15 @@ class RecordFieldDetails(Container):
             parts[-1] = f"{parts[-1]} v{schema['version']}"
         return " · ".join(parts)
 
-    def _encoding(self) -> str:
-        if self.outcome.used_fallback or (
-            self.outcome.requested == Deserialization.BYTES
-            and isinstance(self.outcome.content, bytes)
-        ):
-            return self.outcome.bytes_encoding.name
-        return "—"
-
     def _error(self) -> Text:
         error = Text("ERROR", style="bold error")
         if self.outcome.error is not None:
             error.append(f"\n{self.outcome.error}")
             error.append("\nFallback: ", style="secondary")
-            error.append(Deserialization.BYTES.name, style=WARNING_STYLE)
+            error.append(
+                f"{Deserialization.BYTES.name} · {self.outcome.bytes_encoding.name}",
+                style=WARNING_STYLE,
+            )
         return error
 
     def compose(self) -> ComposeResult:
@@ -299,10 +300,6 @@ class RecordFieldDetails(Container):
             yield Static(
                 labelled_value("Schema", self._schema()),
                 classes="record-diagnostic record-schema",
-            )
-            yield Static(
-                labelled_value("Encoding", self._encoding()),
-                classes="record-diagnostic record-encoding",
             )
             yield Static(
                 labelled_value("Size", format_payload_size(self.payload_size)),
@@ -342,9 +339,6 @@ class RecordFieldDetails(Container):
             labelled_value("Deserializer", self._deserializer())
         )
         self.query_one(".record-schema", Static).update(labelled_value("Schema", self._schema()))
-        self.query_one(".record-encoding", Static).update(
-            labelled_value("Encoding", self._encoding())
-        )
         self.query_one(".record-size", Static).update(
             labelled_value("Size", format_payload_size(self.payload_size))
         )

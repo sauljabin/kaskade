@@ -754,16 +754,12 @@ class TestRecordDetailsTabs(unittest.IsolatedAsyncioTestCase):
             self.assertIsInstance(deserializer_content, Text)
             self.assertEqual("muted", deserializer_content.spans[0].style)
             self.assertEqual(
-                "ENCODING\nHEX",
-                header_details.query_one(".record-encoding", Static).render().plain,
-            )
-            self.assertEqual(
                 "SIZE\n0.001 KB",
                 header_details.query_one(".record-size", Static).render().plain,
             )
             error = header_details.query_one(".record-error", Static)
             self.assertTrue(error.display)
-            self.assertIn("ERROR\ninvalid UTF-8\nFallback: BYTES", error.render().plain)
+            self.assertIn("ERROR\ninvalid UTF-8\nFallback: BYTES · HEX", error.render().plain)
             self.assertEqual("solid", error.styles.border_top[0])
             self.assertGreater(error.styles.border_top[1].r, error.styles.border_top[1].g)
             self.assertGreater(error.styles.background.a, 0)
@@ -796,12 +792,8 @@ class TestRecordDetailsTabs(unittest.IsolatedAsyncioTestCase):
             await pilot.pause()
             key_details = details.query_one("#record-key-details", RecordFieldDetails)
             self.assertEqual(
-                "DESERIALIZER\nBYTES",
+                "DESERIALIZER\nBYTES · HEX",
                 key_details.query_one(".record-deserializer", Static).render().plain,
-            )
-            self.assertEqual(
-                "ENCODING\nHEX",
-                key_details.query_one(".record-encoding", Static).render().plain,
             )
             self.assertEqual(
                 "SIZE\n0.001 KB",
@@ -824,6 +816,10 @@ class TestRecordDetailsTabs(unittest.IsolatedAsyncioTestCase):
                 "DESERIALIZER\nREGISTRY · JSON",
                 value_details.query_one(".record-deserializer", Static).render().plain,
             )
+            diagnostics = list(value_details.query(".record-diagnostic"))
+            self.assertEqual(3, len(diagnostics))
+            diagnostic_heights = {diagnostic.region.height for diagnostic in diagnostics}
+            self.assertEqual(1, len(diagnostic_heights))
             self.assertEqual(
                 "SCHEMA\nConfluent · ID 27 · orders-value v5",
                 value_details.query_one(".record-schema", Static).render().plain,

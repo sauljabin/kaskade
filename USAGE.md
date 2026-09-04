@@ -173,11 +173,11 @@ the border title. In that modal, `y` copies the active tab's headers array, key
 object, value object, or complete record object. Copy is also available in Topic
 Details, contextual Help, and Commands, but is omitted from the Footer.
 
-Key, value, and the selected header show compact deserializer, schema, byte
-encoding, and original payload-size diagnostics above their complete content.
-Payload size appears in KB below 1 MB and in MB at or above that threshold.
-Deserialization failures use a highlighted error panel and identify the encoded
-fallback content.
+Key, value, and the selected header show compact deserializer, schema, and
+original payload-size diagnostics above their complete content. Explicit BYTES
+encoding appears beside the deserializer. Payload size appears in KB below 1 MB
+and in MB at or above that threshold. Deserialization failures use a highlighted
+error panel that identifies the BYTES fallback encoding.
 
 Selecting screen text is separate: use `Cmd+C` on macOS or `Ctrl+Shift+C` on
 Linux. `Ctrl+C` always quits Kaskade, even while text is selected.
