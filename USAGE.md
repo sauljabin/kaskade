@@ -25,11 +25,33 @@ Deserializer settings are repeatable `property=value` options: `--bytes` and
 deserializers, and `--registry` configures Schema Registry. See the detailed
 examples below.
 
+## Configuration files at a glance
+
+Kaskade uses two configuration files for different purposes. They are not
+interchangeable:
+
+| File | Purpose | Loading behavior | Typical contents |
+| --- | --- | --- | --- |
+| `settings.yaml` | Personal TUI preferences | Discovered and loaded automatically on every run | Theme, keybindings, and Admin auto-refresh interval |
+| `client.ini` | Kafka connection profile | Loaded only when passed with `--config-file` | Kafka, Schema Registry, AWS IAM, and operation-timeout properties |
+
+Use `settings.yaml` for how Kaskade should look and behave on the local machine.
+Use one or more `client.ini` files for where and how Kaskade should connect. For
+example, separate `development.ini` and `production.ini` files can describe
+different clusters while sharing the same personal TUI settings.
+
+`settings.yaml` is normally safe to keep as a local preference file.
+`client.ini` may contain SASL passwords or Schema Registry credentials, so
+protect it with appropriate file permissions and do not commit secrets. AWS IAM
+credentials should remain in the standard AWS credential provider chain rather
+than being written to either file.
+
 ## Application settings and controls
 
 On Linux and macOS, Kaskade reads `$XDG_CONFIG_HOME/kaskade/settings.yaml`. If
 `XDG_CONFIG_HOME` is not set, it reads `~/.config/kaskade/settings.yaml`. Set
-`KASKADE_SETTINGS` to use a different file.
+`KASKADE_SETTINGS` to use a different file. This automatically loaded YAML file
+does not contain Kafka connection properties.
 
 Copy the complete example to the default location before customizing it:
 
@@ -424,10 +446,12 @@ for SSL encryption and authentication settings.
 
 ### Client configuration file
 
-Both admin and consumer modes accept an INI configuration file. Kafka client
-properties belong in `[kafka]`, consumer Schema Registry properties in
-`[registry]`, Amazon MSK IAM settings in `[aws]`, and Kaskade operation deadlines
-in `[timeouts]`. Any section may be omitted when it is not needed:
+Both admin and consumer modes accept an explicitly selected INI connection
+profile. Unlike `settings.yaml`, `client.ini` has no fixed location and is not
+loaded automatically. Kafka client properties belong in `[kafka]`, consumer
+Schema Registry properties in `[registry]`, Amazon MSK IAM settings in `[aws]`,
+and Kaskade operation deadlines in `[timeouts]`. Any section may be omitted when
+it is not needed:
 
 ```bash
 kaskade admin \
