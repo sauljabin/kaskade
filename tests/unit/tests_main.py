@@ -11,6 +11,7 @@ from kaskade.authentication import (
     SASL_MECHANISM,
     SASL_SSL,
     SECURITY_PROTOCOL,
+    AwsMskAuthenticationError,
     AwsMskOAuthCallback,
 )
 from kaskade.configs import (
@@ -55,6 +56,9 @@ class TestAdminCli(unittest.TestCase):
         self.command = "admin"
         self.temp_directory = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp_directory.cleanup)
+        aws_credentials_patcher = patch("kaskade.main.validate_aws_msk_credentials")
+        self.mock_validate_aws_msk_credentials = aws_credentials_patcher.start()
+        self.addCleanup(aws_credentials_patcher.stop)
 
     def test_bootstrap_servers_are_required_from_any_source(self):
         result = self.runner.invoke(cli, [self.command])
@@ -487,6 +491,9 @@ class TestConsumerCli(unittest.TestCase):
         self.command = "consumer"
         self.temp_directory = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp_directory.cleanup)
+        aws_credentials_patcher = patch("kaskade.main.validate_aws_msk_credentials")
+        self.mock_validate_aws_msk_credentials = aws_credentials_patcher.start()
+        self.addCleanup(aws_credentials_patcher.stop)
         self.temp_descriptor_path = Path(self.temp_directory.name) / "descriptor"
         self.temp_descriptor_path.touch()
         self.temp_avro_path = Path(self.temp_directory.name) / "schema.avsc"
@@ -505,6 +512,31 @@ class TestConsumerCli(unittest.TestCase):
 
         self.assertGreater(result.exit_code, 0)
         self.assertIn("Missing option '-t'", result.output)
+
+    @patch("kaskade.main.KaskadeConsumer")
+    def test_reports_aws_authentication_failure_before_creating_consumer(
+        self, mock_class_kaskade_consumer
+    ):
+        self.mock_validate_aws_msk_credentials.side_effect = AwsMskAuthenticationError(
+            "AWS MSK IAM authentication failed: profile missing. Set AWS_PROFILE."
+        )
+
+        result = self.runner.invoke(
+            cli,
+            [
+                self.command,
+                "-b",
+                EXPECTED_SERVER,
+                "-t",
+                EXPECTED_TOPIC,
+                "--aws",
+                "region=us-east-2",
+            ],
+        )
+
+        self.assertGreater(result.exit_code, 0)
+        self.assertIn("AWS MSK IAM authentication failed: profile missing", result.output)
+        mock_class_kaskade_consumer.assert_not_called()
 
     def test_partition_help_documents_selection_format(self):
         result = self.runner.invoke(cli, [self.command, "--help"])

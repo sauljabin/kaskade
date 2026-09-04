@@ -11,7 +11,11 @@ from confluent_kafka import KafkaException
 from kaskade import APP_VERSION
 from kaskade.admin import KaskadeAdmin
 from kaskade.apicurio import APICURIO_PREFIX, ApicurioConfig, ApicurioRegistryError
-from kaskade.authentication import configure_aws_msk_iam
+from kaskade.authentication import (
+    AwsMskAuthenticationError,
+    configure_aws_msk_iam,
+    validate_aws_msk_credentials,
+)
 from kaskade.cli_utils import tuple_properties_to_dict, validate_aws_config
 from kaskade.configs import (
     APICURIO_OPTION,
@@ -320,6 +324,10 @@ def admin(
     )
     aws_config = file_config.get("aws", {}) | aws_config
     validate_aws_config(aws_config)
+    try:
+        validate_aws_msk_credentials(aws_config)
+    except AwsMskAuthenticationError as ex:
+        raise ClickException(str(ex)) from ex
     kafka_config = configure_aws_msk_iam(kafka_config, aws_config)
 
     kaskade_app = KaskadeAdmin(kafka_config, refresh_interval=refresh_interval)
@@ -485,6 +493,10 @@ def consumer(
     registry_config = file_config.get("registry", {}) | registry_config
     aws_config = file_config.get("aws", {}) | aws_config
     validate_aws_config(aws_config)
+    try:
+        validate_aws_msk_credentials(aws_config)
+    except AwsMskAuthenticationError as ex:
+        raise ClickException(str(ex)) from ex
     kafka_config = configure_aws_msk_iam(kafka_config, aws_config)
 
     if earliest:
