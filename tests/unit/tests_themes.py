@@ -813,7 +813,7 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 self.assertTrue(all(cell.content_region.height >= 2 for cell in metadata_cells))
                 diagnostics = app.screen.query_one(".record-diagnostics", Grid)
                 self.assertEqual(1, diagnostics.styles.grid_size_columns)
-                self.assertEqual(3, diagnostics.styles.grid_size_rows)
+                self.assertEqual(4, diagnostics.styles.grid_size_rows)
                 content = app.screen.query_one("#record-key-details .record-content", Static)
                 self.assertEqual(app.current_theme.panel, content.styles.background.hex)
                 self.assertNotEqual(details.styles.background, content.styles.background)

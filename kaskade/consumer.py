@@ -60,6 +60,18 @@ COPY_RECORD_SHORTCUT = "y"
 CONSUMER_EXCEPTIONS: tuple[type[Exception], ...] = (KafkaException,)
 KEY_COLUMN_INDEX = 0
 VALUE_COLUMN_INDEX = 1
+KILOBYTE = 1_000
+MEGABYTE = 1_000_000
+
+
+def format_payload_size(size: int | None) -> str:
+    if size is None:
+        return "—"
+    if size >= MEGABYTE:
+        return f"{size / MEGABYTE:.2f} MB"
+    kilobytes = size / KILOBYTE
+    precision = 3 if 0 < kilobytes < 0.01 else 2
+    return f"{kilobytes:.{precision}f} KB"
 
 
 class RecordDataTable(StretchyDataTable[str | Text]):
@@ -215,11 +227,13 @@ class RecordFieldDetails(Container):
         self,
         outcome: DeserializationOutcome,
         *,
+        payload_size: int | None,
         field_name: str | None = None,
         **kwargs: Any,
     ) -> None:
         super().__init__(**kwargs)
         self.outcome = outcome
+        self.payload_size = payload_size
         self.field_name = field_name
 
     @staticmethod
@@ -289,6 +303,10 @@ class RecordFieldDetails(Container):
                 self._labelled_value("Encoding", self._encoding()),
                 classes="record-diagnostic record-encoding",
             )
+            yield Static(
+                self._labelled_value("Size", format_payload_size(self.payload_size)),
+                classes="record-diagnostic record-size",
+            )
 
         error = Static(self._error(), classes="record-error")
         error.display = self.outcome.error is not None
@@ -309,9 +327,11 @@ class RecordFieldDetails(Container):
         self,
         outcome: DeserializationOutcome,
         *,
+        payload_size: int | None,
         field_name: str | None = None,
     ) -> None:
         self.outcome = outcome
+        self.payload_size = payload_size
         self.field_name = field_name
         name = self.query_one(".record-field-name", Static)
         name.display = field_name is not None
@@ -325,6 +345,9 @@ class RecordFieldDetails(Container):
         )
         self.query_one(".record-encoding", Static).update(
             self._labelled_value("Encoding", self._encoding())
+        )
+        self.query_one(".record-size", Static).update(
+            self._labelled_value("Size", format_payload_size(self.payload_size))
         )
         error = self.query_one(".record-error", Static)
         error.display = outcome.error is not None
@@ -459,6 +482,9 @@ class TopicScreen(HelpableModalScreen[Record]):
                 ):
                     yield RecordFieldDetails(
                         self.record.key_outcome(),
+                        payload_size=(
+                            len(self.record.key) if self.record.key is not None else None
+                        ),
                         id="record-key-details",
                     )
                 with (
@@ -467,6 +493,9 @@ class TopicScreen(HelpableModalScreen[Record]):
                 ):
                     yield RecordFieldDetails(
                         self.record.value_outcome(),
+                        payload_size=(
+                            len(self.record.value) if self.record.value is not None else None
+                        ),
                         id="record-value-details",
                     )
                 with (
@@ -493,6 +522,11 @@ class TopicScreen(HelpableModalScreen[Record]):
                                 header.value_outcome()
                                 if header is not None
                                 else DeserializationOutcome(Deserialization.STRING, None)
+                            ),
+                            payload_size=(
+                                len(header.value)
+                                if header is not None and header.value is not None
+                                else None
                             ),
                             field_name=header.key if header is not None else None,
                             id="record-header-details",
@@ -530,10 +564,12 @@ class TopicScreen(HelpableModalScreen[Record]):
         assert headers_tab is not None
         headers_tab.label = Content(f"Headers [{record.headers_count()}]")
         self.query_one("#record-key-details", RecordFieldDetails).update_outcome(
-            record.key_outcome()
+            record.key_outcome(),
+            payload_size=len(record.key) if record.key is not None else None,
         )
         self.query_one("#record-value-details", RecordFieldDetails).update_outcome(
-            record.value_outcome()
+            record.value_outcome(),
+            payload_size=len(record.value) if record.value is not None else None,
         )
         self.query_one(".record-json", Static).update(record_json_renderable(data))
         self._refresh_headers()
@@ -561,6 +597,7 @@ class TopicScreen(HelpableModalScreen[Record]):
             header = self.record.headers[0]
             self.query_one("#record-header-details", RecordFieldDetails).update_outcome(
                 header.value_outcome(),
+                payload_size=len(header.value) if header.value is not None else None,
                 field_name=header.key,
             )
 
@@ -570,6 +607,7 @@ class TopicScreen(HelpableModalScreen[Record]):
         header = self.record.headers[int(event.option_id)]
         self.query_one("#record-header-details", RecordFieldDetails).update_outcome(
             header.value_outcome(),
+            payload_size=len(header.value) if header.value is not None else None,
             field_name=header.key,
         )
         self.query_one(".record-header-scroll", KaskadeScrollableContainer).scroll_home(

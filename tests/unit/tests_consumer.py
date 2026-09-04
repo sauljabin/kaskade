@@ -24,6 +24,7 @@ from kaskade.consumer import (
     RecordFieldDetails,
     TopicScreen,
     deliver_record,
+    format_payload_size,
     record_json,
     record_json_renderable,
 )
@@ -43,6 +44,17 @@ from kaskade.record_export import readable_json, record_filename
 from kaskade.themes import KaskadeApp
 from kaskade.unicodes import WARNING as WARNING_INDICATOR
 from kaskade.widgets import TableFrame
+
+
+class TestPayloadSizeFormatting(unittest.TestCase):
+    def test_formats_kilobytes_and_megabytes(self) -> None:
+        self.assertEqual("—", format_payload_size(None))
+        self.assertEqual("0.00 KB", format_payload_size(0))
+        self.assertEqual("0.001 KB", format_payload_size(1))
+        self.assertEqual("1.00 KB", format_payload_size(1_000))
+        self.assertEqual("1000.00 KB", format_payload_size(999_999))
+        self.assertEqual("1.00 MB", format_payload_size(1_000_000))
+        self.assertEqual("2.50 MB", format_payload_size(2_500_000))
 
 
 def exported_record() -> Record:
@@ -730,6 +742,10 @@ class TestRecordDetailsTabs(unittest.IsolatedAsyncioTestCase):
                 "ENCODING\nHEX",
                 header_details.query_one(".record-encoding", Static).render().plain,
             )
+            self.assertEqual(
+                "SIZE\n0.001 KB",
+                header_details.query_one(".record-size", Static).render().plain,
+            )
             error = header_details.query_one(".record-error", Static)
             self.assertTrue(error.display)
             self.assertIn("ERROR\ninvalid UTF-8\nFallback: BYTES", error.render().plain)
@@ -749,6 +765,10 @@ class TestRecordDetailsTabs(unittest.IsolatedAsyncioTestCase):
             await pilot.pause()
             self.assertFalse(header_details.query_one(".record-error", Static).display)
             self.assertEqual(
+                "SIZE\n0.01 KB",
+                header_details.query_one(".record-size", Static).render().plain,
+            )
+            self.assertEqual(
                 "CONTENT",
                 header_details.query_one(".record-content-label", Static).render().plain,
             )
@@ -767,6 +787,10 @@ class TestRecordDetailsTabs(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(
                 "ENCODING\nHEX",
                 key_details.query_one(".record-encoding", Static).render().plain,
+            )
+            self.assertEqual(
+                "SIZE\n0.001 KB",
+                key_details.query_one(".record-size", Static).render().plain,
             )
             self.assertFalse(key_details.query_one(".record-error", Static).display)
             self.assertEqual(
@@ -788,6 +812,10 @@ class TestRecordDetailsTabs(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(
                 "SCHEMA\nConfluent · ID 27 · orders-value v5",
                 value_details.query_one(".record-schema", Static).render().plain,
+            )
+            self.assertEqual(
+                "SIZE\n0.007 KB",
+                value_details.query_one(".record-size", Static).render().plain,
             )
             self.assertIn(
                 '"status": "paid"',
@@ -908,6 +936,10 @@ class TestRecordDetailsNavigation(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(
                 "null",
                 value_details.query_one(".record-content", Static).content.text.plain,
+            )
+            self.assertEqual(
+                "SIZE\n—",
+                value_details.query_one(".record-size", Static).render().plain,
             )
 
             await pilot.press("p", "n")
