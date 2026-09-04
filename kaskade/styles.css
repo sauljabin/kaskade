@@ -317,6 +317,10 @@ TopicScreen .record-content {
     text-wrap: wrap;
 }
 
+TopicScreen .record-detail-scroll:focus .record-content {
+    background: $panel-lighten-1;
+}
+
 TopicScreen .record-headers-layout {
     layout: horizontal;
     width: 100%;

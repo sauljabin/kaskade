@@ -818,15 +818,42 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(app.current_theme.panel, content.styles.background.hex)
                 self.assertNotEqual(details.styles.background, content.styles.background)
 
+                key_scroll = app.screen.query_one(
+                    "#key .record-detail-scroll", KaskadeScrollableContainer
+                )
+                key_scroll.focus()
+                await pilot.pause()
+                focused_panel = app.get_css_variables()["panel-lighten-1"]
+                self.assertEqual(focused_panel, content.styles.background.hex)
+
+                tabs.focus()
                 await pilot.press("right")
                 self.assertEqual("value", app.screen.query_one(TabbedContent).active)
+                value_scroll = app.screen.query_one(
+                    "#value .record-detail-scroll", KaskadeScrollableContainer
+                )
+                value_scroll.focus()
+                await pilot.pause()
+                value_content = app.screen.query_one(
+                    "#record-value-details .record-content", Static
+                )
+                self.assertEqual(focused_panel, value_content.styles.background.hex)
+                self.assertEqual(app.current_theme.panel, content.styles.background.hex)
 
                 app.screen.query_one(TabbedContent).active = "headers"
                 await pilot.pause()
                 header_list = app.screen.query_one("#record-headers-list", OptionList)
-                header_details = app.screen.query_one(".record-header-scroll")
+                header_details = app.screen.query_one(
+                    ".record-header-scroll", KaskadeScrollableContainer
+                )
                 self.assertEqual(header_list.region.y, header_details.region.y)
                 self.assertLess(header_list.region.x, header_details.region.x)
+                header_details.focus()
+                await pilot.pause()
+                header_content = app.screen.query_one(
+                    "#record-header-details .record-content", Static
+                )
+                self.assertEqual(focused_panel, header_content.styles.background.hex)
 
                 await pilot.press("escape")
                 self.assertIs(records_table, app.screen.focused)
