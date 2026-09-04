@@ -12,7 +12,7 @@ from rich.text import Text
 from textual import events
 from textual.containers import Grid
 from textual.coordinate import Coordinate
-from textual.widgets import DataTable, Static, Tab, TabbedContent, TabPane
+from textual.widgets import DataTable, OptionList, Static, Tab, TabbedContent, TabPane
 
 from kaskade.colors import NULL as NULL_STYLE
 from kaskade.colors import WARNING as WARNING_STYLE
@@ -674,7 +674,7 @@ class TestRecordDetailsTabs(unittest.IsolatedAsyncioTestCase):
             await pilot.pause()
             details = app.screen
             tabs = details.query_one(TabbedContent)
-            table = details.query_one("#record-headers-table", DataTable)
+            headers = details.query_one("#record-headers-list", OptionList)
 
             self.assertEqual("key", tabs.active)
             self.assertEqual(
@@ -686,17 +686,10 @@ class TestRecordDetailsTabs(unittest.IsolatedAsyncioTestCase):
                 [tab.label_text for tab in details.query(Tab)],
             )
             self.assertEqual(
-                ["Index", "Name", "Value Preview", "Deserializer"],
-                [column.label.plain for column in table.ordered_columns],
-            )
-            self.assertEqual(
+                ["source", "source"],
                 [
-                    ["0", "source", "storefront", "STRING"],
-                    ["1", "source", "ff", "STRING"],
-                ],
-                [
-                    [str(table.get_cell_at(Coordinate(row, column))) for column in range(4)]
-                    for row in range(2)
+                    str(headers.get_option_at_index(index).prompt)
+                    for index in range(headers.option_count)
                 ],
             )
             self.assertEqual(
@@ -719,7 +712,7 @@ class TestRecordDetailsTabs(unittest.IsolatedAsyncioTestCase):
                 details.query_one("#record-timestamp", Static).render().plain,
             )
 
-            table.move_cursor(row=1)
+            headers.highlighted = 1
             await pilot.pause()
             header_details = details.query_one("#record-header-details", RecordFieldDetails)
             self.assertEqual(
@@ -730,6 +723,9 @@ class TestRecordDetailsTabs(unittest.IsolatedAsyncioTestCase):
                 "DESERIALIZER\nSTRING",
                 header_details.query_one(".record-deserializer", Static).render().plain,
             )
+            status = header_details.query_one(".record-status", Static)
+            self.assertEqual("STATUS\nFallback to BYTES", status.render().plain)
+            self.assertEqual(WARNING_STYLE, status.content.spans[-1].style)
             deserializer_content = header_details.query_one(".record-deserializer", Static).content
             self.assertIsInstance(deserializer_content, Text)
             self.assertEqual("muted", deserializer_content.spans[0].style)
@@ -752,9 +748,12 @@ class TestRecordDetailsTabs(unittest.IsolatedAsyncioTestCase):
                 header_details.query_one(".record-content", Static).content.text.plain,
             )
 
-            table.move_cursor(row=0)
+            headers.highlighted = 0
             await pilot.pause()
             self.assertFalse(header_details.query_one(".record-error", Static).display)
+            status = header_details.query_one(".record-status", Static)
+            self.assertEqual("STATUS\nSuccess", status.render().plain)
+            self.assertEqual("success", status.content.spans[-1].style)
             self.assertEqual(
                 "CONTENT",
                 header_details.query_one(".record-content-label", Static).render().plain,
@@ -774,6 +773,10 @@ class TestRecordDetailsTabs(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(
                 "ENCODING\nHEX",
                 key_details.query_one(".record-encoding", Static).render().plain,
+            )
+            self.assertEqual(
+                "STATUS\nSuccess",
+                key_details.query_one(".record-status", Static).render().plain,
             )
             self.assertFalse(key_details.query_one(".record-error", Static).display)
             self.assertEqual(
@@ -900,16 +903,16 @@ class TestRecordDetailsNavigation(unittest.IsolatedAsyncioTestCase):
                 ["Key", "Value", "Headers [1]", "JSON"],
                 [tab.label_text for tab in details.query(Tab)],
             )
-            header_table = details.query_one("#record-headers-table", DataTable)
-            self.assertEqual(1, header_table.row_count)
-            self.assertEqual(0, header_table.cursor_row)
+            header_list = details.query_one("#record-headers-list", OptionList)
+            self.assertEqual(1, header_list.option_count)
+            self.assertEqual(0, header_list.highlighted)
             self.assertTrue(details.check_action("previous_record", ()))
             self.assertFalse(details.check_action("next_record", ()))
 
             await pilot.press("N")
             self.assertIs(consumed_records[1], details.record)
             self.assertEqual(1, table.cursor_row)
-            self.assertFalse(header_table.display)
+            self.assertFalse(header_list.display)
             self.assertTrue(details.query_one("#record-headers-empty", Static).display)
             value_details = details.query_one("#record-value-details", RecordFieldDetails)
             self.assertEqual(

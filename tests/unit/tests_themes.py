@@ -41,9 +41,9 @@ from kaskade.consumer import (
     ListRecords,
     TopicScreen,
 )
-from kaskade.deserializers import Deserialization
+from kaskade.deserializers import Deserialization, StringDeserializer
 from kaskade.help import KASKADE_ISSUES_URL, KASKADE_URL, HelpableModalScreen, HelpScreen
-from kaskade.models import Record, Topic, TopicConfiguration
+from kaskade.models import Header, Record, Topic, TopicConfiguration
 from kaskade.themes import (
     DEFAULT_THEME,
     EVA01_BERSERK_THEME,
@@ -778,7 +778,16 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
 
             async with app.run_test(size=(60, 24)) as pilot:
                 records_table = app.query_one("#records-table", DataTable)
-                app.push_screen(TopicScreen(Record(topic="orders", partition=0, offset=1)))
+                app.push_screen(
+                    TopicScreen(
+                        Record(
+                            topic="orders",
+                            partition=0,
+                            offset=1,
+                            headers=[Header("long-header-key", b"value", StringDeserializer())],
+                        )
+                    )
+                )
                 await pilot.pause()
 
                 details = app.screen.query_one(".record-details", Container)
@@ -787,7 +796,7 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(app.screen.content_region.width, details.region.width)
                 self.assertEqual(app.current_theme.background, details.styles.background.hex)
                 self.assertEqual(
-                    ["Key", "Value", "Headers [0]", "JSON"],
+                    ["Key", "Value", "Headers [1]", "JSON"],
                     [tab.label_text for tab in app.screen.query(Tab)],
                 )
                 self.assertEqual(4, len(app.screen.query(TabPane)))
@@ -801,13 +810,36 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 self.assertTrue(
                     all(cell.styles.border_top[0] == "solid" for cell in metadata_cells)
                 )
+                self.assertTrue(
+                    all(
+                        cell.styles.background.hex == app.current_theme.panel
+                        for cell in metadata_cells
+                    )
+                )
                 self.assertTrue(all(cell.content_region.height >= 2 for cell in metadata_cells))
                 diagnostics = app.screen.query_one(".record-diagnostics", Grid)
                 self.assertEqual(1, diagnostics.styles.grid_size_columns)
-                self.assertEqual(3, diagnostics.styles.grid_size_rows)
+                self.assertEqual(4, diagnostics.styles.grid_size_rows)
+                self.assertTrue(
+                    all(
+                        diagnostic.styles.background.hex == app.current_theme.panel
+                        for diagnostic in diagnostics.query(".record-diagnostic")
+                    )
+                )
+                content = app.screen.query_one("#record-key-details .record-content", Static)
+                self.assertEqual(app.current_theme.panel, content.styles.background.hex)
+                self.assertNotEqual(details.styles.background, content.styles.background)
 
                 await pilot.press("right")
                 self.assertEqual("value", app.screen.query_one(TabbedContent).active)
+
+                app.screen.query_one(TabbedContent).active = "headers"
+                await pilot.pause()
+                header_list = app.screen.query_one("#record-headers-list", OptionList)
+                header_details = app.screen.query_one(".record-header-scroll")
+                self.assertEqual(header_list.region.y, header_details.region.y)
+                self.assertLess(header_list.region.x, header_details.region.x)
+                self.assertEqual(app.current_theme.panel, header_list.styles.background.hex)
 
                 await pilot.press("escape")
                 self.assertIs(records_table, app.screen.focused)

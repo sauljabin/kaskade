@@ -223,11 +223,16 @@ class RecordFieldDetails(Container):
         self.field_name = field_name
 
     @staticmethod
-    def _labelled_value(label: str, value: str) -> Text:
+    def _labelled_value(
+        label: str,
+        value: str,
+        *,
+        value_style: str | None = None,
+    ) -> Text:
         content = Text()
         content.append(label.upper(), style="muted")
         content.append("\n")
-        content.append(value)
+        content.append(value, style=value_style)
         return content
 
     def _deserializer(self) -> str:
@@ -261,6 +266,11 @@ class RecordFieldDetails(Container):
             return self.outcome.bytes_encoding.name
         return "—"
 
+    def _status(self) -> tuple[str, str]:
+        if self.outcome.used_fallback:
+            return f"Fallback to {Deserialization.BYTES.name}", WARNING_STYLE
+        return "Success", "success"
+
     def _error(self) -> Text:
         error = Text("ERROR", style="bold error")
         if self.outcome.error is not None:
@@ -280,6 +290,11 @@ class RecordFieldDetails(Container):
             yield Static(
                 self._labelled_value("Deserializer", self._deserializer()),
                 classes="record-diagnostic record-deserializer",
+            )
+            status, status_style = self._status()
+            yield Static(
+                self._labelled_value("Status", status, value_style=status_style),
+                classes="record-diagnostic record-status",
             )
             yield Static(
                 self._labelled_value("Schema", self._schema()),
@@ -319,6 +334,10 @@ class RecordFieldDetails(Container):
             name.update(self._labelled_value("Header", field_name))
         self.query_one(".record-deserializer", Static).update(
             self._labelled_value("Deserializer", self._deserializer())
+        )
+        status, status_style = self._status()
+        self.query_one(".record-status", Static).update(
+            self._labelled_value("Status", status, value_style=status_style)
         )
         self.query_one(".record-schema", Static).update(
             self._labelled_value("Schema", self._schema())
@@ -429,29 +448,17 @@ class TopicScreen(HelpableModalScreen[Record]):
     def _metadata_content(label: str, value: str) -> Text:
         return RecordFieldDetails._labelled_value(label, value)
 
-    def _headers_table(self) -> StretchyDataTable[str | Text]:
-        table: StretchyDataTable[str | Text] = StretchyDataTable(
-            id="record-headers-table",
-            classes="details-table",
+    def _headers_list(self) -> KaskadeOptionList:
+        headers = KaskadeOptionList(
+            *(
+                Option(header.key, id=str(index))
+                for index, header in enumerate(self.record.headers)
+            ),
+            id="record-headers-list",
+            compact=True,
         )
-        table.cursor_type = "row"
-        table.add_column("Index", key="index")
-        table.add_column("Name", key="name", stretch=1)
-        table.add_column("Value Preview", key="value", stretch=3)
-        table.add_column("Deserializer", key="deserializer", stretch=1)
-        self._fill_headers_table(table)
-        return table
-
-    def _fill_headers_table(self, table: StretchyDataTable[str | Text]) -> None:
-        for index, header in enumerate(self.record.headers):
-            outcome = header.value_outcome()
-            table.add_row(
-                str(index),
-                header.key,
-                header.value_str().replace("\n", "\\n"),
-                outcome.requested.name,
-                key=str(index),
-            )
+        headers.highlighted = 0 if self.record.headers else None
+        return headers
 
     def compose(self) -> ComposeResult:
         container = Container(classes="record-details")
@@ -488,9 +495,9 @@ class TopicScreen(HelpableModalScreen[Record]):
                     ),
                     Container(classes="record-headers-layout"),
                 ):
-                    table = self._headers_table()
-                    table.display = bool(self.record.headers)
-                    yield table
+                    headers = self._headers_list()
+                    headers.display = bool(self.record.headers)
+                    yield headers
                     empty = Static("No headers", id="record-headers-empty")
                     empty.display = not self.record.headers
                     yield empty
@@ -556,27 +563,30 @@ class TopicScreen(HelpableModalScreen[Record]):
             self.on_record_changed(record)
 
     def _refresh_headers(self) -> None:
-        table = self.query_one("#record-headers-table", StretchyDataTable)
+        headers = self.query_one("#record-headers-list", KaskadeOptionList)
         empty = self.query_one("#record-headers-empty", Static)
         details = self.query_one(".record-header-scroll", KaskadeScrollableContainer)
-        table.clear()
+        headers.clear_options()
         has_headers = bool(self.record.headers)
-        table.display = has_headers
+        headers.display = has_headers
         empty.display = not has_headers
         details.display = has_headers
         if has_headers:
-            self._fill_headers_table(table)
-            table.move_cursor(row=0, column=0)
+            headers.add_options(
+                Option(header.key, id=str(index))
+                for index, header in enumerate(self.record.headers)
+            )
+            headers.highlighted = 0
             header = self.record.headers[0]
             self.query_one("#record-header-details", RecordFieldDetails).update_outcome(
                 header.value_outcome(),
                 field_name=header.key,
             )
 
-    def on_data_table_row_highlighted(self, event: DataTable.RowHighlighted) -> None:
-        if event.data_table.id != "record-headers-table" or event.row_key.value is None:
+    def on_option_list_option_highlighted(self, event: OptionList.OptionHighlighted) -> None:
+        if event.option_list.id != "record-headers-list" or event.option_id is None:
             return
-        header = self.record.headers[int(event.row_key.value)]
+        header = self.record.headers[int(event.option_id)]
         self.query_one("#record-header-details", RecordFieldDetails).update_outcome(
             header.value_outcome(),
             field_name=header.key,

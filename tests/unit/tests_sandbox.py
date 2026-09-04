@@ -1,3 +1,4 @@
+import json
 import unittest
 from functools import partial
 from unittest.mock import MagicMock, call, patch
@@ -21,6 +22,10 @@ from sandbox.__main__ import (
     AVAILABLE_TOPICS,
     ERRORS_TOPIC,
     INVALID_UTF8_HEADER,
+    LARGE_HEADER_KEY,
+    LARGE_HEADER_VALUE,
+    LARGE_JSON_FIELD,
+    LARGE_RECORDS_TOPIC,
     NULL_HEADER,
     NULL_TOPIC,
     Populator,
@@ -103,6 +108,33 @@ class TestPopulator(unittest.TestCase):
             [call(NULL_TOPIC, key=None, value=None, headers=[NULL_HEADER])] * 3,
             mock_producer.return_value.produce.call_args_list,
         )
+        mock_producer.return_value.flush.assert_called_once_with(5)
+
+    @patch("sandbox.__main__.Producer")
+    @patch("sandbox.__main__.AdminClient")
+    def test_large_records_topic_contains_oversized_json_and_header_content(
+        self, _: MagicMock, mock_producer: MagicMock
+    ) -> None:
+        populator = Populator({})
+
+        populator.populate_large_records(2)
+
+        produced = mock_producer.return_value.produce.call_args_list
+        self.assertEqual(2, len(produced))
+        self.assertGreater(len(LARGE_RECORDS_TOPIC), 60)
+        for index, produced_record in enumerate(produced):
+            self.assertEqual(LARGE_RECORDS_TOPIC, produced_record.args[0])
+            key = json.loads(produced_record.kwargs["key"])
+            value = json.loads(produced_record.kwargs["value"])
+            self.assertIn(LARGE_JSON_FIELD, key)
+            self.assertIn(LARGE_JSON_FIELD, value)
+            self.assertGreater(len(key[LARGE_JSON_FIELD]), 900)
+            self.assertGreater(len(value[LARGE_JSON_FIELD]), 4_000)
+            self.assertEqual(index, value["nested"]["sequence"])
+            self.assertEqual(
+                [(LARGE_HEADER_KEY, LARGE_HEADER_VALUE)],
+                produced_record.kwargs["headers"],
+            )
         mock_producer.return_value.flush.assert_called_once_with(5)
 
     @patch("sandbox.__main__.Producer")
@@ -219,7 +251,7 @@ class TestSandboxKafkaConfig(unittest.TestCase):
             },
             mock_populator.call_args.kwargs,
         )
-        self.assertEqual(17, mock_run_population.call_count)
+        self.assertEqual(18, mock_run_population.call_count)
         self.assertEqual(ERRORS_TOPIC, mock_run_population.call_args.args[3])
 
         actions = [
@@ -236,6 +268,7 @@ class TestSandboxKafkaConfig(unittest.TestCase):
                 mock_populator.return_value.populate_boolean,
                 mock_populator.return_value.populate_null,
                 mock_populator.return_value.populate_json,
+                mock_populator.return_value.populate_large_records,
                 mock_populator.return_value.populate_json_schema,
                 mock_populator.return_value.populate_protobuf,
                 mock_populator.return_value.populate_protobuf_schema,

@@ -231,6 +231,7 @@ TopicScreen .record-metadata-cell {
     width: 100%;
     height: 100%;
     border: solid $secondary 50%;
+    background: $panel;
     padding: 0 1;
     text-wrap: wrap;
 }
@@ -275,8 +276,8 @@ TopicScreen .record-field-name {
 TopicScreen .record-diagnostics {
     width: 100%;
     height: auto;
-    grid-size: 3 1;
-    grid-columns: 1fr 2fr 1fr;
+    grid-size: 4 1;
+    grid-columns: 1fr 1fr 2fr 1fr;
     grid-rows: auto;
     grid-gutter: 0;
     margin-bottom: 1;
@@ -287,6 +288,7 @@ TopicScreen .record-diagnostic {
     height: auto;
     min-height: 5;
     border: solid $secondary 50%;
+    background: $panel;
     padding: 1;
     text-wrap: wrap;
 }
@@ -318,14 +320,16 @@ TopicScreen .record-content {
 }
 
 TopicScreen .record-headers-layout {
+    layout: horizontal;
     width: 100%;
     height: 100%;
 }
 
-TopicScreen #record-headers-table {
-    width: 100%;
-    height: 45%;
-    min-height: 5;
+TopicScreen #record-headers-list {
+    width: 32%;
+    height: 100%;
+    border: solid $secondary 50%;
+    background: $panel;
 }
 
 TopicScreen #record-headers-empty {
@@ -336,7 +340,8 @@ TopicScreen #record-headers-empty {
 }
 
 TopicScreen .record-header-scroll {
-    height: 1fr;
+    width: 68%;
+    height: 100%;
 }
 
 TopicScreen .record-json {
@@ -375,9 +380,9 @@ TopicScreen.-narrow #record-metadata {
 }
 
 TopicScreen.-narrow .record-diagnostics {
-    grid-size: 1 3;
+    grid-size: 1 4;
     grid-columns: 1fr;
-    grid-rows: auto auto auto;
+    grid-rows: auto auto auto auto;
 }
 
 HelpScreen.-narrow > #help-dialog {
