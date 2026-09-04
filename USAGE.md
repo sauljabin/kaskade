@@ -521,48 +521,20 @@ The IAM principal used by `--aws` needs these `kafka-cluster` actions:
 | Admin (full access) | Read-only actions plus `CreateTopic`, `AlterTopic`, `DeleteTopic`, `AlterTopicDynamicConfiguration` |
 | Consumer | `Connect`, `DescribeTopic`, `ReadData`, `DescribeGroup`, `AlterGroup` |
 
-This policy enables all admin and consumer features. Replace the placeholders
-and narrow the topic wildcard when appropriate.
+Ready-to-customize identity policy examples are available for each mode:
 
-```json
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Sid": "ConnectToCluster",
-      "Effect": "Allow",
-      "Action": "kafka-cluster:Connect",
-      "Resource": "arn:aws:kafka:<region>:<account-id>:cluster/<cluster-name>/<cluster-uuid>"
-    },
-    {
-      "Sid": "ManageAndReadTopics",
-      "Effect": "Allow",
-      "Action": [
-        "kafka-cluster:CreateTopic",
-        "kafka-cluster:DescribeTopic",
-        "kafka-cluster:AlterTopic",
-        "kafka-cluster:DeleteTopic",
-        "kafka-cluster:DescribeTopicDynamicConfiguration",
-        "kafka-cluster:AlterTopicDynamicConfiguration",
-        "kafka-cluster:ReadData"
-      ],
-      "Resource": "arn:aws:kafka:<region>:<account-id>:topic/<cluster-name>/<cluster-uuid>/*"
-    },
-    {
-      "Sid": "InspectConsumerGroups",
-      "Effect": "Allow",
-      "Action": "kafka-cluster:DescribeGroup",
-      "Resource": "arn:aws:kafka:<region>:<account-id>:group/<cluster-name>/<cluster-uuid>/*"
-    },
-    {
-      "Sid": "UseKaskadeConsumerGroups",
-      "Effect": "Allow",
-      "Action": "kafka-cluster:AlterGroup",
-      "Resource": "arn:aws:kafka:<region>:<account-id>:group/<cluster-name>/<cluster-uuid>/kaskade-*"
-    }
-  ]
-}
-```
+- [Admin](examples/aws-msk-iam-admin-policy.json)
+- [Consumer](examples/aws-msk-iam-consumer-policy.json)
+- [Admin and consumer](examples/aws-msk-iam-admin-consumer-policy.json)
+
+Replace the region, account, cluster name, and cluster UUID placeholders. Narrow
+the topic wildcard when appropriate. If `group.id` is configured, replace the
+`kaskade-*` group pattern with that group ID or a suitable wildcard.
+
+For cross-account access, the cluster owner must also add a
+[resource-based cluster policy](https://docs.aws.amazon.com/msk/latest/developerguide/security_iam_service-with-iam-resource-based-policies.html)
+that grants the client account or role the corresponding `kafka-cluster`
+permissions.
 
 Kaskade honors `group.id` from Kafka client configuration. When it is omitted,
 Kaskade creates an ephemeral `kaskade-<uuid>` group.
