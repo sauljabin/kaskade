@@ -167,11 +167,11 @@ approximately 20 MiB.
 
 Select a topic in Admin mode or a consumed record in Consumer mode, then press
 `y` to copy the topic name or readable record JSON. Record Details separates the
-key, value, ordered headers, and complete JSON into tabs while keeping the topic,
-partition, offset, and timestamp visible. In that modal, `y` copies the active
-tab's headers array, key object, value object, or complete record object. Copy is
-also available in Topic Details, contextual Help, and Commands, but is omitted
-from the Footer.
+key, value, ordered headers, and complete JSON into tabs while keeping the total
+raw payload size, partition, offset, and timestamp visible. The topic remains in
+the border title. In that modal, `y` copies the active tab's headers array, key
+object, value object, or complete record object. Copy is also available in Topic
+Details, contextual Help, and Commands, but is omitted from the Footer.
 
 Key, value, and the selected header show compact deserializer, schema, byte
 encoding, and original payload-size diagnostics above their complete content.

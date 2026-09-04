@@ -75,6 +75,14 @@ def format_payload_size(size: int | None) -> str:
     return f"{kilobytes:.{precision}f} KB"
 
 
+def record_payload_size(record: Record) -> int:
+    size = sum(len(payload) for payload in (record.key, record.value) if payload is not None)
+    return size + sum(
+        len(header.key.encode("utf-8")) + (len(header.value) if header.value is not None else 0)
+        for header in record.headers
+    )
+
+
 class RecordDataTable(StretchyDataTable[str | Text]):
     """A records table with diagnostic tooltips for individual cells."""
 
@@ -429,7 +437,11 @@ class TopicScreen(HelpableModalScreen[Record]):
 
     def _metadata(self) -> tuple[tuple[str, str, str], ...]:
         return (
-            ("record-topic", "Topic", self.record.topic),
+            (
+                "record-total-size",
+                "Total Size",
+                format_payload_size(record_payload_size(self.record)),
+            ),
             ("record-partition", "Partition", str(self.record.partition)),
             ("record-offset", "Offset", str(self.record.offset)),
             (

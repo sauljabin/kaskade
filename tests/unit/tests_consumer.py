@@ -27,6 +27,7 @@ from kaskade.consumer import (
     format_payload_size,
     record_json,
     record_json_renderable,
+    record_payload_size,
 )
 from kaskade.deserializers import (
     BooleanDeserializer,
@@ -55,6 +56,15 @@ class TestPayloadSizeFormatting(unittest.TestCase):
         self.assertEqual("1000.00 KB", format_payload_size(999_999))
         self.assertEqual("1.00 MB", format_payload_size(1_000_000))
         self.assertEqual("2.50 MB", format_payload_size(2_500_000))
+
+    def test_totals_raw_record_payloads_and_header_names(self) -> None:
+        record = Record(
+            key=b"key",
+            value=b"value",
+            headers=[Header("source", b"mobile"), Header("empty", None)],
+        )
+
+        self.assertEqual(25, record_payload_size(record))
 
 
 def exported_record() -> Record:
@@ -710,12 +720,12 @@ class TestRecordDetailsTabs(unittest.IsolatedAsyncioTestCase):
                 ],
             )
             self.assertEqual(
-                "TOPIC\norders",
-                details.query_one("#record-topic", Static).render().plain,
+                "TOTAL SIZE\n0.03 KB",
+                details.query_one("#record-total-size", Static).render().plain,
             )
-            topic_content = details.query_one("#record-topic", Static).content
-            self.assertIsInstance(topic_content, Text)
-            self.assertEqual("muted", topic_content.spans[0].style)
+            total_size_content = details.query_one("#record-total-size", Static).content
+            self.assertIsInstance(total_size_content, Text)
+            self.assertEqual("muted", total_size_content.spans[0].style)
             self.assertEqual(
                 "PARTITION\n2",
                 details.query_one("#record-partition", Static).render().plain,
@@ -923,6 +933,10 @@ class TestRecordDetailsNavigation(unittest.IsolatedAsyncioTestCase):
                 details.query_one("#record-offset", Static).render().plain,
             )
             self.assertEqual(
+                "TOTAL SIZE\n0.01 KB",
+                details.query_one("#record-total-size", Static).render().plain,
+            )
+            self.assertEqual(
                 ["Key", "Value", "Headers [1]", "JSON"],
                 [tab.label_text for tab in details.query(Tab)],
             )
@@ -935,6 +949,10 @@ class TestRecordDetailsNavigation(unittest.IsolatedAsyncioTestCase):
             await pilot.press("N")
             self.assertIs(consumed_records[1], details.record)
             self.assertEqual(1, table.cursor_row)
+            self.assertEqual(
+                "TOTAL SIZE\n0.00 KB",
+                details.query_one("#record-total-size", Static).render().plain,
+            )
             self.assertFalse(header_list.display)
             self.assertTrue(details.query_one("#record-headers-empty", Static).display)
             value_details = details.query_one("#record-value-details", RecordFieldDetails)
