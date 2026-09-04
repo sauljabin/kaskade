@@ -426,8 +426,8 @@ for SSL encryption and authentication settings.
 
 Both admin and consumer modes accept an INI configuration file. Kafka client
 properties belong in `[kafka]`, consumer Schema Registry properties in
-`[registry]`, and Amazon MSK IAM settings in `[aws]`. Any section may be omitted
-when it is not needed:
+`[registry]`, Amazon MSK IAM settings in `[aws]`, and Kaskade operation deadlines
+in `[timeouts]`. Any section may be omitted when it is not needed:
 
 ```bash
 kaskade admin \
@@ -441,8 +441,8 @@ kaskade consumer \
 
 Keys and values remain strings and dotted client property names need no quoting.
 Blank lines and lines beginning with `#` or `;` are ignored. See
-[examples/client.ini](examples/client.ini) for a Kafka, Schema Registry, and AWS
-example:
+[examples/client.ini](examples/client.ini) for a Kafka, Schema Registry, AWS, and
+timeout example:
 
 ```ini
 [kafka]
@@ -455,6 +455,14 @@ basic.auth.user.info = replace-with-your-api-key:replace-with-your-api-secret
 
 [aws]
 region = us-east-1
+
+[timeouts]
+consumer.poll = 0.5
+consumer.idle = 2.5
+consumer.assignment = 15
+consumer.request = 10
+admin.read = 10
+admin.write = 60
 ```
 
 The `[kafka]` section contains `confluent-kafka` properties. The `[registry]`
@@ -482,13 +490,42 @@ kaskade admin \
 
 Configuration precedence, from lowest to highest, is:
 
-1. Properties loaded from the matching `[kafka]`, `[registry]`, or `[aws]`
+1. Properties loaded from the matching `[kafka]`, `[registry]`, `[aws]`, or `[timeouts]`
    section of `--config-file`.
 2. Repeated `--kafka property=value`, `--registry property=value`, and
-   `--aws property=value` options.
+   `--aws property=value` options, plus `--timeout property=seconds`.
 3. When supplied, `-b/--bootstrap-servers` for `bootstrap.servers`.
 4. Resolved AWS settings configure the Amazon MSK IAM authentication properties.
 5. In consumer mode, `--earliest` for `auto.offset.reset=earliest`.
+
+### Operation timeouts
+
+Timeout values are seconds, support decimals, and must be greater than zero.
+Inline `--timeout` properties override matching values from `[timeouts]`:
+
+```bash
+kaskade consumer -b my-kafka:9092 -t my-topic \
+    --timeout consumer.request=20 \
+    --timeout consumer.assignment=30
+
+kaskade admin -b my-kafka:9092 \
+    --timeout admin.read=20 \
+    --timeout admin.write=90
+```
+
+| Property | Default | Operation |
+| --- | ---: | --- |
+| `consumer.poll` | 0.5 | Each consumer fetch poll |
+| `consumer.idle` | 2.5 | Stop a page load after consecutive empty polls |
+| `consumer.assignment` | 15 | Wait for initial assignment or rebalance |
+| `consumer.request` | 10 | Consumer topic metadata and watermark requests |
+| `admin.read` | 10 | Topic metadata, offsets, configurations, and consumer groups |
+| `admin.write` | 60 | Create, edit, delete, and partition-change operations |
+
+These deadlines control how long Kaskade waits for an operation. Native
+`confluent-kafka` properties such as `socket.timeout.ms`,
+`socket.connection.setup.timeout.ms`, and `session.timeout.ms` remain in
+`[kafka]` or repeated `--kafka` options.
 
 ### Amazon MSK with IAM authentication
 

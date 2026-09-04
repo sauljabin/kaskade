@@ -43,6 +43,7 @@ from kaskade.services import (
     TopicService,
 )
 from kaskade.themes import KaskadeApp
+from kaskade.timeouts import TimeoutConfig
 from kaskade.unicodes import APPROXIMATION
 from kaskade.utils import copy_text, make_it_async, notify_error
 from kaskade.widgets import KaskadeHeader, StretchyDataTable, TableFrame, labelled_value
@@ -1280,9 +1281,11 @@ class KaskadeAdmin(KaskadeApp):
         self,
         kafka_config: dict[str, Any],
         refresh_interval: int | None = None,
+        timeouts: TimeoutConfig | None = None,
     ):
         super().__init__()
         self.kafka_config = kafka_config
+        self.timeouts = timeouts or TimeoutConfig()
         self.auto_refresh_interval = (
             self.settings.admin_refresh_interval_seconds
             if refresh_interval is None
@@ -1335,5 +1338,10 @@ class KaskadeAdmin(KaskadeApp):
 
     def compose(self) -> ComposeResult:
         yield KaskadeHeader(self.kafka_config)
-        yield ListTopics(TopicService(self.kafka_config))
+        yield ListTopics(
+            TopicService(
+                self.kafka_config,
+                timeouts=self.timeouts,
+            )
+        )
         yield Footer(compact=True)

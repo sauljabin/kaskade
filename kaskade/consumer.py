@@ -39,6 +39,7 @@ from kaskade.record_export import (
 )
 from kaskade.services import ConsumerService
 from kaskade.themes import KaskadeApp
+from kaskade.timeouts import TimeoutConfig
 from kaskade.unicodes import WARNING as WARNING_INDICATOR
 from kaskade.utils import copy_text, notify_error
 from kaskade.widgets import (
@@ -712,6 +713,7 @@ class ListRecords(Container):
         fallback_config: dict[str, str] | None = None,
         partitions: tuple[PartitionSelection, ...] = (),
         consumer: ConsumerService | None = None,
+        timeouts: TimeoutConfig | None = None,
     ):
         super().__init__()
         self.topic = topic
@@ -722,6 +724,7 @@ class ListRecords(Container):
         self.bytes_config = bytes_config or {}
         self.fallback_config = fallback_config or {}
         self.partitions = partitions
+        self.timeouts = timeouts or TimeoutConfig()
         self.consumer = consumer or self._new_consumer()
         self.records: dict[str, Record] = {}
         self.current_record: Record | None = None
@@ -738,6 +741,7 @@ class ListRecords(Container):
             bytes_config=self.bytes_config,
             fallback_config=self.fallback_config,
             partitions=self.partitions,
+            timeouts=self.timeouts,
         )
 
     def _get_title(self) -> str:
@@ -1013,6 +1017,7 @@ class KaskadeConsumer(KaskadeApp):
         fallback_config: dict[str, str] | None = None,
         json_config: dict[str, str] | None = None,
         partitions: tuple[PartitionSelection, ...] = (),
+        timeouts: TimeoutConfig | None = None,
     ):
         super().__init__()
         self.topic = topic
@@ -1026,6 +1031,7 @@ class KaskadeConsumer(KaskadeApp):
         self.key_deserialization = key_deserialization
         self.value_deserialization = value_deserialization
         self.partitions = partitions
+        self.timeouts = timeouts or TimeoutConfig()
         self.deserializer_factory = DeserializerPool(
             self.registry_config,
             self.protobuf_config,
@@ -1041,6 +1047,7 @@ class KaskadeConsumer(KaskadeApp):
             bytes_config=self.bytes_config,
             fallback_config=self.fallback_config,
             partitions=self.partitions,
+            timeouts=self.timeouts,
         )
 
     def compose(self) -> ComposeResult:
@@ -1055,5 +1062,6 @@ class KaskadeConsumer(KaskadeApp):
             fallback_config=self.fallback_config,
             partitions=self.partitions,
             consumer=self.consumer,
+            timeouts=self.timeouts,
         )
         yield Footer(compact=True)

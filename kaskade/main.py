@@ -44,13 +44,16 @@ from kaskade.settings import (
     is_valid_admin_refresh_interval,
 )
 from kaskade.themes import available_theme_names
+from kaskade.timeouts import TIMEOUT_PROPERTIES, TimeoutConfig
 from kaskade.utils import load_ini
 
 KAFKA_CONFIG_HELP = (
     "Kafka client property. Repeatable; overrides matching properties from --config-file."
 )
-CONFIG_FILE_HELP = "INI file with [kafka], [registry], and/or [aws] configuration sections."
-CONFIG_FILE_SECTIONS = ("kafka", "registry", "aws")
+CONFIG_FILE_HELP = (
+    "INI file with [kafka], [registry], [aws], and/or [timeouts] configuration sections."
+)
+CONFIG_FILE_SECTIONS = ("kafka", "registry", "aws", "timeouts")
 BOOTSTRAP_SERVERS_HELP = (
     "Bootstrap servers. Comma-separated host:port pairs; overrides bootstrap.servers "
     "from Kafka client configuration."
@@ -76,6 +79,10 @@ PARTITION_SELECTION_PATTERN = re.compile(
 AWS_CONFIG_HELP = (
     "Amazon MSK IAM property. Repeatable; overrides matching properties from "
     f"--config-file. Properties: {', '.join(AWS_CONFIGS)}."
+)
+TIMEOUT_CONFIG_HELP = (
+    "Kaskade operation timeout in seconds. Repeatable; overrides matching properties from "
+    f"--config-file. Properties: {', '.join(TIMEOUT_PROPERTIES)}."
 )
 THEME_HELP = (
     "Textual theme name; overrides settings.yaml. When omitted, settings.yaml or "
@@ -160,6 +167,20 @@ def aws_options() -> Callable[[CliDecoratorTarget], CliDecoratorTarget]:
             "aws_config",
             help=AWS_CONFIG_HELP,
             metavar="property=value",
+            multiple=True,
+            callback=tuple_properties_to_dict,
+        ),
+    )
+
+
+def timeout_options() -> Callable[[CliDecoratorTarget], CliDecoratorTarget]:
+    return cloup.option_group(
+        "Timeout options",
+        cloup.option(
+            "--timeout",
+            "timeout_config",
+            help=TIMEOUT_CONFIG_HELP,
+            metavar="property=seconds",
             multiple=True,
             callback=tuple_properties_to_dict,
         ),
@@ -287,6 +308,25 @@ def resolve_kafka_config(
     return resolved_config
 
 
+def resolve_timeout_config(
+    file_config: dict[str, str], inline_config: dict[str, str]
+) -> TimeoutConfig:
+    try:
+        return TimeoutConfig.from_dict(file_config | inline_config)
+    except ValueError as ex:
+        raise BadParameter(
+            message=str(ex), param_hint="'--timeout' or the [timeouts] section"
+        ) from ex
+
+
+def configured_timeout_options(
+    file_config: dict[str, str], inline_config: dict[str, str]
+) -> dict[str, TimeoutConfig]:
+    if not file_config and not inline_config:
+        return {}
+    return {"timeouts": resolve_timeout_config(file_config, inline_config)}
+
+
 @cloup.group(epilog=EPILOG_HELP)
 @cloup.version_option(APP_VERSION)
 def cli() -> None:
@@ -298,12 +338,14 @@ def cli() -> None:
 @configuration_options()
 @kafka_connection_options()
 @aws_options()
+@timeout_options()
 @admin_application_options()
 def admin(
     bootstrap_servers: str | None,
     config_file: str | None,
     kafka_config: dict[str, Any],
     aws_config: dict[str, str],
+    timeout_config: dict[str, str],
     theme: str | None,
     refresh_interval: int | None,
 ) -> None:
@@ -323,6 +365,9 @@ def admin(
         bootstrap_servers, file_config.get("kafka", {}), kafka_config
     )
     aws_config = file_config.get("aws", {}) | aws_config
+    application_timeout_options = configured_timeout_options(
+        file_config.get("timeouts", {}), timeout_config
+    )
     validate_aws_config(aws_config)
     try:
         validate_aws_msk_credentials(aws_config)
@@ -331,7 +376,11 @@ def admin(
         raise ClickException(str(ex)) from ex
     kafka_config = configure_aws_msk_iam(kafka_config, aws_config)
 
-    kaskade_app = KaskadeAdmin(kafka_config, refresh_interval=refresh_interval)
+    admin_options: dict[str, Any] = {
+        "refresh_interval": refresh_interval,
+        **application_timeout_options,
+    }
+    kaskade_app = KaskadeAdmin(kafka_config, **admin_options)
     if theme is not None:
         kaskade_app.theme = theme
     kaskade_app.run()
@@ -341,6 +390,7 @@ def admin(
 @configuration_options()
 @kafka_connection_options()
 @aws_options()
+@timeout_options()
 @cloup.option_group(
     "Consumption options",
     cloup.option(
@@ -474,6 +524,7 @@ def consumer(
     partitions: tuple[PartitionSelection, ...],
     config_file: str | None,
     aws_config: dict[str, str],
+    timeout_config: dict[str, str],
     theme: str | None,
 ) -> None:
     """
@@ -493,6 +544,9 @@ def consumer(
     )
     registry_config = file_config.get("registry", {}) | registry_config
     aws_config = file_config.get("aws", {}) | aws_config
+    application_timeout_options = configured_timeout_options(
+        file_config.get("timeouts", {}), timeout_config
+    )
     validate_aws_config(aws_config)
     try:
         validate_aws_msk_credentials(aws_config)
@@ -533,6 +587,7 @@ def consumer(
         consumer_options["json_config"] = json_config
     if partitions:
         consumer_options["partitions"] = partitions
+    consumer_options.update(application_timeout_options)
     try:
         kaskade_app = KaskadeConsumer(*consumer_args, **consumer_options)
     except PartitionSelectionError as ex:
