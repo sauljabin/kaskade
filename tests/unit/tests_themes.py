@@ -810,22 +810,10 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 self.assertTrue(
                     all(cell.styles.border_top[0] == "solid" for cell in metadata_cells)
                 )
-                self.assertTrue(
-                    all(
-                        cell.styles.background.hex == app.current_theme.panel
-                        for cell in metadata_cells
-                    )
-                )
                 self.assertTrue(all(cell.content_region.height >= 2 for cell in metadata_cells))
                 diagnostics = app.screen.query_one(".record-diagnostics", Grid)
                 self.assertEqual(1, diagnostics.styles.grid_size_columns)
                 self.assertEqual(4, diagnostics.styles.grid_size_rows)
-                self.assertTrue(
-                    all(
-                        diagnostic.styles.background.hex == app.current_theme.panel
-                        for diagnostic in diagnostics.query(".record-diagnostic")
-                    )
-                )
                 content = app.screen.query_one("#record-key-details .record-content", Static)
                 self.assertEqual(app.current_theme.panel, content.styles.background.hex)
                 self.assertNotEqual(details.styles.background, content.styles.background)
@@ -839,7 +827,6 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 header_details = app.screen.query_one(".record-header-scroll")
                 self.assertEqual(header_list.region.y, header_details.region.y)
                 self.assertLess(header_list.region.x, header_details.region.x)
-                self.assertEqual(app.current_theme.panel, header_list.styles.background.hex)
 
                 await pilot.press("escape")
                 self.assertIs(records_table, app.screen.focused)

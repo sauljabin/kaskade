@@ -231,7 +231,6 @@ TopicScreen .record-metadata-cell {
     width: 100%;
     height: 100%;
     border: solid $secondary 50%;
-    background: $panel;
     padding: 0 1;
     text-wrap: wrap;
 }
@@ -288,7 +287,6 @@ TopicScreen .record-diagnostic {
     height: auto;
     min-height: 5;
     border: solid $secondary 50%;
-    background: $panel;
     padding: 1;
     text-wrap: wrap;
 }
@@ -329,7 +327,6 @@ TopicScreen #record-headers-list {
     width: 32%;
     height: 100%;
     border: solid $secondary 50%;
-    background: $panel;
 }
 
 TopicScreen #record-headers-empty {
