@@ -400,6 +400,16 @@ uv run kaskade consumer -b localhost:19092 --earliest -k string -v json -t json-
         --json framing=confluent
 ```
 
+Populate and consume the oversized layout fixture to inspect wrapping and
+scrolling for a long topic name, JSON key and value, and header key and value:
+
+```bash
+uv run python -m sandbox \
+        --topic consumer-layout-with-an-intentionally-long-topic-name-for-large-record-testing
+uv run kaskade consumer -b localhost:19092 --earliest -k json -v json \
+        -t consumer-layout-with-an-intentionally-long-topic-name-for-large-record-testing
+```
+
 Test an Apicurio-produced payload without querying the registry:
 
 ```bash

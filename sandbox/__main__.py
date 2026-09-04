@@ -51,6 +51,18 @@ NULL_TOPIC = "null"
 APICURIO_JSON_TOPIC = "json-schema-apicurio"
 APICURIO_PROTOBUF_TOPIC = "protobuf-schema-apicurio"
 APICURIO_AVRO_TOPIC = "avro-schema-apicurio"
+LARGE_RECORDS_TOPIC = (
+    "consumer-layout-with-an-intentionally-long-topic-name-for-large-record-testing"
+)
+LARGE_JSON_FIELD = (
+    "this_is_an_intentionally_long_json_property_name_for_testing_wrapping_"
+    "scrolling_and_large_record_proportions"
+)
+LARGE_HEADER_KEY = (
+    "x-kaskade-intentionally-long-header-key-for-testing-wrapping-scrolling-"
+    "and-large-record-proportions"
+)
+LARGE_HEADER_VALUE = ("intentionally-long-header-value-for-consumer-layout-testing-" * 24).encode()
 AVAILABLE_TOPICS = (
     "string",
     "integer",
@@ -60,6 +72,7 @@ AVAILABLE_TOPICS = (
     "boolean",
     NULL_TOPIC,
     "json",
+    LARGE_RECORDS_TOPIC,
     "json-schema",
     "protobuf",
     "protobuf-schema",
@@ -244,6 +257,28 @@ class Populator:
 
     def populate_json(self, faker: Faker, total_messages: int) -> None:
         self.populate("json", faker.json, str.encode, total_messages)
+
+    def populate_large_records(self, total_messages: int) -> None:
+        for index in range(total_messages):
+            key = {
+                LARGE_JSON_FIELD: f"record-key-{index}-" + "intentionally-long-key-content-" * 32
+            }
+            value = {
+                LARGE_JSON_FIELD: (
+                    f"record-value-{index}-" + "intentionally-long-value-content-" * 128
+                ),
+                "nested": {
+                    "description": "nested-large-record-content-" * 48,
+                    "sequence": index,
+                },
+            }
+            self.producer.produce(
+                LARGE_RECORDS_TOPIC,
+                key=json.dumps(key).encode(),
+                value=json.dumps(value).encode(),
+                headers=[(LARGE_HEADER_KEY, LARGE_HEADER_VALUE)],
+            )
+        self.producer.flush(5)
 
     def populate_json_schema(
         self,
@@ -541,6 +576,7 @@ def main(
         topic_population("boolean", populator.populate_boolean, faker),
         topic_population(NULL_TOPIC, populator.populate_null),
         topic_population("json", populator.populate_json, faker),
+        topic_population(LARGE_RECORDS_TOPIC, populator.populate_large_records),
         topic_population("json-schema", populator.populate_json_schema, json_serializer, faker),
         topic_population("protobuf", populator.populate_protobuf, faker),
         topic_population(

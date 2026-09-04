@@ -2,7 +2,7 @@ import unittest
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from textual.command import CommandList, CommandPalette
-from textual.containers import ScrollableContainer
+from textual.containers import Container, Grid
 from textual.coordinate import Coordinate
 from textual.geometry import Offset
 from textual.selection import Selection
@@ -18,6 +18,7 @@ from textual.widgets import (
     Tab,
     TabbedContent,
     TabPane,
+    Tabs,
 )
 from textual.widgets._footer import FooterKey
 
@@ -40,9 +41,9 @@ from kaskade.consumer import (
     ListRecords,
     TopicScreen,
 )
-from kaskade.deserializers import Deserialization
+from kaskade.deserializers import Deserialization, StringDeserializer
 from kaskade.help import KASKADE_ISSUES_URL, KASKADE_URL, HelpableModalScreen, HelpScreen
-from kaskade.models import Record, Topic, TopicConfiguration
+from kaskade.models import Header, Record, Topic, TopicConfiguration
 from kaskade.themes import (
     DEFAULT_THEME,
     EVA01_BERSERK_THEME,
@@ -91,6 +92,7 @@ class TestThemes(unittest.TestCase):
             app.get_css_variables()["text-warning"].lower(),
             app.console.get_style("text-warning").color.get_truecolor().hex,
         )
+        self.assertTrue(app.console.get_style("muted").dim)
 
         app.theme = "dracula"
 
@@ -98,6 +100,7 @@ class TestThemes(unittest.TestCase):
         self.assertEqual("#6272a4", app.console.get_style("secondary").color.get_truecolor().hex)
         self.assertEqual("#bd93f9", app.console.get_style("json.str").color.get_truecolor().hex)
         self.assertEqual("#6272a4", app.console.get_style("json.number").color.get_truecolor().hex)
+        self.assertTrue(app.console.get_style("muted").dim)
 
     def test_updates_rich_semantic_styles_for_ansi_themes(self):
         app = KaskadeApp()
@@ -711,7 +714,7 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 Deserialization.STRING,
             )
 
-            async with app.run_test(size=(80, 24)) as pilot:
+            async with app.run_test(size=(100, 24)) as pilot:
                 await pilot.pause()
                 table = app.query_one("#records-table", DataTable)
                 header = app.query_one(KaskadeHeader)
@@ -728,11 +731,11 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 self.assertFalse(table.zebra_stripes)
                 self.assertIs(table, app.screen.focused)
                 self.assertEqual(
-                    ["Key", "Value", "Timestamp", "Partition", "Offset", "Headers"],
+                    ["Key", "Value", "Size", "Timestamp", "Partition", "Offset", "Headers"],
                     [column.label.plain for column in table.ordered_columns],
                 )
                 self.assertEqual(
-                    [23, 9, 9, 9],
+                    [10, 23, 9, 6, 7],
                     [column.width for column in table.ordered_columns[2:]],
                 )
                 self.assertFalse(table.show_horizontal_scrollbar)
@@ -760,7 +763,7 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 self.assertLess(kafka.content_region.width, len(kafka.render().plain))
                 self.assertEqual("ellipsis", kafka.styles.text_overflow)
 
-    async def test_record_details_focus_the_scrollable_content(self):
+    async def test_record_details_use_native_tabs_and_fill_narrow_layout(self):
         with patch("kaskade.consumer.ConsumerService") as consumer_service:
             consumer_service.return_value.consume = AsyncMock(return_value=[])
             app = KaskadeConsumer(
@@ -773,15 +776,95 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 Deserialization.STRING,
             )
 
-            async with app.run_test() as pilot:
+            async with app.run_test(size=(60, 24)) as pilot:
                 records_table = app.query_one("#records-table", DataTable)
-                app.push_screen(TopicScreen(Record(topic="orders", partition=0, offset=1)))
+                app.push_screen(
+                    TopicScreen(
+                        Record(
+                            topic="orders",
+                            partition=0,
+                            offset=1,
+                            headers=[Header("long-header-key", b"value", StringDeserializer())],
+                        )
+                    )
+                )
                 await pilot.pause()
 
-                details = app.screen.query_one(".record-details", ScrollableContainer)
-                self.assertIs(details, app.screen.focused)
-                self.assertEqual(100, details.styles.width.value)
+                details = app.screen.query_one(".record-details", Container)
+                tabs = app.screen.query_one(Tabs)
+                self.assertIs(tabs, app.screen.focused)
+                self.assertEqual(app.screen.content_region.width, details.region.width)
                 self.assertEqual(app.current_theme.background, details.styles.background.hex)
+                self.assertEqual(
+                    ["Key", "Value", "Headers [1]", "JSON"],
+                    [tab.label_text for tab in app.screen.query(Tab)],
+                )
+                self.assertEqual(4, len(app.screen.query(TabPane)))
+                self.assertIsInstance(app.screen.query_one(Footer), Footer)
+                metadata = app.screen.query_one("#record-metadata", Grid)
+                metadata_cells = list(metadata.query(".record-metadata-cell"))
+                self.assertEqual(2, metadata.styles.grid_size_columns)
+                self.assertEqual(2, metadata.styles.grid_size_rows)
+                self.assertEqual(metadata_cells[0].region.y, metadata_cells[1].region.y)
+                self.assertGreater(metadata_cells[2].region.y, metadata_cells[0].region.y)
+                self.assertTrue(
+                    all(cell.styles.border_top[0] == "solid" for cell in metadata_cells)
+                )
+                self.assertTrue(all(cell.content_region.height >= 2 for cell in metadata_cells))
+                diagnostics = app.screen.query_one(".record-diagnostics", Grid)
+                self.assertEqual(1, diagnostics.styles.grid_size_columns)
+                self.assertEqual(3, diagnostics.styles.grid_size_rows)
+                content = app.screen.query_one("#record-key-details .record-content", Static)
+                self.assertEqual(app.current_theme.panel, content.styles.background.hex)
+                self.assertNotEqual(details.styles.background, content.styles.background)
+
+                key_scroll = app.screen.query_one(
+                    "#key .record-detail-scroll", KaskadeScrollableContainer
+                )
+                key_scroll.focus()
+                await pilot.pause()
+                focused_panel = app.get_css_variables()["panel-lighten-1"]
+                self.assertEqual(focused_panel, content.styles.background.hex)
+
+                tabs.focus()
+                await pilot.press("right")
+                self.assertEqual("value", app.screen.query_one(TabbedContent).active)
+                value_scroll = app.screen.query_one(
+                    "#value .record-detail-scroll", KaskadeScrollableContainer
+                )
+                value_scroll.focus()
+                await pilot.pause()
+                value_content = app.screen.query_one(
+                    "#record-value-details .record-content", Static
+                )
+                self.assertEqual(focused_panel, value_content.styles.background.hex)
+                self.assertEqual(app.current_theme.panel, content.styles.background.hex)
+
+                app.screen.query_one(TabbedContent).active = "headers"
+                await pilot.pause()
+                header_list = app.screen.query_one("#record-headers-list", OptionList)
+                header_details = app.screen.query_one(
+                    ".record-header-scroll", KaskadeScrollableContainer
+                )
+                self.assertEqual(header_list.region.y, header_details.region.y)
+                self.assertLess(header_list.region.x, header_details.region.x)
+                header_details.focus()
+                await pilot.pause()
+                header_content = app.screen.query_one(
+                    "#record-header-details .record-content", Static
+                )
+                self.assertEqual(focused_panel, header_content.styles.background.hex)
+
+                app.screen.query_one(TabbedContent).active = "json"
+                await pilot.pause()
+                json_content = app.screen.query_one(".record-json", Static)
+                self.assertEqual(app.current_theme.panel, json_content.styles.background.hex)
+                json_scroll = app.screen.query_one(
+                    "#json .record-detail-scroll", KaskadeScrollableContainer
+                )
+                json_scroll.focus()
+                await pilot.pause()
+                self.assertEqual(focused_panel, json_content.styles.background.hex)
 
                 await pilot.press("escape")
                 self.assertIs(records_table, app.screen.focused)
@@ -799,12 +882,18 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 app.push_screen(DescribeTopicScreen(Topic(name="orders"), configurations))
                 await pilot.pause()
 
+                details = app.screen.query_one(".topic-details", Container)
                 tabs = app.screen.query_one(TabbedContent)
+                metadata = app.screen.query_one("#topic-metadata", Grid)
                 partitions = app.screen.query_one("#partitions-table", DataTable)
                 configuration_table = app.screen.query_one("#configurations-table", DataTable)
                 detail_tables = list(app.screen.query(StretchyDataTable))
                 self.assertEqual("partitions", tabs.active)
-                self.assertEqual(app.current_theme.background, tabs.styles.background.hex)
+                self.assertEqual(app.current_theme.background, details.styles.background.hex)
+                self.assertEqual(0, tabs.styles.background.a)
+                self.assertEqual(7, metadata.styles.grid_size_columns)
+                self.assertEqual(1, metadata.styles.grid_size_rows)
+                self.assertEqual(7, len(metadata.query(".topic-metadata-cell")))
                 self.assertEqual(
                     [
                         "Partitions [0]",
@@ -815,10 +904,11 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                     [tab.label_text for tab in app.screen.query(Tab)],
                 )
                 self.assertEqual(
-                    "[primary]Describe Topic[/primary] [[primary]orders[/primary]]",
-                    tabs.border_title,
+                    "[primary]Topic Details[/primary] [[primary]orders[/primary]]",
+                    details.border_title,
                 )
-                self.assertNotEqual("none", tabs.styles.border_top[0])
+                self.assertNotEqual("none", details.styles.border_top[0])
+                self.assertEqual("", tabs.styles.border_top[0])
                 self.assertEqual(4, len(app.screen.query(TabPane)))
                 self.assertEqual(4, len(app.screen.query(DataTable)))
                 self.assertEqual(4, len(detail_tables))
@@ -859,6 +949,28 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual("groups", tabs.active)
                 await pilot.press("h")
                 self.assertEqual("configurations", tabs.active)
+
+    async def test_topic_details_metadata_wraps_on_narrow_screens(self):
+        with patch("kaskade.admin.TopicService") as topic_service:
+            configure_admin_service(topic_service.return_value, {})
+            app = KaskadeAdmin({})
+
+            async with app.run_test(size=(60, 30)) as pilot:
+                app.push_screen(DescribeTopicScreen(Topic(name="orders"), ()))
+                await pilot.pause()
+
+                details = app.screen.query_one(".topic-details", Container)
+                metadata = app.screen.query_one("#topic-metadata", Grid)
+                cells = list(metadata.query(".topic-metadata-cell"))
+                self.assertEqual(app.screen.content_region.width, details.region.width)
+                self.assertEqual(4, metadata.styles.grid_size_columns)
+                self.assertEqual(2, metadata.styles.grid_size_rows)
+                self.assertEqual(cells[0].region.y, cells[3].region.y)
+                self.assertGreater(cells[4].region.y, cells[0].region.y)
+                self.assertGreater(
+                    app.screen.query_one("#partitions-table", DataTable).content_region.height,
+                    0,
+                )
 
     async def test_topic_details_help_excludes_ctrl_c_from_selected_text_copy(self):
         with patch("kaskade.admin.TopicService") as topic_service:

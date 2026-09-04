@@ -25,11 +25,33 @@ Deserializer settings are repeatable `property=value` options: `--bytes` and
 deserializers, and `--registry` configures Schema Registry. See the detailed
 examples below.
 
+## Configuration files at a glance
+
+Kaskade uses two configuration files for different purposes. They are not
+interchangeable:
+
+| File | Purpose | Loading behavior | Typical contents |
+| --- | --- | --- | --- |
+| `settings.yaml` | Personal TUI preferences | Discovered and loaded automatically on every run | Theme, keybindings, and Admin auto-refresh interval |
+| `client.ini` | Kafka connection profile | Loaded only when passed with `--config-file` | Kafka, Schema Registry, AWS IAM, and operation-timeout properties |
+
+Use `settings.yaml` for how Kaskade should look and behave on the local machine.
+Use one or more `client.ini` files for where and how Kaskade should connect. For
+example, separate `development.ini` and `production.ini` files can describe
+different clusters while sharing the same personal TUI settings.
+
+`settings.yaml` is normally safe to keep as a local preference file.
+`client.ini` may contain SASL passwords or Schema Registry credentials, so
+protect it with appropriate file permissions and do not commit secrets. AWS IAM
+credentials should remain in the standard AWS credential provider chain rather
+than being written to either file.
+
 ## Application settings and controls
 
 On Linux and macOS, Kaskade reads `$XDG_CONFIG_HOME/kaskade/settings.yaml`. If
 `XDG_CONFIG_HOME` is not set, it reads `~/.config/kaskade/settings.yaml`. Set
-`KASKADE_SETTINGS` to use a different file.
+`KASKADE_SETTINGS` to use a different file. This automatically loaded YAML file
+does not contain Kafka connection properties.
 
 Copy the complete example to the default location before customizing it:
 
@@ -80,6 +102,9 @@ kaskade admin -b my-kafka:9092 --refresh-interval 0
 ```
 
 The command-line value takes precedence and follows the same validation rules.
+
+Topic Details keeps partition, replica, in-sync replica, approximate record,
+consumer-group, member, and approximate lag totals visible above its tabs.
 
 ### Keyboard shortcuts
 
@@ -163,9 +188,21 @@ approximately 20 MiB.
 ### Clipboard and record export
 
 Select a topic in Admin mode or a consumed record in Consumer mode, then press
-`y` to copy the topic name or readable record JSON. Copy is also available in
-Topic Details, Record Details, contextual Help, and Commands, but is omitted
-from the Footer.
+`y` to copy the topic name or readable record JSON. Record Details separates the
+key, value, ordered headers, and complete JSON into tabs while keeping the total
+raw payload size, partition, offset, and timestamp visible. The topic remains in
+the border title. In that modal, `y` copies the active tab's headers array, key
+object, value object, or complete record object. Copy is also available in Topic
+Details, contextual Help, and Commands, but is omitted from the Footer.
+
+The Consumer records table shows the same total raw message size in its Size
+column.
+
+Key, value, and the selected header show compact deserializer, schema, and
+original payload-size diagnostics above their complete content. Explicit BYTES
+encoding appears beside the deserializer. Payload size appears in KB below 1 MB
+and in MB at or above that threshold. Deserialization failures use a highlighted
+error panel that identifies the BYTES fallback encoding.
 
 Selecting screen text is separate: use `Cmd+C` on macOS or `Ctrl+Shift+C` on
 Linux. `Ctrl+C` always quits Kaskade, even while text is selected.
@@ -201,11 +238,12 @@ and browser terminals or other relays may filter OSC 52.
 
 #### Export a consumed record
 
-Press `Ctrl+E` from the records table or Record Details to export JSON. Local
-terminals save to Downloads; web-hosted sessions use a browser download. Export
-Record appears in Help and Commands, not the Footer.
+Press `Ctrl+E` from the records table or any Record Details tab to export the
+complete record JSON. Local terminals save to Downloads; web-hosted sessions use
+a browser download. Export Record appears in Help and Commands, not the Footer.
 
-Details, clipboard copies, and exports share the contract in
+The complete JSON tab, records-table and JSON-tab copies, and exports share the
+contract in
 [`schemas/consumer-record.schema.json`](schemas/consumer-record.schema.json),
 which uses JSON Schema Draft 2020-12. Examples cover:
 
@@ -408,10 +446,12 @@ for SSL encryption and authentication settings.
 
 ### Client configuration file
 
-Both admin and consumer modes accept an INI configuration file. Kafka client
-properties belong in `[kafka]`, consumer Schema Registry properties in
-`[registry]`, and Amazon MSK IAM settings in `[aws]`. Any section may be omitted
-when it is not needed:
+Both admin and consumer modes accept an explicitly selected INI connection
+profile. Unlike `settings.yaml`, `client.ini` has no fixed location and is not
+loaded automatically. Kafka client properties belong in `[kafka]`, consumer
+Schema Registry properties in `[registry]`, Amazon MSK IAM settings in `[aws]`,
+and Kaskade operation deadlines in `[timeouts]`. Any section may be omitted when
+it is not needed:
 
 ```bash
 kaskade admin \
@@ -425,8 +465,8 @@ kaskade consumer \
 
 Keys and values remain strings and dotted client property names need no quoting.
 Blank lines and lines beginning with `#` or `;` are ignored. See
-[examples/client.ini](examples/client.ini) for a Kafka, Schema Registry, and AWS
-example:
+[examples/client.ini](examples/client.ini) for a Kafka, Schema Registry, AWS, and
+timeout example:
 
 ```ini
 [kafka]
@@ -439,6 +479,14 @@ basic.auth.user.info = replace-with-your-api-key:replace-with-your-api-secret
 
 [aws]
 region = us-east-1
+
+[timeouts]
+consumer.poll = 0.5
+consumer.idle = 2.5
+consumer.assignment = 15
+consumer.request = 10
+admin.read = 10
+admin.write = 60
 ```
 
 The `[kafka]` section contains `confluent-kafka` properties. The `[registry]`
@@ -466,13 +514,42 @@ kaskade admin \
 
 Configuration precedence, from lowest to highest, is:
 
-1. Properties loaded from the matching `[kafka]`, `[registry]`, or `[aws]`
+1. Properties loaded from the matching `[kafka]`, `[registry]`, `[aws]`, or `[timeouts]`
    section of `--config-file`.
 2. Repeated `--kafka property=value`, `--registry property=value`, and
-   `--aws property=value` options.
+   `--aws property=value` options, plus `--timeout property=seconds`.
 3. When supplied, `-b/--bootstrap-servers` for `bootstrap.servers`.
 4. Resolved AWS settings configure the Amazon MSK IAM authentication properties.
 5. In consumer mode, `--earliest` for `auto.offset.reset=earliest`.
+
+### Operation timeouts
+
+Timeout values are seconds, support decimals, and must be greater than zero.
+Inline `--timeout` properties override matching values from `[timeouts]`:
+
+```bash
+kaskade consumer -b my-kafka:9092 -t my-topic \
+    --timeout consumer.request=20 \
+    --timeout consumer.assignment=30
+
+kaskade admin -b my-kafka:9092 \
+    --timeout admin.read=20 \
+    --timeout admin.write=90
+```
+
+| Property | Default | Operation |
+| --- | ---: | --- |
+| `consumer.poll` | 0.5 | Each consumer fetch poll |
+| `consumer.idle` | 2.5 | Stop a page load after consecutive empty polls |
+| `consumer.assignment` | 15 | Wait for initial assignment or rebalance |
+| `consumer.request` | 10 | Consumer topic metadata and watermark requests |
+| `admin.read` | 10 | Topic metadata, offsets, configurations, and consumer groups |
+| `admin.write` | 60 | Create, edit, delete, and partition-change operations |
+
+These deadlines control how long Kaskade waits for an operation. Native
+`confluent-kafka` properties such as `socket.timeout.ms`,
+`socket.connection.setup.timeout.ms`, and `session.timeout.ms` remain in
+`[kafka]` or repeated `--kafka` options.
 
 ### Amazon MSK with IAM authentication
 
@@ -505,48 +582,20 @@ The IAM principal used by `--aws` needs these `kafka-cluster` actions:
 | Admin (full access) | Read-only actions plus `CreateTopic`, `AlterTopic`, `DeleteTopic`, `AlterTopicDynamicConfiguration` |
 | Consumer | `Connect`, `DescribeTopic`, `ReadData`, `DescribeGroup`, `AlterGroup` |
 
-This policy enables all admin and consumer features. Replace the placeholders
-and narrow the topic wildcard when appropriate.
+Ready-to-customize identity policy examples are available for each mode:
 
-```json
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Sid": "ConnectToCluster",
-      "Effect": "Allow",
-      "Action": "kafka-cluster:Connect",
-      "Resource": "arn:aws:kafka:<region>:<account-id>:cluster/<cluster-name>/<cluster-uuid>"
-    },
-    {
-      "Sid": "ManageAndReadTopics",
-      "Effect": "Allow",
-      "Action": [
-        "kafka-cluster:CreateTopic",
-        "kafka-cluster:DescribeTopic",
-        "kafka-cluster:AlterTopic",
-        "kafka-cluster:DeleteTopic",
-        "kafka-cluster:DescribeTopicDynamicConfiguration",
-        "kafka-cluster:AlterTopicDynamicConfiguration",
-        "kafka-cluster:ReadData"
-      ],
-      "Resource": "arn:aws:kafka:<region>:<account-id>:topic/<cluster-name>/<cluster-uuid>/*"
-    },
-    {
-      "Sid": "InspectConsumerGroups",
-      "Effect": "Allow",
-      "Action": "kafka-cluster:DescribeGroup",
-      "Resource": "arn:aws:kafka:<region>:<account-id>:group/<cluster-name>/<cluster-uuid>/*"
-    },
-    {
-      "Sid": "UseKaskadeConsumerGroups",
-      "Effect": "Allow",
-      "Action": "kafka-cluster:AlterGroup",
-      "Resource": "arn:aws:kafka:<region>:<account-id>:group/<cluster-name>/<cluster-uuid>/kaskade-*"
-    }
-  ]
-}
-```
+- [Admin](examples/aws-msk-iam-admin-policy.json)
+- [Consumer](examples/aws-msk-iam-consumer-policy.json)
+- [Admin and consumer](examples/aws-msk-iam-admin-consumer-policy.json)
+
+Replace the region, account, cluster name, and cluster UUID placeholders. Narrow
+the topic wildcard when appropriate. If `group.id` is configured, replace the
+`kaskade-*` group pattern with that group ID or a suitable wildcard.
+
+For cross-account access, the cluster owner must also add a
+[resource-based cluster policy](https://docs.aws.amazon.com/msk/latest/developerguide/security_iam_service-with-iam-resource-based-policies.html)
+that grants the client account or role the corresponding `kafka-cluster`
+permissions.
 
 Kaskade honors `group.id` from Kafka client configuration. When it is omitted,
 Kaskade creates an ephemeral `kaskade-<uuid>` group.
