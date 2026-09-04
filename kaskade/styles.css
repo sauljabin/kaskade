@@ -317,7 +317,8 @@ TopicScreen .record-content {
     text-wrap: wrap;
 }
 
-TopicScreen .record-detail-scroll:focus .record-content {
+TopicScreen .record-detail-scroll:focus .record-content,
+TopicScreen .record-detail-scroll:focus .record-json {
     background: $panel-lighten-1;
 }
 
@@ -347,6 +348,10 @@ TopicScreen .record-header-scroll {
 
 TopicScreen .record-json {
     width: 100%;
+    height: auto;
+    min-height: 3;
+    background: $panel;
+    padding: 1 2;
 }
 
 DescribeTopicScreen > TabbedContent {

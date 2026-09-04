@@ -855,6 +855,17 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 )
                 self.assertEqual(focused_panel, header_content.styles.background.hex)
 
+                app.screen.query_one(TabbedContent).active = "json"
+                await pilot.pause()
+                json_content = app.screen.query_one(".record-json", Static)
+                self.assertEqual(app.current_theme.panel, json_content.styles.background.hex)
+                json_scroll = app.screen.query_one(
+                    "#json .record-detail-scroll", KaskadeScrollableContainer
+                )
+                json_scroll.focus()
+                await pilot.pause()
+                self.assertEqual(focused_panel, json_content.styles.background.hex)
+
                 await pilot.press("escape")
                 self.assertIs(records_table, app.screen.focused)
 
