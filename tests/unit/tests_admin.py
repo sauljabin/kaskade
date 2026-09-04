@@ -593,9 +593,9 @@ class TestDescribeTopic(unittest.IsolatedAsyncioTestCase):
                         "PARTITIONS\n2",
                         "REPLICAS\n3",
                         "IN SYNC\n2",
-                        "RECORDS\n≈25",
                         "GROUPS\n1",
                         "MEMBERS\n2",
+                        "RECORDS\n≈25",
                         "LAG\n≈7",
                     ],
                     [

@@ -304,14 +304,6 @@ class DescribeTopicScreen(HelpableModalScreen):
             ("topic-replicas", "Replicas", str(self.topic.replicas_count())),
             ("topic-isrs", "In Sync", str(self.topic.isrs_count())),
             (
-                "topic-records",
-                "Records",
-                metric_value(
-                    self.topic.records_state,
-                    f"{APPROXIMATION}{self.topic.records_count()}",
-                ),
-            ),
-            (
                 "topic-groups",
                 "Groups",
                 metric_value(self.topic.groups_state, str(self.topic.groups_count())),
@@ -320,6 +312,14 @@ class DescribeTopicScreen(HelpableModalScreen):
                 "topic-members",
                 "Members",
                 metric_value(self.topic.groups_state, str(self.topic.group_members_count())),
+            ),
+            (
+                "topic-records",
+                "Records",
+                metric_value(
+                    self.topic.records_state,
+                    f"{APPROXIMATION}{self.topic.records_count()}",
+                ),
             ),
             (
                 "topic-lag",
