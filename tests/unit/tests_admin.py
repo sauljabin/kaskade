@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from confluent_kafka import KafkaException
 from textual.coordinate import Coordinate
-from textual.widgets import Collapsible, DataTable, Input, RadioButton, RadioSet
+from textual.widgets import Collapsible, DataTable, Input, RadioButton, RadioSet, Static
 
 from kaskade.admin import (
     CreateTopicScreen,
@@ -22,7 +22,16 @@ from kaskade.admin import (
 )
 from kaskade.commands import CreateTopicCommand, UpdateTopicCommand
 from kaskade.configs import MIN_INSYNC_REPLICAS_CONFIG
-from kaskade.models import MetricState, Partition, Topic, TopicConfiguration
+from kaskade.models import (
+    Group,
+    GroupMember,
+    GroupPartition,
+    MetricState,
+    Node,
+    Partition,
+    Topic,
+    TopicConfiguration,
+)
 from kaskade.services import EnrichmentResult, GroupSnapshot
 from kaskade.settings import SETTINGS_ENV_VAR
 from kaskade.widgets import TableFrame
@@ -475,6 +484,126 @@ class TestUpdateTopic(unittest.IsolatedAsyncioTestCase):
 
 
 class TestDescribeTopic(unittest.IsolatedAsyncioTestCase):
+    async def test_prioritizes_identity_columns_and_reveals_truncated_cells(self) -> None:
+        group_id = "apicurio-c994055a-very-long-consumer-group-identifier"
+        coordinator_node = Node(
+            id=390923,
+            host="broker-with-a-long-network-name.example",
+            port=39092,
+        )
+        coordinator = str(coordinator_node)
+        assignment = list(range(20))
+        topic = Topic(
+            name="orders",
+            groups=[
+                Group(
+                    id=group_id,
+                    coordinator=coordinator_node,
+                    state="Stable",
+                    partition_assignor="range",
+                    members=[
+                        GroupMember(
+                            id="long-member-identifier-for-the-consumer",
+                            client_id="long-client-identifier-for-the-consumer",
+                            group=group_id,
+                            host="host-with-a-long-network-name",
+                            assignment=assignment,
+                        )
+                    ],
+                )
+            ],
+            records_state=MetricState.READY,
+            groups_state=MetricState.READY,
+        )
+
+        with patch("kaskade.admin.TopicService") as topic_service:
+            configure_admin_service(topic_service.return_value, {})
+            app = KaskadeAdmin({})
+            async with app.run_test(size=(80, 30)) as pilot:
+                app.push_screen(DescribeTopicScreen(topic, ()))
+                await pilot.pause()
+                tabs = app.screen.query_one("#topic-details-tabs")
+
+                tabs.active = "groups"
+                await pilot.pause()
+                groups = app.screen.query_one("#groups-table", DataTable)
+                self.assertGreater(
+                    groups.ordered_columns[0].width,
+                    groups.ordered_columns[2].width,
+                )
+                self.assertGreater(
+                    groups.ordered_columns[1].width,
+                    groups.ordered_columns[2].width,
+                )
+                groups.hover_coordinate = Coordinate(0, 0)
+                await pilot.pause()
+                self.assertEqual(group_id, groups.tooltip)
+                groups.hover_coordinate = Coordinate(0, 1)
+                await pilot.pause()
+                self.assertEqual(coordinator, groups.tooltip)
+                groups.hover_coordinate = Coordinate(0, 6)
+                await pilot.pause()
+                self.assertIsNone(groups.tooltip)
+
+                tabs.active = "group-members"
+                await pilot.pause()
+                members = app.screen.query_one("#group-members-table", DataTable)
+                self.assertLess(
+                    members.ordered_columns[4].width,
+                    members.ordered_columns[2].width,
+                )
+                members.hover_coordinate = Coordinate(0, 4)
+                await pilot.pause()
+                self.assertEqual(str(assignment), members.tooltip)
+
+    async def test_displays_topic_summary_metadata(self) -> None:
+        topic = Topic(
+            name="orders",
+            partitions=[
+                Partition(id=0, replicas=[1, 2, 3], isrs=[1, 2], low=5, high=20),
+                Partition(id=1, replicas=[1, 2, 3], isrs=[1, 2], low=0, high=10),
+            ],
+            groups=[
+                Group(
+                    id="shipping",
+                    members=[GroupMember(id="member-1"), GroupMember(id="member-2")],
+                    partitions=[
+                        GroupPartition(id=0, offset=15, low=5, high=20),
+                        GroupPartition(id=1, offset=8, low=0, high=10),
+                    ],
+                )
+            ],
+            records_state=MetricState.READY,
+            groups_state=MetricState.READY,
+        )
+
+        with patch("kaskade.admin.TopicService") as topic_service:
+            configure_admin_service(topic_service.return_value, {})
+            app = KaskadeAdmin({})
+            async with app.run_test() as pilot:
+                app.push_screen(DescribeTopicScreen(topic, ()))
+                await pilot.pause()
+
+                self.assertEqual(
+                    "[primary]Topic Details[/primary] [[primary]orders[/primary]]",
+                    app.screen.query_one(".topic-details").border_title,
+                )
+                self.assertEqual(
+                    [
+                        "PARTITIONS\n2",
+                        "REPLICAS\n3",
+                        "IN SYNC\n2",
+                        "GROUPS\n1",
+                        "MEMBERS\n2",
+                        "RECORDS\n≈25",
+                        "LAG\n≈7",
+                    ],
+                    [
+                        cell.render().plain
+                        for cell in app.screen.query(".topic-metadata-cell").results(Static)
+                    ],
+                )
+
     async def test_loads_configurations_before_opening_topic_details(self) -> None:
         topic = Topic(name="orders")
         configurations = (TopicConfiguration("cleanup.policy", "compact"),)

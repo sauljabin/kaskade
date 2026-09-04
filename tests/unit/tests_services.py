@@ -36,6 +36,7 @@ from kaskade.deserializers import (
 )
 from kaskade.models import Header, MetricState, PartitionOffset, PartitionSelection, Record
 from kaskade.services import ConsumerService, TopicService
+from kaskade.timeouts import TimeoutConfig
 from tests import faker
 
 
@@ -101,7 +102,11 @@ class TestTopicService(unittest.IsolatedAsyncioTestCase):
         admin.create_topics.return_value = {"orders": completed(None)}
         command = CreateTopicCommand("orders", 3, 2, 1, "compact", 1000)
 
-        TopicService({"bootstrap.servers": "localhost:9092"}).create(command)
+        service = TopicService(
+            {"bootstrap.servers": "localhost:9092"},
+            timeouts=TimeoutConfig(admin_write=90),
+        )
+        service.create(command)
 
         new_topic = admin.create_topics.call_args.args[0][0]
         self.assertEqual("orders", new_topic.topic)
@@ -114,6 +119,11 @@ class TestTopicService(unittest.IsolatedAsyncioTestCase):
                 "min.insync.replicas": "1",
             },
             new_topic.config,
+        )
+        self.assertEqual(10.0, service.timeouts.admin_read)
+        self.assertEqual(90.0, service.timeouts.admin_write)
+        admin.create_topics.assert_called_once_with(
+            [new_topic], request_timeout=service.timeouts.admin_write
         )
 
     @patch("kaskade.services.AdminClient")
@@ -339,6 +349,7 @@ class TestConsumerService(unittest.IsolatedAsyncioTestCase):
                 PartitionSelection(1, 0),
                 PartitionSelection(2, PartitionOffset.EARLIEST),
             ),
+            timeouts=TimeoutConfig(consumer_request=20),
         )
 
         assignments = consumer.assign.call_args.args[0]
@@ -347,7 +358,15 @@ class TestConsumerService(unittest.IsolatedAsyncioTestCase):
             [(assignment.partition, assignment.offset) for assignment in assignments],
         )
         consumer.subscribe.assert_not_called()
-        consumer.get_watermark_offsets.assert_called_once()
+        consumer.get_watermark_offsets.assert_called_once_with(
+            TopicPartition("orders", 1),
+            timeout=service.timeouts.consumer_request,
+            cached=False,
+        )
+        consumer.list_topics.assert_called_once_with(
+            "orders", timeout=service.timeouts.consumer_request
+        )
+        self.assertEqual(20.0, service.timeouts.consumer_request)
         self.assertTrue(service.stable)
 
         service.close()
@@ -381,6 +400,9 @@ class TestConsumerService(unittest.IsolatedAsyncioTestCase):
         self.assertRegex(
             mock_class_consumer.call_args.args[0][GROUP_ID],
             r"^kaskade-[0-9a-f-]+$",
+        )
+        consumer.list_topics.assert_called_once_with(
+            "orders", timeout=service.timeouts.consumer_request
         )
         consumer.subscribe.assert_not_called()
         self.assertTrue(service.stable)
@@ -502,7 +524,7 @@ class TestConsumerService(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(1, len(records))
         self.assertEqual("key", records[0].key_str())
         self.assertEqual("1970-01-01T00:00:01.000Z", records[0].dict()["timestamp"])
-        consumer.consume.assert_called_once_with(1, timeout=service.timeout)
+        consumer.consume.assert_called_once_with(1, timeout=service.timeouts.consumer_poll)
 
     @patch("kaskade.services.Consumer")
     async def test_blocking_deserialization_does_not_block_event_loop(
@@ -754,7 +776,7 @@ class TestConsumerService(unittest.IsolatedAsyncioTestCase):
             DeserializerPool(),
             Deserialization.STRING,
             Deserialization.STRING,
-            poll_retries=2,
+            timeouts=TimeoutConfig(consumer_idle=1),
         )
         service.on_assign(consumer, [TopicPartition("orders", 0)])
 

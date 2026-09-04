@@ -128,6 +128,12 @@ class TestDeserializer(unittest.TestCase):
         self.assertEqual(value, header.value_deserialized())
         self.assertEqual(value, header.value_deserialized())
         self.assertEqual("aW52YWxpZA==", header.value_str())
+        outcome = header.value_outcome()
+        self.assertEqual(Deserialization.STRING, outcome.requested)
+        self.assertEqual(value, outcome.content)
+        self.assertEqual(BytesEncoding.BASE64, outcome.bytes_encoding)
+        self.assertTrue(outcome.used_fallback)
+        self.assertEqual("invalid data", str(outcome.error))
         self.assertEqual(
             {
                 "key": "",

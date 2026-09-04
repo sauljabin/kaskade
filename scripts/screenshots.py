@@ -124,7 +124,7 @@ def mock_records() -> list[Record]:
         ("order-1050", '{"customer":"Grace","total":87.35,"status":"pending"}'),
         ("order-1051", '{"customer":"Edsger","total":215.10,"status":"paid"}'),
         ("order-1052", '{"customer":"Margaret","total":63.80,"status":"shipped"}'),
-        ("order-1053", '{"customer":"Barbara","total":19.99,"status":"paid"}'),
+        ("order-1053", '{"customer":"Amy","total":19.99,"status":"paid"}'),
         ("order-1054", '{"customer":"Ken","total":104.25,"status":"pending"}'),
         ("order-1055", '{"customer":"James","total":78.45,"status":"shipped"}'),
     )

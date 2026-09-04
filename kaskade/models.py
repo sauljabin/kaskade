@@ -278,6 +278,7 @@ class Header:
     value: bytes | None = None
     value_deserializer: Deserializer | None = None
     fallback_bytes_encoding: BytesEncoding = BytesEncoding.BASE64
+    value_deserialization: Deserialization = Deserialization.STRING
     _deserialized: Any = field(default=_NOT_DESERIALIZED, init=False, repr=False)
     _error: Exception | None = field(default=None, init=False, repr=False)
 
@@ -313,6 +314,16 @@ class Header:
 
     def value_str(self) -> str:
         return content_str(self.value_deserialized(), self.fallback_bytes_encoding)
+
+    def value_outcome(self) -> "DeserializationOutcome":
+        """Return UI diagnostics without changing the public header JSON contract."""
+        content = self.value_deserialized()
+        return DeserializationOutcome(
+            requested=self.value_deserialization,
+            content=content,
+            error=self._error,
+            bytes_encoding=self.fallback_bytes_encoding,
+        )
 
     def dict(self) -> dict[str, Any]:
         value = self.value_deserialized()

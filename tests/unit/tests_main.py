@@ -11,6 +11,7 @@ from kaskade.authentication import (
     SASL_MECHANISM,
     SASL_SSL,
     SECURITY_PROTOCOL,
+    AwsMskAuthenticationError,
     AwsMskOAuthCallback,
 )
 from kaskade.configs import (
@@ -25,6 +26,7 @@ from kaskade.deserializers import Deserialization
 from kaskade.main import PARTITION_SELECTION_METAVAR, cli
 from kaskade.models import PartitionOffset, PartitionSelection
 from kaskade.services import PartitionSelectionError
+from kaskade.timeouts import TimeoutConfig
 from tests import faker
 
 EXPECTED_TOPIC = "my.topic"
@@ -37,10 +39,16 @@ def write_config_ini(
     kafka: dict[str, str] | None = None,
     registry: dict[str, str] | None = None,
     aws: dict[str, str] | None = None,
+    timeouts: dict[str, str] | None = None,
 ) -> str:
     config_path = Path(directory) / "client.ini"
     sections = []
-    for section, properties in (("kafka", kafka), ("registry", registry), ("aws", aws)):
+    for section, properties in (
+        ("kafka", kafka),
+        ("registry", registry),
+        ("aws", aws),
+        ("timeouts", timeouts),
+    ):
         if properties is None:
             continue
         entries = "\n".join(f"{key} = {value}" for key, value in properties.items())
@@ -55,6 +63,9 @@ class TestAdminCli(unittest.TestCase):
         self.command = "admin"
         self.temp_directory = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp_directory.cleanup)
+        aws_credentials_patcher = patch("kaskade.main.validate_aws_msk_credentials")
+        self.mock_validate_aws_msk_credentials = aws_credentials_patcher.start()
+        self.addCleanup(aws_credentials_patcher.stop)
 
     def test_bootstrap_servers_are_required_from_any_source(self):
         result = self.runner.invoke(cli, [self.command])
@@ -70,6 +81,7 @@ class TestAdminCli(unittest.TestCase):
         self.assertEqual(0, result.exit_code)
         self.assertIn("Kafka connection options:", result.output)
         self.assertIn("Application options:", result.output)
+        self.assertIn("Timeout options:", result.output)
         self.assertIn("--theme name", result.output)
         self.assertNotIn("--theme [ansi-dark|", result.output)
         examples = [
@@ -106,6 +118,24 @@ class TestAdminCli(unittest.TestCase):
 
         self.assertGreater(result.exit_code, 0)
         self.assertIn("Invalid value for '--aws': Should be property=value", result.output)
+
+    def test_rejects_invalid_timeout(self):
+        result = self.runner.invoke(
+            cli,
+            [self.command, "-b", EXPECTED_SERVER, "--timeout", "admin.read=never"],
+        )
+
+        self.assertGreater(result.exit_code, 0)
+        self.assertIn("admin.read must be a number of seconds", result.output)
+
+    def test_rejects_unknown_timeout(self):
+        result = self.runner.invoke(
+            cli,
+            [self.command, "-b", EXPECTED_SERVER, "--timeout", "admin.unknown=10"],
+        )
+
+        self.assertGreater(result.exit_code, 0)
+        self.assertIn("Unrecognized timeout properties: admin.unknown", result.output)
 
     def test_rejects_unknown_aws_config(self):
         result = self.runner.invoke(
@@ -152,6 +182,33 @@ class TestAdminCli(unittest.TestCase):
         mock_class_kaskade_admin.assert_called_with(
             {BOOTSTRAP_SERVERS: EXPECTED_SERVER, "security.protocol": "SSL"},
             refresh_interval=None,
+        )
+        self.assertEqual(0, result.exit_code)
+
+    @patch("kaskade.main.KaskadeAdmin")
+    def test_timeout_config_file_and_inline_override(self, mock_class_kaskade_admin):
+        config_path = write_config_ini(
+            self.temp_directory.name,
+            timeouts={"admin.read": "12", "admin.write": "90"},
+        )
+
+        result = self.runner.invoke(
+            cli,
+            [
+                self.command,
+                "-b",
+                EXPECTED_SERVER,
+                "--config-file",
+                config_path,
+                "--timeout",
+                "admin.read=20",
+            ],
+        )
+
+        mock_class_kaskade_admin.assert_called_once_with(
+            {BOOTSTRAP_SERVERS: EXPECTED_SERVER},
+            refresh_interval=None,
+            timeouts=TimeoutConfig(admin_read=20.0, admin_write=90.0),
         )
         self.assertEqual(0, result.exit_code)
 
@@ -487,6 +544,9 @@ class TestConsumerCli(unittest.TestCase):
         self.command = "consumer"
         self.temp_directory = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp_directory.cleanup)
+        aws_credentials_patcher = patch("kaskade.main.validate_aws_msk_credentials")
+        self.mock_validate_aws_msk_credentials = aws_credentials_patcher.start()
+        self.addCleanup(aws_credentials_patcher.stop)
         self.temp_descriptor_path = Path(self.temp_directory.name) / "descriptor"
         self.temp_descriptor_path.touch()
         self.temp_avro_path = Path(self.temp_directory.name) / "schema.avsc"
@@ -505,6 +565,33 @@ class TestConsumerCli(unittest.TestCase):
 
         self.assertGreater(result.exit_code, 0)
         self.assertIn("Missing option '-t'", result.output)
+
+    @patch("kaskade.main.KaskadeConsumer")
+    def test_reports_aws_authentication_failure_before_creating_consumer(
+        self, mock_class_kaskade_consumer
+    ):
+        self.mock_validate_aws_msk_credentials.side_effect = AwsMskAuthenticationError(
+            "AWS MSK IAM authentication failed: profile missing. Set AWS_PROFILE."
+        )
+
+        with self.assertLogs("kaskade", level="ERROR") as logs:
+            result = self.runner.invoke(
+                cli,
+                [
+                    self.command,
+                    "-b",
+                    EXPECTED_SERVER,
+                    "-t",
+                    EXPECTED_TOPIC,
+                    "--aws",
+                    "region=us-east-2",
+                ],
+            )
+
+        self.assertGreater(result.exit_code, 0)
+        self.assertIn("AWS MSK IAM authentication failed: profile missing", result.output)
+        self.assertTrue(any("aws msk authentication error" in message for message in logs.output))
+        mock_class_kaskade_consumer.assert_not_called()
 
     def test_partition_help_documents_selection_format(self):
         result = self.runner.invoke(cli, [self.command, "--help"])
@@ -538,6 +625,8 @@ class TestConsumerCli(unittest.TestCase):
         self.assertIn("--bytes property=value", result.output)
         self.assertIn("Fallback options:", result.output)
         self.assertIn("--fallback property=value", result.output)
+        self.assertIn("Timeout options:", result.output)
+        self.assertIn("--timeout property=seconds", result.output)
         examples = [
             line.strip()
             for line in result.output.splitlines()
@@ -1178,6 +1267,29 @@ class TestConsumerCli(unittest.TestCase):
             {},
             Deserialization.BYTES,
             Deserialization.BYTES,
+        )
+        self.assertEqual(0, result.exit_code)
+
+    @patch("kaskade.main.KaskadeConsumer")
+    def test_pass_consumer_timeouts(self, mock_class_kaskade_consumer):
+        result = self.runner.invoke(
+            cli,
+            [
+                self.command,
+                "-b",
+                EXPECTED_SERVER,
+                "-t",
+                EXPECTED_TOPIC,
+                "--timeout",
+                "consumer.request=20",
+                "--timeout",
+                "consumer.assignment=30",
+            ],
+        )
+
+        self.assertEqual(
+            TimeoutConfig(consumer_request=20.0, consumer_assignment=30.0),
+            mock_class_kaskade_consumer.call_args.kwargs["timeouts"],
         )
         self.assertEqual(0, result.exit_code)
 

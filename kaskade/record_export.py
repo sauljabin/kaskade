@@ -8,9 +8,14 @@ from textual.app import App
 from kaskade.models import Record
 
 
+def readable_json(data: object) -> str:
+    """Serialize data with the record contract's readable JSON settings."""
+    return json.dumps(data, indent=2, ensure_ascii=False, default=str)
+
+
 def record_json(record: Record) -> str:
     """Return a readable JSON representation of a consumed record."""
-    return json.dumps(record.dict(), indent=2, ensure_ascii=False, default=str) + "\n"
+    return readable_json(record.dict()) + "\n"
 
 
 def record_json_renderable(data: object) -> JSON:

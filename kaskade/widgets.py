@@ -15,6 +15,14 @@ from kaskade import APP_NAME, APP_VERSION
 from kaskade.configs import BOOTSTRAP_SERVERS
 
 
+def labelled_value(label: str, value: str) -> Text:
+    content = Text()
+    content.append(label.upper(), style="muted")
+    content.append("\n")
+    content.append(value)
+    return content
+
+
 class KaskadeHeader(Horizontal):
     """Display the application version and active Kafka bootstrap servers."""
 
