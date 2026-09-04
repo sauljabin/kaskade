@@ -71,7 +71,7 @@ jobs:
           uv pip install --python "$RUNNER_TEMP/release-venv/bin/python" dist/*.whl
           "$RUNNER_TEMP/release-venv/bin/kaskade" --version | grep -F "$RELEASE_VERSION"
       - name: Generate release notes
-        uses: orhun/git-cliff-action@v4.8.0
+        uses: orhun/git-cliff-action@v4.9.0
         with:
           version: v2.13.1
           config: cliff.toml
