@@ -3,6 +3,7 @@ import functools
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from math import ceil
 from time import perf_counter
 from typing import Any, cast
 
@@ -58,6 +59,7 @@ from kaskade.models import (
     Topic,
     TopicConfiguration,
 )
+from kaskade.timeouts import TimeoutConfig
 from kaskade.utils import make_it_async
 
 ADMIN_EXCEPTIONS: tuple[type[Exception], ...] = (
@@ -90,15 +92,11 @@ class ConsumerService:
         fallback_config: dict[str, str] | None = None,
         partitions: tuple[PartitionSelection, ...] = (),
         page_size: int = 25,
-        poll_retries: int = 5,
-        timeout: float = 0.5,
-        stabilization_retries: int = 30,
+        timeouts: TimeoutConfig | None = None,
     ) -> None:
         self.topic = topic
         self.page_size = page_size
-        self.poll_retries = poll_retries
-        self.stabilization_retries = stabilization_retries
-        self.timeout = timeout
+        self.timeouts = timeouts or TimeoutConfig()
         self.key_deserialization = key_deserialization
         self.value_deserialization = value_deserialization
         self.bytes_config = bytes_config or {}
@@ -148,7 +146,7 @@ class ConsumerService:
         self.on_assign(self.consumer, assignments)
 
     def _available_partitions(self) -> set[int]:
-        metadata = self.consumer.list_topics(self.topic, timeout=self.timeout)
+        metadata = self.consumer.list_topics(self.topic, timeout=self.timeouts.consumer_request)
         topic_metadata = metadata.topics.get(self.topic)
         if topic_metadata is None:
             raise PartitionSelectionError(f"Topic {self.topic!r} does not exist")
@@ -170,7 +168,7 @@ class ConsumerService:
         if isinstance(selection.offset, int):
             low, high = self.consumer.get_watermark_offsets(
                 TopicPartition(self.topic, selection.partition),
-                timeout=self.timeout,
+                timeout=self.timeouts.consumer_request,
                 cached=False,
             )
             if not low <= selection.offset <= high:
@@ -234,18 +232,23 @@ class ConsumerService:
         records: list[Record] = []
         poll_retries = 0
         stabilization_retries = 0
+        max_poll_retries = max(1, ceil(self.timeouts.consumer_idle / self.timeouts.consumer_poll))
+        max_stabilization_retries = max(
+            1,
+            ceil(self.timeouts.consumer_assignment / self.timeouts.consumer_poll),
+        )
         scanned_records = 0
         first_record_at: float | None = None
 
         while (
             len(records) < self.page_size
-            and poll_retries < self.poll_retries
-            and stabilization_retries < self.stabilization_retries
+            and poll_retries < max_poll_retries
+            and stabilization_retries < max_stabilization_retries
         ):
             record_batch = await self._run_blocking(
                 self.consumer.consume,
                 self.page_size - len(records),
-                timeout=self.timeout,
+                timeout=self.timeouts.consumer_poll,
             )
             self._raise_consumer_error()
 
@@ -310,6 +313,7 @@ class ConsumerService:
                     value=value,
                     value_deserializer=self.header_deserializer,
                     fallback_bytes_encoding=self.fallback_bytes_encoding,
+                    value_deserialization=Deserialization.STRING,
                 )
                 for key, value in message.headers() or []
             ],
@@ -390,8 +394,13 @@ class GroupSnapshot:
 class TopicService:
     GROUP_OFFSET_CONCURRENCY = 16
 
-    def __init__(self, config: dict[str, Any], *, timeout: float = 2.0) -> None:
-        self.timeout = timeout
+    def __init__(
+        self,
+        config: dict[str, Any],
+        *,
+        timeouts: TimeoutConfig | None = None,
+    ) -> None:
+        self.timeouts = timeouts or TimeoutConfig()
         self.config = config.copy()
         self.admin_client = AdminClient(self.config, logger=logger)
 
@@ -409,7 +418,9 @@ class TopicService:
             replication_factor=command.replicas if command.replicas is not None else -1,
             config=topic_config,
         )
-        futures = self.admin_client.create_topics([new_topic])
+        futures = self.admin_client.create_topics(
+            [new_topic], request_timeout=self.timeouts.admin_write
+        )
         for future in futures.values():
             future.result()
 
@@ -428,7 +439,9 @@ class TopicService:
 
     def _config_entries(self, name: str) -> list[ConfigEntry]:
         resource = ConfigResource(ResourceType.TOPIC, name)
-        futures = self.admin_client.describe_configs([resource])
+        futures = self.admin_client.describe_configs(
+            [resource], request_timeout=self.timeouts.admin_read
+        )
         for future in futures.values():
             configs = future.result()
             return list(configs.values())
@@ -447,19 +460,23 @@ class TopicService:
 
         resource = ConfigResource(ResourceType.TOPIC, name=name, incremental_configs=entries)
 
-        futures = self.admin_client.incremental_alter_configs([resource])
+        futures = self.admin_client.incremental_alter_configs(
+            [resource], request_timeout=self.timeouts.admin_write
+        )
         for future in futures.values():
             future.result()
 
     def add_partitions(self, name: str, partitions: int) -> None:
         futures = self.admin_client.create_partitions(
-            [NewPartitions(name, partitions)], request_timeout=self.timeout, validate_only=False
+            [NewPartitions(name, partitions)],
+            request_timeout=self.timeouts.admin_write,
+            validate_only=False,
         )
         for future in futures.values():
             future.result()
 
     def delete(self, name: str) -> None:
-        futures = self.admin_client.delete_topics([name])
+        futures = self.admin_client.delete_topics([name], request_timeout=self.timeouts.admin_write)
         for future in futures.values():
             future.result()
 
@@ -503,14 +520,14 @@ class TopicService:
                     topic_partition: OffsetSpec.earliest()  # type: ignore[no-untyped-call]
                     for topic_partition in partitions
                 },
-                request_timeout=self.timeout,
+                request_timeout=self.timeouts.admin_read,
             )
             latest_futures = self.admin_client.list_offsets(
                 {
                     topic_partition: OffsetSpec.latest()  # type: ignore[no-untyped-call]
                     for topic_partition in partitions
                 },
-                request_timeout=self.timeout,
+                request_timeout=self.timeouts.admin_read,
             )
         except ADMIN_EXCEPTIONS as ex:
             logger.error("admin offset request failed: %s", ex)
@@ -607,7 +624,7 @@ class TopicService:
     async def _list_group_ids(self) -> tuple[tuple[str, ...], tuple[Exception, ...]]:
         try:
             list_result = await asyncio.wrap_future(
-                self.admin_client.list_consumer_groups(request_timeout=self.timeout)
+                self.admin_client.list_consumer_groups(request_timeout=self.timeouts.admin_read)
             )
         except ADMIN_EXCEPTIONS as ex:
             logger.error("admin consumer-group listing failed: %s", ex)
@@ -622,7 +639,7 @@ class TopicService:
     ) -> tuple[tuple[ConsumerGroupDescription, ...], tuple[Exception, ...]]:
         descriptions: list[ConsumerGroupDescription] = []
         description_futures = self.admin_client.describe_consumer_groups(
-            list(group_ids), request_timeout=self.timeout
+            list(group_ids), request_timeout=self.timeouts.admin_read
         )
         description_results = await asyncio.gather(
             *(self._resolve_future(future) for future in description_futures.values())
@@ -659,7 +676,7 @@ class TopicService:
             try:
                 futures = self.admin_client.list_consumer_group_offsets(
                     [ConsumerGroupTopicPartitions(group_id)],
-                    request_timeout=self.timeout,
+                    request_timeout=self.timeouts.admin_read,
                 )
                 result = await asyncio.wrap_future(futures[group_id])
                 topic_partitions = tuple(result.topic_partitions or ())
@@ -832,6 +849,6 @@ class TopicService:
             return str(topic.topic).lower()
 
         return sorted(
-            self.admin_client.list_topics(timeout=self.timeout).topics.values(),
+            self.admin_client.list_topics(timeout=self.timeouts.admin_read).topics.values(),
             key=sort_by_topic_name,
         )

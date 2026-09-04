@@ -58,6 +58,7 @@ deserialization and secure connections built in.
 
 - Reuse Kafka, Registry, and AWS settings from an INI client profile
 - Pass Kafka and Registry client properties directly from the command line
+- Configure consumer and admin operation deadlines for higher-latency clusters
 - Connect through TLS, SASL, Confluent Cloud, or Amazon MSK IAM authentication
 - Use Confluent Schema Registry, native Apicurio Registry, or Apicurio's
   Confluent-compatible API

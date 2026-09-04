@@ -7,9 +7,18 @@ from rich.text import Text
 from textual import work
 from textual.app import ComposeResult
 from textual.binding import Binding, BindingType
-from textual.containers import Container
+from textual.containers import Container, Grid
+from textual.content import Content
 from textual.coordinate import Coordinate
-from textual.widgets import DataTable, Footer, Input, OptionList, Static
+from textual.widgets import (
+    DataTable,
+    Footer,
+    Input,
+    OptionList,
+    Static,
+    TabbedContent,
+    TabPane,
+)
 from textual.widgets.option_list import Option
 
 from kaskade.colors import NULL, PRIMARY
@@ -24,11 +33,13 @@ from kaskade.help import HelpableModalScreen, modal_bindings
 from kaskade.models import DeserializationOutcome, PartitionSelection, Record
 from kaskade.record_export import (
     deliver_record,
+    readable_json,
     record_json,
     record_json_renderable,
 )
 from kaskade.services import ConsumerService
 from kaskade.themes import KaskadeApp
+from kaskade.timeouts import TimeoutConfig
 from kaskade.unicodes import WARNING as WARNING_INDICATOR
 from kaskade.utils import copy_text, notify_error
 from kaskade.widgets import (
@@ -37,6 +48,7 @@ from kaskade.widgets import (
     KaskadeScrollableContainer,
     StretchyDataTable,
     TableFrame,
+    labelled_value,
 )
 
 CHUNKS_SHORTCUT = "#"
@@ -50,6 +62,26 @@ COPY_RECORD_SHORTCUT = "y"
 CONSUMER_EXCEPTIONS: tuple[type[Exception], ...] = (KafkaException,)
 KEY_COLUMN_INDEX = 0
 VALUE_COLUMN_INDEX = 1
+KILOBYTE = 1_000
+MEGABYTE = 1_000_000
+
+
+def format_payload_size(size: int | None) -> str:
+    if size is None:
+        return "—"
+    if size >= MEGABYTE:
+        return f"{size / MEGABYTE:.2f} MB"
+    kilobytes = size / KILOBYTE
+    precision = 3 if 0 < kilobytes < 0.01 else 2
+    return f"{kilobytes:.{precision}f} KB"
+
+
+def record_payload_size(record: Record) -> int:
+    size = sum(len(payload) for payload in (record.key, record.value) if payload is not None)
+    return size + sum(
+        len(header.key.encode("utf-8")) + (len(header.value) if header.value is not None else 0)
+        for header in record.headers
+    )
 
 
 class RecordDataTable(StretchyDataTable[str | Text]):
@@ -198,16 +230,143 @@ class ChunkSizeScreen(HelpableModalScreen[int]):
         self.dismiss(chunk_size)
 
 
+class RecordFieldDetails(Container):
+    """Present one deserialized field with diagnostics and content."""
+
+    def __init__(
+        self,
+        outcome: DeserializationOutcome,
+        *,
+        payload_size: int | None,
+        field_name: str | None = None,
+        **kwargs: Any,
+    ) -> None:
+        super().__init__(**kwargs)
+        self.outcome = outcome
+        self.payload_size = payload_size
+        self.field_name = field_name
+
+    def _deserializer(self) -> str:
+        parts = [self.outcome.requested.name]
+        if self.outcome.schema is not None:
+            parts.append(self.outcome.schema.type)
+        if (
+            not self.outcome.used_fallback
+            and self.outcome.requested == Deserialization.BYTES
+            and isinstance(self.outcome.content, bytes)
+        ):
+            parts.append(self.outcome.bytes_encoding.name)
+        return " · ".join(parts)
+
+    def _schema(self) -> str:
+        if self.outcome.schema is None:
+            return "—"
+        schema = self.outcome.schema.dict()
+        provider = str(schema["provider"]).title()
+        identity = schema.get("subject")
+        if identity is None:
+            identity = "/".join(
+                str(part) for part in (schema.get("group"), schema.get("artifact")) if part
+            )
+        parts = [provider, f"ID {schema['id']}"]
+        if identity:
+            parts.append(str(identity))
+        if schema.get("version") is not None:
+            parts[-1] = f"{parts[-1]} v{schema['version']}"
+        return " · ".join(parts)
+
+    def _error(self) -> Text:
+        error = Text("ERROR", style="bold error")
+        if self.outcome.error is not None:
+            error.append(f"\n{self.outcome.error}")
+            error.append("\nFallback: ", style="secondary")
+            error.append(
+                f"{Deserialization.BYTES.name} · {self.outcome.bytes_encoding.name}",
+                style=WARNING_STYLE,
+            )
+        return error
+
+    def compose(self) -> ComposeResult:
+        field_name = Static(classes="record-field-name")
+        field_name.display = self.field_name is not None
+        if self.field_name is not None:
+            field_name.update(labelled_value("Header", self.field_name))
+        yield field_name
+
+        with Grid(classes="record-diagnostics"):
+            yield Static(
+                labelled_value("Deserializer", self._deserializer()),
+                classes="record-diagnostic record-deserializer",
+            )
+            yield Static(
+                labelled_value("Schema", self._schema()),
+                classes="record-diagnostic record-schema",
+            )
+            yield Static(
+                labelled_value("Size", format_payload_size(self.payload_size)),
+                classes="record-diagnostic record-size",
+            )
+
+        error = Static(self._error(), classes="record-error")
+        error.display = self.outcome.error is not None
+        yield error
+        yield Static(
+            Text(
+                ("FALLBACK CONTENT" if self.outcome.error is not None else "CONTENT"),
+                style="muted",
+            ),
+            classes="record-content-label",
+        )
+        yield Static(
+            record_json_renderable(self.outcome.dict()["content"]),
+            classes="record-content",
+        )
+
+    def update_outcome(
+        self,
+        outcome: DeserializationOutcome,
+        *,
+        payload_size: int | None,
+        field_name: str | None = None,
+    ) -> None:
+        self.outcome = outcome
+        self.payload_size = payload_size
+        self.field_name = field_name
+        name = self.query_one(".record-field-name", Static)
+        name.display = field_name is not None
+        if field_name is not None:
+            name.update(labelled_value("Header", field_name))
+        self.query_one(".record-deserializer", Static).update(
+            labelled_value("Deserializer", self._deserializer())
+        )
+        self.query_one(".record-schema", Static).update(labelled_value("Schema", self._schema()))
+        self.query_one(".record-size", Static).update(
+            labelled_value("Size", format_payload_size(self.payload_size))
+        )
+        error = self.query_one(".record-error", Static)
+        error.display = outcome.error is not None
+        error.update(self._error())
+        self.query_one(".record-content-label", Static).update(
+            Text(
+                "FALLBACK CONTENT" if outcome.error is not None else "CONTENT",
+                style="muted",
+            )
+        )
+        self.query_one(".record-content", Static).update(
+            record_json_renderable(outcome.dict()["content"])
+        )
+
+
 class TopicScreen(HelpableModalScreen[Record]):
     BINDING_GROUP_TITLE = "Record Details"
-    AUTO_FOCUS = ".record-details"
+    AUTO_FOCUS = "Tabs"
     BINDINGS: ClassVar[list[BindingType]] = modal_bindings(
         Binding(
             COPY_RECORD_SHORTCUT,
             "copy_record",
             "Copy Record",
             show=False,
-            tooltip="Copy the record as JSON to the clipboard.",
+            tooltip="Copy the active record detail as JSON to the clipboard.",
             id="kaskade.records.copy",
         ),
         Binding(
@@ -265,17 +424,116 @@ class TopicScreen(HelpableModalScreen[Record]):
 
     def _title(self) -> str:
         return (
-            rf"[{PRIMARY}]Record[/] "
+            rf"[{PRIMARY}]Record Details[/] "
             rf"\[[{PRIMARY}]{self.record.topic}[/]]"
             rf"\[[{PRIMARY}]{self.record.partition}[/]]"
             rf"\[[{PRIMARY}]{self.record.offset}[/]]"
         )
 
+    def _metadata(self) -> tuple[tuple[str, str, str], ...]:
+        return (
+            (
+                "record-total-size",
+                "Total Size",
+                format_payload_size(record_payload_size(self.record)),
+            ),
+            ("record-partition", "Partition", str(self.record.partition)),
+            ("record-offset", "Offset", str(self.record.offset)),
+            (
+                "record-timestamp",
+                "Timestamp",
+                self.record.timestamp_str() or "null",
+            ),
+        )
+
+    @staticmethod
+    def _metadata_content(label: str, value: str) -> Text:
+        return labelled_value(label, value)
+
+    def _headers_list(self) -> KaskadeOptionList:
+        headers = KaskadeOptionList(
+            *(
+                Option(header.key, id=str(index))
+                for index, header in enumerate(self.record.headers)
+            ),
+            id="record-headers-list",
+            compact=True,
+        )
+        headers.highlighted = 0 if self.record.headers else None
+        return headers
+
     def compose(self) -> ComposeResult:
-        container = KaskadeScrollableContainer(classes="record-details")
+        container = Container(classes="record-details")
         container.border_title = self._title()
         with container:
-            yield Static(record_json_renderable(self.data), classes="record-json")
+            with Grid(id="record-metadata"):
+                for metadata_id, label, value in self._metadata():
+                    yield Static(
+                        self._metadata_content(label, value),
+                        id=metadata_id,
+                        classes="record-metadata-cell",
+                    )
+            with TabbedContent(initial="key", id="record-details-tabs"):
+                with (
+                    TabPane("Key", id="key"),
+                    KaskadeScrollableContainer(classes="record-detail-scroll"),
+                ):
+                    yield RecordFieldDetails(
+                        self.record.key_outcome(),
+                        payload_size=(
+                            len(self.record.key) if self.record.key is not None else None
+                        ),
+                        id="record-key-details",
+                    )
+                with (
+                    TabPane("Value", id="value"),
+                    KaskadeScrollableContainer(classes="record-detail-scroll"),
+                ):
+                    yield RecordFieldDetails(
+                        self.record.value_outcome(),
+                        payload_size=(
+                            len(self.record.value) if self.record.value is not None else None
+                        ),
+                        id="record-value-details",
+                    )
+                with (
+                    TabPane(
+                        Content(f"Headers [{self.record.headers_count()}]"),
+                        id="headers",
+                    ),
+                    Container(classes="record-headers-layout"),
+                ):
+                    headers = self._headers_list()
+                    headers.display = bool(self.record.headers)
+                    yield headers
+                    empty = Static("No headers", id="record-headers-empty")
+                    empty.display = not self.record.headers
+                    yield empty
+                    header_scroll = KaskadeScrollableContainer(
+                        classes="record-detail-scroll record-header-scroll"
+                    )
+                    header_scroll.display = bool(self.record.headers)
+                    with header_scroll:
+                        header = self.record.headers[0] if self.record.headers else None
+                        yield RecordFieldDetails(
+                            (
+                                header.value_outcome()
+                                if header is not None
+                                else DeserializationOutcome(Deserialization.STRING, None)
+                            ),
+                            payload_size=(
+                                len(header.value)
+                                if header is not None and header.value is not None
+                                else None
+                            ),
+                            field_name=header.key if header is not None else None,
+                            id="record-header-details",
+                        )
+                with (
+                    TabPane("JSON", id="json"),
+                    KaskadeScrollableContainer(classes="record-detail-scroll"),
+                ):
+                    yield Static(record_json_renderable(self.data), classes="record-json")
         yield Footer(compact=True)
 
     def action_close(self) -> None:
@@ -295,13 +553,64 @@ class TopicScreen(HelpableModalScreen[Record]):
         self.record_index = index
         self.record = record
         self.data = data
-        details = self.query_one(KaskadeScrollableContainer)
+        details = self.query_one(".record-details", Container)
         details.border_title = self._title()
-        details.query_one(".record-json", Static).update(record_json_renderable(data))
-        details.scroll_home(animate=False)
+        for metadata_id, label, value in self._metadata():
+            self.query_one(f"#{metadata_id}", Static).update(self._metadata_content(label, value))
+        tabs = self.query_one(TabbedContent)
+        headers_tab = tabs.get_tab("headers")
+        assert headers_tab is not None
+        headers_tab.label = Content(f"Headers [{record.headers_count()}]")
+        self.query_one("#record-key-details", RecordFieldDetails).update_outcome(
+            record.key_outcome(),
+            payload_size=len(record.key) if record.key is not None else None,
+        )
+        self.query_one("#record-value-details", RecordFieldDetails).update_outcome(
+            record.value_outcome(),
+            payload_size=len(record.value) if record.value is not None else None,
+        )
+        self.query_one(".record-json", Static).update(record_json_renderable(data))
+        self._refresh_headers()
+        for scroll in self.query(".record-detail-scroll").results(KaskadeScrollableContainer):
+            scroll.scroll_home(animate=False)
         self.refresh_bindings()
         if self.on_record_changed is not None:
             self.on_record_changed(record)
+
+    def _refresh_headers(self) -> None:
+        headers = self.query_one("#record-headers-list", KaskadeOptionList)
+        empty = self.query_one("#record-headers-empty", Static)
+        details = self.query_one(".record-header-scroll", KaskadeScrollableContainer)
+        headers.clear_options()
+        has_headers = bool(self.record.headers)
+        headers.display = has_headers
+        empty.display = not has_headers
+        details.display = has_headers
+        if has_headers:
+            headers.add_options(
+                Option(header.key, id=str(index))
+                for index, header in enumerate(self.record.headers)
+            )
+            headers.highlighted = 0
+            header = self.record.headers[0]
+            self.query_one("#record-header-details", RecordFieldDetails).update_outcome(
+                header.value_outcome(),
+                payload_size=len(header.value) if header.value is not None else None,
+                field_name=header.key,
+            )
+
+    def on_option_list_option_highlighted(self, event: OptionList.OptionHighlighted) -> None:
+        if event.option_list.id != "record-headers-list" or event.option_id is None:
+            return
+        header = self.record.headers[int(event.option_id)]
+        self.query_one("#record-header-details", RecordFieldDetails).update_outcome(
+            header.value_outcome(),
+            payload_size=len(header.value) if header.value is not None else None,
+            field_name=header.key,
+        )
+        self.query_one(".record-header-scroll", KaskadeScrollableContainer).scroll_home(
+            animate=False
+        )
 
     def action_previous_record(self) -> None:
         self._show_record(self.record_index - 1)
@@ -324,7 +633,11 @@ class TopicScreen(HelpableModalScreen[Record]):
 
     def action_copy_record(self) -> None:
         try:
-            copy_text(self.app, record_json(self.record).removesuffix("\n"), "record JSON")
+            active = self.query_one(TabbedContent).active
+            if active in {"headers", "key", "value"}:
+                copy_text(self.app, readable_json(self.data[active]), f"record {active}")
+            else:
+                copy_text(self.app, readable_json(self.data), "record JSON")
         except DESERIALIZATION_EXCEPTIONS as ex:
             notify_error(self.app, "Deserialization Error", ex)
 
@@ -400,6 +713,7 @@ class ListRecords(Container):
         fallback_config: dict[str, str] | None = None,
         partitions: tuple[PartitionSelection, ...] = (),
         consumer: ConsumerService | None = None,
+        timeouts: TimeoutConfig | None = None,
     ):
         super().__init__()
         self.topic = topic
@@ -410,6 +724,7 @@ class ListRecords(Container):
         self.bytes_config = bytes_config or {}
         self.fallback_config = fallback_config or {}
         self.partitions = partitions
+        self.timeouts = timeouts or TimeoutConfig()
         self.consumer = consumer or self._new_consumer()
         self.records: dict[str, Record] = {}
         self.current_record: Record | None = None
@@ -426,6 +741,7 @@ class ListRecords(Container):
             bytes_config=self.bytes_config,
             fallback_config=self.fallback_config,
             partitions=self.partitions,
+            timeouts=self.timeouts,
         )
 
     def _get_title(self) -> str:
@@ -454,10 +770,11 @@ class ListRecords(Container):
 
         table.add_column("Key", stretch=2)
         table.add_column("Value", stretch=3)
+        table.add_column("Size", width=10)
         table.add_column("Timestamp", width=23)
         table.add_column("Partition", width=9)
-        table.add_column("Offset", width=9)
-        table.add_column("Headers", width=9)
+        table.add_column("Offset", width=6)
+        table.add_column("Headers", width=7)
 
         frame = TableFrame(table, id="records-frame", classes="kaskade-table")
         frame.border_title = self._get_title()
@@ -603,6 +920,7 @@ class ListRecords(Container):
         return [
             cls._content_cell(record.key_outcome()),
             cls._content_cell(record.value_outcome()),
+            format_payload_size(record_payload_size(record)),
             record.timestamp_str(),
             str(record.partition),
             str(record.offset),
@@ -699,6 +1017,7 @@ class KaskadeConsumer(KaskadeApp):
         fallback_config: dict[str, str] | None = None,
         json_config: dict[str, str] | None = None,
         partitions: tuple[PartitionSelection, ...] = (),
+        timeouts: TimeoutConfig | None = None,
     ):
         super().__init__()
         self.topic = topic
@@ -712,6 +1031,7 @@ class KaskadeConsumer(KaskadeApp):
         self.key_deserialization = key_deserialization
         self.value_deserialization = value_deserialization
         self.partitions = partitions
+        self.timeouts = timeouts or TimeoutConfig()
         self.deserializer_factory = DeserializerPool(
             self.registry_config,
             self.protobuf_config,
@@ -727,6 +1047,7 @@ class KaskadeConsumer(KaskadeApp):
             bytes_config=self.bytes_config,
             fallback_config=self.fallback_config,
             partitions=self.partitions,
+            timeouts=self.timeouts,
         )
 
     def compose(self) -> ComposeResult:
@@ -741,5 +1062,6 @@ class KaskadeConsumer(KaskadeApp):
             fallback_config=self.fallback_config,
             partitions=self.partitions,
             consumer=self.consumer,
+            timeouts=self.timeouts,
         )
         yield Footer(compact=True)
