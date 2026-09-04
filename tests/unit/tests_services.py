@@ -35,7 +35,11 @@ from kaskade.deserializers import (
     StringDeserializer,
 )
 from kaskade.models import Header, MetricState, PartitionOffset, PartitionSelection, Record
-from kaskade.services import ConsumerService, TopicService
+from kaskade.services import (
+    DEFAULT_KAFKA_REQUEST_TIMEOUT_SECONDS,
+    ConsumerService,
+    TopicService,
+)
 from tests import faker
 
 
@@ -101,7 +105,8 @@ class TestTopicService(unittest.IsolatedAsyncioTestCase):
         admin.create_topics.return_value = {"orders": completed(None)}
         command = CreateTopicCommand("orders", 3, 2, 1, "compact", 1000)
 
-        TopicService({"bootstrap.servers": "localhost:9092"}).create(command)
+        service = TopicService({"bootstrap.servers": "localhost:9092"})
+        service.create(command)
 
         new_topic = admin.create_topics.call_args.args[0][0]
         self.assertEqual("orders", new_topic.topic)
@@ -115,6 +120,7 @@ class TestTopicService(unittest.IsolatedAsyncioTestCase):
             },
             new_topic.config,
         )
+        self.assertEqual(DEFAULT_KAFKA_REQUEST_TIMEOUT_SECONDS, service.timeout)
 
     @patch("kaskade.services.AdminClient")
     async def test_create_topic_uses_broker_replication_defaults(
@@ -347,7 +353,13 @@ class TestConsumerService(unittest.IsolatedAsyncioTestCase):
             [(assignment.partition, assignment.offset) for assignment in assignments],
         )
         consumer.subscribe.assert_not_called()
-        consumer.get_watermark_offsets.assert_called_once()
+        consumer.get_watermark_offsets.assert_called_once_with(
+            TopicPartition("orders", 1),
+            timeout=service.request_timeout,
+            cached=False,
+        )
+        consumer.list_topics.assert_called_once_with("orders", timeout=service.request_timeout)
+        self.assertEqual(DEFAULT_KAFKA_REQUEST_TIMEOUT_SECONDS, service.request_timeout)
         self.assertTrue(service.stable)
 
         service.close()
@@ -382,6 +394,7 @@ class TestConsumerService(unittest.IsolatedAsyncioTestCase):
             mock_class_consumer.call_args.args[0][GROUP_ID],
             r"^kaskade-[0-9a-f-]+$",
         )
+        consumer.list_topics.assert_called_once_with("orders", timeout=service.request_timeout)
         consumer.subscribe.assert_not_called()
         self.assertTrue(service.stable)
 

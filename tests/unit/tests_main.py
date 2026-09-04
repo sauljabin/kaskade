@@ -521,21 +521,23 @@ class TestConsumerCli(unittest.TestCase):
             "AWS MSK IAM authentication failed: profile missing. Set AWS_PROFILE."
         )
 
-        result = self.runner.invoke(
-            cli,
-            [
-                self.command,
-                "-b",
-                EXPECTED_SERVER,
-                "-t",
-                EXPECTED_TOPIC,
-                "--aws",
-                "region=us-east-2",
-            ],
-        )
+        with self.assertLogs("kaskade", level="ERROR") as logs:
+            result = self.runner.invoke(
+                cli,
+                [
+                    self.command,
+                    "-b",
+                    EXPECTED_SERVER,
+                    "-t",
+                    EXPECTED_TOPIC,
+                    "--aws",
+                    "region=us-east-2",
+                ],
+            )
 
         self.assertGreater(result.exit_code, 0)
         self.assertIn("AWS MSK IAM authentication failed: profile missing", result.output)
+        self.assertTrue(any("aws msk authentication error" in message for message in logs.output))
         mock_class_kaskade_consumer.assert_not_called()
 
     def test_partition_help_documents_selection_format(self):

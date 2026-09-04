@@ -8,7 +8,7 @@ from click import BadParameter, ClickException, MissingParameter
 from cloup.constraints import mutually_exclusive
 from confluent_kafka import KafkaException
 
-from kaskade import APP_VERSION
+from kaskade import APP_VERSION, logger
 from kaskade.admin import KaskadeAdmin
 from kaskade.apicurio import APICURIO_PREFIX, ApicurioConfig, ApicurioRegistryError
 from kaskade.authentication import (
@@ -327,6 +327,7 @@ def admin(
     try:
         validate_aws_msk_credentials(aws_config)
     except AwsMskAuthenticationError as ex:
+        logger.error("aws msk authentication error: %s", ex)
         raise ClickException(str(ex)) from ex
     kafka_config = configure_aws_msk_iam(kafka_config, aws_config)
 
@@ -496,6 +497,7 @@ def consumer(
     try:
         validate_aws_msk_credentials(aws_config)
     except AwsMskAuthenticationError as ex:
+        logger.error("aws msk authentication error: %s", ex)
         raise ClickException(str(ex)) from ex
     kafka_config = configure_aws_msk_iam(kafka_config, aws_config)
 

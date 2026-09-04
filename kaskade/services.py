@@ -71,6 +71,7 @@ CONSUMER_AUTHORIZATION_ERROR_CODES = {
     KafkaError.SASL_AUTHENTICATION_FAILED,
     KafkaError.TOPIC_AUTHORIZATION_FAILED,
 }
+DEFAULT_KAFKA_REQUEST_TIMEOUT_SECONDS = 10.0
 
 
 class PartitionSelectionError(ValueError):
@@ -92,6 +93,7 @@ class ConsumerService:
         page_size: int = 25,
         poll_retries: int = 5,
         timeout: float = 0.5,
+        request_timeout: float = DEFAULT_KAFKA_REQUEST_TIMEOUT_SECONDS,
         stabilization_retries: int = 30,
     ) -> None:
         self.topic = topic
@@ -99,6 +101,7 @@ class ConsumerService:
         self.poll_retries = poll_retries
         self.stabilization_retries = stabilization_retries
         self.timeout = timeout
+        self.request_timeout = request_timeout
         self.key_deserialization = key_deserialization
         self.value_deserialization = value_deserialization
         self.bytes_config = bytes_config or {}
@@ -148,7 +151,7 @@ class ConsumerService:
         self.on_assign(self.consumer, assignments)
 
     def _available_partitions(self) -> set[int]:
-        metadata = self.consumer.list_topics(self.topic, timeout=self.timeout)
+        metadata = self.consumer.list_topics(self.topic, timeout=self.request_timeout)
         topic_metadata = metadata.topics.get(self.topic)
         if topic_metadata is None:
             raise PartitionSelectionError(f"Topic {self.topic!r} does not exist")
@@ -170,7 +173,7 @@ class ConsumerService:
         if isinstance(selection.offset, int):
             low, high = self.consumer.get_watermark_offsets(
                 TopicPartition(self.topic, selection.partition),
-                timeout=self.timeout,
+                timeout=self.request_timeout,
                 cached=False,
             )
             if not low <= selection.offset <= high:
@@ -391,7 +394,12 @@ class GroupSnapshot:
 class TopicService:
     GROUP_OFFSET_CONCURRENCY = 16
 
-    def __init__(self, config: dict[str, Any], *, timeout: float = 2.0) -> None:
+    def __init__(
+        self,
+        config: dict[str, Any],
+        *,
+        timeout: float = DEFAULT_KAFKA_REQUEST_TIMEOUT_SECONDS,
+    ) -> None:
         self.timeout = timeout
         self.config = config.copy()
         self.admin_client = AdminClient(self.config, logger=logger)
