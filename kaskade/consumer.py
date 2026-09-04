@@ -223,16 +223,11 @@ class RecordFieldDetails(Container):
         self.field_name = field_name
 
     @staticmethod
-    def _labelled_value(
-        label: str,
-        value: str,
-        *,
-        value_style: str | None = None,
-    ) -> Text:
+    def _labelled_value(label: str, value: str) -> Text:
         content = Text()
         content.append(label.upper(), style="muted")
         content.append("\n")
-        content.append(value, style=value_style)
+        content.append(value)
         return content
 
     def _deserializer(self) -> str:
@@ -266,11 +261,6 @@ class RecordFieldDetails(Container):
             return self.outcome.bytes_encoding.name
         return "—"
 
-    def _status(self) -> tuple[str, str]:
-        if self.outcome.used_fallback:
-            return f"Fallback to {Deserialization.BYTES.name}", WARNING_STYLE
-        return "Success", "success"
-
     def _error(self) -> Text:
         error = Text("ERROR", style="bold error")
         if self.outcome.error is not None:
@@ -290,11 +280,6 @@ class RecordFieldDetails(Container):
             yield Static(
                 self._labelled_value("Deserializer", self._deserializer()),
                 classes="record-diagnostic record-deserializer",
-            )
-            status, status_style = self._status()
-            yield Static(
-                self._labelled_value("Status", status, value_style=status_style),
-                classes="record-diagnostic record-status",
             )
             yield Static(
                 self._labelled_value("Schema", self._schema()),
@@ -334,10 +319,6 @@ class RecordFieldDetails(Container):
             name.update(self._labelled_value("Header", field_name))
         self.query_one(".record-deserializer", Static).update(
             self._labelled_value("Deserializer", self._deserializer())
-        )
-        status, status_style = self._status()
-        self.query_one(".record-status", Static).update(
-            self._labelled_value("Status", status, value_style=status_style)
         )
         self.query_one(".record-schema", Static).update(
             self._labelled_value("Schema", self._schema())

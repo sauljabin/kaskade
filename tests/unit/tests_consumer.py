@@ -723,9 +723,6 @@ class TestRecordDetailsTabs(unittest.IsolatedAsyncioTestCase):
                 "DESERIALIZER\nSTRING",
                 header_details.query_one(".record-deserializer", Static).render().plain,
             )
-            status = header_details.query_one(".record-status", Static)
-            self.assertEqual("STATUS\nFallback to BYTES", status.render().plain)
-            self.assertEqual(WARNING_STYLE, status.content.spans[-1].style)
             deserializer_content = header_details.query_one(".record-deserializer", Static).content
             self.assertIsInstance(deserializer_content, Text)
             self.assertEqual("muted", deserializer_content.spans[0].style)
@@ -751,9 +748,6 @@ class TestRecordDetailsTabs(unittest.IsolatedAsyncioTestCase):
             headers.highlighted = 0
             await pilot.pause()
             self.assertFalse(header_details.query_one(".record-error", Static).display)
-            status = header_details.query_one(".record-status", Static)
-            self.assertEqual("STATUS\nSuccess", status.render().plain)
-            self.assertEqual("success", status.content.spans[-1].style)
             self.assertEqual(
                 "CONTENT",
                 header_details.query_one(".record-content-label", Static).render().plain,
@@ -773,10 +767,6 @@ class TestRecordDetailsTabs(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(
                 "ENCODING\nHEX",
                 key_details.query_one(".record-encoding", Static).render().plain,
-            )
-            self.assertEqual(
-                "STATUS\nSuccess",
-                key_details.query_one(".record-status", Static).render().plain,
             )
             self.assertFalse(key_details.query_one(".record-error", Static).display)
             self.assertEqual(
