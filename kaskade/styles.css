@@ -212,14 +212,135 @@ TopicScreen > .record-details {
     border: $secondary;
     width: 100;
     max-width: 95%;
-    height: 80%;
+    height: 90%;
     background: $background;
+    padding: 0 1;
+}
+
+TopicScreen #record-metadata {
+    width: 100%;
+    height: 5;
+    grid-size: 4 1;
+    grid-columns: 2fr 1fr 1fr 2fr;
+    grid-rows: 1fr;
+    grid-gutter: 0;
+    margin-bottom: 1;
+}
+
+TopicScreen .record-metadata-cell {
+    width: 100%;
+    height: 100%;
+    border: solid $secondary 50%;
+    padding: 0 1;
+    text-wrap: wrap;
+}
+
+TopicScreen #record-details-tabs,
+TopicScreen #record-details-tabs > ContentSwitcher,
+TopicScreen #record-details-tabs TabPane {
+    width: 100%;
+    height: 100%;
+    border: none;
+    background: transparent;
+    padding: 0;
+}
+
+TopicScreen #record-details-tabs {
+    height: 1fr;
+}
+
+TopicScreen .record-detail-scroll {
+    width: 100%;
+    height: 100%;
+    padding: 0 1;
+}
+
+TopicScreen .record-detail-scroll > Static {
+    width: 100%;
+    height: auto;
+    text-wrap: wrap;
+}
+
+TopicScreen RecordFieldDetails {
+    width: 100%;
+    height: auto;
+}
+
+TopicScreen .record-field-name {
+    width: 100%;
+    height: auto;
+    margin-bottom: 1;
+}
+
+TopicScreen .record-diagnostics {
+    width: 100%;
+    height: auto;
+    grid-size: 3 1;
+    grid-columns: 1fr 2fr 1fr;
+    grid-rows: auto;
+    grid-gutter: 0;
+    margin-bottom: 1;
+}
+
+TopicScreen .record-diagnostic {
+    width: 100%;
+    height: auto;
+    min-height: 5;
+    border: solid $secondary 50%;
+    padding: 1;
+    text-wrap: wrap;
+}
+
+TopicScreen .record-error {
+    width: 100%;
+    height: auto;
+    min-height: 5;
+    border: solid $error;
+    background: $error 15%;
+    padding: 1 2;
+    margin-bottom: 1;
+    text-wrap: wrap;
+}
+
+TopicScreen .record-content-label {
+    width: 100%;
+    height: 1;
+    margin-bottom: 1;
+}
+
+TopicScreen .record-content {
+    width: 100%;
+    height: auto;
+    min-height: 3;
+    background: $panel;
+    padding: 1 2;
+    text-wrap: wrap;
+}
+
+TopicScreen .record-headers-layout {
+    width: 100%;
+    height: 100%;
+}
+
+TopicScreen #record-headers-table {
+    width: 100%;
+    height: 45%;
+    min-height: 5;
+}
+
+TopicScreen #record-headers-empty {
+    width: 100%;
+    height: 1fr;
+    color: $text-muted;
+    content-align: center middle;
+}
+
+TopicScreen .record-header-scroll {
+    height: 1fr;
 }
 
 TopicScreen .record-json {
     width: 100%;
-    height: auto;
-    text-wrap: wrap;
 }
 
 DescribeTopicScreen > TabbedContent {
@@ -244,6 +365,19 @@ Screen.-narrow > .record-details,
 DescribeTopicScreen.-narrow > TabbedContent {
     width: 100%;
     max-width: 100%;
+}
+
+TopicScreen.-narrow #record-metadata {
+    height: 10;
+    grid-size: 2 2;
+    grid-columns: 1fr 1fr;
+    grid-rows: 1fr 1fr;
+}
+
+TopicScreen.-narrow .record-diagnostics {
+    grid-size: 1 3;
+    grid-columns: 1fr;
+    grid-rows: auto auto auto;
 }
 
 HelpScreen.-narrow > #help-dialog {

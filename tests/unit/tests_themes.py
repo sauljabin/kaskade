@@ -2,7 +2,7 @@ import unittest
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from textual.command import CommandList, CommandPalette
-from textual.containers import ScrollableContainer
+from textual.containers import Container, Grid
 from textual.coordinate import Coordinate
 from textual.geometry import Offset
 from textual.selection import Selection
@@ -18,6 +18,7 @@ from textual.widgets import (
     Tab,
     TabbedContent,
     TabPane,
+    Tabs,
 )
 from textual.widgets._footer import FooterKey
 
@@ -91,6 +92,7 @@ class TestThemes(unittest.TestCase):
             app.get_css_variables()["text-warning"].lower(),
             app.console.get_style("text-warning").color.get_truecolor().hex,
         )
+        self.assertTrue(app.console.get_style("muted").dim)
 
         app.theme = "dracula"
 
@@ -98,6 +100,7 @@ class TestThemes(unittest.TestCase):
         self.assertEqual("#6272a4", app.console.get_style("secondary").color.get_truecolor().hex)
         self.assertEqual("#bd93f9", app.console.get_style("json.str").color.get_truecolor().hex)
         self.assertEqual("#6272a4", app.console.get_style("json.number").color.get_truecolor().hex)
+        self.assertTrue(app.console.get_style("muted").dim)
 
     def test_updates_rich_semantic_styles_for_ansi_themes(self):
         app = KaskadeApp()
@@ -760,7 +763,7 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 self.assertLess(kafka.content_region.width, len(kafka.render().plain))
                 self.assertEqual("ellipsis", kafka.styles.text_overflow)
 
-    async def test_record_details_focus_the_scrollable_content(self):
+    async def test_record_details_use_native_tabs_and_fill_narrow_layout(self):
         with patch("kaskade.consumer.ConsumerService") as consumer_service:
             consumer_service.return_value.consume = AsyncMock(return_value=[])
             app = KaskadeConsumer(
@@ -773,15 +776,38 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 Deserialization.STRING,
             )
 
-            async with app.run_test() as pilot:
+            async with app.run_test(size=(60, 24)) as pilot:
                 records_table = app.query_one("#records-table", DataTable)
                 app.push_screen(TopicScreen(Record(topic="orders", partition=0, offset=1)))
                 await pilot.pause()
 
-                details = app.screen.query_one(".record-details", ScrollableContainer)
-                self.assertIs(details, app.screen.focused)
-                self.assertEqual(100, details.styles.width.value)
+                details = app.screen.query_one(".record-details", Container)
+                tabs = app.screen.query_one(Tabs)
+                self.assertIs(tabs, app.screen.focused)
+                self.assertEqual(app.screen.content_region.width, details.region.width)
                 self.assertEqual(app.current_theme.background, details.styles.background.hex)
+                self.assertEqual(
+                    ["Key", "Value", "Headers [0]", "JSON"],
+                    [tab.label_text for tab in app.screen.query(Tab)],
+                )
+                self.assertEqual(4, len(app.screen.query(TabPane)))
+                self.assertIsInstance(app.screen.query_one(Footer), Footer)
+                metadata = app.screen.query_one("#record-metadata", Grid)
+                metadata_cells = list(metadata.query(".record-metadata-cell"))
+                self.assertEqual(2, metadata.styles.grid_size_columns)
+                self.assertEqual(2, metadata.styles.grid_size_rows)
+                self.assertEqual(metadata_cells[0].region.y, metadata_cells[1].region.y)
+                self.assertGreater(metadata_cells[2].region.y, metadata_cells[0].region.y)
+                self.assertTrue(
+                    all(cell.styles.border_top[0] == "solid" for cell in metadata_cells)
+                )
+                self.assertTrue(all(cell.content_region.height >= 2 for cell in metadata_cells))
+                diagnostics = app.screen.query_one(".record-diagnostics", Grid)
+                self.assertEqual(1, diagnostics.styles.grid_size_columns)
+                self.assertEqual(3, diagnostics.styles.grid_size_rows)
+
+                await pilot.press("right")
+                self.assertEqual("value", app.screen.query_one(TabbedContent).active)
 
                 await pilot.press("escape")
                 self.assertIs(records_table, app.screen.focused)

@@ -243,6 +243,7 @@ class KaskadeApp(App, inherit_bindings=False):
             "secondary": _rich_color(theme.secondary or theme.primary),
             "warning": _rich_color(theme.warning or theme.primary),
             "text-warning": _rich_color(self.get_css_variables()["text-warning"]),
+            "muted": f"dim {_rich_color(theme.foreground or theme.primary)}",
             "error": _rich_color(theme.error or theme.primary),
             "success": _rich_color(theme.success or theme.primary),
             "accent": _rich_color(theme.accent or theme.primary),

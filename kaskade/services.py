@@ -310,6 +310,7 @@ class ConsumerService:
                     value=value,
                     value_deserializer=self.header_deserializer,
                     fallback_bytes_encoding=self.fallback_bytes_encoding,
+                    value_deserialization=Deserialization.STRING,
                 )
                 for key, value in message.headers() or []
             ],

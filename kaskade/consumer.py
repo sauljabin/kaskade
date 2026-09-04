@@ -7,9 +7,18 @@ from rich.text import Text
 from textual import work
 from textual.app import ComposeResult
 from textual.binding import Binding, BindingType
-from textual.containers import Container
+from textual.containers import Container, Grid
+from textual.content import Content
 from textual.coordinate import Coordinate
-from textual.widgets import DataTable, Footer, Input, OptionList, Static
+from textual.widgets import (
+    DataTable,
+    Footer,
+    Input,
+    OptionList,
+    Static,
+    TabbedContent,
+    TabPane,
+)
 from textual.widgets.option_list import Option
 
 from kaskade.colors import NULL, PRIMARY
@@ -24,6 +33,7 @@ from kaskade.help import HelpableModalScreen, modal_bindings
 from kaskade.models import DeserializationOutcome, PartitionSelection, Record
 from kaskade.record_export import (
     deliver_record,
+    readable_json,
     record_json,
     record_json_renderable,
 )
@@ -198,16 +208,148 @@ class ChunkSizeScreen(HelpableModalScreen[int]):
         self.dismiss(chunk_size)
 
 
+class RecordFieldDetails(Container):
+    """Present one deserialized field with diagnostics and content."""
+
+    def __init__(
+        self,
+        outcome: DeserializationOutcome,
+        *,
+        field_name: str | None = None,
+        **kwargs: Any,
+    ) -> None:
+        super().__init__(**kwargs)
+        self.outcome = outcome
+        self.field_name = field_name
+
+    @staticmethod
+    def _labelled_value(label: str, value: str) -> Text:
+        content = Text()
+        content.append(label.upper(), style="muted")
+        content.append("\n")
+        content.append(value)
+        return content
+
+    def _deserializer(self) -> str:
+        deserializer = self.outcome.requested.name
+        if self.outcome.schema is not None:
+            deserializer = f"{deserializer} · {self.outcome.schema.type}"
+        return deserializer
+
+    def _schema(self) -> str:
+        if self.outcome.schema is None:
+            return "—"
+        schema = self.outcome.schema.dict()
+        provider = str(schema["provider"]).title()
+        identity = schema.get("subject")
+        if identity is None:
+            identity = "/".join(
+                str(part) for part in (schema.get("group"), schema.get("artifact")) if part
+            )
+        parts = [provider, f"ID {schema['id']}"]
+        if identity:
+            parts.append(str(identity))
+        if schema.get("version") is not None:
+            parts[-1] = f"{parts[-1]} v{schema['version']}"
+        return " · ".join(parts)
+
+    def _encoding(self) -> str:
+        if self.outcome.used_fallback or (
+            self.outcome.requested == Deserialization.BYTES
+            and isinstance(self.outcome.content, bytes)
+        ):
+            return self.outcome.bytes_encoding.name
+        return "—"
+
+    def _error(self) -> Text:
+        error = Text("ERROR", style="bold error")
+        if self.outcome.error is not None:
+            error.append(f"\n{self.outcome.error}")
+            error.append("\nFallback: ", style="secondary")
+            error.append(Deserialization.BYTES.name, style=WARNING_STYLE)
+        return error
+
+    def compose(self) -> ComposeResult:
+        field_name = Static(classes="record-field-name")
+        field_name.display = self.field_name is not None
+        if self.field_name is not None:
+            field_name.update(self._labelled_value("Header", self.field_name))
+        yield field_name
+
+        with Grid(classes="record-diagnostics"):
+            yield Static(
+                self._labelled_value("Deserializer", self._deserializer()),
+                classes="record-diagnostic record-deserializer",
+            )
+            yield Static(
+                self._labelled_value("Schema", self._schema()),
+                classes="record-diagnostic record-schema",
+            )
+            yield Static(
+                self._labelled_value("Encoding", self._encoding()),
+                classes="record-diagnostic record-encoding",
+            )
+
+        error = Static(self._error(), classes="record-error")
+        error.display = self.outcome.error is not None
+        yield error
+        yield Static(
+            Text(
+                ("FALLBACK CONTENT" if self.outcome.error is not None else "CONTENT"),
+                style="muted",
+            ),
+            classes="record-content-label",
+        )
+        yield Static(
+            record_json_renderable(self.outcome.dict()["content"]),
+            classes="record-content",
+        )
+
+    def update_outcome(
+        self,
+        outcome: DeserializationOutcome,
+        *,
+        field_name: str | None = None,
+    ) -> None:
+        self.outcome = outcome
+        self.field_name = field_name
+        name = self.query_one(".record-field-name", Static)
+        name.display = field_name is not None
+        if field_name is not None:
+            name.update(self._labelled_value("Header", field_name))
+        self.query_one(".record-deserializer", Static).update(
+            self._labelled_value("Deserializer", self._deserializer())
+        )
+        self.query_one(".record-schema", Static).update(
+            self._labelled_value("Schema", self._schema())
+        )
+        self.query_one(".record-encoding", Static).update(
+            self._labelled_value("Encoding", self._encoding())
+        )
+        error = self.query_one(".record-error", Static)
+        error.display = outcome.error is not None
+        error.update(self._error())
+        self.query_one(".record-content-label", Static).update(
+            Text(
+                "FALLBACK CONTENT" if outcome.error is not None else "CONTENT",
+                style="muted",
+            )
+        )
+        self.query_one(".record-content", Static).update(
+            record_json_renderable(outcome.dict()["content"])
+        )
+
+
 class TopicScreen(HelpableModalScreen[Record]):
     BINDING_GROUP_TITLE = "Record Details"
-    AUTO_FOCUS = ".record-details"
+    AUTO_FOCUS = "Tabs"
     BINDINGS: ClassVar[list[BindingType]] = modal_bindings(
         Binding(
             COPY_RECORD_SHORTCUT,
             "copy_record",
             "Copy Record",
             show=False,
-            tooltip="Copy the record as JSON to the clipboard.",
+            tooltip="Copy the active record detail as JSON to the clipboard.",
             id="kaskade.records.copy",
         ),
         Binding(
@@ -271,11 +413,107 @@ class TopicScreen(HelpableModalScreen[Record]):
             rf"\[[{PRIMARY}]{self.record.offset}[/]]"
         )
 
+    def _metadata(self) -> tuple[tuple[str, str, str], ...]:
+        return (
+            ("record-topic", "Topic", self.record.topic),
+            ("record-partition", "Partition", str(self.record.partition)),
+            ("record-offset", "Offset", str(self.record.offset)),
+            (
+                "record-timestamp",
+                "Timestamp",
+                self.record.timestamp_str() or "null",
+            ),
+        )
+
+    @staticmethod
+    def _metadata_content(label: str, value: str) -> Text:
+        return RecordFieldDetails._labelled_value(label, value)
+
+    def _headers_table(self) -> StretchyDataTable[str | Text]:
+        table: StretchyDataTable[str | Text] = StretchyDataTable(
+            id="record-headers-table",
+            classes="details-table",
+        )
+        table.cursor_type = "row"
+        table.add_column("Index", key="index")
+        table.add_column("Name", key="name", stretch=1)
+        table.add_column("Value Preview", key="value", stretch=3)
+        table.add_column("Deserializer", key="deserializer", stretch=1)
+        self._fill_headers_table(table)
+        return table
+
+    def _fill_headers_table(self, table: StretchyDataTable[str | Text]) -> None:
+        for index, header in enumerate(self.record.headers):
+            outcome = header.value_outcome()
+            table.add_row(
+                str(index),
+                header.key,
+                header.value_str().replace("\n", "\\n"),
+                outcome.requested.name,
+                key=str(index),
+            )
+
     def compose(self) -> ComposeResult:
-        container = KaskadeScrollableContainer(classes="record-details")
+        container = Container(classes="record-details")
         container.border_title = self._title()
         with container:
-            yield Static(record_json_renderable(self.data), classes="record-json")
+            with Grid(id="record-metadata"):
+                for metadata_id, label, value in self._metadata():
+                    yield Static(
+                        self._metadata_content(label, value),
+                        id=metadata_id,
+                        classes="record-metadata-cell",
+                    )
+            with TabbedContent(initial="key", id="record-details-tabs"):
+                with (
+                    TabPane("Key", id="key"),
+                    KaskadeScrollableContainer(classes="record-detail-scroll"),
+                ):
+                    yield RecordFieldDetails(
+                        self.record.key_outcome(),
+                        id="record-key-details",
+                    )
+                with (
+                    TabPane("Value", id="value"),
+                    KaskadeScrollableContainer(classes="record-detail-scroll"),
+                ):
+                    yield RecordFieldDetails(
+                        self.record.value_outcome(),
+                        id="record-value-details",
+                    )
+                with (
+                    TabPane(
+                        Content(f"Headers [{self.record.headers_count()}]"),
+                        id="headers",
+                    ),
+                    Container(classes="record-headers-layout"),
+                ):
+                    table = self._headers_table()
+                    table.display = bool(self.record.headers)
+                    yield table
+                    empty = Static("No headers", id="record-headers-empty")
+                    empty.display = not self.record.headers
+                    yield empty
+                    header_scroll = KaskadeScrollableContainer(
+                        classes="record-detail-scroll record-header-scroll"
+                    )
+                    header_scroll.display = bool(self.record.headers)
+                    with header_scroll:
+                        header = self.record.headers[0] if self.record.headers else None
+                        yield RecordFieldDetails(
+                            (
+                                header.value_outcome()
+                                if header is not None
+                                else DeserializationOutcome(Deserialization.STRING, None)
+                            ),
+                            field_name=header.key if header is not None else None,
+                            id="record-header-details",
+                        )
+                with (
+                    TabPane("JSON", id="json"),
+                    KaskadeScrollableContainer(classes="record-detail-scroll"),
+                ):
+                    yield Static(record_json_renderable(self.data), classes="record-json")
         yield Footer(compact=True)
 
     def action_close(self) -> None:
@@ -295,13 +533,57 @@ class TopicScreen(HelpableModalScreen[Record]):
         self.record_index = index
         self.record = record
         self.data = data
-        details = self.query_one(KaskadeScrollableContainer)
+        details = self.query_one(".record-details", Container)
         details.border_title = self._title()
-        details.query_one(".record-json", Static).update(record_json_renderable(data))
-        details.scroll_home(animate=False)
+        for metadata_id, label, value in self._metadata():
+            self.query_one(f"#{metadata_id}", Static).update(self._metadata_content(label, value))
+        tabs = self.query_one(TabbedContent)
+        headers_tab = tabs.get_tab("headers")
+        assert headers_tab is not None
+        headers_tab.label = Content(f"Headers [{record.headers_count()}]")
+        self.query_one("#record-key-details", RecordFieldDetails).update_outcome(
+            record.key_outcome()
+        )
+        self.query_one("#record-value-details", RecordFieldDetails).update_outcome(
+            record.value_outcome()
+        )
+        self.query_one(".record-json", Static).update(record_json_renderable(data))
+        self._refresh_headers()
+        for scroll in self.query(".record-detail-scroll").results(KaskadeScrollableContainer):
+            scroll.scroll_home(animate=False)
         self.refresh_bindings()
         if self.on_record_changed is not None:
             self.on_record_changed(record)
+
+    def _refresh_headers(self) -> None:
+        table = self.query_one("#record-headers-table", StretchyDataTable)
+        empty = self.query_one("#record-headers-empty", Static)
+        details = self.query_one(".record-header-scroll", KaskadeScrollableContainer)
+        table.clear()
+        has_headers = bool(self.record.headers)
+        table.display = has_headers
+        empty.display = not has_headers
+        details.display = has_headers
+        if has_headers:
+            self._fill_headers_table(table)
+            table.move_cursor(row=0, column=0)
+            header = self.record.headers[0]
+            self.query_one("#record-header-details", RecordFieldDetails).update_outcome(
+                header.value_outcome(),
+                field_name=header.key,
+            )
+
+    def on_data_table_row_highlighted(self, event: DataTable.RowHighlighted) -> None:
+        if event.data_table.id != "record-headers-table" or event.row_key.value is None:
+            return
+        header = self.record.headers[int(event.row_key.value)]
+        self.query_one("#record-header-details", RecordFieldDetails).update_outcome(
+            header.value_outcome(),
+            field_name=header.key,
+        )
+        self.query_one(".record-header-scroll", KaskadeScrollableContainer).scroll_home(
+            animate=False
+        )
 
     def action_previous_record(self) -> None:
         self._show_record(self.record_index - 1)
@@ -324,7 +606,11 @@ class TopicScreen(HelpableModalScreen[Record]):
 
     def action_copy_record(self) -> None:
         try:
-            copy_text(self.app, record_json(self.record).removesuffix("\n"), "record JSON")
+            active = self.query_one(TabbedContent).active
+            if active in {"headers", "key", "value"}:
+                copy_text(self.app, readable_json(self.data[active]), f"record {active}")
+            else:
+                copy_text(self.app, readable_json(self.data), "record JSON")
         except DESERIALIZATION_EXCEPTIONS as ex:
             notify_error(self.app, "Deserialization Error", ex)
 

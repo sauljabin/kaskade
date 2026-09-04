@@ -10,8 +10,9 @@ from unittest.mock import AsyncMock, MagicMock, call, patch
 from confluent_kafka.serialization import MessageField
 from rich.text import Text
 from textual import events
+from textual.containers import Grid
 from textual.coordinate import Coordinate
-from textual.widgets import DataTable
+from textual.widgets import DataTable, Static, Tab, TabbedContent, TabPane
 
 from kaskade.colors import NULL as NULL_STYLE
 from kaskade.colors import WARNING as WARNING_STYLE
@@ -20,6 +21,7 @@ from kaskade.consumer import (
     KaskadeConsumer,
     ListRecords,
     RecordDataTable,
+    RecordFieldDetails,
     TopicScreen,
     deliver_record,
     record_json,
@@ -37,10 +39,10 @@ from kaskade.deserializers import (
 )
 from kaskade.help import HelpScreen
 from kaskade.models import Header, Record
-from kaskade.record_export import record_filename
+from kaskade.record_export import readable_json, record_filename
 from kaskade.themes import KaskadeApp
 from kaskade.unicodes import WARNING as WARNING_INDICATOR
-from kaskade.widgets import KaskadeScrollableContainer, TableFrame
+from kaskade.widgets import TableFrame
 
 
 def exported_record() -> Record:
@@ -448,6 +450,7 @@ class TestRecordExportActions(unittest.IsolatedAsyncioTestCase):
             await pilot.press("enter")
             await pilot.pause()
             self.assertIsInstance(app.screen, TopicScreen)
+            app.screen.query_one(TabbedContent).active = "value"
             self.assertFalse(
                 next(
                     binding
@@ -457,6 +460,8 @@ class TestRecordExportActions(unittest.IsolatedAsyncioTestCase):
             )
             await pilot.press("ctrl+e")
             self.assertEqual(2, app.deliver_text.call_count)
+            delivered_content = app.deliver_text.call_args.args[0]
+            self.assertEqual(record_json(record), delivered_content.getvalue())
 
     @patch("kaskade.consumer.ConsumerService")
     async def test_table_export_is_disabled_without_a_record(
@@ -486,7 +491,7 @@ class TestRecordExportActions(unittest.IsolatedAsyncioTestCase):
 
 class TestRecordCopyActions(unittest.IsolatedAsyncioTestCase):
     @patch("kaskade.consumer.ConsumerService")
-    async def test_y_copies_json_from_table_and_record_details(
+    async def test_y_copies_json_from_table_and_active_record_details_tab(
         self, consumer_service: MagicMock
     ) -> None:
         record = exported_record()
@@ -527,16 +532,28 @@ class TestRecordCopyActions(unittest.IsolatedAsyncioTestCase):
             await pilot.press("enter")
             await pilot.pause()
             self.assertIsInstance(app.screen, TopicScreen)
-            app.copy_to_clipboard("")
-            app.notify.reset_mock()
-
-            await pilot.press("y")
-
-            self.assertEqual(expected_json, app.clipboard)
-            app.notify.assert_called_once_with(
-                "Copied record JSON to clipboard",
-                title="Copied",
+            tabs = app.screen.query_one(TabbedContent)
+            record_data = record.dict()
+            expected_copies = (
+                ("key", record_data["key"], "record key"),
+                ("value", record_data["value"], "record value"),
+                ("headers", record_data["headers"], "record headers"),
+                ("json", record_data, "record JSON"),
             )
+            for active, data, description in expected_copies:
+                with self.subTest(active=active):
+                    tabs.active = active
+                    await pilot.pause()
+                    app.copy_to_clipboard("")
+                    app.notify.reset_mock()
+
+                    await pilot.press("y")
+
+                    self.assertEqual(readable_json(data), app.clipboard)
+                    app.notify.assert_called_once_with(
+                        f"Copied {description} to clipboard",
+                        title="Copied",
+                    )
 
     @patch("kaskade.consumer.ConsumerService")
     async def test_copy_is_disabled_without_a_record(self, consumer_service: MagicMock) -> None:
@@ -593,13 +610,227 @@ class TestRecordCopyActions(unittest.IsolatedAsyncioTestCase):
             )
 
 
+class TestRecordDetailsTabs(unittest.IsolatedAsyncioTestCase):
+    @patch("kaskade.consumer.ConsumerService")
+    async def test_displays_ordered_headers_and_complete_field_diagnostics(
+        self, consumer_service: MagicMock
+    ) -> None:
+        class MetadataDeserializer(Deserializer):
+            def deserialize(
+                self,
+                data: bytes,
+                topic: str | None = None,
+                context: MessageField = MessageField.NONE,
+            ) -> object:
+                return {"status": "paid"}
+
+            def deserialize_with_metadata(
+                self,
+                data: bytes,
+                topic: str | None = None,
+                context: MessageField = MessageField.NONE,
+            ) -> DeserializationResult:
+                return DeserializationResult(
+                    {"status": "paid"},
+                    RegistrySchema(27, "orders-value", 5, "JSON"),
+                )
+
+        failing_header_deserializer = MagicMock()
+        failing_header_deserializer.deserialize.side_effect = DeserializationError("invalid UTF-8")
+        record = Record(
+            topic="orders",
+            partition=2,
+            offset=42,
+            timestamp=datetime(2026, 8, 28, 14, 12, 5, 120_000, tzinfo=timezone.utc),
+            headers=[
+                Header("source", b"storefront", StringDeserializer()),
+                Header(
+                    "source",
+                    b"\xff",
+                    failing_header_deserializer,
+                    BytesEncoding.HEX,
+                ),
+            ],
+            key=b"\xff",
+            value=b"payload",
+            key_deserialization=Deserialization.BYTES,
+            value_deserialization=Deserialization.REGISTRY,
+            value_deserializer=MetadataDeserializer(),
+            key_bytes_encoding=BytesEncoding.HEX,
+        )
+        consumer_service.return_value.consume = AsyncMock(return_value=[])
+        app = KaskadeConsumer(
+            "orders",
+            {},
+            {},
+            {},
+            {},
+            Deserialization.BYTES,
+            Deserialization.REGISTRY,
+        )
+
+        async with app.run_test() as pilot:
+            app.push_screen(TopicScreen(record))
+            await pilot.pause()
+            details = app.screen
+            tabs = details.query_one(TabbedContent)
+            table = details.query_one("#record-headers-table", DataTable)
+
+            self.assertEqual("key", tabs.active)
+            self.assertEqual(
+                4,
+                details.query_one("#record-metadata", Grid).styles.grid_size_columns,
+            )
+            self.assertEqual(
+                ["Key", "Value", "Headers [2]", "JSON"],
+                [tab.label_text for tab in details.query(Tab)],
+            )
+            self.assertEqual(
+                ["Index", "Name", "Value Preview", "Deserializer"],
+                [column.label.plain for column in table.ordered_columns],
+            )
+            self.assertEqual(
+                [
+                    ["0", "source", "storefront", "STRING"],
+                    ["1", "source", "ff", "STRING"],
+                ],
+                [
+                    [str(table.get_cell_at(Coordinate(row, column))) for column in range(4)]
+                    for row in range(2)
+                ],
+            )
+            self.assertEqual(
+                "TOPIC\norders",
+                details.query_one("#record-topic", Static).render().plain,
+            )
+            topic_content = details.query_one("#record-topic", Static).content
+            self.assertIsInstance(topic_content, Text)
+            self.assertEqual("muted", topic_content.spans[0].style)
+            self.assertEqual(
+                "PARTITION\n2",
+                details.query_one("#record-partition", Static).render().plain,
+            )
+            self.assertEqual(
+                "OFFSET\n42",
+                details.query_one("#record-offset", Static).render().plain,
+            )
+            self.assertEqual(
+                f"TIMESTAMP\n{record.timestamp_str()}",
+                details.query_one("#record-timestamp", Static).render().plain,
+            )
+
+            table.move_cursor(row=1)
+            await pilot.pause()
+            header_details = details.query_one("#record-header-details", RecordFieldDetails)
+            self.assertEqual(
+                "HEADER\nsource",
+                header_details.query_one(".record-field-name", Static).render().plain,
+            )
+            self.assertEqual(
+                "DESERIALIZER\nSTRING",
+                header_details.query_one(".record-deserializer", Static).render().plain,
+            )
+            deserializer_content = header_details.query_one(".record-deserializer", Static).content
+            self.assertIsInstance(deserializer_content, Text)
+            self.assertEqual("muted", deserializer_content.spans[0].style)
+            self.assertEqual(
+                "ENCODING\nHEX",
+                header_details.query_one(".record-encoding", Static).render().plain,
+            )
+            error = header_details.query_one(".record-error", Static)
+            self.assertTrue(error.display)
+            self.assertIn("ERROR\ninvalid UTF-8\nFallback: BYTES", error.render().plain)
+            self.assertEqual("solid", error.styles.border_top[0])
+            self.assertGreater(error.styles.border_top[1].r, error.styles.border_top[1].g)
+            self.assertGreater(error.styles.background.a, 0)
+            self.assertEqual(
+                "FALLBACK CONTENT",
+                header_details.query_one(".record-content-label", Static).render().plain,
+            )
+            self.assertEqual(
+                '"ff"',
+                header_details.query_one(".record-content", Static).content.text.plain,
+            )
+
+            table.move_cursor(row=0)
+            await pilot.pause()
+            self.assertFalse(header_details.query_one(".record-error", Static).display)
+            self.assertEqual(
+                "CONTENT",
+                header_details.query_one(".record-content-label", Static).render().plain,
+            )
+            self.assertEqual(
+                '"storefront"',
+                header_details.query_one(".record-content", Static).content.text.plain,
+            )
+
+            tabs.active = "key"
+            await pilot.pause()
+            key_details = details.query_one("#record-key-details", RecordFieldDetails)
+            self.assertEqual(
+                "DESERIALIZER\nBYTES",
+                key_details.query_one(".record-deserializer", Static).render().plain,
+            )
+            self.assertEqual(
+                "ENCODING\nHEX",
+                key_details.query_one(".record-encoding", Static).render().plain,
+            )
+            self.assertFalse(key_details.query_one(".record-error", Static).display)
+            self.assertEqual(
+                "CONTENT",
+                key_details.query_one(".record-content-label", Static).render().plain,
+            )
+            self.assertEqual(
+                '"ff"',
+                key_details.query_one(".record-content", Static).content.text.plain,
+            )
+
+            tabs.active = "value"
+            await pilot.pause()
+            value_details = details.query_one("#record-value-details", RecordFieldDetails)
+            self.assertEqual(
+                "DESERIALIZER\nREGISTRY · JSON",
+                value_details.query_one(".record-deserializer", Static).render().plain,
+            )
+            self.assertEqual(
+                "SCHEMA\nConfluent · ID 27 · orders-value v5",
+                value_details.query_one(".record-schema", Static).render().plain,
+            )
+            self.assertIn(
+                '"status": "paid"',
+                value_details.query_one(".record-content", Static).content.text.plain,
+            )
+
+            tabs.active = "json"
+            await pilot.pause()
+            self.assertEqual(
+                record_json(record).rstrip("\n"),
+                details.query_one(".record-json", Static).content.text.plain,
+            )
+
+
 class TestRecordDetailsNavigation(unittest.IsolatedAsyncioTestCase):
     @patch("kaskade.consumer.ConsumerService")
     async def test_navigates_records_without_closing_details_and_keeps_selection(
         self, consumer_service: MagicMock
     ) -> None:
         consumed_records = [
-            Record(topic="orders", partition=0, offset=offset) for offset in range(3)
+            Record(
+                topic="orders",
+                partition=0,
+                offset=0,
+                headers=[
+                    Header("trace-id", b"second", StringDeserializer()),
+                    Header("trace-id", b"first", StringDeserializer()),
+                ],
+            ),
+            Record(topic="orders", partition=0, offset=1),
+            Record(
+                topic="orders",
+                partition=0,
+                offset=2,
+                headers=[Header("source", b"mobile", StringDeserializer())],
+            ),
         ]
         consumer_service.return_value.consume = AsyncMock(return_value=consumed_records)
         app = KaskadeConsumer(
@@ -624,14 +855,23 @@ class TestRecordDetailsNavigation(unittest.IsolatedAsyncioTestCase):
             self.assertIs(consumed_records[0], details.record)
             self.assertFalse(details.check_action("previous_record", ()))
             self.assertTrue(details.check_action("next_record", ()))
+            tabs = details.query_one(TabbedContent)
+            tabs.active = "value"
+            await pilot.pause()
 
             record_json_widget = details.query_one(".record-json")
+            value_scroll = details.query_one("#value", TabPane).query_one(".record-detail-scroll")
             with (
                 patch.object(
                     record_json_widget,
                     "update",
                     wraps=record_json_widget.update,
                 ) as update_record_json,
+                patch.object(
+                    value_scroll,
+                    "scroll_home",
+                    wraps=value_scroll.scroll_home,
+                ) as scroll_value_home,
                 patch.object(
                     table,
                     "refresh",
@@ -643,6 +883,8 @@ class TestRecordDetailsNavigation(unittest.IsolatedAsyncioTestCase):
             self.assertIs(consumed_records[2], details.record)
             self.assertEqual(2, details.data["offset"])
             self.assertEqual(2, table.cursor_row)
+            self.assertEqual("value", tabs.active)
+            scroll_value_home.assert_called_with(animate=False)
             self.assertIn(call(), refresh_table.call_args_list)
             self.assertIs(consumed_records[2], app.query_one(ListRecords).current_record)
             rendered_record = update_record_json.call_args.args[0]
@@ -651,18 +893,29 @@ class TestRecordDetailsNavigation(unittest.IsolatedAsyncioTestCase):
                 rendered_record.text.plain,
             )
             self.assertEqual(
-                "[primary]Record[/primary] "
-                "[[primary]orders[/primary]]"
-                "[[primary]0[/primary]]"
-                "[[primary]2[/primary]]",
-                details.query_one(KaskadeScrollableContainer).border_title,
+                "OFFSET\n2",
+                details.query_one("#record-offset", Static).render().plain,
             )
+            self.assertEqual(
+                ["Key", "Value", "Headers [1]", "JSON"],
+                [tab.label_text for tab in details.query(Tab)],
+            )
+            header_table = details.query_one("#record-headers-table", DataTable)
+            self.assertEqual(1, header_table.row_count)
+            self.assertEqual(0, header_table.cursor_row)
             self.assertTrue(details.check_action("previous_record", ()))
             self.assertFalse(details.check_action("next_record", ()))
 
             await pilot.press("N")
             self.assertIs(consumed_records[1], details.record)
             self.assertEqual(1, table.cursor_row)
+            self.assertFalse(header_table.display)
+            self.assertTrue(details.query_one("#record-headers-empty", Static).display)
+            value_details = details.query_one("#record-value-details", RecordFieldDetails)
+            self.assertEqual(
+                "null",
+                value_details.query_one(".record-content", Static).content.text.plain,
+            )
 
             await pilot.press("p", "n")
             self.assertIs(consumed_records[1], details.record)

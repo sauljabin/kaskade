@@ -163,9 +163,16 @@ approximately 20 MiB.
 ### Clipboard and record export
 
 Select a topic in Admin mode or a consumed record in Consumer mode, then press
-`y` to copy the topic name or readable record JSON. Copy is also available in
-Topic Details, Record Details, contextual Help, and Commands, but is omitted
+`y` to copy the topic name or readable record JSON. Record Details separates the
+key, value, ordered headers, and complete JSON into tabs while keeping the topic,
+partition, offset, and timestamp visible. In that modal, `y` copies the active
+tab's headers array, key object, value object, or complete record object. Copy is
+also available in Topic Details, contextual Help, and Commands, but is omitted
 from the Footer.
+
+Key, value, and the selected header show compact deserializer, schema, and byte
+encoding diagnostics above their complete content. Deserialization failures use
+a highlighted error panel and identify the encoded fallback content.
 
 Selecting screen text is separate: use `Cmd+C` on macOS or `Ctrl+Shift+C` on
 Linux. `Ctrl+C` always quits Kaskade, even while text is selected.
@@ -201,11 +208,12 @@ and browser terminals or other relays may filter OSC 52.
 
 #### Export a consumed record
 
-Press `Ctrl+E` from the records table or Record Details to export JSON. Local
-terminals save to Downloads; web-hosted sessions use a browser download. Export
-Record appears in Help and Commands, not the Footer.
+Press `Ctrl+E` from the records table or any Record Details tab to export the
+complete record JSON. Local terminals save to Downloads; web-hosted sessions use
+a browser download. Export Record appears in Help and Commands, not the Footer.
 
-Details, clipboard copies, and exports share the contract in
+The complete JSON tab, records-table and JSON-tab copies, and exports share the
+contract in
 [`schemas/consumer-record.schema.json`](schemas/consumer-record.schema.json),
 which uses JSON Schema Draft 2020-12. Examples cover:
 
