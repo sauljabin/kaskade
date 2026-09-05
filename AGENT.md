@@ -185,6 +185,9 @@ focused on workflows.
 
 ## Releases, Commits, and Pull Requests
 
+- For release tasks, follow [Release Checklist](RELEASE_CHECKLIST.md), including
+  shared checks and the major, minor, or patch review. Record evidence in the
+  task report and obtain explicit approval before submitting an announcement.
 - Tags matching `vMAJOR.MINOR.PATCH` on `main` are the only release-version
   source. Hatchling and hatch-vcs derive metadata; never add a static version.
 - GitHub Releases are the changelog. Do not add a maintained changelog or

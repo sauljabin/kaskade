@@ -148,6 +148,10 @@ docker run --rm -it --network sandbox sauljabin/kaskade:latest admin -b kafka1:9
 
 ## Release
 
+Follow the [AI Agent Release Checklist](RELEASE_CHECKLIST.md) for shared checks,
+major, minor, or patch reviews, post-release verification, and announcement
+approval. This section owns the publishing commands and recovery procedure.
+
 Git tags are the only source of release versions. Package metadata is derived from
 the nearest semantic version tag by `hatch-vcs`; never edit a version field or a
 changelog file for a release. GitHub Releases are the canonical release history.
