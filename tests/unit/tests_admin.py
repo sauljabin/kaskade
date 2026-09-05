@@ -640,7 +640,7 @@ class TestDescribeTopic(unittest.IsolatedAsyncioTestCase):
                 )
                 self.assertEqual(
                     [
-                        "PARTITIONS\n2",
+                        "PARTIT…\n2",
                         "REPLICAS\n3",
                         "IN SYNC\n2",
                         "GROUPS\n1",
@@ -652,6 +652,10 @@ class TestDescribeTopic(unittest.IsolatedAsyncioTestCase):
                         cell.render().plain
                         for cell in app.screen.query(".topic-metadata-cell").results(Static)
                     ],
+                )
+                self.assertEqual(
+                    "Partitions",
+                    app.screen.query_one("#topic-partitions", Static).tooltip,
                 )
 
     async def test_loads_configurations_before_opening_topic_details(self) -> None:

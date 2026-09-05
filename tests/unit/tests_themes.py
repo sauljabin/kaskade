@@ -814,10 +814,16 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 self.assertTrue(
                     all(cell.styles.border_top[0] == "solid" for cell in metadata_cells)
                 )
-                self.assertTrue(all(cell.content_region.height >= 2 for cell in metadata_cells))
+                self.assertTrue(all(cell.content_region.height == 2 for cell in metadata_cells))
                 diagnostics = app.screen.query_one(".record-diagnostics", Grid)
                 self.assertEqual(1, diagnostics.styles.grid_size_columns)
                 self.assertEqual(3, diagnostics.styles.grid_size_rows)
+                self.assertTrue(
+                    all(
+                        cell.content_region.height == 2
+                        for cell in diagnostics.query(".record-diagnostic")
+                    )
+                )
                 content = app.screen.query_one("#record-key-details .record-content", Static)
                 content_panel = app.get_css_variables()["panel-darken-1"]
                 self.assertEqual(content_panel, content.styles.background.hex)
@@ -954,6 +960,12 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(7, metadata.styles.grid_size_columns)
                 self.assertEqual(1, metadata.styles.grid_size_rows)
                 self.assertEqual(7, len(metadata.query(".topic-metadata-cell")))
+                self.assertTrue(
+                    all(
+                        cell.content_region.height == 2
+                        for cell in metadata.query(".topic-metadata-cell")
+                    )
+                )
                 self.assertEqual(
                     [
                         "Partitions [0]",
@@ -1026,6 +1038,7 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(app.screen.content_region.width, details.region.width)
                 self.assertEqual(4, metadata.styles.grid_size_columns)
                 self.assertEqual(2, metadata.styles.grid_size_rows)
+                self.assertTrue(all(cell.content_region.height == 2 for cell in cells))
                 self.assertEqual(cells[0].region.y, cells[3].region.y)
                 self.assertGreater(cells[4].region.y, cells[0].region.y)
                 self.assertGreater(
@@ -1048,6 +1061,7 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 self.assertTrue(app.screen.has_class("-compact"))
                 self.assertEqual(3, metadata.styles.grid_size_columns)
                 self.assertEqual(3, metadata.styles.grid_size_rows)
+                self.assertTrue(all(cell.content_region.height == 2 for cell in cells))
                 self.assertEqual(cells[0].region.y, cells[2].region.y)
                 self.assertGreater(cells[3].region.y, cells[0].region.y)
                 self.assertGreaterEqual(partitions.content_region.width, len("PARTITIONS"))

@@ -1112,6 +1112,7 @@ class TestConsumptionCoordination(unittest.IsolatedAsyncioTestCase):
 
         consumer_service.return_value.consume = AsyncMock(side_effect=consume)
         consumer_service.return_value.aclose = AsyncMock()
+        consumer_service.return_value.group_id = "authorized-reader"
         app = KaskadeConsumer(
             "orders",
             {},
@@ -1132,6 +1133,7 @@ class TestConsumptionCoordination(unittest.IsolatedAsyncioTestCase):
                 self.assertTrue(table.loading)
                 self.assertFalse(frame.loading)
                 self.assertIn("Records", frame.border_title)
+                self.assertIn("Consumer Mode · Group authorized-reader", frame.border_subtitle)
                 self.assertNotEqual("", frame.styles.border_top[0])
                 self.assertEqual("", table.styles.border_top[0])
             finally:

@@ -27,8 +27,6 @@ def labelled_value(label: str, value: str) -> Text:
 class MetadataCell(Static):
     """A labelled value that reveals its label when space truncates it."""
 
-    ELLIPSIS_BREAKPOINT = 50
-
     def __init__(self, label: str, value: str, **kwargs: Any) -> None:
         self._metadata_label = label
         self._metadata_value = value
@@ -37,7 +35,7 @@ class MetadataCell(Static):
     def _content_for_width(self, width: int) -> Text:
         label = Text()
         label.append(self._metadata_label.upper(), style="muted")
-        if width and self.screen.size.width < self.ELLIPSIS_BREAKPOINT:
+        if width:
             label.truncate(width, overflow="ellipsis")
         label.append("\n")
         label.append(self._metadata_value)
@@ -48,11 +46,7 @@ class MetadataCell(Static):
         self.update(self._content_for_width(width), layout=False)
         self.tooltip = (
             self._metadata_label
-            if (
-                width
-                and self.screen.size.width < self.ELLIPSIS_BREAKPOINT
-                and cell_len(self._metadata_label.upper()) > width
-            )
+            if width and cell_len(self._metadata_label.upper()) > width
             else None
         )
 

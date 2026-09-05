@@ -399,7 +399,11 @@ class TestConsumerService(unittest.IsolatedAsyncioTestCase):
         )
         self.assertRegex(
             mock_class_consumer.call_args.args[0][GROUP_ID],
-            r"^kaskade-[0-9a-f-]+$",
+            r"^kaskade-[0-9a-f]{8}$",
+        )
+        self.assertEqual(
+            mock_class_consumer.call_args.args[0][GROUP_ID],
+            service.group_id,
         )
         consumer.list_topics.assert_called_once_with(
             "orders", timeout=service.timeouts.consumer_request
@@ -428,6 +432,7 @@ class TestConsumerService(unittest.IsolatedAsyncioTestCase):
             "authorized-reader",
             mock_class_consumer.call_args.args[0][GROUP_ID],
         )
+        self.assertEqual("authorized-reader", service.group_id)
 
         service.close()
         consumer.unsubscribe.assert_called_once_with()

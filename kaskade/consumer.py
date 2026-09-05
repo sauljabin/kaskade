@@ -799,6 +799,15 @@ class ListRecords(Container):
 
         return rf"[{PRIMARY}]Records[/] \[[{PRIMARY}]{self.topic}[/]]{title_filter}\[[{PRIMARY}]{len(self.records)}[/]]"
 
+    def _get_subtitle(self) -> str:
+        group_id = getattr(self.consumer, "group_id", None)
+        description = (
+            f"Consumer Mode · Group {group_id}"
+            if isinstance(group_id, str) and group_id
+            else "Consumer Mode"
+        )
+        return rf"\[[{PRIMARY}]{description}[/]]"
+
     def compose(self) -> ComposeResult:
         table = RecordDataTable(id="records-table", classes="main-table")
         table.cursor_type = "row"
@@ -813,7 +822,7 @@ class ListRecords(Container):
 
         frame = TableFrame(table, id="records-frame", classes="kaskade-table")
         frame.border_title = self._get_title()
-        frame.border_subtitle = rf"\[[{PRIMARY}]Consumer Mode[/]]"
+        frame.border_subtitle = self._get_subtitle()
         yield frame
 
     async def on_unmount(self) -> None:
@@ -848,6 +857,7 @@ class ListRecords(Container):
         self.current_record = None
         self.refresh_bindings()
         self._update_table_title()
+        self.query_one("#records-frame", TableFrame).border_subtitle = self._get_subtitle()
         self.action_consume()
 
     def _update_table_title(self) -> None:
