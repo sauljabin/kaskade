@@ -13,12 +13,13 @@ from textual import events
 from textual.color import Color
 from textual.containers import Container, Grid
 from textual.coordinate import Coordinate
-from textual.widgets import DataTable, OptionList, Static, Tab, TabbedContent, TabPane, Tabs
+from textual.widgets import DataTable, Static, Tab, TabbedContent, TabPane, Tabs
 
 from kaskade.colors import NULL as NULL_STYLE
 from kaskade.colors import WARNING as WARNING_STYLE
 from kaskade.configs import CONFLUENT
 from kaskade.consumer import (
+    HeaderDataTable,
     KaskadeConsumer,
     ListRecords,
     RecordDataTable,
@@ -743,9 +744,9 @@ class TestRecordDetailsTabs(unittest.IsolatedAsyncioTestCase):
                             )
                             if tab_id == "value":
                                 self.assertTrue(field.query_one(".record-error").display)
-                        headers = details.query_one("#record-headers-list", OptionList)
+                        headers = details.query_one("#record-headers-list", HeaderDataTable)
                         headers.focus()
-                        headers.highlighted = 1
+                        headers.move_cursor(row=1)
                         await pilot.pause()
                         self.assertEqual(0, scroll.scroll_y)
                         content_height = field.query_one(".record-content").region.height
@@ -823,7 +824,7 @@ class TestRecordDetailsTabs(unittest.IsolatedAsyncioTestCase):
             await pilot.pause()
             details = app.screen
             tabs = details.query_one(TabbedContent)
-            headers = details.query_one("#record-headers-list", OptionList)
+            headers = details.query_one("#record-headers-list", HeaderDataTable)
 
             self.assertEqual("key", tabs.active)
             self.assertEqual(
@@ -840,12 +841,14 @@ class TestRecordDetailsTabs(unittest.IsolatedAsyncioTestCase):
                 [tab.label_text for tab in details.query(Tab)],
             )
             self.assertEqual(
-                ["1  source", "2  source"],
+                [("0", "source"), ("1", "source")],
                 [
-                    str(headers.get_option_at_index(index).prompt)
-                    for index in range(headers.option_count)
+                    tuple(str(cell) for cell in headers.get_row_at(index))
+                    for index in range(headers.row_count)
                 ],
             )
+            self.assertFalse(headers.show_header)
+            self.assertEqual(1, headers.ordered_columns[0].width)
             self.assertEqual(
                 "TOTAL SIZE\n0.03 KB",
                 details.query_one("#record-total-size", Static).render().plain,
@@ -866,7 +869,7 @@ class TestRecordDetailsTabs(unittest.IsolatedAsyncioTestCase):
                 details.query_one("#record-timestamp", Static).render().plain,
             )
 
-            headers.highlighted = 1
+            headers.move_cursor(row=1)
             await pilot.pause()
             header_details = details.query_one("#record-header-details", RecordFieldDetails)
             self.assertEqual(
@@ -893,7 +896,7 @@ class TestRecordDetailsTabs(unittest.IsolatedAsyncioTestCase):
                 header_details.query_one(".record-content", Static).content.text.plain,
             )
 
-            headers.highlighted = 0
+            headers.move_cursor(row=0)
             await pilot.pause()
             self.assertFalse(header_details.query_one(".record-error", Static).display)
             self.assertEqual(
@@ -1058,9 +1061,9 @@ class TestRecordDetailsNavigation(unittest.IsolatedAsyncioTestCase):
                 ["Key", "Value", "Headers [1]", "Export"],
                 [tab.label_text for tab in details.query(Tab)],
             )
-            header_list = details.query_one("#record-headers-list", OptionList)
-            self.assertEqual(1, header_list.option_count)
-            self.assertEqual(0, header_list.highlighted)
+            header_list = details.query_one("#record-headers-list", HeaderDataTable)
+            self.assertEqual(1, header_list.row_count)
+            self.assertEqual(0, header_list.cursor_row)
             self.assertTrue(details.check_action("previous_record", ()))
             self.assertFalse(details.check_action("next_record", ()))
 
@@ -1109,6 +1112,7 @@ class TestConsumptionCoordination(unittest.IsolatedAsyncioTestCase):
 
         consumer_service.return_value.consume = AsyncMock(side_effect=consume)
         consumer_service.return_value.aclose = AsyncMock()
+        consumer_service.return_value.group_id = "authorized-reader"
         app = KaskadeConsumer(
             "orders",
             {},
@@ -1129,6 +1133,7 @@ class TestConsumptionCoordination(unittest.IsolatedAsyncioTestCase):
                 self.assertTrue(table.loading)
                 self.assertFalse(frame.loading)
                 self.assertIn("Records", frame.border_title)
+                self.assertIn("Consumer Mode · Group authorized-reader", frame.border_subtitle)
                 self.assertNotEqual("", frame.styles.border_top[0])
                 self.assertEqual("", table.styles.border_top[0])
             finally:

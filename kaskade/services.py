@@ -110,13 +110,14 @@ class ConsumerService:
         self.started_at = perf_counter()
         self.assigned_at: float | None = None
         self._consumer_error: KafkaError | None = None
-        default_group_id = f"kaskade-{uuid.uuid4()}"
+        default_group_id = f"kaskade-{uuid.uuid4().hex[:8]}"
         consumer_config = kafka_config | {
             ENABLE_AUTO_COMMIT: False,
             MAX_POLL_INTERVAL_MS: MILLISECONDS_24H,
             "error_cb": self._on_consumer_error,
         }
         consumer_config.setdefault(GROUP_ID, default_group_id)
+        self.group_id = str(consumer_config[GROUP_ID])
         self.consumer = Consumer(consumer_config, logger=logger)
         try:
             self._start_consuming()

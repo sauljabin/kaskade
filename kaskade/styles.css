@@ -219,7 +219,7 @@ TopicScreen > .record-details {
 
 TopicScreen #record-metadata {
     width: 100%;
-    height: 5;
+    height: 4;
     grid-size: 4 1;
     grid-columns: 1fr 1fr 1fr 2fr;
     grid-rows: 1fr;
@@ -312,7 +312,7 @@ TopicScreen .record-diagnostics {
 TopicScreen .record-diagnostic {
     width: 100%;
     height: 100%;
-    min-height: 5;
+    min-height: 4;
     border: solid $secondary 50%;
     padding: 0;
     text-wrap: wrap;
@@ -383,7 +383,7 @@ DescribeTopicScreen > .topic-details {
 
 DescribeTopicScreen #topic-metadata {
     width: 100%;
-    height: 5;
+    height: 4;
     grid-size: 7 1;
     grid-columns: 1fr 1fr 1fr 1fr 1fr 1fr 1fr;
     grid-rows: 1fr;
@@ -410,13 +410,14 @@ Screen.-narrow > .record-filter,
 Screen.-narrow > Input,
 Screen.-narrow > OptionList,
 Screen.-narrow > .record-details,
-DescribeTopicScreen.-narrow > .topic-details {
+DescribeTopicScreen.-narrow > .topic-details,
+DescribeTopicScreen.-compact > .topic-details {
     width: 100%;
     max-width: 100%;
 }
 
 TopicScreen.-narrow #record-metadata {
-    height: 10;
+    height: 8;
     grid-size: 2 2;
     grid-columns: 1fr 1fr;
     grid-rows: 1fr 1fr;
@@ -429,10 +430,17 @@ TopicScreen.-narrow .record-diagnostics {
 }
 
 DescribeTopicScreen.-narrow #topic-metadata {
-    height: 10;
+    height: 8;
     grid-size: 4 2;
     grid-columns: 1fr 1fr 1fr 1fr;
     grid-rows: 1fr 1fr;
+}
+
+DescribeTopicScreen.-compact #topic-metadata {
+    height: 12;
+    grid-size: 3 3;
+    grid-columns: 1fr 1fr 1fr;
+    grid-rows: 1fr 1fr 1fr;
 }
 
 HelpScreen.-narrow > #help-dialog {

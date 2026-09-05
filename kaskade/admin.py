@@ -20,7 +20,6 @@ from textual.widgets import (
     Input,
     RadioButton,
     RadioSet,
-    Static,
     TabbedContent,
     TabPane,
     Tabs,
@@ -46,7 +45,12 @@ from kaskade.themes import KaskadeApp
 from kaskade.timeouts import TimeoutConfig
 from kaskade.unicodes import APPROXIMATION
 from kaskade.utils import copy_text, make_it_async, notify_error
-from kaskade.widgets import KaskadeHeader, StretchyDataTable, TableFrame, labelled_value
+from kaskade.widgets import (
+    KaskadeHeader,
+    MetadataCell,
+    StretchyDataTable,
+    TableFrame,
+)
 
 REFRESH_TABLE_DELAY = 1
 FILTER_TOPICS_SHORTCUT = "/,ctrl+f"
@@ -225,6 +229,11 @@ class DeleteTopicScreen(HelpableModalScreen[bool]):
 class DescribeTopicScreen(HelpableModalScreen):
     BINDING_GROUP_TITLE = "Topic Details"
     AUTO_FOCUS = "Tabs"
+    HORIZONTAL_BREAKPOINTS = [  # noqa: RUF012
+        (0, "-compact"),
+        (50, "-narrow"),
+        (80, "-wide"),
+    ]
     BINDINGS: ClassVar[list[BindingType]] = modal_bindings(
         Binding(
             COPY_TOPIC_SHORTCUT,
@@ -274,8 +283,9 @@ class DescribeTopicScreen(HelpableModalScreen):
         with details:
             with Grid(id="topic-metadata"):
                 for metadata_id, label, value in self._metadata():
-                    yield Static(
-                        labelled_value(label, value),
+                    yield MetadataCell(
+                        label,
+                        value,
                         id=metadata_id,
                         classes="topic-metadata-cell",
                     )

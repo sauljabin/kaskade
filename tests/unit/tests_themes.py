@@ -37,6 +37,7 @@ from kaskade.configs import BOOTSTRAP_SERVERS
 from kaskade.consumer import (
     ChunkSizeScreen,
     FilterRecordScreen,
+    HeaderDataTable,
     KaskadeConsumer,
     ListRecords,
     TopicScreen,
@@ -57,6 +58,7 @@ from kaskade.widgets import (
     KaskadeHeader,
     KaskadeOptionList,
     KaskadeScrollableContainer,
+    MetadataCell,
     StretchyDataTable,
     TableFrame,
 )
@@ -812,10 +814,16 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 self.assertTrue(
                     all(cell.styles.border_top[0] == "solid" for cell in metadata_cells)
                 )
-                self.assertTrue(all(cell.content_region.height >= 2 for cell in metadata_cells))
+                self.assertTrue(all(cell.content_region.height == 2 for cell in metadata_cells))
                 diagnostics = app.screen.query_one(".record-diagnostics", Grid)
                 self.assertEqual(1, diagnostics.styles.grid_size_columns)
                 self.assertEqual(3, diagnostics.styles.grid_size_rows)
+                self.assertTrue(
+                    all(
+                        cell.content_region.height == 2
+                        for cell in diagnostics.query(".record-diagnostic")
+                    )
+                )
                 content = app.screen.query_one("#record-key-details .record-content", Static)
                 content_panel = app.get_css_variables()["panel-darken-1"]
                 self.assertEqual(content_panel, content.styles.background.hex)
@@ -849,8 +857,20 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 tabs.focus()
                 app.screen.query_one(TabbedContent).active = "headers"
                 await pilot.pause()
-                header_list = app.screen.query_one("#record-headers-list", OptionList)
+                header_list = app.screen.query_one("#record-headers-list", HeaderDataTable)
                 header_details = app.screen.query_one(".record-header-details", Container)
+                self.assertFalse(header_list.show_header)
+                self.assertLess(
+                    header_list.ordered_columns[0].width,
+                    header_list.ordered_columns[1].width,
+                )
+                self.assertEqual(
+                    "ellipsis",
+                    header_list._compute_row_renderables(0).cells[1].overflow,
+                )
+                header_list.hover_coordinate = Coordinate(0, 1)
+                await pilot.pause()
+                self.assertEqual("long-header-key", header_list.tooltip)
                 self.assertEqual(header_list.region.y, header_details.region.y)
                 self.assertLess(header_list.region.x, header_details.region.x)
                 await pilot.press("tab")
@@ -881,6 +901,40 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 await pilot.press("escape")
                 self.assertIs(records_table, app.screen.focused)
 
+    async def test_record_metadata_ellipsizes_labels_on_tiny_screens(self):
+        with patch("kaskade.consumer.ConsumerService") as consumer_service:
+            consumer_service.return_value.consume = AsyncMock(return_value=[])
+            app = KaskadeConsumer(
+                "orders",
+                {},
+                {},
+                {},
+                {},
+                Deserialization.STRING,
+                Deserialization.STRING,
+            )
+
+            async with app.run_test(size=(24, 24)) as pilot:
+                app.push_screen(
+                    TopicScreen(
+                        Record(
+                            topic="orders",
+                            partition=0,
+                            offset=1,
+                            key=b"key",
+                            value=b"value",
+                        )
+                    )
+                )
+                await pilot.pause()
+
+                total_size = app.screen.query_one("#record-total-size", MetadataCell)
+                deserializer = app.screen.query_one(".record-deserializer", MetadataCell)
+                self.assertTrue(total_size.render().plain.splitlines()[0].endswith("…"))
+                self.assertEqual("Total Size", total_size.tooltip)
+                self.assertEqual("DESERIALIZER", deserializer.render().plain.splitlines()[0])
+                self.assertIsNone(deserializer.tooltip)
+
     async def test_topic_details_use_native_tabs_and_a_contextual_footer(self):
         with patch("kaskade.admin.TopicService") as topic_service:
             configure_admin_service(topic_service.return_value, {})
@@ -906,6 +960,12 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(7, metadata.styles.grid_size_columns)
                 self.assertEqual(1, metadata.styles.grid_size_rows)
                 self.assertEqual(7, len(metadata.query(".topic-metadata-cell")))
+                self.assertTrue(
+                    all(
+                        cell.content_region.height == 2
+                        for cell in metadata.query(".topic-metadata-cell")
+                    )
+                )
                 self.assertEqual(
                     [
                         "Partitions [0]",
@@ -978,12 +1038,48 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(app.screen.content_region.width, details.region.width)
                 self.assertEqual(4, metadata.styles.grid_size_columns)
                 self.assertEqual(2, metadata.styles.grid_size_rows)
+                self.assertTrue(all(cell.content_region.height == 2 for cell in cells))
                 self.assertEqual(cells[0].region.y, cells[3].region.y)
                 self.assertGreater(cells[4].region.y, cells[0].region.y)
                 self.assertGreater(
                     app.screen.query_one("#partitions-table", DataTable).content_region.height,
                     0,
                 )
+
+    async def test_topic_details_metadata_uses_three_columns_on_compact_screens(self):
+        with patch("kaskade.admin.TopicService") as topic_service:
+            configure_admin_service(topic_service.return_value, {})
+            app = KaskadeAdmin({})
+
+            async with app.run_test(size=(48, 30)) as pilot:
+                app.push_screen(DescribeTopicScreen(Topic(name="orders"), ()))
+                await pilot.pause()
+
+                metadata = app.screen.query_one("#topic-metadata", Grid)
+                cells = list(metadata.query(".topic-metadata-cell"))
+                partitions = app.screen.query_one("#topic-partitions", Static)
+                self.assertTrue(app.screen.has_class("-compact"))
+                self.assertEqual(3, metadata.styles.grid_size_columns)
+                self.assertEqual(3, metadata.styles.grid_size_rows)
+                self.assertTrue(all(cell.content_region.height == 2 for cell in cells))
+                self.assertEqual(cells[0].region.y, cells[2].region.y)
+                self.assertGreater(cells[3].region.y, cells[0].region.y)
+                self.assertGreaterEqual(partitions.content_region.width, len("PARTITIONS"))
+                self.assertIsNone(partitions.tooltip)
+
+    async def test_topic_details_metadata_ellipsizes_labels_on_tiny_screens(self):
+        with patch("kaskade.admin.TopicService") as topic_service:
+            configure_admin_service(topic_service.return_value, {})
+            app = KaskadeAdmin({})
+
+            async with app.run_test(size=(36, 30)) as pilot:
+                app.push_screen(DescribeTopicScreen(Topic(name="orders"), ()))
+                await pilot.pause()
+
+                partitions = app.screen.query_one("#topic-partitions", Static)
+                self.assertLess(partitions.content_region.width, len("PARTITIONS"))
+                self.assertTrue(partitions.render().plain.splitlines()[0].endswith("…"))
+                self.assertEqual("Partitions", partitions.tooltip)
 
     async def test_topic_details_help_excludes_ctrl_c_from_selected_text_copy(self):
         with patch("kaskade.admin.TopicService") as topic_service:

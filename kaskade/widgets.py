@@ -1,6 +1,7 @@
 from collections.abc import Mapping
 from typing import Any, ClassVar
 
+from rich.cells import cell_len
 from rich.text import Text, TextType
 from textual import events
 from textual.app import ComposeResult
@@ -21,6 +22,40 @@ def labelled_value(label: str, value: str) -> Text:
     content.append("\n")
     content.append(value)
     return content
+
+
+class MetadataCell(Static):
+    """A labelled value that reveals its label when space truncates it."""
+
+    def __init__(self, label: str, value: str, **kwargs: Any) -> None:
+        self._metadata_label = label
+        self._metadata_value = value
+        super().__init__(labelled_value(label, value), **kwargs)
+
+    def _content_for_width(self, width: int) -> Text:
+        label = Text()
+        label.append(self._metadata_label.upper(), style="muted")
+        if width:
+            label.truncate(width, overflow="ellipsis")
+        label.append("\n")
+        label.append(self._metadata_value)
+        return label
+
+    def _refresh_content(self) -> None:
+        width = self.content_region.width
+        self.update(self._content_for_width(width), layout=False)
+        self.tooltip = (
+            self._metadata_label
+            if width and cell_len(self._metadata_label.upper()) > width
+            else None
+        )
+
+    def on_resize(self, _event: events.Resize) -> None:
+        self._refresh_content()
+
+    def update_value(self, value: str) -> None:
+        self._metadata_value = value
+        self._refresh_content()
 
 
 class KaskadeHeader(Horizontal):

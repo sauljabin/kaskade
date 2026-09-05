@@ -3,6 +3,7 @@ from inspect import isawaitable
 from typing import Any, ClassVar
 
 from confluent_kafka import KafkaException
+from rich.cells import cell_len
 from rich.text import Text
 from textual import work
 from textual.app import ComposeResult
@@ -46,6 +47,7 @@ from kaskade.widgets import (
     KaskadeHeader,
     KaskadeOptionList,
     KaskadeScrollableContainer,
+    MetadataCell,
     StretchyDataTable,
     TableFrame,
     labelled_value,
@@ -102,6 +104,22 @@ class RecordDataTable(StretchyDataTable[str | Text]):
     def watch_hover_coordinate(self, old: Coordinate, value: Coordinate) -> None:
         super().watch_hover_coordinate(old, value)
         self.tooltip = self._cell_tooltips.get(value)
+
+
+class HeaderDataTable(StretchyDataTable[str | Text]):
+    """A compact header table that reveals truncated header names."""
+
+    def watch_hover_coordinate(self, old: Coordinate, value: Coordinate) -> None:
+        super().watch_hover_coordinate(old, value)
+        self.tooltip = None
+        if not self.is_valid_coordinate(value):
+            return
+        cell_key = self.coordinate_to_cell_key(value)
+        if cell_key.column_key.value != "name":
+            return
+        header_name = str(self.get_cell_at(value))
+        if cell_len(header_name) > self.columns[cell_key.column_key].width:
+            self.tooltip = header_name
 
 
 class FilterRecordScreen(HelpableModalScreen[RecordFilters]):
@@ -309,16 +327,19 @@ class RecordFieldDetails(Container):
             diagnostics = Grid(classes="record-diagnostics")
             diagnostics.display = self.field_name is None
             with diagnostics:
-                yield Static(
-                    labelled_value("Deserializer", self._deserializer()),
+                yield MetadataCell(
+                    "Deserializer",
+                    self._deserializer(),
                     classes="record-diagnostic record-deserializer",
                 )
-                yield Static(
-                    labelled_value("Schema", self._schema()),
+                yield MetadataCell(
+                    "Schema",
+                    self._schema(),
                     classes="record-diagnostic record-schema",
                 )
-                yield Static(
-                    labelled_value("Size", format_payload_size(self.payload_size)),
+                yield MetadataCell(
+                    "Size",
+                    format_payload_size(self.payload_size),
                     classes="record-diagnostic record-size",
                 )
 
@@ -352,12 +373,10 @@ class RecordFieldDetails(Container):
         if field_name is not None:
             name.update(self._header_summary())
         self.query_one(".record-diagnostics", Grid).display = field_name is None
-        self.query_one(".record-deserializer", Static).update(
-            labelled_value("Deserializer", self._deserializer())
-        )
-        self.query_one(".record-schema", Static).update(labelled_value("Schema", self._schema()))
-        self.query_one(".record-size", Static).update(
-            labelled_value("Size", format_payload_size(self.payload_size))
+        self.query_one(".record-deserializer", MetadataCell).update_value(self._deserializer())
+        self.query_one(".record-schema", MetadataCell).update_value(self._schema())
+        self.query_one(".record-size", MetadataCell).update_value(
+            format_payload_size(self.payload_size)
         )
         error = self.query_one(".record-error", Static)
         error.display = outcome.error is not None
@@ -461,24 +480,25 @@ class TopicScreen(HelpableModalScreen[Record]):
             ),
         )
 
-    @staticmethod
-    def _metadata_content(label: str, value: str) -> Text:
-        return labelled_value(label, value)
-
-    def _header_options(self) -> list[Option]:
-        return [
-            Option(Text.assemble((f"{index + 1}  ", "muted"), header.key), id=str(index))
-            for index, header in enumerate(self.record.headers)
-        ]
-
-    def _headers_list(self) -> KaskadeOptionList:
-        headers = KaskadeOptionList(
-            *self._header_options(),
+    def _headers_table(self) -> HeaderDataTable:
+        headers = HeaderDataTable(
             id="record-headers-list",
-            compact=True,
+            show_header=False,
+            cursor_type="row",
         )
-        headers.highlighted = 0 if self.record.headers else None
+        max_header_index = max(
+            (len(record.headers) - 1 for record in self.records),
+            default=0,
+        )
+        index_width = len(str(max(0, max_header_index)))
+        headers.add_column("", key="index", width=index_width)
+        headers.add_column("", key="name", width=1, stretch=1)
+        self._add_header_rows(headers)
         return headers
+
+    def _add_header_rows(self, headers: HeaderDataTable) -> None:
+        for index, header in enumerate(self.record.headers):
+            headers.add_row(Text(str(index), style="muted"), header.key, key=str(index))
 
     def compose(self) -> ComposeResult:
         container = Container(classes="record-details")
@@ -486,8 +506,9 @@ class TopicScreen(HelpableModalScreen[Record]):
         with container:
             with Grid(id="record-metadata"):
                 for metadata_id, label, value in self._metadata():
-                    yield Static(
-                        self._metadata_content(label, value),
+                    yield MetadataCell(
+                        label,
+                        value,
                         id=metadata_id,
                         classes="record-metadata-cell",
                     )
@@ -515,7 +536,7 @@ class TopicScreen(HelpableModalScreen[Record]):
                     ),
                     Container(classes="record-headers-layout"),
                 ):
-                    headers = self._headers_list()
+                    headers = self._headers_table()
                     headers.display = bool(self.record.headers)
                     yield headers
                     empty = Static("No headers", id="record-headers-empty")
@@ -569,7 +590,7 @@ class TopicScreen(HelpableModalScreen[Record]):
         details = self.query_one(".record-details", Container)
         details.border_title = self._title()
         for metadata_id, label, value in self._metadata():
-            self.query_one(f"#{metadata_id}", Static).update(self._metadata_content(label, value))
+            self.query_one(f"#{metadata_id}", MetadataCell).update_value(value)
         tabs = self.query_one(TabbedContent)
         headers_tab = tabs.get_tab("headers")
         assert headers_tab is not None
@@ -591,17 +612,17 @@ class TopicScreen(HelpableModalScreen[Record]):
             self.on_record_changed(record)
 
     def _refresh_headers(self) -> None:
-        headers = self.query_one("#record-headers-list", KaskadeOptionList)
+        headers = self.query_one("#record-headers-list", HeaderDataTable)
         empty = self.query_one("#record-headers-empty", Static)
         details = self.query_one(".record-header-details", Container)
-        headers.clear_options()
+        headers.clear()
         has_headers = bool(self.record.headers)
         headers.display = has_headers
         empty.display = not has_headers
         details.display = has_headers
         if has_headers:
-            headers.add_options(self._header_options())
-            headers.highlighted = 0
+            self._add_header_rows(headers)
+            headers.move_cursor(row=0)
             header = self.record.headers[0]
             self.query_one("#record-header-details", RecordFieldDetails).update_outcome(
                 header.value_outcome(),
@@ -609,10 +630,14 @@ class TopicScreen(HelpableModalScreen[Record]):
                 field_name=header.key,
             )
 
-    def on_option_list_option_highlighted(self, event: OptionList.OptionHighlighted) -> None:
-        if event.option_list.id != "record-headers-list" or event.option_id is None:
+    def on_data_table_row_highlighted(self, event: DataTable.RowHighlighted) -> None:
+        if (
+            event.data_table.id != "record-headers-list"
+            or event.row_key is None
+            or event.row_key.value is None
+        ):
             return
-        header = self.record.headers[int(event.option_id)]
+        header = self.record.headers[int(event.row_key.value)]
         self.query_one("#record-header-details", RecordFieldDetails).update_outcome(
             header.value_outcome(),
             payload_size=len(header.value) if header.value is not None else None,
@@ -774,6 +799,15 @@ class ListRecords(Container):
 
         return rf"[{PRIMARY}]Records[/] \[[{PRIMARY}]{self.topic}[/]]{title_filter}\[[{PRIMARY}]{len(self.records)}[/]]"
 
+    def _get_subtitle(self) -> str:
+        group_id = getattr(self.consumer, "group_id", None)
+        description = (
+            f"Consumer Mode · Group {group_id}"
+            if isinstance(group_id, str) and group_id
+            else "Consumer Mode"
+        )
+        return rf"\[[{PRIMARY}]{description}[/]]"
+
     def compose(self) -> ComposeResult:
         table = RecordDataTable(id="records-table", classes="main-table")
         table.cursor_type = "row"
@@ -788,7 +822,7 @@ class ListRecords(Container):
 
         frame = TableFrame(table, id="records-frame", classes="kaskade-table")
         frame.border_title = self._get_title()
-        frame.border_subtitle = rf"\[[{PRIMARY}]Consumer Mode[/]]"
+        frame.border_subtitle = self._get_subtitle()
         yield frame
 
     async def on_unmount(self) -> None:
@@ -823,6 +857,7 @@ class ListRecords(Container):
         self.current_record = None
         self.refresh_bindings()
         self._update_table_title()
+        self.query_one("#records-frame", TableFrame).border_subtitle = self._get_subtitle()
         self.action_consume()
 
     def _update_table_title(self) -> None:
