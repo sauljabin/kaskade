@@ -105,6 +105,11 @@ The command-line value takes precedence and follows the same validation rules.
 
 Topic Details keeps partition, replica, in-sync replica, approximate record,
 consumer-group, member, and approximate lag totals visible above its tabs.
+The Partitions tab includes each partition's earliest and end offsets. Group
+Offsets shows committed and end offsets with lag for every group partition.
+End is the next offset after the partition's latest record; Committed is the
+group's saved next offset to consume. Lag is their non-negative difference.
+Only partitions with available committed offsets appear in Group Offsets.
 
 ### Keyboard shortcuts
 
@@ -189,9 +194,9 @@ approximately 20 MiB.
 
 Select a topic in Admin mode or a consumed record in Consumer mode, then press
 `y` to copy the topic name or readable record JSON. Record Details separates the
-key, value, ordered headers, and complete JSON into tabs while keeping the total
-raw payload size, partition, offset, and timestamp visible. The topic remains in
-the border title. In that modal, `y` copies the active tab's headers array, key
+key, value, ordered headers, and complete record JSON (Export) into tabs while
+keeping the total raw payload size, partition, offset, and timestamp visible.
+The topic remains in the border title. In that modal, `y` copies the active tab's headers array, key
 object, value object, or complete record object. Copy is also available in Topic
 Details, contextual Help, and Commands, but is omitted from the Footer.
 
@@ -242,7 +247,7 @@ Press `Ctrl+E` from the records table or any Record Details tab to export the
 complete record JSON. Local terminals save to Downloads; web-hosted sessions use
 a browser download. Export Record appears in Help and Commands, not the Footer.
 
-The complete JSON tab, records-table and JSON-tab copies, and exports share the
+The Export tab, records-table and Export-tab copies, and exported files share the
 contract in
 [`schemas/consumer-record.schema.json`](schemas/consumer-record.schema.json),
 which uses JSON Schema Draft 2020-12. Examples cover:

@@ -784,6 +784,8 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                             topic="orders",
                             partition=0,
                             offset=1,
+                            key=b"key",
+                            value=b"value",
                             headers=[Header("long-header-key", b"value", StringDeserializer())],
                         )
                     )
@@ -796,7 +798,7 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(app.screen.content_region.width, details.region.width)
                 self.assertEqual(app.current_theme.background, details.styles.background.hex)
                 self.assertEqual(
-                    ["Key", "Value", "Headers [1]", "JSON"],
+                    ["Key", "Value", "Headers [1]", "Export"],
                     [tab.label_text for tab in app.screen.query(Tab)],
                 )
                 self.assertEqual(4, len(app.screen.query(TabPane)))
@@ -815,54 +817,64 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(1, diagnostics.styles.grid_size_columns)
                 self.assertEqual(3, diagnostics.styles.grid_size_rows)
                 content = app.screen.query_one("#record-key-details .record-content", Static)
-                self.assertEqual(app.current_theme.panel, content.styles.background.hex)
+                content_panel = app.get_css_variables()["panel-darken-1"]
+                self.assertEqual(content_panel, content.styles.background.hex)
                 self.assertNotEqual(details.styles.background, content.styles.background)
 
                 key_scroll = app.screen.query_one(
                     "#key .record-detail-scroll", KaskadeScrollableContainer
                 )
-                key_scroll.focus()
+                await pilot.press("tab")
+                self.assertIs(key_scroll, app.screen.focused)
                 await pilot.pause()
-                focused_panel = app.get_css_variables()["panel-lighten-1"]
+                focused_panel = app.get_css_variables()["panel"]
                 self.assertEqual(focused_panel, content.styles.background.hex)
 
-                tabs.focus()
+                await pilot.press("tab")
+                self.assertIs(tabs, app.screen.focused)
                 await pilot.press("right")
                 self.assertEqual("value", app.screen.query_one(TabbedContent).active)
                 value_scroll = app.screen.query_one(
                     "#value .record-detail-scroll", KaskadeScrollableContainer
                 )
-                value_scroll.focus()
+                await pilot.press("tab")
+                self.assertIs(value_scroll, app.screen.focused)
                 await pilot.pause()
                 value_content = app.screen.query_one(
                     "#record-value-details .record-content", Static
                 )
                 self.assertEqual(focused_panel, value_content.styles.background.hex)
-                self.assertEqual(app.current_theme.panel, content.styles.background.hex)
+                self.assertEqual(content_panel, content.styles.background.hex)
 
+                tabs.focus()
                 app.screen.query_one(TabbedContent).active = "headers"
                 await pilot.pause()
                 header_list = app.screen.query_one("#record-headers-list", OptionList)
-                header_details = app.screen.query_one(
-                    ".record-header-scroll", KaskadeScrollableContainer
-                )
+                header_details = app.screen.query_one(".record-header-details", Container)
                 self.assertEqual(header_list.region.y, header_details.region.y)
                 self.assertLess(header_list.region.x, header_details.region.x)
-                header_details.focus()
+                await pilot.press("tab")
+                self.assertIs(header_list, app.screen.focused)
+                await pilot.press("tab")
+                self.assertIs(
+                    header_details.query_one(".record-content-scroll"), app.screen.focused
+                )
                 await pilot.pause()
                 header_content = app.screen.query_one(
                     "#record-header-details .record-content", Static
                 )
                 self.assertEqual(focused_panel, header_content.styles.background.hex)
 
+                tabs.focus()
                 app.screen.query_one(TabbedContent).active = "json"
                 await pilot.pause()
                 json_content = app.screen.query_one(".record-json", Static)
-                self.assertEqual(app.current_theme.panel, json_content.styles.background.hex)
+                self.assertEqual(content_panel, json_content.styles.background.hex)
                 json_scroll = app.screen.query_one(
                     "#json .record-detail-scroll", KaskadeScrollableContainer
                 )
-                json_scroll.focus()
+                await pilot.press("tab")
+                self.assertIs(json_scroll, app.screen.focused)
                 await pilot.pause()
                 self.assertEqual(focused_panel, json_content.styles.background.hex)
 
@@ -899,6 +911,7 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                         "Partitions [0]",
                         "Configurations [2]",
                         "Groups [0]",
+                        "Group Offsets [0]",
                         "Group Members [0]",
                     ],
                     [tab.label_text for tab in app.screen.query(Tab)],
@@ -909,9 +922,9 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 )
                 self.assertNotEqual("none", details.styles.border_top[0])
                 self.assertEqual("", tabs.styles.border_top[0])
-                self.assertEqual(4, len(app.screen.query(TabPane)))
-                self.assertEqual(4, len(app.screen.query(DataTable)))
-                self.assertEqual(4, len(detail_tables))
+                self.assertEqual(5, len(app.screen.query(TabPane)))
+                self.assertEqual(5, len(app.screen.query(DataTable)))
+                self.assertEqual(5, len(detail_tables))
                 self.assertTrue(all(not table.zebra_stripes for table in detail_tables))
                 self.assertEqual(
                     ["Name", "Value"],

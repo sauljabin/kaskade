@@ -207,6 +207,9 @@ class Topic:
     def group_members_count(self) -> int:
         return sum(group.members_count() for group in self.groups)
 
+    def group_partitions_count(self) -> int:
+        return sum(group.partitions_count() for group in self.groups)
+
     def replicas_count(self) -> int:
         return max((len(partition.replicas) for partition in self.partitions), default=0)
 

@@ -293,6 +293,11 @@ class DescribeTopicScreen(HelpableModalScreen):
                 with TabPane(Content(f"Groups [{self.topic.groups_count()}]"), id="groups"):
                     yield self._groups_table()
                 with TabPane(
+                    Content(f"Group Offsets [{self.topic.group_partitions_count()}]"),
+                    id="group-offsets",
+                ):
+                    yield self._group_offsets_table()
+                with TabPane(
                     Content(f"Group Members [{self.topic.group_members_count()}]"),
                     id="group-members",
                 ):
@@ -334,22 +339,49 @@ class DescribeTopicScreen(HelpableModalScreen):
         table.cursor_type = "row"
         return table
 
+    def on_tabbed_content_tab_activated(self, event: TabbedContent.TabActivated) -> None:
+        table = event.pane.query_one(StretchyDataTable)
+        table.call_after_refresh(table._stretch_columns)
+
     def _partitions_table(self) -> StretchyDataTable[str]:
         table = self._new_table("partitions-table")
         table.add_column("ID", stretch=1)
         table.add_column("Leader", stretch=1)
+        table.add_column("Earliest", stretch=1)
+        table.add_column("End", stretch=1)
+        table.add_column("Records", stretch=1)
         table.add_column("ISRs", stretch=1)
         table.add_column("Replicas", stretch=1)
-        table.add_column("Records", stretch=1)
 
         for partition in self.topic.partitions:
             table.add_row(
                 str(partition.id),
                 str(partition.leader),
+                metric_value(self.topic.records_state, str(partition.low)),
+                metric_value(self.topic.records_state, str(partition.high)),
+                metric_value(self.topic.records_state, str(partition.records_count())),
                 str(partition.isrs),
                 str(partition.replicas),
-                str(partition.records_count()),
             )
+        return table
+
+    def _group_offsets_table(self) -> StretchyDataTable[str]:
+        table = self._new_table("group-offsets-table")
+        table.add_column("Group", width=18, stretch=3)
+        table.add_column("Partition", stretch=1)
+        table.add_column("Committed", stretch=1)
+        table.add_column("End", stretch=1)
+        table.add_column("Lag", stretch=1)
+
+        for group in self.topic.groups:
+            for partition in group.partitions:
+                table.add_row(
+                    group.id,
+                    str(partition.id),
+                    str(partition.offset),
+                    metric_value(self.topic.records_state, str(partition.high)),
+                    metric_value(self.topic.groups_state, str(partition.lag_count())),
+                )
         return table
 
     def _configurations_table(self) -> StretchyDataTable[str]:
