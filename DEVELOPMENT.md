@@ -196,8 +196,9 @@ published, create a new patch version instead of reusing the tag.
 ## Manual Tests
 
 The standalone `sandbox` package owns its Compose environment, population tools,
-and inline Avro, JSON Schema, and Protobuf model definitions. These definitions
-are intentionally separate from the variables used by the automated tests.
+and inline Avro, JSON Schema, and Protobuf model definitions. Those fixtures stay
+separate from the automated tests, while `sandbox/.env` provides their shared
+container image versions.
 
 Use this sequence for a complete manual test:
 

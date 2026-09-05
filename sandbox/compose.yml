@@ -52,6 +52,30 @@ services:
     ports:
       - "39092:39092"
 
+  apicurio-topics:
+    image: confluentinc/cp-kafka:${CONFLUENT_VERSION}
+    restart: "no"
+    depends_on:
+      kafka1:
+        condition: service_healthy
+      kafka2:
+        condition: service_healthy
+      kafka3:
+        condition: service_healthy
+    command:
+      - /bin/bash
+      - -ec
+      - |
+        for topic in _apicurio-registry-journal _apicurio-registry-snapshots; do
+          kafka-topics --bootstrap-server kafka1:9092,kafka2:9092,kafka3:9092 \
+            --create --if-not-exists --topic "$$topic" --partitions 3 \
+            --replication-factor 3 --config cleanup.policy=delete \
+            --config retention.ms=-1 --config retention.bytes=-1
+          kafka-configs --bootstrap-server kafka1:9092,kafka2:9092,kafka3:9092 \
+            --alter --entity-type topics --entity-name "$$topic" \
+            --add-config cleanup.policy=delete,retention.ms=-1,retention.bytes=-1
+        done
+
   apicurio:
     image: apicurio/apicurio-registry:${APICURIO_VERSION}
     restart: unless-stopped
@@ -62,6 +86,8 @@ services:
         condition: service_healthy
       kafka3:
         condition: service_healthy
+      apicurio-topics:
+        condition: service_completed_successfully
     environment:
       APICURIO_STORAGE_KIND: kafkasql
       APICURIO_KAFKASQL_BOOTSTRAP_SERVERS: kafka1:9092,kafka2:9092,kafka3:9092
@@ -96,7 +122,11 @@ services:
     ports:
       - "18081:8081"
     healthcheck:
-      test: [CMD-SHELL, "curl --fail --silent http://localhost:8081/subjects >/dev/null"]
+      test:
+        - CMD
+        - python3
+        - -c
+        - import urllib.request; urllib.request.urlopen("http://localhost:8081/subjects").read()
       interval: 10s
       timeout: 10s
       retries: 10

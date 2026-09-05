@@ -93,3 +93,6 @@ class TestReadmeVisualScripts(unittest.IsolatedAsyncioTestCase):
                         self.assertEqual(
                             sum(child.tag.endswith("circle") for child in root.iter()), 3
                         )
+
+            consumer_svg = (output / "consumer.svg").read_text(encoding="utf-8")
+            self.assertIn("Group&#160;order-inspector", consumer_svg)

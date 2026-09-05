@@ -159,6 +159,7 @@ def mock_records() -> list[Record]:
 class MockConsumerService(ConsumerService):
     def __init__(self) -> None:
         self.page_size = 25
+        self.group_id = "order-inspector"
         self._records = mock_records()
 
     async def consume(

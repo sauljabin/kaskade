@@ -47,11 +47,27 @@ MY_KEY = "my-key"
 MY_TOPIC = "my-topic"
 
 
-CONFLUENT_VERSION = "8.1.0"
+def sandbox_version(name: str) -> str:
+    prefix = f"{name}="
+    env_path = Path(__file__).resolve().parents[2] / "sandbox" / ".env"
+    value = next(
+        (
+            line.removeprefix(prefix)
+            for line in env_path.read_text().splitlines()
+            if line.startswith(prefix)
+        ),
+        "",
+    )
+    if not value:
+        raise RuntimeError(f"Missing {name} in {env_path}")
+    return value
+
+
+CONFLUENT_VERSION = sandbox_version("CONFLUENT_VERSION")
 KAFKA_IMAGE = f"confluentinc/cp-kafka:{CONFLUENT_VERSION}"
 SCHEMA_REGISTRY_IMAGE = f"confluentinc/cp-schema-registry:{CONFLUENT_VERSION}"
 SCHEMA_REGISTRY_PORT = 8081
-APICURIO_VERSION = "3.1.2"
+APICURIO_VERSION = sandbox_version("APICURIO_VERSION")
 APICURIO_IMAGE = f"apicurio/apicurio-registry:{APICURIO_VERSION}"
 APICURIO_PORT = 8080
 JSON_TOPIC = "json-schema"

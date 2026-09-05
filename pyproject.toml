@@ -18,6 +18,8 @@ classifiers = [
 ]
 requires-python = ">=3.10,<3.15"
 dependencies = [
+    # Confluent's Schema Registry client still imports Authlib's deprecated httpx API.
+    "authlib>=1.0,<1.8",
     "aws-msk-iam-sasl-signer-python>=1.0",
     "cloup>=3.1",
     "fastavro>=1.12",
