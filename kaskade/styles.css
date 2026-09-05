@@ -264,7 +264,33 @@ TopicScreen .record-detail-scroll > Static {
 
 TopicScreen RecordFieldDetails {
     width: 100%;
+    height: 100%;
+    padding: 0 1;
+    overflow: hidden;
+}
+
+TopicScreen .record-content-area {
+    height: 1fr;
+    overflow: hidden;
+}
+
+TopicScreen .record-content-scroll {
     height: auto;
+    max-height: 100%;
+    overflow-x: hidden;
+    overflow-y: auto;
+    padding: 0;
+    background: $panel-darken-1;
+}
+
+TopicScreen .record-content-scroll:focus {
+    background: $panel;
+}
+
+TopicScreen .record-field-metadata {
+    width: 100%;
+    height: auto;
+    max-height: 70%;
 }
 
 TopicScreen .record-field-name {
@@ -306,21 +332,21 @@ TopicScreen .record-error {
 TopicScreen .record-content-label {
     width: 100%;
     height: 1;
-    margin-bottom: 1;
 }
 
-TopicScreen .record-content {
+TopicScreen .record-content,
+TopicScreen .record-json {
     width: 100%;
     height: auto;
     min-height: 3;
-    background: $panel;
+    background: $panel-darken-1;
     padding: 1 2;
     text-wrap: wrap;
 }
 
 TopicScreen .record-detail-scroll:focus .record-content,
 TopicScreen .record-detail-scroll:focus .record-json {
-    background: $panel-lighten-1;
+    background: $panel;
 }
 
 TopicScreen .record-headers-layout {
@@ -342,17 +368,9 @@ TopicScreen #record-headers-empty {
     content-align: center middle;
 }
 
-TopicScreen .record-header-scroll {
+TopicScreen .record-header-details {
     width: 68%;
     height: 100%;
-}
-
-TopicScreen .record-json {
-    width: 100%;
-    height: auto;
-    min-height: 3;
-    background: $panel;
-    padding: 1 2;
 }
 
 DescribeTopicScreen > .topic-details {

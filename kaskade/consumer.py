@@ -231,7 +231,7 @@ class ChunkSizeScreen(HelpableModalScreen[int]):
 
 
 class RecordFieldDetails(Container):
-    """Present one deserialized field with diagnostics and content."""
+    """Keep field diagnostics separate from independently scrollable content."""
 
     def __init__(
         self,
@@ -287,29 +287,30 @@ class RecordFieldDetails(Container):
         return error
 
     def compose(self) -> ComposeResult:
-        field_name = Static(classes="record-field-name")
-        field_name.display = self.field_name is not None
-        if self.field_name is not None:
-            field_name.update(labelled_value("Header", self.field_name))
-        yield field_name
+        with KaskadeScrollableContainer(classes="record-field-metadata", can_focus=False):
+            field_name = Static(classes="record-field-name")
+            field_name.display = self.field_name is not None
+            if self.field_name is not None:
+                field_name.update(labelled_value("Header", self.field_name))
+            yield field_name
 
-        with Grid(classes="record-diagnostics"):
-            yield Static(
-                labelled_value("Deserializer", self._deserializer()),
-                classes="record-diagnostic record-deserializer",
-            )
-            yield Static(
-                labelled_value("Schema", self._schema()),
-                classes="record-diagnostic record-schema",
-            )
-            yield Static(
-                labelled_value("Size", format_payload_size(self.payload_size)),
-                classes="record-diagnostic record-size",
-            )
+            with Grid(classes="record-diagnostics"):
+                yield Static(
+                    labelled_value("Deserializer", self._deserializer()),
+                    classes="record-diagnostic record-deserializer",
+                )
+                yield Static(
+                    labelled_value("Schema", self._schema()),
+                    classes="record-diagnostic record-schema",
+                )
+                yield Static(
+                    labelled_value("Size", format_payload_size(self.payload_size)),
+                    classes="record-diagnostic record-size",
+                )
 
-        error = Static(self._error(), classes="record-error")
-        error.display = self.outcome.error is not None
-        yield error
+            error = Static(self._error(), classes="record-error")
+            error.display = self.outcome.error is not None
+            yield error
         yield Static(
             Text(
                 ("FALLBACK CONTENT" if self.outcome.error is not None else "CONTENT"),
@@ -317,10 +318,14 @@ class RecordFieldDetails(Container):
             ),
             classes="record-content-label",
         )
-        yield Static(
-            record_json_renderable(self.outcome.dict()["content"]),
-            classes="record-content",
-        )
+        with (
+            Container(classes="record-content-area"),
+            KaskadeScrollableContainer(classes="record-detail-scroll record-content-scroll"),
+        ):
+            yield Static(
+                record_json_renderable(self.outcome.dict()["content"]),
+                classes="record-content",
+            )
 
     def update_outcome(
         self,
@@ -354,6 +359,9 @@ class RecordFieldDetails(Container):
         )
         self.query_one(".record-content", Static).update(
             record_json_renderable(outcome.dict()["content"])
+        )
+        self.query_one(".record-field-metadata", KaskadeScrollableContainer).scroll_home(
+            animate=False
         )
 
 
@@ -474,10 +482,7 @@ class TopicScreen(HelpableModalScreen[Record]):
                         classes="record-metadata-cell",
                     )
             with TabbedContent(initial="key", id="record-details-tabs"):
-                with (
-                    TabPane("Key", id="key"),
-                    KaskadeScrollableContainer(classes="record-detail-scroll"),
-                ):
+                with TabPane("Key", id="key"):
                     yield RecordFieldDetails(
                         self.record.key_outcome(),
                         payload_size=(
@@ -485,10 +490,7 @@ class TopicScreen(HelpableModalScreen[Record]):
                         ),
                         id="record-key-details",
                     )
-                with (
-                    TabPane("Value", id="value"),
-                    KaskadeScrollableContainer(classes="record-detail-scroll"),
-                ):
+                with TabPane("Value", id="value"):
                     yield RecordFieldDetails(
                         self.record.value_outcome(),
                         payload_size=(
@@ -509,11 +511,9 @@ class TopicScreen(HelpableModalScreen[Record]):
                     empty = Static("No headers", id="record-headers-empty")
                     empty.display = not self.record.headers
                     yield empty
-                    header_scroll = KaskadeScrollableContainer(
-                        classes="record-detail-scroll record-header-scroll"
-                    )
-                    header_scroll.display = bool(self.record.headers)
-                    with header_scroll:
+                    header_details = Container(classes="record-header-details")
+                    header_details.display = bool(self.record.headers)
+                    with header_details:
                         header = self.record.headers[0] if self.record.headers else None
                         yield RecordFieldDetails(
                             (
@@ -530,8 +530,11 @@ class TopicScreen(HelpableModalScreen[Record]):
                             id="record-header-details",
                         )
                 with (
-                    TabPane("JSON", id="json"),
-                    KaskadeScrollableContainer(classes="record-detail-scroll"),
+                    TabPane("Export", id="json"),
+                    Container(classes="record-content-area"),
+                    KaskadeScrollableContainer(
+                        classes="record-detail-scroll record-content-scroll"
+                    ),
                 ):
                     yield Static(record_json_renderable(self.data), classes="record-json")
         yield Footer(compact=True)
@@ -580,7 +583,7 @@ class TopicScreen(HelpableModalScreen[Record]):
     def _refresh_headers(self) -> None:
         headers = self.query_one("#record-headers-list", KaskadeOptionList)
         empty = self.query_one("#record-headers-empty", Static)
-        details = self.query_one(".record-header-scroll", KaskadeScrollableContainer)
+        details = self.query_one(".record-header-details", Container)
         headers.clear_options()
         has_headers = bool(self.record.headers)
         headers.display = has_headers
@@ -608,9 +611,9 @@ class TopicScreen(HelpableModalScreen[Record]):
             payload_size=len(header.value) if header.value is not None else None,
             field_name=header.key,
         )
-        self.query_one(".record-header-scroll", KaskadeScrollableContainer).scroll_home(
-            animate=False
-        )
+        self.query_one(
+            "#record-header-details .record-content-scroll", KaskadeScrollableContainer
+        ).scroll_home(animate=False)
 
     def action_previous_record(self) -> None:
         self._show_record(self.record_index - 1)

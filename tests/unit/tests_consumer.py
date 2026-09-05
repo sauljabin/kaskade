@@ -10,9 +10,10 @@ from unittest.mock import AsyncMock, MagicMock, call, patch
 from confluent_kafka.serialization import MessageField
 from rich.text import Text
 from textual import events
+from textual.color import Color
 from textual.containers import Container, Grid
 from textual.coordinate import Coordinate
-from textual.widgets import DataTable, OptionList, Static, Tab, TabbedContent, TabPane
+from textual.widgets import DataTable, OptionList, Static, Tab, TabbedContent, TabPane, Tabs
 
 from kaskade.colors import NULL as NULL_STYLE
 from kaskade.colors import WARNING as WARNING_STYLE
@@ -44,7 +45,7 @@ from kaskade.models import Header, Record
 from kaskade.record_export import readable_json, record_filename
 from kaskade.themes import KaskadeApp
 from kaskade.unicodes import WARNING as WARNING_INDICATOR
-from kaskade.widgets import TableFrame
+from kaskade.widgets import KaskadeScrollableContainer, TableFrame
 
 
 class TestPayloadSizeFormatting(unittest.TestCase):
@@ -633,6 +634,85 @@ class TestRecordCopyActions(unittest.IsolatedAsyncioTestCase):
 
 
 class TestRecordDetailsTabs(unittest.IsolatedAsyncioTestCase):
+    async def test_content_scrolls_independently_of_field_metadata(self) -> None:
+        payload = ("long field content " * 200).encode()
+        record = Record(
+            topic="orders",
+            key=payload,
+            value=b"\xff" + payload,
+            key_deserialization=Deserialization.STRING,
+            value_deserialization=Deserialization.STRING,
+            key_deserializer=StringDeserializer(),
+            value_deserializer=StringDeserializer(),
+            headers=[
+                Header("long-header", payload, StringDeserializer()),
+                Header("short-header", b"short", StringDeserializer()),
+            ],
+        )
+        for theme in ("eva01-berserk", "eva01", "textual-light", "ansi-light"):
+            for size in ((140, 40), (60, 24)):
+                with self.subTest(theme=theme, size=size):
+                    app = KaskadeApp()
+                    app.theme = theme
+                    async with app.run_test(size=size) as pilot:
+                        details = TopicScreen(record)
+                        await app.push_screen(details)
+                        for tab_id in ("key", "value", "headers"):
+                            details.query_one(Tabs).focus()
+                            details.query_one(TabbedContent).active = tab_id
+                            await pilot.pause()
+                            field = details.query_one(f"#{tab_id} RecordFieldDetails")
+                            metadata = field.query_one(".record-field-metadata")
+                            scroll = field.query_one(
+                                ".record-content-scroll", KaskadeScrollableContainer
+                            )
+                            diagnostics_region = field.query_one(".record-diagnostics").region
+                            self.assertGreater(scroll.content_region.height, 0)
+                            self.assertLessEqual(scroll.region.bottom, field.region.bottom)
+                            self.assertEqual(
+                                field.query_one(".record-content-area").region.height,
+                                scroll.region.height,
+                            )
+                            self.assertTrue(scroll.show_vertical_scrollbar)
+                            self.assertFalse(scroll.show_horizontal_scrollbar)
+                            self.assertLessEqual(
+                                scroll.virtual_size.width, scroll.scrollable_content_region.width
+                            )
+                            self.assertFalse(field.show_vertical_scrollbar)
+                            self.assertEqual(
+                                Color.parse(app.get_css_variables()["panel-darken-1"]),
+                                scroll.styles.background,
+                            )
+                            self.assertEqual(
+                                (1, 2, 1, 2), field.query_one(".record-content").styles.padding
+                            )
+                            scroll.focus()
+                            await pilot.press("G")
+                            await pilot.pause()
+                            self.assertGreater(scroll.scroll_y, 0)
+                            self.assertEqual(0, metadata.scroll_y)
+                            self.assertEqual(
+                                diagnostics_region, field.query_one(".record-diagnostics").region
+                            )
+                            if tab_id == "value":
+                                self.assertTrue(field.query_one(".record-error").display)
+                        headers = details.query_one("#record-headers-list", OptionList)
+                        headers.focus()
+                        headers.highlighted = 1
+                        await pilot.pause()
+                        self.assertEqual(0, scroll.scroll_y)
+                        content_height = field.query_one(".record-content").region.height
+                        available_height = field.query_one(".record-content-area").region.height
+                        self.assertEqual(
+                            min(content_height, available_height), scroll.region.height
+                        )
+                        self.assertEqual(
+                            content_height > available_height, scroll.show_vertical_scrollbar
+                        )
+                        self.assertFalse(scroll.show_horizontal_scrollbar)
+                        if size[0] == 140:
+                            self.assertLess(scroll.region.height, available_height)
+
     @patch("kaskade.consumer.ConsumerService")
     async def test_displays_ordered_headers_and_complete_field_diagnostics(
         self, consumer_service: MagicMock
@@ -709,7 +789,7 @@ class TestRecordDetailsTabs(unittest.IsolatedAsyncioTestCase):
                 details.query_one("#record-metadata", Grid).styles.grid_size_columns,
             )
             self.assertEqual(
-                ["Key", "Value", "Headers [2]", "JSON"],
+                ["Key", "Value", "Headers [2]", "Export"],
                 [tab.label_text for tab in details.query(Tab)],
             )
             self.assertEqual(
@@ -933,7 +1013,7 @@ class TestRecordDetailsNavigation(unittest.IsolatedAsyncioTestCase):
                 details.query_one("#record-total-size", Static).render().plain,
             )
             self.assertEqual(
-                ["Key", "Value", "Headers [1]", "JSON"],
+                ["Key", "Value", "Headers [1]", "Export"],
                 [tab.label_text for tab in details.query(Tab)],
             )
             header_list = details.query_one("#record-headers-list", OptionList)
