@@ -410,7 +410,8 @@ Screen.-narrow > .record-filter,
 Screen.-narrow > Input,
 Screen.-narrow > OptionList,
 Screen.-narrow > .record-details,
-DescribeTopicScreen.-narrow > .topic-details {
+DescribeTopicScreen.-narrow > .topic-details,
+DescribeTopicScreen.-compact > .topic-details {
     width: 100%;
     max-width: 100%;
 }
@@ -433,6 +434,13 @@ DescribeTopicScreen.-narrow #topic-metadata {
     grid-size: 4 2;
     grid-columns: 1fr 1fr 1fr 1fr;
     grid-rows: 1fr 1fr;
+}
+
+DescribeTopicScreen.-compact #topic-metadata {
+    height: 15;
+    grid-size: 3 3;
+    grid-columns: 1fr 1fr 1fr;
+    grid-rows: 1fr 1fr 1fr;
 }
 
 HelpScreen.-narrow > #help-dialog {

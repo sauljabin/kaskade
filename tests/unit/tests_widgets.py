@@ -1,10 +1,35 @@
 import unittest
+from pathlib import Path
 
 from rich.text import Text
 from textual.app import App, ComposeResult
 from textual.widgets import OptionList
 
-from kaskade.widgets import KaskadeOptionList, StretchyDataTable
+from kaskade.themes import KaskadeApp
+from kaskade.widgets import KaskadeOptionList, MetadataCell, StretchyDataTable
+
+
+class TestMetadataCell(unittest.IsolatedAsyncioTestCase):
+    async def test_ellipsizes_only_the_label_and_exposes_its_tooltip(self):
+        class MetadataApp(KaskadeApp):
+            CSS_PATH = Path(__file__).parents[2] / "kaskade/styles.css"
+            CSS = "MetadataCell { width: 8; height: 4; }"
+
+            def compose(self) -> ComposeResult:
+                yield MetadataCell("Deserializer", "a value that may wrap")
+
+        app = MetadataApp()
+        async with app.run_test(size=(20, 8)) as pilot:
+            cell = app.query_one(MetadataCell)
+            await pilot.pause()
+
+            label, value = cell.render().plain.split("\n", maxsplit=1)
+            self.assertEqual("DESERIA…", label)
+            self.assertEqual("a value that may wrap", value)
+            self.assertEqual("Deserializer", cell.tooltip)
+
+            cell.update_value("updated value")
+            self.assertEqual("DESERIA…\nupdated value", cell.render().plain)
 
 
 class StretchyTableApp(App):

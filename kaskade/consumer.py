@@ -47,6 +47,7 @@ from kaskade.widgets import (
     KaskadeHeader,
     KaskadeOptionList,
     KaskadeScrollableContainer,
+    MetadataCell,
     StretchyDataTable,
     TableFrame,
     labelled_value,
@@ -326,16 +327,19 @@ class RecordFieldDetails(Container):
             diagnostics = Grid(classes="record-diagnostics")
             diagnostics.display = self.field_name is None
             with diagnostics:
-                yield Static(
-                    labelled_value("Deserializer", self._deserializer()),
+                yield MetadataCell(
+                    "Deserializer",
+                    self._deserializer(),
                     classes="record-diagnostic record-deserializer",
                 )
-                yield Static(
-                    labelled_value("Schema", self._schema()),
+                yield MetadataCell(
+                    "Schema",
+                    self._schema(),
                     classes="record-diagnostic record-schema",
                 )
-                yield Static(
-                    labelled_value("Size", format_payload_size(self.payload_size)),
+                yield MetadataCell(
+                    "Size",
+                    format_payload_size(self.payload_size),
                     classes="record-diagnostic record-size",
                 )
 
@@ -369,12 +373,10 @@ class RecordFieldDetails(Container):
         if field_name is not None:
             name.update(self._header_summary())
         self.query_one(".record-diagnostics", Grid).display = field_name is None
-        self.query_one(".record-deserializer", Static).update(
-            labelled_value("Deserializer", self._deserializer())
-        )
-        self.query_one(".record-schema", Static).update(labelled_value("Schema", self._schema()))
-        self.query_one(".record-size", Static).update(
-            labelled_value("Size", format_payload_size(self.payload_size))
+        self.query_one(".record-deserializer", MetadataCell).update_value(self._deserializer())
+        self.query_one(".record-schema", MetadataCell).update_value(self._schema())
+        self.query_one(".record-size", MetadataCell).update_value(
+            format_payload_size(self.payload_size)
         )
         error = self.query_one(".record-error", Static)
         error.display = outcome.error is not None
@@ -478,10 +480,6 @@ class TopicScreen(HelpableModalScreen[Record]):
             ),
         )
 
-    @staticmethod
-    def _metadata_content(label: str, value: str) -> Text:
-        return labelled_value(label, value)
-
     def _headers_table(self) -> HeaderDataTable:
         headers = HeaderDataTable(
             id="record-headers-list",
@@ -508,8 +506,9 @@ class TopicScreen(HelpableModalScreen[Record]):
         with container:
             with Grid(id="record-metadata"):
                 for metadata_id, label, value in self._metadata():
-                    yield Static(
-                        self._metadata_content(label, value),
+                    yield MetadataCell(
+                        label,
+                        value,
                         id=metadata_id,
                         classes="record-metadata-cell",
                     )
@@ -591,7 +590,7 @@ class TopicScreen(HelpableModalScreen[Record]):
         details = self.query_one(".record-details", Container)
         details.border_title = self._title()
         for metadata_id, label, value in self._metadata():
-            self.query_one(f"#{metadata_id}", Static).update(self._metadata_content(label, value))
+            self.query_one(f"#{metadata_id}", MetadataCell).update_value(value)
         tabs = self.query_one(TabbedContent)
         headers_tab = tabs.get_tab("headers")
         assert headers_tab is not None

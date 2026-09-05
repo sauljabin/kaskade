@@ -58,6 +58,7 @@ from kaskade.widgets import (
     KaskadeHeader,
     KaskadeOptionList,
     KaskadeScrollableContainer,
+    MetadataCell,
     StretchyDataTable,
     TableFrame,
 )
@@ -894,6 +895,40 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 await pilot.press("escape")
                 self.assertIs(records_table, app.screen.focused)
 
+    async def test_record_metadata_ellipsizes_labels_on_tiny_screens(self):
+        with patch("kaskade.consumer.ConsumerService") as consumer_service:
+            consumer_service.return_value.consume = AsyncMock(return_value=[])
+            app = KaskadeConsumer(
+                "orders",
+                {},
+                {},
+                {},
+                {},
+                Deserialization.STRING,
+                Deserialization.STRING,
+            )
+
+            async with app.run_test(size=(24, 24)) as pilot:
+                app.push_screen(
+                    TopicScreen(
+                        Record(
+                            topic="orders",
+                            partition=0,
+                            offset=1,
+                            key=b"key",
+                            value=b"value",
+                        )
+                    )
+                )
+                await pilot.pause()
+
+                total_size = app.screen.query_one("#record-total-size", MetadataCell)
+                deserializer = app.screen.query_one(".record-deserializer", MetadataCell)
+                self.assertTrue(total_size.render().plain.splitlines()[0].endswith("…"))
+                self.assertEqual("Total Size", total_size.tooltip)
+                self.assertEqual("DESERIALIZER", deserializer.render().plain.splitlines()[0])
+                self.assertIsNone(deserializer.tooltip)
+
     async def test_topic_details_use_native_tabs_and_a_contextual_footer(self):
         with patch("kaskade.admin.TopicService") as topic_service:
             configure_admin_service(topic_service.return_value, {})
@@ -997,6 +1032,40 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                     app.screen.query_one("#partitions-table", DataTable).content_region.height,
                     0,
                 )
+
+    async def test_topic_details_metadata_uses_three_columns_on_compact_screens(self):
+        with patch("kaskade.admin.TopicService") as topic_service:
+            configure_admin_service(topic_service.return_value, {})
+            app = KaskadeAdmin({})
+
+            async with app.run_test(size=(48, 30)) as pilot:
+                app.push_screen(DescribeTopicScreen(Topic(name="orders"), ()))
+                await pilot.pause()
+
+                metadata = app.screen.query_one("#topic-metadata", Grid)
+                cells = list(metadata.query(".topic-metadata-cell"))
+                partitions = app.screen.query_one("#topic-partitions", Static)
+                self.assertTrue(app.screen.has_class("-compact"))
+                self.assertEqual(3, metadata.styles.grid_size_columns)
+                self.assertEqual(3, metadata.styles.grid_size_rows)
+                self.assertEqual(cells[0].region.y, cells[2].region.y)
+                self.assertGreater(cells[3].region.y, cells[0].region.y)
+                self.assertGreaterEqual(partitions.content_region.width, len("PARTITIONS"))
+                self.assertIsNone(partitions.tooltip)
+
+    async def test_topic_details_metadata_ellipsizes_labels_on_tiny_screens(self):
+        with patch("kaskade.admin.TopicService") as topic_service:
+            configure_admin_service(topic_service.return_value, {})
+            app = KaskadeAdmin({})
+
+            async with app.run_test(size=(36, 30)) as pilot:
+                app.push_screen(DescribeTopicScreen(Topic(name="orders"), ()))
+                await pilot.pause()
+
+                partitions = app.screen.query_one("#topic-partitions", Static)
+                self.assertLess(partitions.content_region.width, len("PARTITIONS"))
+                self.assertTrue(partitions.render().plain.splitlines()[0].endswith("…"))
+                self.assertEqual("Partitions", partitions.tooltip)
 
     async def test_topic_details_help_excludes_ctrl_c_from_selected_text_copy(self):
         with patch("kaskade.admin.TopicService") as topic_service:
