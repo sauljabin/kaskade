@@ -3,6 +3,7 @@ from inspect import isawaitable
 from typing import Any, ClassVar
 
 from confluent_kafka import KafkaException
+from rich.cells import cell_len
 from rich.text import Text
 from textual import work
 from textual.app import ComposeResult
@@ -102,6 +103,22 @@ class RecordDataTable(StretchyDataTable[str | Text]):
     def watch_hover_coordinate(self, old: Coordinate, value: Coordinate) -> None:
         super().watch_hover_coordinate(old, value)
         self.tooltip = self._cell_tooltips.get(value)
+
+
+class HeaderDataTable(StretchyDataTable[str | Text]):
+    """A compact header table that reveals truncated header names."""
+
+    def watch_hover_coordinate(self, old: Coordinate, value: Coordinate) -> None:
+        super().watch_hover_coordinate(old, value)
+        self.tooltip = None
+        if not self.is_valid_coordinate(value):
+            return
+        cell_key = self.coordinate_to_cell_key(value)
+        if cell_key.column_key.value != "name":
+            return
+        header_name = str(self.get_cell_at(value))
+        if cell_len(header_name) > self.columns[cell_key.column_key].width:
+            self.tooltip = header_name
 
 
 class FilterRecordScreen(HelpableModalScreen[RecordFilters]):
@@ -465,20 +482,25 @@ class TopicScreen(HelpableModalScreen[Record]):
     def _metadata_content(label: str, value: str) -> Text:
         return labelled_value(label, value)
 
-    def _header_options(self) -> list[Option]:
-        return [
-            Option(Text.assemble((f"{index + 1}  ", "muted"), header.key), id=str(index))
-            for index, header in enumerate(self.record.headers)
-        ]
-
-    def _headers_list(self) -> KaskadeOptionList:
-        headers = KaskadeOptionList(
-            *self._header_options(),
+    def _headers_table(self) -> HeaderDataTable:
+        headers = HeaderDataTable(
             id="record-headers-list",
-            compact=True,
+            show_header=False,
+            cursor_type="row",
         )
-        headers.highlighted = 0 if self.record.headers else None
+        max_header_index = max(
+            (len(record.headers) - 1 for record in self.records),
+            default=0,
+        )
+        index_width = len(str(max(0, max_header_index)))
+        headers.add_column("", key="index", width=index_width)
+        headers.add_column("", key="name", width=1, stretch=1)
+        self._add_header_rows(headers)
         return headers
+
+    def _add_header_rows(self, headers: HeaderDataTable) -> None:
+        for index, header in enumerate(self.record.headers):
+            headers.add_row(Text(str(index), style="muted"), header.key, key=str(index))
 
     def compose(self) -> ComposeResult:
         container = Container(classes="record-details")
@@ -515,7 +537,7 @@ class TopicScreen(HelpableModalScreen[Record]):
                     ),
                     Container(classes="record-headers-layout"),
                 ):
-                    headers = self._headers_list()
+                    headers = self._headers_table()
                     headers.display = bool(self.record.headers)
                     yield headers
                     empty = Static("No headers", id="record-headers-empty")
@@ -591,17 +613,17 @@ class TopicScreen(HelpableModalScreen[Record]):
             self.on_record_changed(record)
 
     def _refresh_headers(self) -> None:
-        headers = self.query_one("#record-headers-list", KaskadeOptionList)
+        headers = self.query_one("#record-headers-list", HeaderDataTable)
         empty = self.query_one("#record-headers-empty", Static)
         details = self.query_one(".record-header-details", Container)
-        headers.clear_options()
+        headers.clear()
         has_headers = bool(self.record.headers)
         headers.display = has_headers
         empty.display = not has_headers
         details.display = has_headers
         if has_headers:
-            headers.add_options(self._header_options())
-            headers.highlighted = 0
+            self._add_header_rows(headers)
+            headers.move_cursor(row=0)
             header = self.record.headers[0]
             self.query_one("#record-header-details", RecordFieldDetails).update_outcome(
                 header.value_outcome(),
@@ -609,10 +631,14 @@ class TopicScreen(HelpableModalScreen[Record]):
                 field_name=header.key,
             )
 
-    def on_option_list_option_highlighted(self, event: OptionList.OptionHighlighted) -> None:
-        if event.option_list.id != "record-headers-list" or event.option_id is None:
+    def on_data_table_row_highlighted(self, event: DataTable.RowHighlighted) -> None:
+        if (
+            event.data_table.id != "record-headers-list"
+            or event.row_key is None
+            or event.row_key.value is None
+        ):
             return
-        header = self.record.headers[int(event.option_id)]
+        header = self.record.headers[int(event.row_key.value)]
         self.query_one("#record-header-details", RecordFieldDetails).update_outcome(
             header.value_outcome(),
             payload_size=len(header.value) if header.value is not None else None,

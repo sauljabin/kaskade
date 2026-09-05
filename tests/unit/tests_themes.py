@@ -37,6 +37,7 @@ from kaskade.configs import BOOTSTRAP_SERVERS
 from kaskade.consumer import (
     ChunkSizeScreen,
     FilterRecordScreen,
+    HeaderDataTable,
     KaskadeConsumer,
     ListRecords,
     TopicScreen,
@@ -849,8 +850,20 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 tabs.focus()
                 app.screen.query_one(TabbedContent).active = "headers"
                 await pilot.pause()
-                header_list = app.screen.query_one("#record-headers-list", OptionList)
+                header_list = app.screen.query_one("#record-headers-list", HeaderDataTable)
                 header_details = app.screen.query_one(".record-header-details", Container)
+                self.assertFalse(header_list.show_header)
+                self.assertLess(
+                    header_list.ordered_columns[0].width,
+                    header_list.ordered_columns[1].width,
+                )
+                self.assertEqual(
+                    "ellipsis",
+                    header_list._compute_row_renderables(0).cells[1].overflow,
+                )
+                header_list.hover_coordinate = Coordinate(0, 1)
+                await pilot.pause()
+                self.assertEqual("long-header-key", header_list.tooltip)
                 self.assertEqual(header_list.region.y, header_details.region.y)
                 self.assertLess(header_list.region.x, header_details.region.x)
                 await pilot.press("tab")
