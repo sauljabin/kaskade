@@ -221,7 +221,7 @@ TopicScreen #record-metadata {
     width: 100%;
     height: 5;
     grid-size: 4 1;
-    grid-columns: 2fr 1fr 1fr 2fr;
+    grid-columns: 1fr 1fr 1fr 2fr;
     grid-rows: 1fr;
     grid-gutter: 0;
     margin-bottom: 1;

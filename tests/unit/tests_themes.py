@@ -784,6 +784,8 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                             topic="orders",
                             partition=0,
                             offset=1,
+                            key=b"key",
+                            value=b"value",
                             headers=[Header("long-header-key", b"value", StringDeserializer())],
                         )
                     )

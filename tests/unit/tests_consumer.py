@@ -37,6 +37,7 @@ from kaskade.deserializers import (
     DeserializationError,
     DeserializationResult,
     Deserializer,
+    JsonDeserializer,
     RegistrySchema,
     StringDeserializer,
 )
@@ -634,6 +635,52 @@ class TestRecordCopyActions(unittest.IsolatedAsyncioTestCase):
 
 
 class TestRecordDetailsTabs(unittest.IsolatedAsyncioTestCase):
+    async def test_distinguishes_absent_payloads_from_null_strings_and_empty_strings(self) -> None:
+        cases = (
+            (None, StringDeserializer(), None),
+            (b"null", StringDeserializer(), '"null"'),
+            (b"", StringDeserializer(), '""'),
+            (None, StringDeserializer(), None),
+            (b"null", JsonDeserializer(), "null"),
+        )
+        records = tuple(
+            Record(
+                topic="orders",
+                offset=index,
+                key=payload,
+                value=payload,
+                key_deserializer=deserializer,
+                value_deserializer=deserializer,
+                headers=[Header("source", payload, StringDeserializer())],
+            )
+            for index, (payload, deserializer, _) in enumerate(cases)
+        )
+        app = KaskadeApp()
+        async with app.run_test(size=(120, 40)) as pilot:
+            details = TopicScreen(records[0], records=records)
+            await app.push_screen(details)
+            for index, (payload, _, expected_content) in enumerate(cases):
+                if index:
+                    details.action_next_record()
+                for tab_id in ("key", "value", "headers"):
+                    details.query_one(Tabs).focus()
+                    details.query_one(TabbedContent).active = tab_id
+                    await pilot.pause()
+                    field = details.query_one(f"#{tab_id} RecordFieldDetails")
+                    area = field.query_one(".record-content-area")
+                    label = field.query_one(".record-content-label", Static).render().plain
+                    self.assertEqual(payload is not None, area.display)
+                    self.assertEqual("No Content (Null)" if payload is None else "CONTENT", label)
+                    if payload is not None:
+                        expected = (
+                            json.dumps(payload.decode())
+                            if tab_id == "headers"
+                            else expected_content
+                        )
+                        self.assertEqual(
+                            expected, field.query_one(".record-content", Static).content.text.plain
+                        )
+
     async def test_content_scrolls_independently_of_field_metadata(self) -> None:
         payload = ("long field content " * 200).encode()
         record = Record(
@@ -793,7 +840,7 @@ class TestRecordDetailsTabs(unittest.IsolatedAsyncioTestCase):
                 [tab.label_text for tab in details.query(Tab)],
             )
             self.assertEqual(
-                ["source", "source"],
+                ["1  source", "2  source"],
                 [
                     str(headers.get_option_at_index(index).prompt)
                     for index in range(headers.option_count)
@@ -823,20 +870,14 @@ class TestRecordDetailsTabs(unittest.IsolatedAsyncioTestCase):
             await pilot.pause()
             header_details = details.query_one("#record-header-details", RecordFieldDetails)
             self.assertEqual(
-                "HEADER\nsource",
+                "HEADER\nsource · 0.001 KB",
                 header_details.query_one(".record-field-name", Static).render().plain,
             )
-            self.assertEqual(
-                "DESERIALIZER\nSTRING",
-                header_details.query_one(".record-deserializer", Static).render().plain,
-            )
-            deserializer_content = header_details.query_one(".record-deserializer", Static).content
-            self.assertIsInstance(deserializer_content, Text)
-            self.assertEqual("muted", deserializer_content.spans[0].style)
-            self.assertEqual(
-                "SIZE\n0.001 KB",
-                header_details.query_one(".record-size", Static).render().plain,
-            )
+            self.assertFalse(header_details.query_one(".record-diagnostics", Grid).display)
+            header_summary = header_details.query_one(".record-field-name", Static)
+            self.assertEqual("", header_summary.styles.border_top[0])
+            self.assertIsInstance(header_summary.content, Text)
+            self.assertEqual("muted", header_summary.content.spans[-1].style)
             error = header_details.query_one(".record-error", Static)
             self.assertTrue(error.display)
             self.assertIn("ERROR\ninvalid UTF-8\nFallback: BYTES · HEX", error.render().plain)
@@ -856,8 +897,8 @@ class TestRecordDetailsTabs(unittest.IsolatedAsyncioTestCase):
             await pilot.pause()
             self.assertFalse(header_details.query_one(".record-error", Static).display)
             self.assertEqual(
-                "SIZE\n0.01 KB",
-                header_details.query_one(".record-size", Static).render().plain,
+                "HEADER\nsource · 0.01 KB",
+                header_details.query_one(".record-field-name", Static).render().plain,
             )
             self.assertEqual(
                 "CONTENT",
@@ -871,6 +912,7 @@ class TestRecordDetailsTabs(unittest.IsolatedAsyncioTestCase):
             tabs.active = "key"
             await pilot.pause()
             key_details = details.query_one("#record-key-details", RecordFieldDetails)
+            self.assertTrue(key_details.query_one(".record-diagnostics", Grid).display)
             self.assertEqual(
                 "DESERIALIZER\nBYTES · HEX",
                 key_details.query_one(".record-deserializer", Static).render().plain,
@@ -1033,9 +1075,10 @@ class TestRecordDetailsNavigation(unittest.IsolatedAsyncioTestCase):
             self.assertTrue(details.query_one("#record-headers-empty", Static).display)
             value_details = details.query_one("#record-value-details", RecordFieldDetails)
             self.assertEqual(
-                "null",
-                value_details.query_one(".record-content", Static).content.text.plain,
+                "No Content (Null)",
+                value_details.query_one(".record-content-label", Static).render().plain,
             )
+            self.assertFalse(value_details.query_one(".record-content-area").display)
             self.assertEqual(
                 "SIZE\n—",
                 value_details.query_one(".record-size", Static).render().plain,

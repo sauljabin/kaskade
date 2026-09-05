@@ -246,6 +246,18 @@ class RecordFieldDetails(Container):
         self.payload_size = payload_size
         self.field_name = field_name
 
+    def _header_summary(self) -> Text:
+        summary = labelled_value("Header", self.field_name or "")
+        summary.append(f" · {format_payload_size(self.payload_size)}", style="muted")
+        return summary
+
+    def _content_label(self) -> Text:
+        if self.payload_size is None:
+            label = "No Content (Null)"
+        else:
+            label = "FALLBACK CONTENT" if self.outcome.error is not None else "CONTENT"
+        return Text(label, style="muted")
+
     def _deserializer(self) -> str:
         parts = [self.outcome.requested.name]
         if self.outcome.schema is not None:
@@ -291,10 +303,12 @@ class RecordFieldDetails(Container):
             field_name = Static(classes="record-field-name")
             field_name.display = self.field_name is not None
             if self.field_name is not None:
-                field_name.update(labelled_value("Header", self.field_name))
+                field_name.update(self._header_summary())
             yield field_name
 
-            with Grid(classes="record-diagnostics"):
+            diagnostics = Grid(classes="record-diagnostics")
+            diagnostics.display = self.field_name is None
+            with diagnostics:
                 yield Static(
                     labelled_value("Deserializer", self._deserializer()),
                     classes="record-diagnostic record-deserializer",
@@ -311,15 +325,11 @@ class RecordFieldDetails(Container):
             error = Static(self._error(), classes="record-error")
             error.display = self.outcome.error is not None
             yield error
-        yield Static(
-            Text(
-                ("FALLBACK CONTENT" if self.outcome.error is not None else "CONTENT"),
-                style="muted",
-            ),
-            classes="record-content-label",
-        )
+        yield Static(self._content_label(), classes="record-content-label")
+        content_area = Container(classes="record-content-area")
+        content_area.display = self.payload_size is not None
         with (
-            Container(classes="record-content-area"),
+            content_area,
             KaskadeScrollableContainer(classes="record-detail-scroll record-content-scroll"),
         ):
             yield Static(
@@ -340,7 +350,8 @@ class RecordFieldDetails(Container):
         name = self.query_one(".record-field-name", Static)
         name.display = field_name is not None
         if field_name is not None:
-            name.update(labelled_value("Header", field_name))
+            name.update(self._header_summary())
+        self.query_one(".record-diagnostics", Grid).display = field_name is None
         self.query_one(".record-deserializer", Static).update(
             labelled_value("Deserializer", self._deserializer())
         )
@@ -351,12 +362,8 @@ class RecordFieldDetails(Container):
         error = self.query_one(".record-error", Static)
         error.display = outcome.error is not None
         error.update(self._error())
-        self.query_one(".record-content-label", Static).update(
-            Text(
-                "FALLBACK CONTENT" if outcome.error is not None else "CONTENT",
-                style="muted",
-            )
-        )
+        self.query_one(".record-content-label", Static).update(self._content_label())
+        self.query_one(".record-content-area", Container).display = payload_size is not None
         self.query_one(".record-content", Static).update(
             record_json_renderable(outcome.dict()["content"])
         )
@@ -458,12 +465,15 @@ class TopicScreen(HelpableModalScreen[Record]):
     def _metadata_content(label: str, value: str) -> Text:
         return labelled_value(label, value)
 
+    def _header_options(self) -> list[Option]:
+        return [
+            Option(Text.assemble((f"{index + 1}  ", "muted"), header.key), id=str(index))
+            for index, header in enumerate(self.record.headers)
+        ]
+
     def _headers_list(self) -> KaskadeOptionList:
         headers = KaskadeOptionList(
-            *(
-                Option(header.key, id=str(index))
-                for index, header in enumerate(self.record.headers)
-            ),
+            *self._header_options(),
             id="record-headers-list",
             compact=True,
         )
@@ -590,10 +600,7 @@ class TopicScreen(HelpableModalScreen[Record]):
         empty.display = not has_headers
         details.display = has_headers
         if has_headers:
-            headers.add_options(
-                Option(header.key, id=str(index))
-                for index, header in enumerate(self.record.headers)
-            )
+            headers.add_options(self._header_options())
             headers.highlighted = 0
             header = self.record.headers[0]
             self.query_one("#record-header-details", RecordFieldDetails).update_outcome(
