@@ -911,6 +911,7 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                         "Partitions [0]",
                         "Configurations [2]",
                         "Groups [0]",
+                        "Group Offsets [0]",
                         "Group Members [0]",
                     ],
                     [tab.label_text for tab in app.screen.query(Tab)],
@@ -921,9 +922,9 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 )
                 self.assertNotEqual("none", details.styles.border_top[0])
                 self.assertEqual("", tabs.styles.border_top[0])
-                self.assertEqual(4, len(app.screen.query(TabPane)))
-                self.assertEqual(4, len(app.screen.query(DataTable)))
-                self.assertEqual(4, len(detail_tables))
+                self.assertEqual(5, len(app.screen.query(TabPane)))
+                self.assertEqual(5, len(app.screen.query(DataTable)))
+                self.assertEqual(5, len(detail_tables))
                 self.assertTrue(all(not table.zebra_stripes for table in detail_tables))
                 self.assertEqual(
                     ["Name", "Value"],

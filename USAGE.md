@@ -105,6 +105,11 @@ The command-line value takes precedence and follows the same validation rules.
 
 Topic Details keeps partition, replica, in-sync replica, approximate record,
 consumer-group, member, and approximate lag totals visible above its tabs.
+The Partitions tab includes each partition's earliest and end offsets. Group
+Offsets shows committed and end offsets with lag for every group partition.
+End is the next offset after the partition's latest record; Committed is the
+group's saved next offset to consume. Lag is their non-negative difference.
+Only partitions with available committed offsets appear in Group Offsets.
 
 ### Keyboard shortcuts
 

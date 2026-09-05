@@ -7,7 +7,15 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from confluent_kafka import KafkaException
 from textual.coordinate import Coordinate
-from textual.widgets import Collapsible, DataTable, Input, RadioButton, RadioSet, Static
+from textual.widgets import (
+    Collapsible,
+    DataTable,
+    Input,
+    RadioButton,
+    RadioSet,
+    Static,
+    TabbedContent,
+)
 
 from kaskade.admin import (
     CreateTopicScreen,
@@ -484,6 +492,47 @@ class TestUpdateTopic(unittest.IsolatedAsyncioTestCase):
 
 
 class TestDescribeTopic(unittest.IsolatedAsyncioTestCase):
+    async def test_displays_partition_offsets_and_lag_for_each_group_partition(self) -> None:
+        topic = Topic(
+            name="orders",
+            partitions=[Partition(id=0, leader=1, low=10, high=100)],
+            groups=[
+                Group(id="shipping", partitions=[GroupPartition(id=0, offset=75, high=100)]),
+                Group(id="billing", partitions=[GroupPartition(id=0, offset=100, high=100)]),
+            ],
+            records_state=MetricState.READY,
+            groups_state=MetricState.READY,
+        )
+        for theme in ("eva01-berserk", "eva01", "textual-light", "ansi-light"):
+            with self.subTest(theme=theme), patch("kaskade.admin.TopicService") as service:
+                configure_admin_service(service.return_value, {})
+                app = KaskadeAdmin({})
+                app.theme = theme
+                async with app.run_test(size=(100, 30)) as pilot:
+                    app.push_screen(DescribeTopicScreen(topic, ()))
+                    await pilot.pause()
+                    partitions = app.screen.query_one("#partitions-table", DataTable)
+                    self.assertEqual(
+                        ["ID", "Leader", "Earliest", "End", "Records", "ISRs", "Replicas"],
+                        [column.label.plain for column in partitions.ordered_columns],
+                    )
+                    self.assertEqual(
+                        ["0", "1", "10", "100", "90", "[]", "[]"], partitions.get_row_at(0)
+                    )
+                    await pilot.press("l", "l", "l")
+                    self.assertEqual("group-offsets", app.screen.query_one(TabbedContent).active)
+                    offsets = app.screen.query_one("#group-offsets-table", DataTable)
+                    self.assertEqual(
+                        ["Group", "Partition", "Committed", "End", "Lag"],
+                        [column.label.plain for column in offsets.ordered_columns],
+                    )
+                    self.assertEqual(["shipping", "0", "75", "100", "25"], offsets.get_row_at(0))
+                    self.assertEqual(["billing", "0", "100", "100", "0"], offsets.get_row_at(1))
+                    self.assertFalse(offsets.show_horizontal_scrollbar)
+                    await pilot.resize_terminal(60, 30)
+                    await pilot.pause()
+                    self.assertGreater(offsets.content_region.height, 0)
+
     async def test_prioritizes_identity_columns_and_reveals_truncated_cells(self) -> None:
         group_id = "apicurio-c994055a-very-long-consumer-group-identifier"
         coordinator_node = Node(
@@ -545,7 +594,8 @@ class TestDescribeTopic(unittest.IsolatedAsyncioTestCase):
                 await pilot.pause()
                 self.assertIsNone(groups.tooltip)
 
-                tabs.active = "group-members"
+                app.screen.query_one("Tabs").focus()
+                await pilot.press("l", "l")
                 await pilot.pause()
                 members = app.screen.query_one("#group-members-table", DataTable)
                 self.assertLess(
