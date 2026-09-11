@@ -186,10 +186,12 @@ focused on workflows.
 ## Releases, Commits, and Pull Requests
 
 - For release tasks, follow [Release Checklist](RELEASE_CHECKLIST.md), including
-  shared checks and the major, minor, or patch review. Record evidence in the
-  task report and obtain explicit approval before submitting an announcement.
-- Tags matching `vMAJOR.MINOR.PATCH` on `main` are the only release-version
-  source. Hatchling and hatch-vcs derive metadata; never add a static version.
+  shared checks and the pre-release, major, minor, or patch review. Record
+  evidence in the task report and obtain explicit approval before submitting an
+  announcement.
+- Stable and PEP 440 pre-release tags (`vMAJOR.MINOR.PATCH`, plus `aN`, `bN`, or
+  `rcN` suffixes) on `main` are the only release-version source. Hatchling and
+  hatch-vcs derive metadata; never add a static version.
 - GitHub Releases are the changelog. Do not add a maintained changelog or
   version-bump commit, and do not hard-code the current version in documentation
   or release commands. Use `kaskade --version`, `MAJOR.MINOR.PATCH`, or Git
