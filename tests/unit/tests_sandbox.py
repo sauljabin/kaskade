@@ -1,9 +1,11 @@
 import json
 import unittest
 from functools import partial
+from pathlib import Path
 from unittest.mock import MagicMock, call, patch
 
 import click
+import yaml
 from click.testing import CliRunner
 
 from kaskade.authentication import (
@@ -33,6 +35,39 @@ from sandbox.__main__ import (
     sandbox_kafka_config,
 )
 
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+SANDBOX_COMPOSE = PROJECT_ROOT / "sandbox" / "compose.yml"
+
+
+class TestSandboxCompose(unittest.TestCase):
+    def setUp(self) -> None:
+        self.compose = yaml.safe_load(SANDBOX_COMPOSE.read_text(encoding="utf-8"))
+        self.services = self.compose["services"]
+
+    def test_uses_standard_local_service_topology(self) -> None:
+        self.assertEqual(
+            {"kafka", "schema-registry", "apicurio", "apicurio-topics"},
+            set(self.services),
+        )
+        self.assertEqual(["9092:19092"], self.services["kafka"]["ports"])
+        self.assertEqual(["8081:8081"], self.services["schema-registry"]["ports"])
+        self.assertEqual(["8082:8080"], self.services["apicurio"]["ports"])
+
+    def test_uses_single_broker_replication_settings(self) -> None:
+        kafka = self.services["kafka"]["environment"]
+        self.assertEqual("1@kafka:9093", kafka["KAFKA_CONTROLLER_QUORUM_VOTERS"])
+        self.assertEqual("1", kafka["KAFKA_DEFAULT_REPLICATION_FACTOR"])
+        self.assertEqual("1", kafka["KAFKA_MIN_INSYNC_REPLICAS"])
+        self.assertEqual(
+            "1",
+            self.services["schema-registry"]["environment"][
+                "SCHEMA_REGISTRY_KAFKASTORE_TOPIC_REPLICATION_FACTOR"
+            ],
+        )
+
+    def test_does_not_use_compose_extension_fields(self) -> None:
+        self.assertFalse(any(key.startswith("x-") for key in self.compose))
+
 
 class TestPopulator(unittest.TestCase):
     def test_native_apicurio_topics_are_available(self) -> None:
@@ -57,7 +92,7 @@ class TestPopulator(unittest.TestCase):
 
         request = post.call_args
         self.assertEqual(
-            "http://localhost:18082/apis/registry/v3/groups/default/artifacts",
+            "http://localhost:8082/apis/registry/v3/groups/default/artifacts",
             request.args[0],
         )
         self.assertEqual(f"{APICURIO_JSON_TOPIC}-value", request.kwargs["json"]["artifactId"])
@@ -170,9 +205,9 @@ class TestPopulator(unittest.TestCase):
 
 class TestSandboxKafkaConfig(unittest.TestCase):
     def test_preserves_local_kafka_config_without_aws_properties(self) -> None:
-        config = sandbox_kafka_config("localhost:19092", {})
+        config = sandbox_kafka_config("localhost:9092", {})
 
-        self.assertEqual({BOOTSTRAP_SERVERS: "localhost:19092"}, config)
+        self.assertEqual({BOOTSTRAP_SERVERS: "localhost:9092"}, config)
 
     def test_configures_aws_msk_iam_authentication(self) -> None:
         config = sandbox_kafka_config("broker:9098", {"region": "us-east-1"})
@@ -217,7 +252,7 @@ class TestSandboxKafkaConfig(unittest.TestCase):
                 "partitions": 10,
                 "replication_factor": None,
                 "min_insync_replicas": None,
-                "apicurio_registry": "http://localhost:18082/apis/registry/v3",
+                "apicurio_registry": "http://localhost:8082/apis/registry/v3",
             },
             mock_populator.call_args.kwargs,
         )
@@ -247,7 +282,7 @@ class TestSandboxKafkaConfig(unittest.TestCase):
                 "partitions": 6,
                 "replication_factor": 3,
                 "min_insync_replicas": 2,
-                "apicurio_registry": "http://localhost:18082/apis/registry/v3",
+                "apicurio_registry": "http://localhost:8082/apis/registry/v3",
             },
             mock_populator.call_args.kwargs,
         )
