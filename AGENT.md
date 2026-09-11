@@ -174,8 +174,8 @@ stable version from GitHub Releases at runtime; never hard-code a release tag,
 and retain a link to the releases index when the request is unavailable.
 
 Keep the manual Kafka environment self-contained in `sandbox`; never share its
-fixtures or models with tests. Maintain one topology with three Confluent Kafka
-brokers, Apicurio Registry, and Confluent Schema Registry, without a web UI.
+fixtures or models with tests. Maintain one topology with one Confluent Kafka
+broker, Apicurio Registry, and Confluent Schema Registry, without a web UI.
 The `errors` topic covers valid and malformed Registry payloads plus invalid
 UTF-8 headers. Keep topic registration lambda-free through named
 `Populator.populate_*` entrypoints.
