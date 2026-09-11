@@ -118,8 +118,9 @@ uv build --clear
 ```
 
 Both artifacts are written to `dist/`. Their version is derived from Git by
-`hatch-vcs`: an exact `vMAJOR.MINOR.PATCH` tag produces a release version, while
-an untagged commit produces a development version.
+`hatch-vcs`: an exact `vMAJOR.MINOR.PATCH` tag, optionally suffixed with PEP 440
+`aN`, `bN`, or `rcN`, produces a release version, while an untagged commit
+produces a development version.
 
 Verify that the artifacts contain matching versions and all required files:
 
@@ -176,11 +177,12 @@ git tag -a "v${release_version}" -m "Release v${release_version}"
 git push origin "v${release_version}"
 ```
 
-The release workflow validates that the tag is exactly `vMAJOR.MINOR.PATCH` and
-points to a commit on `main`. It then tests and builds the distributions, derives
-release notes from Conventional Commits, and waits for approval in the protected
-`release` environment. After approval, PyPI and Docker Hub are published before
-the GitHub release is created.
+For a prerelease, append the next PEP 440 `aN`, `bN`, or `rcN` suffix to
+`release_version`. The release workflow validates the stable or prerelease tag
+and requires it to point to a commit on `main`. It then tests and builds the
+distributions, derives release notes from Conventional Commits, and waits for
+approval in the protected `release` environment. After approval, PyPI and Docker
+Hub are published before the GitHub release is created.
 
 The GitHub `release` environment must contain `DOCKER_HUB_USERNAME` and
 `DOCKER_HUB_ACCESS_TOKEN`. Configure the PyPI trusted publisher for owner

@@ -23,7 +23,7 @@ split_commits = false
 protect_breaking_commits = true
 filter_commits = true
 fail_on_unmatched_commit = true
-tag_pattern = "^v[0-9]+\\.[0-9]+\\.[0-9]+$"
+tag_pattern = "^v[0-9]+\\.[0-9]+\\.[0-9]+(?:(?:a|b|rc)[0-9]+)?$"
 sort_commits = "oldest"
 commit_parsers = [
     { message = "^.*!:", group = "<!-- 0 -->Breaking Changes" },

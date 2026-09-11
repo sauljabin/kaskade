@@ -2,8 +2,8 @@
 
 Use this checklist for every release. Complete the shared preparation checks,
 the section for the selected release type, then publishing, verification, and
-announcements. Major releases require a comprehensive review; minor and patch
-releases narrow the review without relaxing the shared quality checks.
+announcements. Major releases require a comprehensive review; prerelease, minor,
+and patch releases narrow the review without relaxing the shared quality checks.
 
 Keep this file reusable and unchecked. Record release-specific results in the
 agent's task report: candidate version and commit, evidence or command results,
@@ -39,6 +39,19 @@ requires explicit approval of the prepared draft.
   user-facing fixes, features, breaking changes, and known limitations. Keep
   GitHub Releases as the canonical changelog; do not add a maintained changelog
   or a static version field.
+
+## Pre-release — Focused Review
+
+- [ ] Confirm the release uses the next unused PEP 440 `aN`, `bN`, or `rcN` tag
+  for its stage and is intentionally not production-ready. Record the unstable
+  or incomplete areas that need tester feedback.
+- [ ] Review documentation, screenshots, compatibility guidance, and known
+  limitations for claims affected by this prerelease.
+- [ ] Run focused manual, visual, and sandbox checks for changed behavior and its
+  integration paths.
+- [ ] Confirm GitHub marks the release as a prerelease, Docker publishes only the
+  exact version tag without moving `latest`, and installation guidance uses an
+  explicit prerelease version.
 
 ## Major Release — Comprehensive Review
 
@@ -106,8 +119,9 @@ requires explicit approval of the prepared draft.
   build-once distribution bundle and review generated release notes.
 - [ ] Verify the expected version is available on PyPI and installs successfully
   in an isolated environment; check version reporting and both CLI help commands.
-- [ ] Verify the versioned and `latest` Docker tags, expected image platforms,
-  and version reporting from the published image.
+- [ ] Verify the exact versioned Docker tag, expected image platforms, and
+  version reporting from the published image. Verify `latest` only for a stable
+  release; prereleases must not move it.
 - [ ] Verify the GitHub release tag, downloadable wheel and source distribution,
   release notes, and links match the intended release.
 - [ ] Verify the live website's release discovery and relevant deployment status.

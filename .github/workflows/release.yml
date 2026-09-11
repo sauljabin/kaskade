@@ -3,7 +3,7 @@ name: Release
 on:
   push:
     tags:
-      - "v[0-9]+.[0-9]+.[0-9]+"
+      - "v[0-9]+.[0-9]+.[0-9]+*"
 
 permissions:
   contents: read
@@ -21,6 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     outputs:
+      prerelease: ${{ steps.release.outputs.prerelease }}
       version: ${{ steps.release.outputs.version }}
     steps:
       - name: Checkout complete history
@@ -33,7 +34,7 @@ jobs:
         env:
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
-          if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+((a|b|rc)[0-9]+)?$ ]]; then
             echo "Invalid release tag: $RELEASE_TAG" >&2
             exit 1
           fi
@@ -41,6 +42,11 @@ jobs:
           if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
             echo "Release tag must point to a commit on main" >&2
             exit 1
+          fi
+          if [[ "$RELEASE_TAG" =~ (a|b|rc)[0-9]+$ ]]; then
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
           fi
           echo "version=${RELEASE_TAG#v}" >> "$GITHUB_OUTPUT"
       - name: Set up uv and Python
@@ -151,8 +157,8 @@ jobs:
         with:
           images: docker.io/sauljabin/kaskade
           tags: |
-            type=semver,pattern={{version}}
-            type=raw,value=latest
+            type=raw,value=${{ needs.build.outputs.version }}
+            type=raw,value=latest,enable=${{ needs.build.outputs.prerelease == 'false' }}
       - name: Log in to Docker Hub
         uses: docker/login-action@v4.6.0
         with:
@@ -197,10 +203,16 @@ jobs:
       - name: Create GitHub release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          IS_PRERELEASE: ${{ needs.build.outputs.prerelease }}
           RELEASE_TAG: ${{ github.ref_name }}
-        run: >-
-          gh release create "$RELEASE_TAG" dist/*
-          --title "$RELEASE_TAG"
-          --notes-file release-notes.md
-          --verify-tag
-          --fail-on-no-commits
+        run: |
+          release_args=()
+          if [[ "$IS_PRERELEASE" == "true" ]]; then
+            release_args+=(--prerelease)
+          fi
+          gh release create "$RELEASE_TAG" dist/* \
+            --title "$RELEASE_TAG" \
+            --notes-file release-notes.md \
+            --verify-tag \
+            --fail-on-no-commits \
+            "${release_args[@]}"
