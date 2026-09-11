@@ -161,7 +161,7 @@ class Populator:
         partitions: int = 10,
         replication_factor: int | None = None,
         min_insync_replicas: int | None = None,
-        apicurio_registry: str = "http://localhost:18082/apis/registry/v3",
+        apicurio_registry: str = "http://localhost:8082/apis/registry/v3",
     ) -> None:
         self.producer = Producer(
             kafka_config
@@ -503,17 +503,17 @@ def validate_topics(
     help="Minimum in-sync replicas for created topics. Uses the broker default when omitted.",
 )
 @click.option(
-    "--bootstrap-servers", default="localhost:19092", help="Bootstrap servers.", show_default=True
+    "--bootstrap-servers", default="localhost:9092", help="Bootstrap servers.", show_default=True
 )
 @click.option(
     "--registry",
-    default="http://localhost:18081",
-    help="Schema registry. For Apicurio use 'http://localhost:18082/apis/ccompat/v7'",
+    default="http://localhost:8081",
+    help="Schema registry. For Apicurio use 'http://localhost:8082/apis/ccompat/v7'",
     show_default=True,
 )
 @click.option(
     "--apicurio-registry",
-    default="http://localhost:18082/apis/registry/v3",
+    default="http://localhost:8082/apis/registry/v3",
     help="Native Apicurio Core Registry API v3 URL.",
     show_default=True,
 )

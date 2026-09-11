@@ -40,8 +40,8 @@ Run textual console:
 
 ```bash
 uv run textual console --port 7342
-uv run textual run --port 7342 --dev -c kaskade admin -b localhost:19092
-uv run textual run --port 7342 --dev -c kaskade consumer -b localhost:19092 -t my-topic
+uv run textual run --port 7342 --dev -c kaskade admin -b localhost:9092
+uv run textual run --port 7342 --dev -c kaskade consumer -b localhost:9092 -t my-topic
 ```
 
 ## Scripts
@@ -144,7 +144,7 @@ docker build -t sauljabin/kaskade:latest .
 Run the image on the sandbox network:
 
 ```bash
-docker run --rm -it --network sandbox sauljabin/kaskade:latest admin -b kafka1:9092
+docker run --rm -it --network sandbox sauljabin/kaskade:latest admin -b kafka:9092
 ```
 
 ## Release
@@ -212,7 +212,7 @@ Use this sequence for a complete manual test:
 
 ### Start the local sandbox
 
-Start the three-node Confluent Kafka cluster, Confluent Schema Registry, and
+Start the single-node Confluent Kafka cluster, Confluent Schema Registry, and
 Apicurio Registry:
 
 ```bash
@@ -223,10 +223,10 @@ The sandbox exposes:
 
 | Service | Address |
 | --- | --- |
-| Kafka brokers | `localhost:19092`, `localhost:29092`, `localhost:39092` |
-| Confluent Schema Registry | `http://localhost:18081` |
-| Apicurio Confluent-compatible API | `http://localhost:18082/apis/ccompat/v7` |
-| Apicurio Core Registry API | `http://localhost:18082/apis/registry/v3` |
+| Kafka broker | `localhost:9092` |
+| Confluent Schema Registry | `http://localhost:8081` |
+| Apicurio Confluent-compatible API | `http://localhost:8082/apis/ccompat/v7` |
+| Apicurio Core Registry API | `http://localhost:8082/apis/registry/v3` |
 
 Image versions and the Kafka cluster ID are defined in `sandbox/.env`.
 
@@ -254,16 +254,16 @@ topology:
 ```bash
 uv run python -m sandbox \
     --partitions 6 \
-    --replication-factor 3 \
-    --min-insync-replicas 2
+    --replication-factor 1 \
+    --min-insync-replicas 1
 ```
 
 Override either registry URL when the sandbox services are hosted elsewhere:
 
 ```bash
 uv run python -m sandbox \
-    --registry http://localhost:18081 \
-    --apicurio-registry http://localhost:18082/apis/registry/v3
+    --registry http://localhost:8081 \
+    --apicurio-registry http://localhost:8082/apis/registry/v3
 ```
 
 ### Inspect registry APIs with HTTPie
@@ -274,26 +274,26 @@ registered subjects and schemas.
 Query Confluent Schema Registry:
 
 ```bash
-http GET http://localhost:18081/subjects
-http GET http://localhost:18081/subjects/avro-schema-value/versions
-http GET http://localhost:18081/subjects/avro-schema-value/versions/latest
-http GET http://localhost:18081/config
+http GET http://localhost:8081/subjects
+http GET http://localhost:8081/subjects/avro-schema-value/versions
+http GET http://localhost:8081/subjects/avro-schema-value/versions/latest
+http GET http://localhost:8081/config
 ```
 
 Query Apicurio's Confluent-compatible API:
 
 ```bash
-http GET http://localhost:18082/apis/ccompat/v7/subjects
-http GET http://localhost:18082/apis/ccompat/v7/subjects/avro-schema-value/versions
-http GET http://localhost:18082/apis/ccompat/v7/subjects/avro-schema-value/versions/latest
-http GET http://localhost:18082/apis/ccompat/v7/config
+http GET http://localhost:8082/apis/ccompat/v7/subjects
+http GET http://localhost:8082/apis/ccompat/v7/subjects/avro-schema-value/versions
+http GET http://localhost:8082/apis/ccompat/v7/subjects/avro-schema-value/versions/latest
+http GET http://localhost:8082/apis/ccompat/v7/config
 ```
 
 Query Apicurio's native Core Registry API:
 
 ```bash
-http GET http://localhost:18082/apis/registry/v3/search/artifacts
-http GET http://localhost:18082/apis/registry/v3/search/versions
+http GET http://localhost:8082/apis/registry/v3/search/artifacts
+http GET http://localhost:8082/apis/registry/v3/search/versions
 ```
 
 The `avro-schema-value` subject exists after populating the `avro-schema` topic.
@@ -370,7 +370,7 @@ uv run kaskade consumer --help
 Open the Admin application and verify the populated topics and their metadata:
 
 ```bash
-uv run kaskade admin -b localhost:19092
+uv run kaskade admin -b localhost:9092
 ```
 
 #### Primitive and JSON consumers
@@ -378,32 +378,32 @@ uv run kaskade admin -b localhost:19092
 Start with raw bytes:
 
 ```bash
-uv run kaskade consumer -b localhost:19092 --earliest -t string
+uv run kaskade consumer -b localhost:9092 --earliest -t string
 ```
 
 Every record in the `null` topic has a null key, value, and `sandbox-null`
 header:
 
 ```bash
-uv run kaskade consumer -b localhost:19092 --earliest -k string -v string -t null
+uv run kaskade consumer -b localhost:9092 --earliest -k string -v string -t null
 ```
 
 Test every primitive deserializer:
 
 ```bash
-uv run kaskade consumer -b localhost:19092 --earliest -k string -v string -t string
-uv run kaskade consumer -b localhost:19092 --earliest -k string -v integer -t integer
-uv run kaskade consumer -b localhost:19092 --earliest -k string -v long -t long
-uv run kaskade consumer -b localhost:19092 --earliest -k string -v float -t float
-uv run kaskade consumer -b localhost:19092 --earliest -k string -v double -t double
-uv run kaskade consumer -b localhost:19092 --earliest -k string -v boolean -t boolean
+uv run kaskade consumer -b localhost:9092 --earliest -k string -v string -t string
+uv run kaskade consumer -b localhost:9092 --earliest -k string -v integer -t integer
+uv run kaskade consumer -b localhost:9092 --earliest -k string -v long -t long
+uv run kaskade consumer -b localhost:9092 --earliest -k string -v float -t float
+uv run kaskade consumer -b localhost:9092 --earliest -k string -v double -t double
+uv run kaskade consumer -b localhost:9092 --earliest -k string -v boolean -t boolean
 ```
 
 Test raw and Confluent-framed payloads with the local JSON deserializer:
 
 ```bash
-uv run kaskade consumer -b localhost:19092 --earliest -k string -v json -t json
-uv run kaskade consumer -b localhost:19092 --earliest -k string -v json -t json-schema \
+uv run kaskade consumer -b localhost:9092 --earliest -k string -v json -t json
+uv run kaskade consumer -b localhost:9092 --earliest -k string -v json -t json-schema \
         --json framing=confluent
 ```
 
@@ -413,14 +413,14 @@ scrolling for a long topic name, JSON key and value, and header key and value:
 ```bash
 uv run python -m sandbox \
         --topic consumer-layout-with-an-intentionally-long-topic-name-for-large-record-testing
-uv run kaskade consumer -b localhost:19092 --earliest -k json -v json \
+uv run kaskade consumer -b localhost:9092 --earliest -k json -v json \
         -t consumer-layout-with-an-intentionally-long-topic-name-for-large-record-testing
 ```
 
 Test an Apicurio-produced payload without querying the registry:
 
 ```bash
-uv run kaskade consumer -b localhost:19092 --earliest -k string -v json \
+uv run kaskade consumer -b localhost:9092 --earliest -k string -v json \
         -t json-schema-apicurio --json framing=apicurio
 ```
 
@@ -429,18 +429,18 @@ uv run kaskade consumer -b localhost:19092 --earliest -k string -v json \
 Test a JSON Schema payload through Confluent Schema Registry:
 
 ```bash
-uv run kaskade consumer -b localhost:19092 --earliest -t json-schema \
+uv run kaskade consumer -b localhost:9092 --earliest -t json-schema \
         -k string -v registry \
-        --registry url=http://localhost:18081
+        --registry url=http://localhost:8081
 ```
 
 Test independent key and value deserialization fallbacks:
 
 ```bash
-uv run kaskade consumer -b localhost:19092 --earliest -t errors \
+uv run kaskade consumer -b localhost:9092 --earliest -t errors \
         -k registry -v registry \
         --fallback encoding=hex \
-        --registry url=http://localhost:18081
+        --registry url=http://localhost:8081
 ```
 
 The `errors` topic cycles through a malformed key, malformed value, both fields
@@ -450,27 +450,27 @@ contain randomized bytes, and `sandbox-error-case` identifies each case.
 Test an Avro payload through Confluent Schema Registry:
 
 ```bash
-uv run kaskade consumer -b localhost:19092 --earliest -t avro-schema \
+uv run kaskade consumer -b localhost:9092 --earliest -t avro-schema \
         -k string -v registry \
-        --registry url=http://localhost:18081
+        --registry url=http://localhost:8081
 ```
 
 Test a Protobuf payload through Confluent Schema Registry without a local
 descriptor:
 
 ```bash
-uv run kaskade consumer -b localhost:19092 --earliest -t protobuf-schema \
+uv run kaskade consumer -b localhost:9092 --earliest -t protobuf-schema \
         -k string -v registry \
-        --registry url=http://localhost:18081
+        --registry url=http://localhost:8081
 ```
 
 Test the native Apicurio Avro payload:
 
 ```bash
-uv run kaskade consumer -b localhost:19092 --earliest -t avro-schema-apicurio \
+uv run kaskade consumer -b localhost:9092 --earliest -t avro-schema-apicurio \
         -k string -v registry \
         --registry provider=apicurio \
-        --registry apicurio.registry.url=http://localhost:18082/apis/registry/v3
+        --registry apicurio.registry.url=http://localhost:8082/apis/registry/v3
 ```
 
 Use `json-schema-apicurio` or `protobuf-schema-apicurio` to exercise the other
