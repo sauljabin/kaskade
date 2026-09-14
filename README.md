@@ -10,6 +10,9 @@
 <a href="https://pypi.org/project/kaskade"><img alt="PyPI version" src="https://img.shields.io/pypi/v/kaskade?style=flat-square&logo=pypi&logoColor=white&label=pypi"></a>
 <a href="https://formulae.brew.sh/formula/kaskade"><img alt="Homebrew version" src="https://img.shields.io/homebrew/v/kaskade?style=flat-square&logo=homebrew&logoColor=white&label=homebrew"></a>
 <a href="https://hub.docker.com/r/sauljabin/kaskade/tags"><img alt="Docker version" src="https://img.shields.io/docker/v/sauljabin/kaskade?style=flat-square&logo=docker&logoColor=white&label=docker"></a>
+<br>
+<a href="https://pypi.org/project/kaskade"><img alt="Linux support" src="https://img.shields.io/badge/os-Linux-7C3AED?style=flat-square&logo=linux&logoColor=white"></a>
+<a href="https://pypi.org/project/kaskade"><img alt="macOS support" src="https://img.shields.io/badge/os-macOS-7C3AED?style=flat-square&logo=apple&logoColor=white"></a>
 </p>
 
 Kafka flows through your terminal. Kaskade brings topic administration and record
