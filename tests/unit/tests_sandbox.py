@@ -65,6 +65,16 @@ class TestSandboxCompose(unittest.TestCase):
             ],
         )
 
+    def test_schema_registry_healthcheck_uses_its_available_python_runtime(self) -> None:
+        healthcheck = self.services["schema-registry"]["healthcheck"]
+        command = healthcheck["test"]
+
+        self.assertEqual(["CMD", "python3", "-c"], command[:3])
+        self.assertIn("http://localhost:8081/subjects", command[3])
+        self.assertIn("timeout=5", command[3])
+        self.assertNotIn("curl", command[3])
+        self.assertEqual("30s", healthcheck["start_period"])
+
     def test_does_not_use_compose_extension_fields(self) -> None:
         self.assertFalse(any(key.startswith("x-") for key in self.compose))
 
