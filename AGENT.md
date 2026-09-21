@@ -49,9 +49,11 @@
   Apicurio uses supported official deserializer properties and its v3 API; keep
   provider-specific validation, framing, and metadata behavior isolated.
 - Keep native Apicurio Registry and OAuth token-endpoint TLS contexts separate.
-  Registry CA and client identity material must never reach the IdP; preserve
-  explicit token-endpoint trust, OAuth scopes, encrypted PEM key support, native
-  token expiry/401 refresh, and deterministic HTTP client cleanup.
+  Preserve Apicurio's official shared-CA behavior by applying
+  `apicurio.registry.tls.certificates` to both contexts. Registry client identity
+  material must never reach the IdP. Use the official
+  `apicurio.registry.auth.client.scope` property. Preserve native token
+  expiry/401 refresh and deterministic HTTP client cleanup.
 
 ## Data Loading and Consumer Records
 

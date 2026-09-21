@@ -24,7 +24,6 @@ from kaskade.apicurio import (
     APICURIO_CLIENT_ID,
     APICURIO_CLIENT_SECRET,
     APICURIO_OAUTH_SCOPE,
-    APICURIO_OAUTH_TLS_CERTIFICATES,
     APICURIO_PASSWORD,
     APICURIO_PROXY_HOST,
     APICURIO_PROXY_PASSWORD,
@@ -35,7 +34,6 @@ from kaskade.apicurio import (
     APICURIO_TLS_CERTIFICATES,
     APICURIO_TLS_CLIENT_CERTIFICATE,
     APICURIO_TLS_CLIENT_KEY,
-    APICURIO_TLS_CLIENT_KEY_PASSWORD,
     APICURIO_TOKEN_ENDPOINT,
     APICURIO_URL,
     APICURIO_USE_ID,
@@ -185,11 +183,10 @@ class TestApicurioConfig(unittest.TestCase):
                     }
                 )
             )
-            self.assertEqual((str(certificate), str(key), None), config.certificate)
+            self.assertEqual((str(certificate), str(key)), config.certificate)
 
-    def test_keeps_registry_and_oauth_trust_independent(self) -> None:
-        registry_pem, _, registry_der = tls_identity()
-        oauth_pem, _, oauth_der = tls_identity()
+    def test_official_registry_trust_applies_to_oauth_by_default(self) -> None:
+        shared_pem, _, shared_der = tls_identity()
 
         config = ApicurioConfig.from_dict(
             apicurio_config(
@@ -197,8 +194,7 @@ class TestApicurioConfig(unittest.TestCase):
                     APICURIO_TOKEN_ENDPOINT: "https://idp/token",
                     APICURIO_CLIENT_ID: "reader",
                     APICURIO_CLIENT_SECRET: "secret",
-                    APICURIO_TLS_CERTIFICATES: registry_pem,
-                    APICURIO_OAUTH_TLS_CERTIFICATES: oauth_pem,
+                    APICURIO_TLS_CERTIFICATES: shared_pem,
                 }
             )
         )
@@ -208,18 +204,12 @@ class TestApicurioConfig(unittest.TestCase):
         assert isinstance(config.verify, ssl.SSLContext)
         assert isinstance(config.token_verify, ssl.SSLContext)
         self.assertIsNot(config.verify, config.token_verify)
-        self.assertIn(registry_der, config.verify.get_ca_certs(binary_form=True))
-        self.assertNotIn(oauth_der, config.verify.get_ca_certs(binary_form=True))
-        self.assertIn(oauth_der, config.token_verify.get_ca_certs(binary_form=True))
-        self.assertNotIn(registry_der, config.token_verify.get_ca_certs(binary_form=True))
+        self.assertIn(shared_der, config.verify.get_ca_certs(binary_form=True))
+        self.assertIn(shared_der, config.token_verify.get_ca_certs(binary_form=True))
 
-    def test_requires_oauth_for_scope_and_token_endpoint_trust(self) -> None:
-        for property_name in (APICURIO_OAUTH_SCOPE, APICURIO_OAUTH_TLS_CERTIFICATES):
-            with (
-                self.subTest(property_name=property_name),
-                self.assertRaisesRegex(ApicurioRegistryError, "OAuth options require"),
-            ):
-                ApicurioConfig.from_dict(apicurio_config(**{property_name: "value"}))
+    def test_requires_oauth_for_scope(self) -> None:
+        with self.assertRaisesRegex(ApicurioRegistryError, "OAuth options require"):
+            ApicurioConfig.from_dict(apicurio_config(**{APICURIO_OAUTH_SCOPE: "value"}))
 
 
 class TestApicurioClient(unittest.TestCase):
@@ -248,17 +238,16 @@ class TestApicurioClient(unittest.TestCase):
         oauth_http.close.assert_called_once_with()
 
     @patch("kaskade.apicurio.httpx.Client")
-    def test_loads_encrypted_client_key_only_into_registry_context(
+    def test_loads_client_identity_only_into_registry_context(
         self, client_class: MagicMock
     ) -> None:
-        certificate, key, _ = tls_identity(b"key-secret")
+        certificate, key, _ = tls_identity()
 
         client = ApicurioClient(
             apicurio_config(
                 **{
                     APICURIO_TLS_CLIENT_CERTIFICATE: certificate,
                     APICURIO_TLS_CLIENT_KEY: key,
-                    APICURIO_TLS_CLIENT_KEY_PASSWORD: "key-secret",
                 }
             )
         )

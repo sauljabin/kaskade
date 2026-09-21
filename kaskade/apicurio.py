@@ -22,8 +22,7 @@ APICURIO_RETRY_BACKOFF = f"{APICURIO_PREFIX}retry-backoff-ms"
 APICURIO_TOKEN_ENDPOINT = f"{APICURIO_PREFIX}auth.service.token.endpoint"
 APICURIO_CLIENT_ID = f"{APICURIO_PREFIX}auth.client.id"
 APICURIO_CLIENT_SECRET = f"{APICURIO_PREFIX}auth.client.secret"
-APICURIO_OAUTH_SCOPE = f"{APICURIO_PREFIX}auth.scope"
-APICURIO_OAUTH_TLS_CERTIFICATES = f"{APICURIO_PREFIX}auth.service.token.tls.certificates"
+APICURIO_OAUTH_SCOPE = f"{APICURIO_PREFIX}auth.client.scope"
 APICURIO_USERNAME = f"{APICURIO_PREFIX}auth.username"
 APICURIO_PASSWORD = f"{APICURIO_PREFIX}auth.password"
 APICURIO_PROXY_HOST = f"{APICURIO_PREFIX}proxy.host"
@@ -35,7 +34,6 @@ APICURIO_TLS_TRUST_ALL = f"{APICURIO_PREFIX}tls.trust-all"
 APICURIO_TLS_VERIFY_HOST = f"{APICURIO_PREFIX}tls.verify-host"
 APICURIO_TLS_CLIENT_CERTIFICATE = f"{APICURIO_PREFIX}tls.client-certificate"
 APICURIO_TLS_CLIENT_KEY = f"{APICURIO_PREFIX}tls.client-key"
-APICURIO_TLS_CLIENT_KEY_PASSWORD = f"{APICURIO_PREFIX}tls.client-key-password"
 APICURIO_CACHE_CAPACITY = 1000
 
 APICURIO_PROPERTIES = {
@@ -48,7 +46,6 @@ APICURIO_PROPERTIES = {
     APICURIO_CLIENT_ID,
     APICURIO_CLIENT_SECRET,
     APICURIO_OAUTH_SCOPE,
-    APICURIO_OAUTH_TLS_CERTIFICATES,
     APICURIO_USERNAME,
     APICURIO_PASSWORD,
     APICURIO_PROXY_HOST,
@@ -60,7 +57,6 @@ APICURIO_PROPERTIES = {
     APICURIO_TLS_VERIFY_HOST,
     APICURIO_TLS_CLIENT_CERTIFICATE,
     APICURIO_TLS_CLIENT_KEY,
-    APICURIO_TLS_CLIENT_KEY_PASSWORD,
 }
 
 
@@ -156,7 +152,7 @@ class ApicurioConfig:
     proxy: str | None
     verify: bool | ssl.SSLContext
     token_verify: bool | ssl.SSLContext
-    certificate: tuple[str, str, str | None] | None
+    certificate: tuple[str, str] | None
 
     @classmethod
     def from_dict(cls, config: dict[str, str]) -> ApicurioConfig:  # noqa: C901
@@ -199,8 +195,7 @@ class ApicurioConfig:
             raise ApicurioRegistryError(
                 "Basic authentication and OAuth cannot be configured together"
             )
-        oauth_options = {APICURIO_OAUTH_SCOPE, APICURIO_OAUTH_TLS_CERTIFICATES}
-        if oauth_options.intersection(config) and not has_oauth:
+        if APICURIO_OAUTH_SCOPE in config and not has_oauth:
             raise ApicurioRegistryError("OAuth options require OAuth client credentials")
 
         proxy_names = {APICURIO_PROXY_HOST, APICURIO_PROXY_PORT}
@@ -228,14 +223,9 @@ class ApicurioConfig:
         verify_host = _boolean(config, APICURIO_TLS_VERIFY_HOST, True)
         client_certificate = config.get(APICURIO_TLS_CLIENT_CERTIFICATE)
         client_key = config.get(APICURIO_TLS_CLIENT_KEY)
-        client_key_password = config.get(APICURIO_TLS_CLIENT_KEY_PASSWORD)
         if bool(client_certificate) != bool(client_key):
             raise ApicurioRegistryError(
                 "TLS client certificate and client key must be configured together"
-            )
-        if client_key_password is not None and not client_key:
-            raise ApicurioRegistryError(
-                "TLS client key password requires a client certificate and key"
             )
         verify = _verification(
             config.get(APICURIO_TLS_CERTIFICATES),
@@ -245,12 +235,12 @@ class ApicurioConfig:
             label="Registry TLS",
         )
         token_verify = _verification(
-            config.get(APICURIO_OAUTH_TLS_CERTIFICATES),
+            config.get(APICURIO_TLS_CERTIFICATES),
             label="OAuth token endpoint TLS",
         )
         certificate = None
         if client_certificate is not None and client_key is not None:
-            certificate = (client_certificate, client_key, client_key_password)
+            certificate = (client_certificate, client_key)
 
         return cls(
             url=url,
@@ -326,8 +316,8 @@ class ApicurioClient:
         self._token_expires_at = 0.0
         self._cache: OrderedDict[tuple[Any, ...], tuple[float, Any]] = OrderedDict()
 
-    def _certificate_files(self, certificate: tuple[str, str, str | None]) -> tuple[str, str]:
-        certificate_value, key_value, _ = certificate
+    def _certificate_files(self, certificate: tuple[str, str]) -> tuple[str, str]:
+        certificate_value, key_value = certificate
         values = (certificate_value, key_value)
         if all("-----BEGIN" not in value and Path(value).is_file() for value in values):
             return certificate_value, key_value
@@ -353,7 +343,6 @@ class ApicurioClient:
             context.load_cert_chain(
                 certificate_path,
                 key_path,
-                password=self.config.certificate[2],
             )
         except (OSError, ssl.SSLError) as ex:
             raise ApicurioRegistryError(f"TLS client identity is invalid: {ex}") from ex

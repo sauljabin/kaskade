@@ -423,12 +423,11 @@ configuration file instead of command arguments:
 [registry]
 provider = apicurio
 apicurio.registry.url = https://registry.example.com/apis/registry/v3
-apicurio.registry.tls.certificates = /private/registry-ca.pem
+apicurio.registry.tls.certificates = /private/registry-and-idp-ca.pem
 apicurio.registry.auth.service.token.endpoint = https://idp.example.com/token
-apicurio.registry.auth.service.token.tls.certificates = /private/idp-ca.pem
 apicurio.registry.auth.client.id = registry-reader
 apicurio.registry.auth.client.secret = replace-with-client-secret
-apicurio.registry.auth.scope = registry.read
+apicurio.registry.auth.client.scope = registry.read
 ```
 
 ```bash
@@ -436,12 +435,14 @@ kaskade consumer --config-file private-client.ini \
         -b my-kafka:9092 -t my-avro-topic -k registry -v registry
 ```
 
-Registry TLS and OAuth token-endpoint TLS use separate trust contexts. A Registry
-client certificate is never sent to the token endpoint. Native Apicurio also
-supports Basic authentication with private CA trust and PEM mTLS; encrypted PEM
-keys use `apicurio.registry.tls.client-key-password`. OAuth access tokens are
-cached until their reported expiry and refreshed in the same running client;
-one `401` also forces one token refresh and retry.
+Registry TLS and OAuth token-endpoint TLS use separate contexts, and a Registry
+client certificate is never sent to the token endpoint. For compatibility with
+Apicurio's Java client, the official `apicurio.registry.tls.certificates`
+property supplies the CA bundle for both endpoints. Include both chains in that
+official property when they differ. Native Apicurio also supports Basic
+authentication with private CA trust and unencrypted PEM mTLS. OAuth access
+tokens are cached until their reported expiry and refreshed in the same running
+client; one `401` also forces one token refresh and retry.
 
 The native client additionally accepts retry, cache, and proxy properties.
 Serializer-only properties, including artifact selection and auto-registration
