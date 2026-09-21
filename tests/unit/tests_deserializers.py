@@ -119,6 +119,14 @@ class TestDeserializer(unittest.TestCase):
         self.assertIs(pool.get(Deserialization.STRING), pool.get(Deserialization.STRING))
         self.assertIs(pool.default_deserializer, pool.get(Deserialization.BYTES))
 
+    def test_pool_closes_registry_deserializer(self):
+        pool = DeserializerPool()
+        pool.registry_deserializer = MagicMock()
+
+        pool.close()
+
+        pool.registry_deserializer.close.assert_called_once_with()
+
     def test_header_falls_back_to_binary_value_for_deserialization_error(self):
         value = b"invalid"
         deserializer = MagicMock()

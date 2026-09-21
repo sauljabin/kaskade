@@ -1,13 +1,19 @@
 import json
+import ssl
 import struct
 import tempfile
 import unittest
+from datetime import datetime, timedelta, timezone
 from io import BytesIO
 from pathlib import Path
 from unittest.mock import MagicMock, call, patch
 
 import httpx
 from confluent_kafka.serialization import MessageField
+from cryptography import x509
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.x509.oid import NameOID
 from fastavro import schemaless_writer
 from google.protobuf.descriptor_pb2 import FieldDescriptorProto, FileDescriptorProto
 from google.protobuf.descriptor_pool import DescriptorPool
@@ -17,6 +23,8 @@ from kaskade.apicurio import (
     APICURIO_CHECK_PERIOD,
     APICURIO_CLIENT_ID,
     APICURIO_CLIENT_SECRET,
+    APICURIO_OAUTH_SCOPE,
+    APICURIO_OAUTH_TLS_CERTIFICATES,
     APICURIO_PASSWORD,
     APICURIO_PROXY_HOST,
     APICURIO_PROXY_PASSWORD,
@@ -24,8 +32,10 @@ from kaskade.apicurio import (
     APICURIO_PROXY_USERNAME,
     APICURIO_RETRY_BACKOFF,
     APICURIO_RETRY_COUNT,
+    APICURIO_TLS_CERTIFICATES,
     APICURIO_TLS_CLIENT_CERTIFICATE,
     APICURIO_TLS_CLIENT_KEY,
+    APICURIO_TLS_CLIENT_KEY_PASSWORD,
     APICURIO_TOKEN_ENDPOINT,
     APICURIO_URL,
     APICURIO_USE_ID,
@@ -70,6 +80,35 @@ def type_ref(name: str) -> bytes:
     encoded = name.encode()
     message = b"\x0a" + varint(len(encoded)) + encoded
     return varint(len(message)) + message
+
+
+def tls_identity(password: bytes | None = None) -> tuple[str, str, bytes]:
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "Kaskade test")])
+    certificate = (
+        x509.CertificateBuilder()
+        .subject_name(name)
+        .issuer_name(name)
+        .public_key(key.public_key())
+        .serial_number(x509.random_serial_number())
+        .not_valid_before(datetime.now(timezone.utc) - timedelta(minutes=1))
+        .not_valid_after(datetime.now(timezone.utc) + timedelta(days=1))
+        .add_extension(x509.BasicConstraints(ca=True, path_length=None), critical=True)
+        .sign(key, hashes.SHA256())
+    )
+    encryption = (
+        serialization.BestAvailableEncryption(password)
+        if password is not None
+        else serialization.NoEncryption()
+    )
+    certificate_der = certificate.public_bytes(serialization.Encoding.DER)
+    certificate_pem = certificate.public_bytes(serialization.Encoding.PEM).decode()
+    key_pem = key.private_bytes(
+        serialization.Encoding.PEM,
+        serialization.PrivateFormat.PKCS8,
+        encryption,
+    ).decode()
+    return certificate_pem, key_pem, certificate_der
 
 
 class TestApicurioConfig(unittest.TestCase):
@@ -146,10 +185,90 @@ class TestApicurioConfig(unittest.TestCase):
                     }
                 )
             )
-            self.assertEqual((str(certificate), str(key)), config.certificate)
+            self.assertEqual((str(certificate), str(key), None), config.certificate)
+
+    def test_keeps_registry_and_oauth_trust_independent(self) -> None:
+        registry_pem, _, registry_der = tls_identity()
+        oauth_pem, _, oauth_der = tls_identity()
+
+        config = ApicurioConfig.from_dict(
+            apicurio_config(
+                **{
+                    APICURIO_TOKEN_ENDPOINT: "https://idp/token",
+                    APICURIO_CLIENT_ID: "reader",
+                    APICURIO_CLIENT_SECRET: "secret",
+                    APICURIO_TLS_CERTIFICATES: registry_pem,
+                    APICURIO_OAUTH_TLS_CERTIFICATES: oauth_pem,
+                }
+            )
+        )
+
+        self.assertIsInstance(config.verify, ssl.SSLContext)
+        self.assertIsInstance(config.token_verify, ssl.SSLContext)
+        assert isinstance(config.verify, ssl.SSLContext)
+        assert isinstance(config.token_verify, ssl.SSLContext)
+        self.assertIsNot(config.verify, config.token_verify)
+        self.assertIn(registry_der, config.verify.get_ca_certs(binary_form=True))
+        self.assertNotIn(oauth_der, config.verify.get_ca_certs(binary_form=True))
+        self.assertIn(oauth_der, config.token_verify.get_ca_certs(binary_form=True))
+        self.assertNotIn(registry_der, config.token_verify.get_ca_certs(binary_form=True))
+
+    def test_requires_oauth_for_scope_and_token_endpoint_trust(self) -> None:
+        for property_name in (APICURIO_OAUTH_SCOPE, APICURIO_OAUTH_TLS_CERTIFICATES):
+            with (
+                self.subTest(property_name=property_name),
+                self.assertRaisesRegex(ApicurioRegistryError, "OAuth options require"),
+            ):
+                ApicurioConfig.from_dict(apicurio_config(**{property_name: "value"}))
 
 
 class TestApicurioClient(unittest.TestCase):
+    @patch("kaskade.apicurio.httpx.Client")
+    def test_separates_registry_and_oauth_transports(self, client_class: MagicMock) -> None:
+        registry_http = MagicMock()
+        oauth_http = MagicMock()
+        client_class.side_effect = [registry_http, oauth_http]
+
+        client = ApicurioClient(
+            apicurio_config(
+                **{
+                    APICURIO_TOKEN_ENDPOINT: "https://idp/token",
+                    APICURIO_CLIENT_ID: "reader",
+                    APICURIO_CLIENT_SECRET: "secret",
+                }
+            )
+        )
+        client.close()
+
+        registry_call, oauth_call = client_class.call_args_list
+        self.assertEqual("http://registry/apis/registry/v3", registry_call.kwargs["base_url"])
+        self.assertNotIn("base_url", oauth_call.kwargs)
+        self.assertNotIn("auth", oauth_call.kwargs)
+        registry_http.close.assert_called_once_with()
+        oauth_http.close.assert_called_once_with()
+
+    @patch("kaskade.apicurio.httpx.Client")
+    def test_loads_encrypted_client_key_only_into_registry_context(
+        self, client_class: MagicMock
+    ) -> None:
+        certificate, key, _ = tls_identity(b"key-secret")
+
+        client = ApicurioClient(
+            apicurio_config(
+                **{
+                    APICURIO_TLS_CLIENT_CERTIFICATE: certificate,
+                    APICURIO_TLS_CLIENT_KEY: key,
+                    APICURIO_TLS_CLIENT_KEY_PASSWORD: "key-secret",
+                }
+            )
+        )
+        client.close()
+
+        self.assertIsInstance(client.config.verify, ssl.SSLContext)
+        self.assertEqual(1, client_class.call_count)
+        self.assertNotIn("cert", client_class.call_args.kwargs)
+        self.assertIs(client.config.verify, client_class.call_args.kwargs["verify"])
+
     @patch("kaskade.apicurio.httpx.Client")
     def test_fetches_artifact_references_metadata_and_caches(self, client_class: MagicMock) -> None:
         content_response = MagicMock(
@@ -242,6 +361,7 @@ class TestApicurioClient(unittest.TestCase):
                     APICURIO_TOKEN_ENDPOINT: "http://idp/token",
                     APICURIO_CLIENT_ID: "reader",
                     APICURIO_CLIENT_SECRET: "secret",
+                    APICURIO_OAUTH_SCOPE: "registry.read offline_access",
                     APICURIO_RETRY_COUNT: "0",
                 }
             )
@@ -255,12 +375,72 @@ class TestApicurioClient(unittest.TestCase):
             ("reader", "secret"), client_class.return_value.post.call_args.kwargs["auth"]
         )
         self.assertEqual(
+            {"grant_type": "client_credentials", "scope": "registry.read offline_access"},
+            client_class.return_value.post.call_args.kwargs["data"],
+        )
+        self.assertEqual(
             ["Bearer one", "Bearer two"],
             [
                 request.kwargs["headers"]["Authorization"]
                 for request in client_class.return_value.request.call_args_list
             ],
         )
+
+    @patch("kaskade.apicurio.time.monotonic", side_effect=[0.0, 20.0])
+    @patch("kaskade.apicurio.httpx.Client")
+    def test_refreshes_expired_oauth_token_in_the_same_client(
+        self, client_class: MagicMock, monotonic: MagicMock
+    ) -> None:
+        registry_http = MagicMock()
+        registry_http.request.side_effect = [MagicMock(status_code=200), MagicMock(status_code=200)]
+        oauth_http = MagicMock()
+        first_token = MagicMock()
+        first_token.json.return_value = {"access_token": "one", "expires_in": 10}
+        second_token = MagicMock()
+        second_token.json.return_value = {"access_token": "two", "expires_in": 10}
+        oauth_http.post.side_effect = [first_token, second_token]
+        client_class.side_effect = [registry_http, oauth_http]
+        client = ApicurioClient(
+            apicurio_config(
+                **{
+                    APICURIO_TOKEN_ENDPOINT: "https://idp/token",
+                    APICURIO_CLIENT_ID: "reader",
+                    APICURIO_CLIENT_SECRET: "secret",
+                }
+            )
+        )
+
+        client._request("GET", "/ids/contentIds/1")
+        client._request("GET", "/ids/contentIds/2")
+
+        self.assertEqual(2, oauth_http.post.call_count)
+        self.assertEqual(
+            ["Bearer one", "Bearer two"],
+            [
+                call.kwargs["headers"]["Authorization"]
+                for call in registry_http.request.call_args_list
+            ],
+        )
+
+    @patch("kaskade.apicurio.httpx.Client")
+    def test_oauth_failure_does_not_expose_client_secret(self, client_class: MagicMock) -> None:
+        secret = "never-print-this"
+        request = httpx.Request("POST", "https://idp/token")
+        client_class.return_value.post.side_effect = httpx.ConnectError(secret, request=request)
+        client = ApicurioClient(
+            apicurio_config(
+                **{
+                    APICURIO_TOKEN_ENDPOINT: "https://idp/token",
+                    APICURIO_CLIENT_ID: "reader",
+                    APICURIO_CLIENT_SECRET: secret,
+                }
+            )
+        )
+
+        with self.assertRaises(ApicurioRegistryError) as raised:
+            client._oauth_token()
+
+        self.assertNotIn(secret, str(raised.exception))
 
     @patch("kaskade.apicurio.time.sleep")
     @patch("kaskade.apicurio.httpx.Client")

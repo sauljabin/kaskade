@@ -405,8 +405,8 @@ Schema Registry client validates property names, values, and required settings.
 #### Apicurio Registry
 
 Use `provider=apicurio` to select the native Apicurio Registry v3 API. Kaskade
-accepts the applicable official `apicurio.registry.*` deserializer properties;
-it does not infer a provider from those names or accept generic aliases:
+accepts its explicit `apicurio.registry.*` deserializer properties; it does not
+infer a provider from those names or accept generic aliases:
 
 ```bash
 kaskade consumer -b my-kafka:9092 -t my-avro-topic \
@@ -416,23 +416,37 @@ kaskade consumer -b my-kafka:9092 -t my-avro-topic \
         --registry apicurio.registry.use-id=contentId
 ```
 
-OAuth client credentials use Apicurio names as well:
+OAuth client credentials use Apicurio names as well. Put secrets in a private
+configuration file instead of command arguments:
 
-```bash
-kaskade consumer -b my-kafka:9092 -t my-avro-topic \
-        -k registry -v registry \
-        --registry provider=apicurio \
-        --registry apicurio.registry.url=${APICURIO_REGISTRY_URL} \
-        --registry apicurio.registry.auth.service.token.endpoint=${OAUTH_TOKEN_URL} \
-        --registry apicurio.registry.auth.client.id=${OAUTH_CLIENT_ID} \
-        --registry apicurio.registry.auth.client.secret=${OAUTH_CLIENT_SECRET}
+```ini
+[registry]
+provider = apicurio
+apicurio.registry.url = https://registry.example.com/apis/registry/v3
+apicurio.registry.tls.certificates = /private/registry-ca.pem
+apicurio.registry.auth.service.token.endpoint = https://idp.example.com/token
+apicurio.registry.auth.service.token.tls.certificates = /private/idp-ca.pem
+apicurio.registry.auth.client.id = registry-reader
+apicurio.registry.auth.client.secret = replace-with-client-secret
+apicurio.registry.auth.scope = registry.read
 ```
 
-The native client also accepts Apicurio's Basic authentication, retry, cache,
-proxy, and PEM TLS properties. Serializer-only properties, including artifact
-selection and auto-registration settings, are rejected. JKS and PKCS12 stores,
-header-based IDs, custom ID handlers, and legacy eight-byte framing are not
-supported. See the
+```bash
+kaskade consumer --config-file private-client.ini \
+        -b my-kafka:9092 -t my-avro-topic -k registry -v registry
+```
+
+Registry TLS and OAuth token-endpoint TLS use separate trust contexts. A Registry
+client certificate is never sent to the token endpoint. Native Apicurio also
+supports Basic authentication with private CA trust and PEM mTLS; encrypted PEM
+keys use `apicurio.registry.tls.client-key-password`. OAuth access tokens are
+cached until their reported expiry and refreshed in the same running client;
+one `401` also forces one token refresh and retry.
+
+The native client additionally accepts retry, cache, and proxy properties.
+Serializer-only properties, including artifact selection and auto-registration
+settings, are rejected. JKS and PKCS12 stores, header-based IDs, custom ID
+handlers, and legacy eight-byte framing are not supported. See the
 [Apicurio Registry client configuration reference](https://www.apicur.io/registry/docs/apicurio-registry/3.3.x/getting-started/assembly-configuring-kafka-client-serdes.html).
 
 To use Apicurio's Confluent-compatible endpoint instead, leave the provider as

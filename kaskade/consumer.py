@@ -826,9 +826,12 @@ class ListRecords(Container):
         yield frame
 
     async def on_unmount(self) -> None:
-        result = self.consumer.aclose()
-        if isawaitable(result):
-            await result
+        try:
+            result = self.consumer.aclose()
+            if isawaitable(result):
+                await result
+        finally:
+            self.deserializer_factory.close()
 
     def on_mount(self) -> None:
         self.query_one("#records-table", DataTable).focus()
