@@ -48,6 +48,12 @@
 - Registry provider selection is explicit and defaults to Confluent. Native
   Apicurio uses supported official deserializer properties and its v3 API; keep
   provider-specific validation, framing, and metadata behavior isolated.
+- Keep native Apicurio Registry and OAuth token-endpoint TLS contexts separate.
+  Preserve Apicurio's official shared-CA behavior by applying
+  `apicurio.registry.tls.certificates` to both contexts. Registry client identity
+  material must never reach the IdP. Use the official
+  `apicurio.registry.auth.client.scope` property. Preserve native token
+  expiry/401 refresh and deterministic HTTP client cleanup.
 
 ## Data Loading and Consumer Records
 

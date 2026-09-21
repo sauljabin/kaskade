@@ -198,6 +198,9 @@ class Deserializer(ABC):
     ) -> DeserializationResult:
         return DeserializationResult(self.deserialize(data, topic, context))
 
+    def close(self) -> None:
+        pass
+
 
 class DefaultDeserializer(Deserializer):
     def deserialize(
@@ -585,6 +588,9 @@ class ApicurioRegistryDeserializer(Deserializer):
         self._avro_schema_cache: OrderedDict[tuple[str, int], Any] = OrderedDict()
         self._json_validator_cache: OrderedDict[tuple[str, int], Any] = OrderedDict()
 
+    def close(self) -> None:
+        self.registry_client.close()
+
     def deserialize(
         self, data: bytes, topic: str | None = None, context: MessageField = MessageField.NONE
     ) -> Any:
@@ -940,6 +946,9 @@ class RegistryDeserializer(Deserializer):
     ) -> DeserializationResult:
         return self._backend.deserialize_with_metadata(data, topic, context)
 
+    def close(self) -> None:
+        self._backend.close()
+
 
 class AvroDeserializer(Deserializer):
     def __init__(self, avro_config: dict[str, str]):
@@ -1095,6 +1104,10 @@ class DeserializerPool:
             }[deserialization_format]
             raise DeserializationError(f"{configured_name} is not configured")
         return deserializer
+
+    def close(self) -> None:
+        if self.registry_deserializer is not None:
+            self.registry_deserializer.close()
 
 
 def _has_registry_header(data: bytes) -> bool:
