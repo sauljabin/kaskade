@@ -30,6 +30,9 @@ Installing pre-commit hooks:
 uv run pre-commit install
 ```
 
+Commits run formatting, screenshot generation, and code analysis. Pushes run the
+unit and E2E tests; the E2E tests require Docker.
+
 Running kaskade:
 
 ```bash
