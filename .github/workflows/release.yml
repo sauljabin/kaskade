@@ -50,7 +50,7 @@ jobs:
           fi
           echo "version=${RELEASE_TAG#v}" >> "$GITHUB_OUTPUT"
       - name: Set up uv and Python
-        uses: astral-sh/setup-uv@v10.1.0
+        uses: astral-sh/setup-uv@v10.2.0
         with:
           version: ${{ env.UV_VERSION }}
           python-version: "3.10"
@@ -77,7 +77,7 @@ jobs:
           uv pip install --python "$RUNNER_TEMP/release-venv/bin/python" dist/*.whl
           "$RUNNER_TEMP/release-venv/bin/kaskade" --version | grep -F "$RELEASE_VERSION"
       - name: Generate release notes
-        uses: orhun/git-cliff-action@v4.9.0
+        uses: orhun/git-cliff-action@v4.9.1
         with:
           version: v2.14.1
           config: cliff.toml
@@ -165,7 +165,7 @@ jobs:
           username: ${{ secrets.DOCKER_HUB_USERNAME }}
           password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4.4.0
+        uses: docker/setup-buildx-action@v4.4.1
       - name: Build and push image
         id: push
         uses: docker/build-push-action@v7.4.0
