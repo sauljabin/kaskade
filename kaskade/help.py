@@ -160,7 +160,7 @@ class HelpScreen(ModalScreen[None]):
                 id="help-heading",
             )
             yield Static(
-                "[b]About Kaskade[/] — A terminal user interface for Apache Kafka.\n"
+                "[b]About Kaskade[/] — A text user interface for Apache Kafka.\n"
                 f'Project: [link="{KASKADE_URL}"]{KASKADE_URL}[/link]\n'
                 "Report Issues: "
                 f'[link="{KASKADE_ISSUES_URL}"]{KASKADE_ISSUES_URL}[/link]',

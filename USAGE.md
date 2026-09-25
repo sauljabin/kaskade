@@ -752,6 +752,18 @@ docker run --rm -it --network my-network sauljabin/kaskade:latest \
     consumer -b my-kafka:9092 -t my-topic
 ```
 
+The image runs as the unprivileged `kaskade` user with `/kaskade` as its working
+directory. Mount a client profile read-only to use `--config-file`:
+
+```bash
+docker run --rm -it --network my-network \
+    -v "$PWD/client.ini:/kaskade/client.ini:ro" \
+    sauljabin/kaskade:latest admin --config-file client.ini
+```
+
+On Linux, the mounted file must be readable by UID `10001`, or run the container
+with `--user "$(id -u):$(id -g)"`.
+
 ## Format-specific consumers
 
 The `--key` and `--value` format names are case-insensitive and normalize to the

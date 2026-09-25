@@ -3,7 +3,7 @@ from scripts import CommandProcessor
 
 def main() -> None:
     commands = {
-        "black": "black . --preview",
+        "black": "black .",
         "ruff": "ruff check . --fix",
     }
     command_processor = CommandProcessor(commands)

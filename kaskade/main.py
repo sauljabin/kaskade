@@ -330,7 +330,7 @@ def configured_timeout_options(
 @cloup.group(epilog=EPILOG_HELP)
 @cloup.version_option(APP_VERSION)
 def cli() -> None:
-    """kaskade is a terminal user interface for kafka."""
+    """kaskade is a text user interface for kafka."""
     configure_logging()
 
 
@@ -534,7 +534,7 @@ def consumer(
     Examples:
       kaskade consumer -b localhost:9092 -t my-topic
       kaskade consumer -b localhost:9092 -t my-topic --earliest -k string -v json
-      kaskade consumer -b localhost:9092 -t my-topic -k string --bytes encoding=hex --fallback encoding=escaped
+      kaskade consumer -b localhost:9092 -t my-topic --bytes encoding=hex --fallback encoding=hex
       kaskade consumer -b localhost:9092 -t my-topic -v registry --registry url=http://localhost:8081
     """
 

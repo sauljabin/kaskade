@@ -84,6 +84,9 @@ class Node:
             return self.id == other.id
         return False
 
+    def __hash__(self) -> int:
+        return hash(self.id)
+
 
 @dataclass(eq=False)
 class GroupMember:
@@ -105,6 +108,9 @@ class GroupMember:
             return (self.group, self.id) == (other.group, other.id)
         return False
 
+    def __hash__(self) -> int:
+        return hash((self.group, self.id))
+
 
 @dataclass(eq=False)
 class GroupPartition:
@@ -124,15 +130,17 @@ class GroupPartition:
     def lag_count(self) -> int:
         if self.high <= 0:
             return 0
-        elif self.offset < 0:
+        if self.offset < 0:
             return max(0, self.high - self.low)
-        else:
-            return max(0, self.high - self.offset)
+        return max(0, self.high - self.offset)
 
     def __eq__(self, other: object) -> bool:
         if isinstance(other, GroupPartition):
             return (self.group, self.topic, self.id) == (other.group, other.topic, other.id)
         return False
+
+    def __hash__(self) -> int:
+        return hash((self.group, self.topic, self.id))
 
 
 @dataclass(eq=False)
@@ -164,6 +172,9 @@ class Group:
             return self.id == other.id
         return False
 
+    def __hash__(self) -> int:
+        return hash(self.id)
+
 
 @dataclass(eq=False)
 class Partition:
@@ -188,6 +199,9 @@ class Partition:
         if isinstance(other, Partition):
             return (self.topic, self.id) == (other.topic, other.id)
         return False
+
+    def __hash__(self) -> int:
+        return hash((self.topic, self.id))
 
 
 @dataclass(eq=False)
@@ -232,6 +246,9 @@ class Topic:
         if isinstance(other, Topic):
             return self.name == other.name
         return False
+
+    def __hash__(self) -> int:
+        return hash(self.name)
 
 
 @dataclass(frozen=True)
@@ -295,6 +312,9 @@ class Header:
         if isinstance(other, Header):
             return (self.key, self.value) == (other.key, other.value)
         return False
+
+    def __hash__(self) -> int:
+        return hash((self.key, self.value))
 
     def value_deserialized(self) -> Any:
         if self._deserialized is not _NOT_DESERIALIZED:
@@ -415,6 +435,9 @@ class Record:
                 other.offset,
             )
         return False
+
+    def __hash__(self) -> int:
+        return hash((self.topic, self.partition, self.offset))
 
     def headers_count(self) -> int:
         return len(self.headers)

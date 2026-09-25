@@ -1,4 +1,6 @@
 fail_fast: true
+default_install_hook_types: [pre-commit, pre-push]
+default_stages: [pre-commit]
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
@@ -19,7 +21,7 @@ repos:
         name: generating screenshots
         language: system
         pass_filenames: false
-        files: ^(kaskade/|scripts/(screenshots|svg)\.py$|pyproject\.toml$|uv\.lock$)
+        files: ^(kaskade/|scripts/(__init__|screenshots)\.py$|pyproject\.toml$|uv\.lock$)
         entry: uv run --locked python -m scripts.screenshots
       - id: analyze
         name: code analysis
@@ -32,10 +34,12 @@ repos:
         language: system
         always_run: true
         pass_filenames: false
+        stages: [pre-push]
         entry: uv run --locked python -m scripts.tests
       - id: tests-e2e
         name: running e2e tests
         language: system
         always_run: true
         pass_filenames: false
+        stages: [pre-push]
         entry: uv run --locked python -m scripts.tests --e2e

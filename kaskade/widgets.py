@@ -277,7 +277,7 @@ class StretchyDataTable(DataTable[CellType]):
 
         allocated_width = 0
         cumulative_stretch = 0
-        for column, minimum, stretch in zip(columns, minimums, stretches):
+        for column, minimum, stretch in zip(columns, minimums, stretches, strict=True):
             cumulative_stretch += stretch
             stretched_width = (
                 extra_width * cumulative_stretch // total_stretch if total_stretch else 0

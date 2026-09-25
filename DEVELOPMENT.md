@@ -30,6 +30,9 @@ Installing pre-commit hooks:
 uv run pre-commit install
 ```
 
+Commits run formatting, screenshot generation, and code analysis. Pushes run the
+unit and E2E tests; the E2E tests require Docker.
+
 Running kaskade:
 
 ```bash
@@ -135,9 +138,11 @@ also match a release tag.
 
 ## Docker
 
-Build the Docker image:
+Build the wheel and the Docker image. The image installs the wheel from `dist/`
+and runs as an unprivileged `kaskade` user:
 
 ```bash
+uv build --clear
 docker build -t sauljabin/kaskade:latest .
 ```
 
