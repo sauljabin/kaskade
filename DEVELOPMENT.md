@@ -135,9 +135,11 @@ also match a release tag.
 
 ## Docker
 
-Build the Docker image:
+Build the wheel and the Docker image. The image installs the wheel from `dist/`
+and runs as an unprivileged `kaskade` user:
 
 ```bash
+uv build --clear
 docker build -t sauljabin/kaskade:latest .
 ```
 
