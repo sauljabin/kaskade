@@ -80,7 +80,20 @@ line-length = 100
 line-length = 100
 
 [tool.ruff.lint]
-extend-select = ["C901"]
+extend-select = [
+    "B",       # flake8-bugbear
+    "C4",      # flake8-comprehensions
+    "C901",    # mccabe complexity
+    "E501",    # line length
+    "I",       # import sorting
+    "PERF",    # performance anti-patterns
+    "PIE",     # unnecessary code
+    "PLW1641", # __eq__ without __hash__
+    "RET",     # return statements
+    "RUF",     # ruff-specific rules
+    "SIM",     # simplifications
+    "UP",      # pyupgrade
+]
 
 [tool.ruff.lint.mccabe]
 max-complexity = 10

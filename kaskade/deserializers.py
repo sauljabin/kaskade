@@ -85,7 +85,11 @@ DESERIALIZATION_EXCEPTIONS: tuple[type[Exception], ...] = (
     DecodeError,
     ApicurioRegistryError,
 )
-SCHEMA_METADATA_EXCEPTIONS = DESERIALIZATION_EXCEPTIONS + (AttributeError, TypeError)
+SCHEMA_METADATA_EXCEPTIONS: tuple[type[Exception], ...] = (
+    *DESERIALIZATION_EXCEPTIONS,
+    AttributeError,
+    TypeError,
+)
 
 
 class Deserialization(Enum):
@@ -198,8 +202,8 @@ class Deserializer(ABC):
     ) -> DeserializationResult:
         return DeserializationResult(self.deserialize(data, topic, context))
 
-    def close(self) -> None:
-        pass
+    def close(self) -> None:  # noqa: B027 - optional hook; most deserializers own no resources
+        """Release resources held by the deserializer."""
 
 
 class DefaultDeserializer(Deserializer):
@@ -307,13 +311,16 @@ class ConfluentRegistryDeserializer(Deserializer):
         minimum_length = SCHEMA_REGISTRY_HEADER_SIZE + 1
         if len(data) < minimum_length:
             raise DeserializationError(
-                f"Expecting data framing of length {minimum_length} bytes or more but total data size is {len(data)} bytes. This message was not produced with a Confluent Schema Registry serializer"
+                f"Expecting data framing of length {minimum_length} bytes or more but total "
+                f"data size is {len(data)} bytes. This message was not produced with a "
+                "Confluent Schema Registry serializer"
             )
 
         magic, schema_id = unpack(">bI", data[:SCHEMA_REGISTRY_HEADER_SIZE])
         if magic != SCHEMA_REGISTRY_MAGIC_BYTE:
             raise DeserializationError(
-                f"Unexpected magic byte {magic}. This message was not produced with a Confluent Schema Registry serializer"
+                f"Unexpected magic byte {magic}. This message was not produced with a "
+                "Confluent Schema Registry serializer"
             )
 
         schema = self._writer_schema_cache.get(schema_id)

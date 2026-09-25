@@ -1253,7 +1253,9 @@ class ListTopics(Container):
         current_keys = [str(row_key.value) for row_key in table.rows]
         if current_keys == desired_keys:
             for topic in visible_topics:
-                for column_key, value in zip(TOPIC_COLUMN_KEYS, self._topic_row(topic)):
+                for column_key, value in zip(
+                    TOPIC_COLUMN_KEYS, self._topic_row(topic), strict=True
+                ):
                     table.update_cell(topic.name, column_key, value)
             return
         table.clear()

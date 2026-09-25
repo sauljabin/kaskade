@@ -4,6 +4,7 @@ import struct
 import time
 import uuid
 from collections.abc import Callable
+from concurrent.futures import Future
 from dataclasses import dataclass
 from functools import partial
 from io import BytesIO
@@ -190,16 +191,20 @@ class Populator:
         )
         futures = self.admin_client.create_topics([new_topic])
         for future in futures.values():
-            try:
-                future.result()
-                sleep(0.1)
-            except KafkaException as ke:
-                if (
-                    len(ke.args) > 0
-                    and hasattr(ke.args[0], "code")
-                    and ke.args[0].code() is not KafkaError.TOPIC_ALREADY_EXISTS
-                ):
-                    raise
+            self._wait_for_topic(future)
+
+    @staticmethod
+    def _wait_for_topic(future: Future[None]) -> None:
+        try:
+            future.result()
+            sleep(0.1)
+        except KafkaException as ke:
+            if (
+                len(ke.args) > 0
+                and hasattr(ke.args[0], "code")
+                and ke.args[0].code() != KafkaError.TOPIC_ALREADY_EXISTS
+            ):
+                raise
 
     def populate(
         self,

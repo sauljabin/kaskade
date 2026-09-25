@@ -6,10 +6,10 @@ from kaskade.configs import AWS_CONFIGS
 def tuple_properties_to_dict(
     ctx: Context, param: Parameter | None, value: tuple[str, ...]
 ) -> dict[str, str]:
-    if [pair for pair in value if "=" not in pair]:
+    if any("=" not in pair for pair in value):
         raise BadParameter(message="Should be property=value.", ctx=ctx, param=param)
 
-    return {key: item for key, item in [pair.split("=", 1) for pair in value]}
+    return {key: item for key, _, item in (pair.partition("=") for pair in value)}
 
 
 def validate_aws_config(aws_config: dict[str, str]) -> None:

@@ -589,7 +589,7 @@ class TopicScreen(HelpableModalScreen[Record]):
         self.data = data
         details = self.query_one(".record-details", Container)
         details.border_title = self._title()
-        for metadata_id, label, value in self._metadata():
+        for metadata_id, _, value in self._metadata():
             self.query_one(f"#{metadata_id}", MetadataCell).update_value(value)
         tabs = self.query_one(TabbedContent)
         headers_tab = tabs.get_tab("headers")
@@ -797,7 +797,10 @@ class ListRecords(Container):
         if self.filters.header:
             title_filter += style(f"h:*{self.filters.header}*")
 
-        return rf"[{PRIMARY}]Records[/] \[[{PRIMARY}]{self.topic}[/]]{title_filter}\[[{PRIMARY}]{len(self.records)}[/]]"
+        return (
+            rf"[{PRIMARY}]Records[/] \[[{PRIMARY}]{self.topic}[/]]{title_filter}"
+            rf"\[[{PRIMARY}]{len(self.records)}[/]]"
+        )
 
     def _get_subtitle(self) -> str:
         group_id = getattr(self.consumer, "group_id", None)
