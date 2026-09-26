@@ -113,40 +113,28 @@
         <rect fill="#0e0024" x="12.2" y="172.3" width="488" height="24.65" shape-rendering="crispEdges" />
         <rect fill="#0e0024" x="500.2" y="172.3" width="12.2" height="24.65" shape-rendering="crispEdges" />
         <g class="terminal-1355979006-matrix">
-            <text class="terminal-1355979006-r2" x="12.2" y="20" textLength="488" clip-path="url(#terminal-1355979006-line-0)">╔══════════════════════════════════════╗</text>
+            <rect fill="none" stroke="#9b4dca" stroke-width="1.5" x="15.3" y="10.7" width="481.8" height="176.8" />
+            <rect fill="none" stroke="#9b4dca" stroke-width="1.5" x="21.3" y="16.7" width="469.8" height="164.8" />
             <text class="terminal-1355979006-r1" x="512.4" y="20" textLength="12.2" clip-path="url(#terminal-1355979006-line-0)">
 </text>
-            <text class="terminal-1355979006-r2" x="12.2" y="44.4" textLength="12.2" clip-path="url(#terminal-1355979006-line-1)">║</text>
             <text class="terminal-1355979006-r3" x="36.6" y="44.4" textLength="366" clip-path="url(#terminal-1355979006-line-1)"> _             _             _</text>
-            <text class="terminal-1355979006-r2" x="488" y="44.4" textLength="12.2" clip-path="url(#terminal-1355979006-line-1)">║</text>
             <text class="terminal-1355979006-r1" x="512.4" y="44.4" textLength="12.2" clip-path="url(#terminal-1355979006-line-1)">
 </text>
-            <text class="terminal-1355979006-r2" x="12.2" y="68.8" textLength="12.2" clip-path="url(#terminal-1355979006-line-2)">║</text>
             <text class="terminal-1355979006-r3" x="36.6" y="68.8" textLength="427" clip-path="url(#terminal-1355979006-line-2)">| | ____ _ ___| | ____ _  __| | ___</text>
-            <text class="terminal-1355979006-r2" x="488" y="68.8" textLength="12.2" clip-path="url(#terminal-1355979006-line-2)">║</text>
             <text class="terminal-1355979006-r1" x="512.4" y="68.8" textLength="12.2" clip-path="url(#terminal-1355979006-line-2)">
 </text>
-            <text class="terminal-1355979006-r2" x="12.2" y="93.2" textLength="12.2" clip-path="url(#terminal-1355979006-line-3)">║</text>
             <text class="terminal-1355979006-r3" x="36.6" y="93.2" textLength="439.2" clip-path="url(#terminal-1355979006-line-3)">| |/ / _` / __| |/ / _` |/ _` |/ _ \</text>
-            <text class="terminal-1355979006-r2" x="488" y="93.2" textLength="12.2" clip-path="url(#terminal-1355979006-line-3)">║</text>
             <text class="terminal-1355979006-r1" x="512.4" y="93.2" textLength="12.2" clip-path="url(#terminal-1355979006-line-3)">
 </text>
-            <text class="terminal-1355979006-r2" x="12.2" y="117.6" textLength="12.2" clip-path="url(#terminal-1355979006-line-4)">║</text>
             <text class="terminal-1355979006-r3" x="36.6" y="117.6" textLength="439.2" clip-path="url(#terminal-1355979006-line-4)">|   &lt; (_| \__ \   &lt; (_| | (_| |  __/</text>
-            <text class="terminal-1355979006-r2" x="488" y="117.6" textLength="12.2" clip-path="url(#terminal-1355979006-line-4)">║</text>
             <text class="terminal-1355979006-r1" x="512.4" y="117.6" textLength="12.2" clip-path="url(#terminal-1355979006-line-4)">
 </text>
-            <text class="terminal-1355979006-r2" x="12.2" y="142" textLength="12.2" clip-path="url(#terminal-1355979006-line-5)">║</text>
             <text class="terminal-1355979006-r3" x="36.6" y="142" textLength="439.2" clip-path="url(#terminal-1355979006-line-5)">|_|\_\__,_|___/_|\_\__,_|\__,_|\___|</text>
-            <text class="terminal-1355979006-r2" x="488" y="142" textLength="12.2" clip-path="url(#terminal-1355979006-line-5)">║</text>
             <text class="terminal-1355979006-r1" x="512.4" y="142" textLength="12.2" clip-path="url(#terminal-1355979006-line-5)">
 </text>
-            <text class="terminal-1355979006-r2" x="12.2" y="166.4" textLength="12.2" clip-path="url(#terminal-1355979006-line-6)">║</text>
             <text class="terminal-1355979006-r4" x="97.6" y="166.4" textLength="378.2" clip-path="url(#terminal-1355979006-line-6)">a text user interface for kafka</text>
-            <text class="terminal-1355979006-r2" x="488" y="166.4" textLength="12.2" clip-path="url(#terminal-1355979006-line-6)">║</text>
             <text class="terminal-1355979006-r1" x="512.4" y="166.4" textLength="12.2" clip-path="url(#terminal-1355979006-line-6)">
 </text>
-            <text class="terminal-1355979006-r2" x="12.2" y="190.8" textLength="488" clip-path="url(#terminal-1355979006-line-7)">╚══════════════════════════════════════╝</text>
         </g>
     </g>
 </svg>

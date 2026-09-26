@@ -41,8 +41,19 @@ class TestReadmeVisualScripts(unittest.IsolatedAsyncioTestCase):
                     svg = path.read_text(encoding="utf-8")
                     self.assert_default_theme_colors(svg.lower())
                     self.assert_intrinsic_dimensions(svg)
-                    self.assertIn("╗", svg)
-                    self.assertIn("╝", svg)
+                    self.assertFalse(banner.FRAME_GLYPHS & set(svg))
+                    frame = [
+                        child
+                        for child in ElementTree.fromstring(svg).iter()
+                        if child.tag.endswith("rect") and child.get("fill") == "none"
+                    ]
+                    self.assertEqual(len(frame), 2)
+                    self.assertTrue(
+                        all(
+                            rect.get("stroke", "").lower() == EVA01_BERSERK_THEME.primary.lower()
+                            for rect in frame
+                        )
+                    )
                     circles = sum(
                         child.tag.endswith("circle") for child in ElementTree.fromstring(svg).iter()
                     )
