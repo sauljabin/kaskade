@@ -659,11 +659,11 @@ for dependencies and resource formats.
 
 For SASL/SCRAM and mTLS connections, grant the Kafka principal these operations:
 
-| Mode | Topic ACLs | Group ACLs | Cluster ACLs |
-| --- | --- | --- | --- |
-| Admin (read only) | `Describe`, `DescribeConfigs` | `Describe` on groups to display | `Describe` |
-| Admin (full access) | `Describe`, `DescribeConfigs`, `Create`, `Alter`, `Delete`, `AlterConfigs` | `Describe` on groups to display | `Describe` |
-| Consumer | `Read`, `Describe` on topics to consume | `Read`, `Describe` on the configured `group.id` or `kaskade-` prefix | — |
+| Mode | Topic ACLs | Group ACLs |
+| --- | --- | --- |
+| Admin (read only) | `Describe`, `DescribeConfigs` | `Describe` on groups to display |
+| Admin (full access) | `Describe`, `DescribeConfigs`, `Create`, `Alter`, `Delete`, `AlterConfigs` | `Describe` on groups to display |
+| Consumer | `Read`, `Describe` on topics to consume | `Read`, `Describe` on the configured `group.id` or `kaskade-` prefix |
 
 Use `User:<username>` for SASL/SCRAM or the certificate principal for mTLS, such
 as `User:CN=kaskade`. Run the commands as an ACL administrator and configure
@@ -672,14 +672,6 @@ as `User:CN=kaskade`. Run the commands as an ACL administrator and configure
 Full admin access:
 
 ```bash
-kafka-acls.sh \
-    --bootstrap-server "${BOOTSTRAP_SERVERS}" \
-    --command-config admin-client.properties \
-    --add \
-    --allow-principal "User:<principal>" \
-    --operation Describe \
-    --cluster
-
 kafka-acls.sh \
     --bootstrap-server "${BOOTSTRAP_SERVERS}" \
     --command-config admin-client.properties \
