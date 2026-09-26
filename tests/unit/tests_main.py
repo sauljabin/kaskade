@@ -1,3 +1,5 @@
+import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -55,6 +57,19 @@ def write_config_ini(
         sections.append(f"[{section}]\n{entries}")
     config_path.write_text("\n\n".join(sections) + "\n")
     return str(config_path)
+
+
+class TestCliImport(unittest.TestCase):
+    def test_importing_main_emits_no_warnings(self):
+        result = subprocess.run(
+            [sys.executable, "-W", "error", "-c", "import kaskade.main"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stderr, "")
 
 
 class TestAdminCli(unittest.TestCase):
