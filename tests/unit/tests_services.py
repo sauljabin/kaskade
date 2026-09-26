@@ -34,7 +34,14 @@ from kaskade.deserializers import (
     DeserializerPool,
     StringDeserializer,
 )
-from kaskade.models import Header, MetricState, PartitionOffset, PartitionSelection, Record
+from kaskade.models import (
+    Header,
+    MetricState,
+    PartitionOffset,
+    PartitionSelection,
+    Record,
+    Topic,
+)
 from kaskade.services import ConsumerService, TopicService
 from kaskade.timeouts import TimeoutConfig
 from tests import faker
@@ -74,6 +81,37 @@ def topic_metadata(name: str, partition_id: int, partition_count: int = 1) -> To
         partition.replicas = [0, 1, 2]
         topic.partitions[current_partition_id] = partition
     return topic
+
+
+def group_description(group_id: str) -> ConsumerGroupDescription:
+    return ConsumerGroupDescription(
+        group_id=group_id,
+        is_simple_consumer_group=True,
+        partition_assignor="range",
+        state=CONSUMER_GROUP_STATE_STABLE,
+        members=[],
+        coordinator=Node(1, "localhost", 9092),
+    )
+
+
+def group_authorization_error() -> KafkaException:
+    return KafkaException(KafkaError(KafkaError.GROUP_AUTHORIZATION_FAILED))
+
+
+def mock_groups(
+    admin: MagicMock,
+    descriptions: dict[str, Future[object]],
+    offsets: dict[str, Future[object]],
+) -> None:
+    admin.list_consumer_groups.return_value = completed(
+        ListConsumerGroupsResult(
+            valid=[ConsumerGroupListing(group_id, True) for group_id in descriptions]
+        )
+    )
+    admin.describe_consumer_groups.return_value = descriptions
+    admin.list_consumer_group_offsets.side_effect = lambda request, **_: {
+        request[0].group_id: offsets[request[0].group_id]
+    }
 
 
 def consumer_message(
@@ -298,6 +336,89 @@ class TestTopicService(unittest.IsolatedAsyncioTestCase):
             await service.load_groups()
 
     @patch("kaskade.services.AdminClient")
+    async def test_hides_unauthorized_groups_without_failing_refresh(
+        self, mock_class_admin: MagicMock
+    ) -> None:
+        committed = TopicPartition("orders", 0, 30)
+        # TopicPartition.error is read-only; the Kafka client sets it on offset results.
+        unauthorized_partition = MagicMock(
+            topic="orders", partition=0, error=KafkaError(KafkaError.GROUP_AUTHORIZATION_FAILED)
+        )
+        mock_groups(
+            mock_class_admin.return_value,
+            descriptions={
+                "readable": completed(group_description("readable")),
+                "hidden": failed(group_authorization_error()),
+                "hidden-offsets": completed(group_description("hidden-offsets")),
+                "hidden-partitions": completed(group_description("hidden-partitions")),
+            },
+            offsets={
+                "readable": completed(ConsumerGroupTopicPartitions("readable", [committed])),
+                "hidden": failed(group_authorization_error()),
+                "hidden-offsets": failed(group_authorization_error()),
+                "hidden-partitions": completed(
+                    ConsumerGroupTopicPartitions("hidden-partitions", [unauthorized_partition])
+                ),
+            },
+        )
+        service = TopicService({"bootstrap.servers": "localhost:9092"})
+
+        with self.assertLogs("kaskade", level="INFO") as logs:
+            snapshot = await service.load_groups()
+
+        self.assertEqual((), snapshot.errors)
+        self.assertEqual(["readable"], [item.group_id for item in snapshot.descriptions])
+        self.assertEqual({"readable": (committed,)}, snapshot.offsets)
+        self.assertIn("INFO:kaskade:admin groups hidden (not authorized)=3", logs.output)
+        self.assertFalse([line for line in logs.output if line.startswith("ERROR")])
+
+    @patch("kaskade.services.AdminClient")
+    async def test_other_group_errors_still_fail_refresh(self, mock_class_admin: MagicMock) -> None:
+        mock_groups(
+            mock_class_admin.return_value,
+            descriptions={
+                "readable": completed(group_description("readable")),
+                "hidden": failed(group_authorization_error()),
+                "timed-out": failed(KafkaException(KafkaError(KafkaError._TIMED_OUT))),
+                "no-coordinator": completed(group_description("no-coordinator")),
+            },
+            offsets={
+                "readable": completed(ConsumerGroupTopicPartitions("readable", [])),
+                "hidden": failed(group_authorization_error()),
+                "timed-out": completed(ConsumerGroupTopicPartitions("timed-out", [])),
+                "no-coordinator": failed(
+                    KafkaException(KafkaError(KafkaError.COORDINATOR_NOT_AVAILABLE))
+                ),
+            },
+        )
+        service = TopicService({"bootstrap.servers": "localhost:9092"})
+        topics = {"orders": Topic("orders", records_state=MetricState.READY)}
+
+        with self.assertLogs("kaskade", level="ERROR") as logs:
+            snapshot = await service.load_groups()
+
+        self.assertEqual(2, len(snapshot.errors))
+        self.assertEqual(2, len(logs.output))
+        self.assertIn("description failed for timed-out", logs.output[0])
+        self.assertIn("offsets failed for no-coordinator", logs.output[1])
+        self.assertFalse(service.apply_groups(topics, snapshot).successful)
+        self.assertEqual(MetricState.UNAVAILABLE, topics["orders"].groups_state)
+
+    @patch("kaskade.services.AdminClient")
+    async def test_unauthorized_group_listing_still_fails_refresh(
+        self, mock_class_admin: MagicMock
+    ) -> None:
+        admin = mock_class_admin.return_value
+        admin.list_consumer_groups.return_value = failed(group_authorization_error())
+        service = TopicService({"bootstrap.servers": "localhost:9092"})
+
+        with self.assertLogs("kaskade", level="ERROR"):
+            snapshot = await service.load_groups()
+
+        self.assertEqual(1, len(snapshot.errors))
+        admin.describe_consumer_groups.assert_not_called()
+
+    @patch("kaskade.services.AdminClient")
     async def test_bounds_group_offset_concurrency(self, mock_class_admin: MagicMock) -> None:
         admin = mock_class_admin.return_value
         group_ids = [f"group-{index}" for index in range(20)]
@@ -307,17 +428,7 @@ class TestTopicService(unittest.IsolatedAsyncioTestCase):
             )
         )
         admin.describe_consumer_groups.return_value = {
-            group_id: completed(
-                ConsumerGroupDescription(
-                    group_id=group_id,
-                    is_simple_consumer_group=True,
-                    partition_assignor="range",
-                    state=CONSUMER_GROUP_STATE_STABLE,
-                    members=[],
-                    coordinator=Node(1, "localhost", 9092),
-                )
-            )
-            for group_id in group_ids
+            group_id: completed(group_description(group_id)) for group_id in group_ids
         }
         pending: dict[str, Future[object]] = {}
 

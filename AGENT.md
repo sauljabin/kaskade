@@ -63,6 +63,8 @@
 - Only `KafkaException` and client-rejected `ValueError` make admin metrics
   unavailable. Other exceptions are programming errors: log them with a
   traceback and keep them fatal.
+- `GROUP_AUTHORIZATION_FAILED` on a listed group hides that group; it is not a
+  refresh failure. Listing failures and other group errors still are.
 - Preserve the last complete metrics during refresh. Never overlap automatic,
   manual, resumed, or post-mutation refreshes; coalesce non-periodic requests in
   the shared refresh coordinator.
