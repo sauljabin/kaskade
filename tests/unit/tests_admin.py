@@ -958,9 +958,14 @@ class TestAdminRefresh(unittest.IsolatedAsyncioTestCase):
                 topics.request_refresh(RefreshReason.MANUAL)
 
                 self.assertEqual(1, service.metadata.call_count)
+
+                async def pending_refresh_started() -> None:
+                    # The coalesced refresh starts after the next screen refresh.
+                    while service.metadata.call_count < 2:
+                        await pilot.pause()
+
                 first_refresh_gate.set()
-                await app.workers.wait_for_complete()
-                await pilot.pause()
+                await asyncio.wait_for(pending_refresh_started(), timeout=5)
                 await app.workers.wait_for_complete()
 
                 self.assertEqual(2, service.metadata.call_count)
