@@ -28,8 +28,7 @@ examples below.
 ### Shell alias
 
 Kaskade does not install an alias. If you want a shorter command, `ksk` is the
-suggested name: the first three consonants of **K**a**SK**ade. It avoids `ks`,
-a common kubectl alias.
+suggested name.
 
 ```bash
 # zsh (macOS default): ~/.zshrc
