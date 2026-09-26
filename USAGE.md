@@ -25,6 +25,28 @@ Deserializer settings are repeatable `property=value` options: `--bytes` and
 deserializers, and `--registry` configures Schema Registry. See the detailed
 examples below.
 
+### Shell alias
+
+Kaskade does not install an alias. If you want a shorter command, `ksk` is the
+suggested name: the first three consonants of **K**a**SK**ade. It avoids `ks`,
+a common kubectl alias.
+
+```bash
+# zsh (macOS default): ~/.zshrc
+# bash (common on Linux): ~/.bashrc
+alias ksk='kaskade'
+```
+
+```fish
+# fish: ~/.config/fish/config.fish
+alias ksk kaskade
+```
+
+Open a new shell or `source` the file, then run `ksk --version`. Aliases only
+exist in interactive shells, so scripts, CI jobs, and the Docker image must call
+`kaskade`. Inside a [Kantrip](https://github.com/sauljabin/kantrip) session,
+`ksk` still runs Kantrip's `kaskade` shim, so the session's connection applies.
+
 ## Configuration files at a glance
 
 Kaskade uses two configuration files for different purposes. They are not
