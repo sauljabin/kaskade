@@ -116,8 +116,8 @@ class ConsumerService:
         consumer_config.setdefault(GROUP_ID, default_group_id)
         self.group_id = str(consumer_config[GROUP_ID])
         self.consumer = Consumer(consumer_config, logger=logger)
+        self.started = False
         try:
-            self._start_consuming()
             self.deserializer_factory = deserializer_factory
             self.key_deserializer = deserializer_factory.get(key_deserialization)
             self.value_deserializer = deserializer_factory.get(value_deserialization)
@@ -126,6 +126,13 @@ class ConsumerService:
             self.consumer.close()
             raise
         self._operation_lock = asyncio.Lock()
+
+    def start(self) -> None:
+        """Subscribe or assign partitions; this may block on topic metadata and watermarks."""
+        if self.started:
+            return
+        self._start_consuming()
+        self.started = True
 
     def _start_consuming(self) -> None:
         if not self.manually_assigned:
@@ -207,11 +214,13 @@ class ConsumerService:
         raise KafkaException(error)
 
     def close(self) -> None:
-        if self.manually_assigned:
-            self.consumer.unassign()
-        else:
-            self.consumer.unsubscribe()
-        self.consumer.close()
+        try:
+            if self.manually_assigned:
+                self.consumer.unassign()
+            else:
+                self.consumer.unsubscribe()
+        finally:
+            self.consumer.close()
 
     async def aclose(self) -> None:
         async with self._operation_lock:
@@ -226,6 +235,8 @@ class ConsumerService:
             return await self._consume(filters)
 
     async def _consume(self, filters: RecordFilters) -> list[Record]:
+        if not self.started:
+            await self._run_blocking(self.start)
         chunk_started_at = perf_counter()
         records: list[Record] = []
         poll_retries = 0

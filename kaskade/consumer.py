@@ -38,7 +38,7 @@ from kaskade.record_export import (
     record_json,
     record_json_renderable,
 )
-from kaskade.services import ConsumerService
+from kaskade.services import ConsumerService, PartitionSelectionError
 from kaskade.themes import KaskadeApp
 from kaskade.timeouts import TimeoutConfig
 from kaskade.unicodes import WARNING as WARNING_INDICATOR
@@ -61,7 +61,7 @@ BACK_SHORTCUT = "escape"
 FILTER_SHORTCUT = "/,ctrl+f"
 EXPORT_SHORTCUT = "ctrl+e"
 COPY_RECORD_SHORTCUT = "y"
-CONSUMER_EXCEPTIONS: tuple[type[Exception], ...] = (KafkaException,)
+CONSUMER_EXCEPTIONS: tuple[type[Exception], ...] = (KafkaException, PartitionSelectionError)
 KEY_COLUMN_INDEX = 0
 VALUE_COLUMN_INDEX = 1
 KILOBYTE = 1_000
@@ -857,13 +857,26 @@ class ListRecords(Container):
         table = self.query_one(RecordDataTable)
         table.clear_cell_tooltips()
         table.clear()
-        self.consumer.close()
-        self.consumer = self._new_consumer()
+        table.loading = True
         self.records = {}
         self.current_record = None
+        self._is_consuming = True
         self.refresh_bindings()
         self._update_table_title()
-        self.query_one("#records-frame", TableFrame).border_subtitle = self._get_subtitle()
+        self.replace_consumer()
+
+    @work(group="records-consume")
+    async def replace_consumer(self) -> None:
+        """Restart consumption from the configured position without blocking the UI."""
+        previous = self.consumer
+        try:
+            self.consumer = self._new_consumer()
+            self.query_one("#records-frame", TableFrame).border_subtitle = self._get_subtitle()
+            await previous.aclose()
+        except CONSUMER_EXCEPTIONS as ex:
+            notify_error(self.app, "Consumer Error", ex)
+        finally:
+            self._is_consuming = False
         self.action_consume()
 
     def _update_table_title(self) -> None:
@@ -1100,6 +1113,11 @@ class KaskadeConsumer(KaskadeApp):
             partitions=self.partitions,
             timeouts=self.timeouts,
         )
+        try:
+            self.consumer.start()
+        except Exception:
+            self.consumer.close()
+            raise
 
     def compose(self) -> ComposeResult:
         yield KaskadeHeader(self.kafka_config)

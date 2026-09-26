@@ -380,6 +380,10 @@ class TestConsumerService(unittest.IsolatedAsyncioTestCase):
             ),
             timeouts=TimeoutConfig(consumer_request=20),
         )
+        consumer.list_topics.assert_not_called()
+        consumer.get_watermark_offsets.assert_not_called()
+
+        service.start()
 
         assignments = consumer.assign.call_args.args[0]
         self.assertEqual(
@@ -420,6 +424,9 @@ class TestConsumerService(unittest.IsolatedAsyncioTestCase):
             Deserialization.STRING,
             Deserialization.STRING,
         )
+        consumer.list_topics.assert_not_called()
+
+        service.start()
 
         assignments = consumer.assign.call_args.args[0]
         self.assertEqual(
@@ -497,18 +504,20 @@ class TestConsumerService(unittest.IsolatedAsyncioTestCase):
         topic = MagicMock(error=None, partitions={0: object()})
         consumer.list_topics.return_value.topics = {"orders": topic}
 
+        service = ConsumerService(
+            "orders",
+            {"bootstrap.servers": "localhost:9092"},
+            DeserializerPool(),
+            Deserialization.STRING,
+            Deserialization.STRING,
+            partitions=(PartitionSelection(2),),
+        )
+
         with self.assertRaisesRegex(ValueError, "Partition 2 does not exist"):
-            ConsumerService(
-                "orders",
-                {"bootstrap.servers": "localhost:9092"},
-                DeserializerPool(),
-                Deserialization.STRING,
-                Deserialization.STRING,
-                partitions=(PartitionSelection(2),),
-            )
+            service.start()
 
         consumer.assign.assert_not_called()
-        consumer.close.assert_called_once_with()
+        self.assertFalse(service.started)
 
     @patch("kaskade.services.Consumer")
     async def test_rejects_explicit_offset_outside_watermarks(
@@ -519,17 +528,58 @@ class TestConsumerService(unittest.IsolatedAsyncioTestCase):
         consumer.list_topics.return_value.topics = {"orders": topic}
         consumer.get_watermark_offsets.return_value = (10, 20)
 
+        service = ConsumerService(
+            "orders",
+            {"bootstrap.servers": "localhost:9092"},
+            DeserializerPool(),
+            Deserialization.STRING,
+            Deserialization.STRING,
+            partitions=(PartitionSelection(0, 0),),
+        )
+
         with self.assertRaisesRegex(ValueError, "Offset 0 is out of range"):
-            ConsumerService(
-                "orders",
-                {"bootstrap.servers": "localhost:9092"},
-                DeserializerPool(),
-                Deserialization.STRING,
-                Deserialization.STRING,
-                partitions=(PartitionSelection(0, 0),),
-            )
+            service.start()
 
         consumer.assign.assert_not_called()
+
+    @patch("kaskade.services.Consumer")
+    async def test_consume_starts_the_consumer_once(self, mock_class_consumer: MagicMock) -> None:
+        consumer = mock_class_consumer.return_value
+        consumer.consume.return_value = []
+        service = ConsumerService(
+            "orders",
+            {"bootstrap.servers": "localhost:9092"},
+            DeserializerPool(),
+            Deserialization.STRING,
+            Deserialization.STRING,
+            timeouts=TimeoutConfig(consumer_idle=0.1, consumer_poll=0.1, consumer_assignment=0.1),
+        )
+        consumer.subscribe.assert_not_called()
+
+        await service.consume()
+        await service.consume()
+
+        consumer.subscribe.assert_called_once()
+        self.assertTrue(service.started)
+
+    @patch("kaskade.services.Consumer")
+    async def test_close_releases_the_client_when_unsubscribe_fails(
+        self, mock_class_consumer: MagicMock
+    ) -> None:
+        consumer = mock_class_consumer.return_value
+        consumer.unsubscribe.side_effect = KafkaException("unsubscribe failed")
+        service = ConsumerService(
+            "orders",
+            {"bootstrap.servers": "localhost:9092"},
+            DeserializerPool(),
+            Deserialization.STRING,
+            Deserialization.STRING,
+        )
+
+        with self.assertRaisesRegex(KafkaException, "unsubscribe failed"):
+            service.close()
+
+        consumer.close.assert_called_once_with()
 
     @patch("kaskade.services.Consumer")
     async def test_consumes_records_in_batches(self, mock_class_consumer: MagicMock) -> None:

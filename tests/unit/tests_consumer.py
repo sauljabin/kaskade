@@ -1,6 +1,7 @@
 import asyncio
 import json
 import struct
+import threading
 import unittest
 from datetime import datetime, timezone
 from io import StringIO
@@ -17,6 +18,7 @@ from textual.widgets import DataTable, Static, Tab, TabbedContent, TabPane, Tabs
 
 from kaskade.colors import NULL as NULL_STYLE
 from kaskade.colors import WARNING as WARNING_STYLE
+from kaskade.commands import RecordFilters
 from kaskade.configs import CONFLUENT
 from kaskade.consumer import (
     HeaderDataTable,
@@ -45,8 +47,10 @@ from kaskade.deserializers import (
 from kaskade.help import HelpScreen
 from kaskade.models import Header, Record
 from kaskade.record_export import readable_json, record_filename
+from kaskade.services import PartitionSelectionError
 from kaskade.themes import KaskadeApp
 from kaskade.unicodes import WARNING as WARNING_INDICATOR
+from kaskade.utils import make_it_async
 from kaskade.widgets import KaskadeScrollableContainer, TableFrame
 
 
@@ -1315,6 +1319,119 @@ class TestConsumptionCoordination(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(1, consumer_service.return_value.consume.call_count)
             release.set()
             await app.workers.wait_for_complete()
+
+
+def consumer_service_mock(group_id: str, records: list[Record] | None = None) -> MagicMock:
+    service = MagicMock()
+    service.group_id = group_id
+    service.page_size = 25
+    service.consume = AsyncMock(return_value=records or [])
+    service.aclose = AsyncMock()
+    return service
+
+
+def new_consumer_app() -> KaskadeConsumer:
+    return KaskadeConsumer("orders", {}, {}, {}, {}, Deserialization.STRING, Deserialization.STRING)
+
+
+class TestRecordFilterRebuild(unittest.IsolatedAsyncioTestCase):
+    @patch("kaskade.consumer.ConsumerService")
+    def test_cli_closes_the_consumer_when_start_fails(self, consumer_service: MagicMock) -> None:
+        consumer_service.return_value.start.side_effect = PartitionSelectionError("missing")
+
+        with self.assertRaises(PartitionSelectionError):
+            new_consumer_app()
+
+        consumer_service.return_value.close.assert_called_once_with()
+
+    @patch("kaskade.consumer.ConsumerService")
+    async def test_filter_closes_the_previous_consumer_off_the_ui_thread(
+        self, consumer_service: MagicMock
+    ) -> None:
+        release = threading.Event()
+        closing = threading.Event()
+        closed = threading.Event()
+
+        def blocking_close() -> None:
+            closing.set()
+            release.wait(timeout=2)
+            closed.set()
+
+        async def aclose() -> None:
+            await make_it_async(blocking_close)
+
+        previous = consumer_service_mock("previous-group")
+        previous.close = MagicMock(side_effect=blocking_close)
+        previous.aclose = aclose
+        replacement = consumer_service_mock("replacement-group", [Record(topic="orders")])
+        consumer_service.side_effect = [previous, replacement]
+        app = new_consumer_app()
+
+        async with app.run_test() as pilot:
+            await app.workers.wait_for_complete()
+            records = app.query_one(ListRecords)
+            table = app.query_one(RecordDataTable)
+            records.filters = RecordFilters(key="order")
+            try:
+                records.action_all()
+                self.assertFalse(closed.is_set())
+
+                await asyncio.to_thread(closing.wait, 2)
+                await pilot.pause()
+                self.assertTrue(table.loading)
+                self.assertFalse(records.check_action("filter", ()))
+                self.assertFalse(records.check_action("consume", ()))
+                replacement.consume.assert_not_awaited()
+            finally:
+                release.set()
+            await app.workers.wait_for_complete()
+            await pilot.pause()
+
+            self.assertTrue(closed.is_set())
+            replacement.consume.assert_awaited_once()
+            self.assertEqual(1, len(records.records))
+            self.assertFalse(table.loading)
+            frame = app.query_one("#records-frame", TableFrame)
+            self.assertIn("replacement-group", frame.border_subtitle)
+
+    @patch("kaskade.consumer.ConsumerService")
+    async def test_failed_rebuild_is_reported_and_consumption_can_retry(
+        self, consumer_service: MagicMock
+    ) -> None:
+        previous = consumer_service_mock("previous-group")
+        replacement = consumer_service_mock("replacement-group")
+        replacement.consume = AsyncMock(
+            side_effect=[
+                PartitionSelectionError("Topic 'orders' does not exist"),
+                [Record(topic="orders")],
+            ]
+        )
+        consumer_service.side_effect = [previous, replacement]
+        app = new_consumer_app()
+
+        async with app.run_test() as pilot:
+            await app.workers.wait_for_complete()
+            records = app.query_one(ListRecords)
+            table = app.query_one(RecordDataTable)
+            records.filters = RecordFilters(key="order")
+            with patch.object(app, "notify") as notify:
+                records.action_all()
+                await app.workers.wait_for_complete()
+                await pilot.pause()
+
+            previous.aclose.assert_awaited_once()
+            self.assertEqual("Consumption Error", notify.call_args.kwargs["title"])
+            self.assertIn("does not exist", notify.call_args.args[0])
+            self.assertFalse(table.loading)
+            self.assertTrue(records.check_action("consume", ()))
+            self.assertTrue(records.check_action("filter", ()))
+
+            records.action_consume()
+            await app.workers.wait_for_complete()
+            await pilot.pause()
+
+            self.assertEqual(2, replacement.consume.await_count)
+            self.assertEqual(1, len(records.records))
 
 
 if __name__ == "__main__":
