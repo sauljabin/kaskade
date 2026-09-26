@@ -60,6 +60,9 @@
 - Render topic metadata before record and consumer-group metrics. Batch
   partition-offset requests and bound consumer-group offset concurrency; do not
   create temporary consumers for admin metrics.
+- Only `KafkaException` and client-rejected `ValueError` make admin metrics
+  unavailable. Other exceptions are programming errors: log them with a
+  traceback and keep them fatal.
 - Preserve the last complete metrics during refresh. Never overlap automatic,
   manual, resumed, or post-mutation refreshes; coalesce non-periodic requests in
   the shared refresh coordinator.

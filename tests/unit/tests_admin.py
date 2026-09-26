@@ -2,6 +2,8 @@ import asyncio
 import os
 import tempfile
 import unittest
+from contextlib import redirect_stderr
+from io import StringIO
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -16,6 +18,7 @@ from textual.widgets import (
     Static,
     TabbedContent,
 )
+from textual.worker import WorkerFailed
 
 from kaskade.admin import (
     CreateTopicScreen,
@@ -991,6 +994,33 @@ class TestAdminRefresh(unittest.IsolatedAsyncioTestCase):
             self.assertIn("record metrics", message)
             self.assertIn("consumer-group metrics", message)
             self.assertFalse(message.endswith("."))
+
+    async def test_programming_errors_fail_refresh_instead_of_partial_metrics(self) -> None:
+        service = MagicMock()
+        service.metadata = AsyncMock(
+            return_value={"orders": Topic(name="orders", partitions=[Partition(id=0)])}
+        )
+        service.enrich_offsets = AsyncMock(side_effect=TypeError("bad argument"))
+        service.load_groups = AsyncMock(return_value=GroupSnapshot())
+        service.apply_groups.return_value = EnrichmentResult()
+
+        with patch("kaskade.admin.TopicService", return_value=service):
+            app = KaskadeAdmin({})
+            with (
+                patch.object(app, "notify") as notify,
+                redirect_stderr(StringIO()),
+                self.assertLogs("kaskade", level="ERROR") as logs,
+                self.assertRaises(WorkerFailed) as failure,
+            ):
+                async with app.run_test():
+                    await app.workers.wait_for_complete()
+
+        self.assertIsInstance(failure.exception.error, TypeError)
+        self.assertIn("admin refresh failed unexpectedly", logs.output[0])
+        self.assertIsNotNone(logs.records[0].exc_info)
+        self.assertNotIn(
+            "Partial Refresh", [call.kwargs.get("title") for call in notify.call_args_list]
+        )
 
     async def test_metadata_failure_keeps_previous_snapshot(self) -> None:
         topic = Topic(
