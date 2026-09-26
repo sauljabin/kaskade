@@ -912,6 +912,9 @@ class ListTopics(Container):
         except ADMIN_EXCEPTIONS as ex:
             title = "Kafka Error" if isinstance(ex, KafkaException) else "Refresh Error"
             notify_error(self.app, title, ex)
+        except Exception:
+            logger.exception("admin refresh failed unexpectedly")
+            raise
         finally:
             await self._cancel_stage_tasks(stage_tasks)
             self._complete_refresh(generation, table)

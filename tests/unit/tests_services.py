@@ -253,7 +253,7 @@ class TestTopicService(unittest.IsolatedAsyncioTestCase):
 
         def list_offsets(request: dict[TopicPartition, object], **_: object) -> object:
             if admin.list_offsets.call_count == 1:
-                return {partition: failed(RuntimeError("unavailable")) for partition in request}
+                return {partition: failed(KafkaException("unavailable")) for partition in request}
             return {
                 partition: completed(ListOffsetsResultInfo(50, -1, -1)) for partition in request
             }
@@ -267,6 +267,35 @@ class TestTopicService(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(MetricState.UNAVAILABLE, topic.records_state)
         self.assertEqual(MetricState.UNAVAILABLE, topic.groups_state)
+
+    @patch("kaskade.services.AdminClient")
+    async def test_propagates_programming_errors_from_offsets(
+        self, mock_class_admin: MagicMock
+    ) -> None:
+        topic_name = "orders"
+        admin = mock_class_admin.return_value
+        admin.list_topics.return_value.topics = {topic_name: topic_metadata(topic_name, 0)}
+        admin.list_offsets.side_effect = lambda request, **_: {
+            partition: failed(TypeError("bad argument")) for partition in request
+        }
+        service = TopicService({"bootstrap.servers": "localhost:9092"})
+        topics = await service.metadata()
+
+        with self.assertRaisesRegex(TypeError, "bad argument"):
+            await service.enrich_offsets(topics)
+
+        self.assertIsNot(MetricState.UNAVAILABLE, topics[topic_name].records_state)
+
+    @patch("kaskade.services.AdminClient")
+    async def test_propagates_programming_errors_from_groups(
+        self, mock_class_admin: MagicMock
+    ) -> None:
+        admin = mock_class_admin.return_value
+        admin.list_consumer_groups.return_value = failed(TypeError("bad argument"))
+        service = TopicService({"bootstrap.servers": "localhost:9092"})
+
+        with self.assertRaisesRegex(TypeError, "bad argument"):
+            await service.load_groups()
 
     @patch("kaskade.services.AdminClient")
     async def test_bounds_group_offset_concurrency(self, mock_class_admin: MagicMock) -> None:

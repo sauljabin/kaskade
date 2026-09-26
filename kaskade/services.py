@@ -62,12 +62,9 @@ from kaskade.models import (
 from kaskade.timeouts import TimeoutConfig
 from kaskade.utils import make_it_async
 
-ADMIN_EXCEPTIONS: tuple[type[Exception], ...] = (
-    KafkaException,
-    RuntimeError,
-    TypeError,
-    ValueError,
-)
+# Expected admin request failures. confluent-kafka raises ValueError for requests it rejects
+# before sending them; any other exception is a programming error and must propagate.
+ADMIN_EXCEPTIONS: tuple[type[Exception], ...] = (KafkaException, ValueError)
 CONSUMER_AUTHORIZATION_ERROR_CODES = {
     KafkaError.GROUP_AUTHORIZATION_FAILED,
     KafkaError.SASL_AUTHENTICATION_FAILED,
