@@ -619,16 +619,53 @@ class TopicService:
         if not group_ids:
             return GroupSnapshot(errors=list_errors)
 
-        descriptions, description_errors = await self._load_group_descriptions(group_ids)
-        offsets, offset_errors = await self._load_group_offsets(group_ids)
-        errors = (*list_errors, *description_errors, *offset_errors)
+        descriptions, description_failures = await self._load_group_descriptions(group_ids)
+        offsets, offset_failures = await self._load_group_offsets(group_ids)
+        hidden = self._unauthorized_group_ids(description_failures, offset_failures)
+        errors = (
+            *list_errors,
+            *self._group_errors("description", description_failures),
+            *self._group_errors("offsets", offset_failures),
+        )
+        if hidden:
+            logger.info("admin groups hidden (not authorized)=%d", len(hidden))
         logger.info(
             "admin groups loaded groups=%d errors=%d elapsed=%.3fs",
-            len(group_ids),
+            len(group_ids) - len(hidden),
             len(errors),
             perf_counter() - started_at,
         )
-        return GroupSnapshot(descriptions, offsets, errors)
+        return GroupSnapshot(
+            tuple(item for item in descriptions if item.group_id not in hidden),
+            {group_id: item for group_id, item in offsets.items() if group_id not in hidden},
+            errors,
+        )
+
+    @staticmethod
+    def _is_group_authorization_error(error: Exception) -> bool:
+        kafka_error = error.args[0] if isinstance(error, KafkaException) and error.args else None
+        return (
+            isinstance(kafka_error, KafkaError)
+            and kafka_error.code() == KafkaError.GROUP_AUTHORIZATION_FAILED
+        )
+
+    def _unauthorized_group_ids(self, *failures: dict[str, Exception]) -> set[str]:
+        # Cluster Describe lists every group, but the principal may not describe them all.
+        # Those groups belong to other applications; they are hidden, not failed.
+        return {
+            group_id
+            for stage_failures in failures
+            for group_id, error in stage_failures.items()
+            if self._is_group_authorization_error(error)
+        }
+
+    def _group_errors(self, stage: str, failures: dict[str, Exception]) -> tuple[Exception, ...]:
+        errors: list[Exception] = []
+        for group_id, error in failures.items():
+            if not self._is_group_authorization_error(error):
+                logger.error("admin consumer-group %s failed for %s: %s", stage, group_id, error)
+                errors.append(error)
+        return tuple(errors)
 
     async def _list_group_ids(self) -> tuple[tuple[str, ...], tuple[Exception, ...]]:
         try:
@@ -645,38 +682,39 @@ class TopicService:
 
     async def _load_group_descriptions(
         self, group_ids: tuple[str, ...]
-    ) -> tuple[tuple[ConsumerGroupDescription, ...], tuple[Exception, ...]]:
-        descriptions: list[ConsumerGroupDescription] = []
+    ) -> tuple[tuple[ConsumerGroupDescription, ...], dict[str, Exception]]:
         description_futures = self.admin_client.describe_consumer_groups(
             list(group_ids), request_timeout=self.timeouts.admin_read
         )
         description_results = await asyncio.gather(
             *(self._resolve_future(future) for future in description_futures.values())
         )
-        errors: list[Exception] = []
-        for description, error in description_results:
+        descriptions: list[ConsumerGroupDescription] = []
+        failures: dict[str, Exception] = {}
+        for group_id, (description, error) in zip(
+            description_futures, description_results, strict=True
+        ):
             if error is not None:
-                errors.append(error)
+                failures[group_id] = error
             elif description is not None:
                 descriptions.append(description)
-        return tuple(descriptions), tuple(errors)
+        return tuple(descriptions), failures
 
     async def _load_group_offsets(
         self, group_ids: tuple[str, ...]
-    ) -> tuple[dict[str, tuple[TopicPartition, ...]], tuple[Exception, ...]]:
+    ) -> tuple[dict[str, tuple[TopicPartition, ...]], dict[str, Exception]]:
         semaphore = asyncio.Semaphore(self.GROUP_OFFSET_CONCURRENCY)
         offset_results = await asyncio.gather(
             *(self._load_single_group_offsets(group_id, semaphore) for group_id in group_ids)
         )
         offsets: dict[str, tuple[TopicPartition, ...]] = {}
-        errors: list[Exception] = []
+        failures: dict[str, Exception] = {}
         for group_id, topic_partitions, error in offset_results:
             if error is not None:
-                logger.error("admin consumer-group offsets failed for %s: %s", group_id, error)
-                errors.append(error)
+                failures[group_id] = error
             else:
                 offsets[group_id] = topic_partitions
-        return offsets, tuple(errors)
+        return offsets, failures
 
     async def _load_single_group_offsets(
         self, group_id: str, semaphore: asyncio.Semaphore
@@ -699,11 +737,11 @@ class TopicService:
         partition = next((item for item in partitions if item.error is not None), None)
         return KafkaException(partition.error) if partition is not None else None
 
-    async def _resolve_future(self, future: Any) -> tuple[Any | None, Exception | None]:
+    @staticmethod
+    async def _resolve_future(future: Any) -> tuple[Any | None, Exception | None]:
         try:
             return await asyncio.wrap_future(future), None
         except ADMIN_EXCEPTIONS as ex:
-            logger.error("admin request failed: %s", ex)
             return None, ex
 
     def apply_groups(self, topics: dict[str, Topic], snapshot: GroupSnapshot) -> EnrichmentResult:

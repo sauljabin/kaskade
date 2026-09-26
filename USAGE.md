@@ -665,6 +665,10 @@ For SASL/SCRAM and mTLS connections, grant the Kafka principal these operations:
 | Admin (full access) | `Describe`, `DescribeConfigs`, `Create`, `Alter`, `Delete`, `AlterConfigs` | `Describe` on groups to display |
 | Consumer | `Read`, `Describe` on topics to consume | `Read`, `Describe` on the configured `group.id` or `kaskade-` prefix |
 
+Admin shows only the consumer groups the principal can describe. A principal
+with cluster `Describe` lists every group; Kaskade skips the ones it cannot
+describe instead of reporting a failed refresh.
+
 Use `User:<username>` for SASL/SCRAM or the certificate principal for mTLS, such
 as `User:CN=kaskade`. Run the commands as an ACL administrator and configure
 `admin-client.properties` for that administrator.
