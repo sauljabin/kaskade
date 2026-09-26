@@ -1,5 +1,6 @@
 import json
 import tempfile
+import warnings
 from abc import ABC, abstractmethod
 from base64 import b64decode
 from binascii import Error as BinasciiError
@@ -14,15 +15,6 @@ from struct import unpack
 from typing import Any
 
 import grpc_tools  # type: ignore[import-untyped]
-from confluent_kafka.schema_registry import Schema, SchemaRegistryClient
-from confluent_kafka.schema_registry.avro import AvroDeserializer as ConfluentAvroDeserializer
-from confluent_kafka.schema_registry.error import SchemaRegistryError
-from confluent_kafka.schema_registry.json_schema import (
-    JSONDeserializer as ConfluentJsonDeserializer,
-)
-from confluent_kafka.schema_registry.protobuf import (
-    ProtobufDeserializer as ConfluentProtobufDeserializer,
-)
 from confluent_kafka.serialization import MessageField, SerializationContext, SerializationError
 from fastavro import parse_schema, schemaless_reader
 from google.protobuf.descriptor_pb2 import DescriptorProto, FileDescriptorProto, FileDescriptorSet
@@ -55,6 +47,22 @@ from kaskade.configs import (
     SCHEMA_REGISTRY_MAGIC_BYTE,
 )
 from kaskade.utils import avro_to_py, file_to_bytes, unpack_bytes
+
+with warnings.catch_warnings():
+    # Confluent's Registry client imports Authlib's deprecated httpx integration. Authlib
+    # installs an "always" filter on import, so load it before adding this narrower one.
+    from authlib.deprecate import AuthlibDeprecationWarning  # type: ignore[import-untyped]
+
+    warnings.filterwarnings("ignore", "The httpx module is deprecated", AuthlibDeprecationWarning)
+    from confluent_kafka.schema_registry import Schema, SchemaRegistryClient
+    from confluent_kafka.schema_registry.avro import AvroDeserializer as ConfluentAvroDeserializer
+    from confluent_kafka.schema_registry.error import SchemaRegistryError
+    from confluent_kafka.schema_registry.json_schema import (
+        JSONDeserializer as ConfluentJsonDeserializer,
+    )
+    from confluent_kafka.schema_registry.protobuf import (
+        ProtobufDeserializer as ConfluentProtobufDeserializer,
+    )
 
 
 class DeserializationError(Exception):
