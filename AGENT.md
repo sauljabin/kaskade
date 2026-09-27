@@ -190,7 +190,10 @@ aligned with `README.md`, assemble its generated SVG dependencies exactly as the
 Pages workflow does, and validate pull requests without requiring a deployment.
 Only pushes to `main` deploy the uploaded artifact. The hero resolves the latest
 stable version from GitHub Releases at runtime; never hard-code a release tag,
-and retain a link to the releases index when the request is unavailable.
+and retain a link to the releases index when the request is unavailable. The
+social preview is `images/social-preview.svg`, rendered to
+`site/social-preview.png` as [Development](DEVELOPMENT.md#website) describes;
+draw its frames as shapes, never as box-drawing glyphs.
 
 Keep the manual Kafka environment self-contained in `sandbox`; never share its
 fixtures or models with tests. Maintain one topology with one Confluent Kafka

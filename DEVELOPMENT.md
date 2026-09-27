@@ -112,6 +112,22 @@ Open `http://localhost:8000/`. The Pages workflow assembles and uploads the same
 artifact for pull requests, but deploys only from `main`. The repository's Pages
 publishing source must be **GitHub Actions**.
 
+The social preview (`og:image`, 1280×640) is `site/social-preview.png`, rendered
+from `images/social-preview.svg` with headless Chrome or Chromium. The same
+image is the repository's social preview, uploaded under Settings > General >
+Social preview; GitHub has no API for it. After editing the SVG, render it on
+macOS or Linux:
+
+```bash
+chrome="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"  # Linux: chromium
+"$chrome" --headless=new --hide-scrollbars --force-device-scale-factor=1 \
+  --window-size=1280,640 --screenshot="$PWD/site/social-preview.png" \
+  "file://$PWD/images/social-preview.svg"
+```
+
+The PNG uses the rendering machine's monospace font, so check it before
+committing.
+
 ## Build Artifacts
 
 Build the Python wheel and source distribution:
