@@ -13,6 +13,10 @@
   commands and behavior, and `DEVELOPMENT.md` owns contributor workflows and the
   sandbox. This file records implementation invariants; link to the canonical
   document instead of repeating its examples or reference material.
+  `CLAUDE.md` only imports this file so Claude Code loads it.
+- `USAGE.md` and `DEVELOPMENT.md` open with a `## Contents` list of their `##`
+  and `###` headings, linked by GitHub anchor. Update it whenever a heading is
+  added, renamed, or removed. Shorter documents and this file have none.
 - Keep affected documentation concise and current. Remove obsolete or
   contradicted guidance rather than recording implementation history.
 - Importing `kaskade` must not create directories, open files, or modify the root
@@ -229,3 +233,5 @@ focused on workflows.
   `build(deps)` or `chore(deps)`.
 - End commit messages and PR descriptions with
   `Assisted-by: <AI model> <version>` after a blank line, using the actual model.
+  It is the only attribution and the last line: do not add `Co-Authored-By`
+  trailers or "Generated with" footers, even when a tool's defaults ask for them.
