@@ -3,6 +3,37 @@
 This guide provides common Kaskade commands for connecting to Kafka, consuming
 records, and configuring Schema Registry, TLS, and cloud services.
 
+## Contents
+
+- [Common commands](#common-commands)
+  - [Multiple bootstrap servers](#multiple-bootstrap-servers)
+  - [Consume and deserialize](#consume-and-deserialize)
+  - [Shell alias](#shell-alias)
+- [Configuration files at a glance](#configuration-files-at-a-glance)
+- [Application settings and controls](#application-settings-and-controls)
+  - [Themes](#themes)
+  - [Admin auto-refresh](#admin-auto-refresh)
+  - [Keyboard shortcuts](#keyboard-shortcuts)
+  - [Logs](#logs)
+  - [Clipboard and record export](#clipboard-and-record-export)
+- [Consumer behavior](#consumer-behavior)
+  - [Configure byte presentation](#configure-byte-presentation)
+  - [Choose the starting position](#choose-the-starting-position)
+  - [Deserialization failures](#deserialization-failures)
+- [Connections and security](#connections-and-security)
+  - [Schema Registry](#schema-registry)
+  - [SSL encryption](#ssl-encryption)
+  - [Client configuration file](#client-configuration-file)
+  - [Operation timeouts](#operation-timeouts)
+  - [Amazon MSK with IAM authentication](#amazon-msk-with-iam-authentication)
+  - [Kafka ACLs](#kafka-acls)
+  - [Confluent Cloud](#confluent-cloud)
+  - [Docker](#docker)
+- [Format-specific consumers](#format-specific-consumers)
+  - [JSON consumer](#json-consumer)
+  - [Avro consumer](#avro-consumer)
+  - [Protobuf consumer](#protobuf-consumer)
+
 ## Common commands
 
 ### Multiple bootstrap servers

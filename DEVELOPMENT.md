@@ -1,5 +1,21 @@
 # Development Instructions
 
+## Contents
+
+- [Setup](#setup)
+- [Scripts](#scripts)
+- [Website](#website)
+- [Build Artifacts](#build-artifacts)
+- [Docker](#docker)
+- [Release](#release)
+- [Manual Tests](#manual-tests)
+  - [Start the local sandbox](#start-the-local-sandbox)
+  - [Populate test topics](#populate-test-topics)
+  - [Inspect registry APIs with HTTPie](#inspect-registry-apis-with-httpie)
+  - [Populate a remote Amazon MSK cluster](#populate-a-remote-amazon-msk-cluster)
+  - [Run application smoke tests](#run-application-smoke-tests)
+  - [Stop the local sandbox](#stop-the-local-sandbox)
+
 ## Setup
 
 Install uv:
