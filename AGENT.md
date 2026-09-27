@@ -71,10 +71,13 @@
 - Admin auto-refresh defaults to 30 seconds, pauses outside the topic list, and
   is configured by `admin.refresh-interval` or
   `admin --refresh-interval`; `0` disables it.
-- Never run blocking Kafka calls on Textual's event loop. Constructing a
-  `ConsumerService` performs no network I/O: the CLI calls `start()` before the
-  TUI opens to report connection errors, and `consume()` starts it lazily in a
-  worker thread, so filter changes rebuild the consumer off the UI thread.
+- Never run blocking Kafka calls on Textual's event loop; use
+  `utils.run_blocking`, which finishes the call before propagating a
+  cancellation. The consumer converts each polled batch in one such call.
+  Constructing a `ConsumerService` performs no network I/O: the CLI calls
+  `start()` before the TUI opens to report connection errors, and `consume()`
+  starts it lazily in a worker thread, so filter changes rebuild the consumer
+  off the UI thread.
 - `consumer --earliest` subscribes to all partitions with
   `auto.offset.reset=earliest`. Repeatable
   `--partition PARTITION[:OFFSET|earliest]` uses manual assignment and must not

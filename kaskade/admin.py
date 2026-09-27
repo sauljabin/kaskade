@@ -44,7 +44,7 @@ from kaskade.services import (
 from kaskade.themes import KaskadeApp
 from kaskade.timeouts import TimeoutConfig
 from kaskade.unicodes import APPROXIMATION
-from kaskade.utils import copy_text, make_it_async, notify_error
+from kaskade.utils import copy_text, notify_error, run_blocking
 from kaskade.widgets import (
     KaskadeHeader,
     MetadataCell,
@@ -1031,7 +1031,7 @@ class ListTopics(Container):
         self.start_loading_table()
         refresh_after = False
         try:
-            await make_it_async(self.topic_service.create, command)
+            await run_blocking(self.topic_service.create, command)
             self.app.notify(
                 f"Created topic '{command.name}'",
                 title="Topic Created",
@@ -1060,7 +1060,7 @@ class ListTopics(Container):
         topic = self.current_topic
         self.start_loading_table()
         try:
-            topic_configs = await make_it_async(self.topic_service.get_configs, topic.name)
+            topic_configs = await run_blocking(self.topic_service.get_configs, topic.name)
         except KafkaException as ex:
             self.finish_loading_table()
             notify_error(self.app, "Kafka Error", ex)
@@ -1095,7 +1095,7 @@ class ListTopics(Container):
         partitions_added = False
         try:
             if command.partitions > topic.partitions_count():
-                await make_it_async(
+                await run_blocking(
                     self.topic_service.add_partitions,
                     topic.name,
                     command.partitions,
@@ -1112,7 +1112,7 @@ class ListTopics(Container):
                 changed_config[RETENTION_MS_CONFIG] = str(command.retention_ms)
 
             if changed_config:
-                await make_it_async(
+                await run_blocking(
                     self.topic_service.edit,
                     topic.name,
                     changed_config,
@@ -1159,7 +1159,7 @@ class ListTopics(Container):
         self.start_loading_table()
         refresh_after = False
         try:
-            await make_it_async(self.topic_service.delete, topic.name)
+            await run_blocking(self.topic_service.delete, topic.name)
             self.app.notify(
                 f"Deleted topic '{topic.name}'",
                 title="Topic Deleted",
@@ -1191,7 +1191,7 @@ class ListTopics(Container):
         topic = self.current_topic
         self.start_loading_table()
         try:
-            configurations = await make_it_async(
+            configurations = await run_blocking(
                 self.topic_service.describe_configs,
                 topic.name,
             )

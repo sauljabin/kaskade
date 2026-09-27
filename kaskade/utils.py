@@ -1,12 +1,11 @@
 import asyncio
 import configparser
-import functools
 import struct
 from collections.abc import Callable
 from io import BytesIO
 from pathlib import Path
 from types import MappingProxyType
-from typing import Any
+from typing import Any, TypeVar
 
 from confluent_kafka import KafkaException
 from fastavro import schemaless_writer
@@ -14,6 +13,8 @@ from fastavro.schema import load_schema
 from textual.app import App
 
 from kaskade import logger
+
+T = TypeVar("T")
 
 
 class _CaseSensitiveConfigParser(configparser.ConfigParser):
@@ -37,10 +38,23 @@ def notify_error(application: App, title: str, ex: Exception) -> None:
     application.notify(message, severity="error", title=title)
 
 
-async def make_it_async(func: Callable[..., Any], /, *args: Any, **keywords: Any) -> Any:
-    return await asyncio.get_running_loop().run_in_executor(
-        None, functools.partial(func, *args, **keywords)
-    )
+async def run_blocking(func: Callable[..., T], /, *args: Any, **kwargs: Any) -> T:
+    """Run a blocking call in a worker thread without blocking the event loop.
+
+    A thread cannot be interrupted, so cancelling the caller waits for the call to
+    finish before re-raising ``CancelledError``: locks the caller holds stay held,
+    and a client it closes next is never still in use. The cancellation wins over
+    the call's own outcome; a failure is logged instead of raised. Cancelling the
+    caller again while it waits stops the wait, not the call.
+    """
+    call = asyncio.ensure_future(asyncio.to_thread(func, *args, **kwargs))
+    try:
+        return await asyncio.shield(call)
+    except asyncio.CancelledError:
+        await asyncio.wait({call})
+        if not call.cancelled() and (error := call.exception()) is not None:
+            logger.warning("blocking call failed after its caller was cancelled: %r", error)
+        raise
 
 
 def unpack_bytes(struct_format: str, data: bytes) -> Any:

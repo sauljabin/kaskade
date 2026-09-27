@@ -1,5 +1,4 @@
 import asyncio
-import functools
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -60,7 +59,7 @@ from kaskade.models import (
     TopicConfiguration,
 )
 from kaskade.timeouts import TimeoutConfig
-from kaskade.utils import make_it_async
+from kaskade.utils import run_blocking
 
 # Expected admin request failures. confluent-kafka raises ValueError for requests it rejects
 # before sending them; any other exception is a programming error and must propagate.
@@ -224,7 +223,7 @@ class ConsumerService:
 
     async def aclose(self) -> None:
         async with self._operation_lock:
-            await make_it_async(self.close)
+            await run_blocking(self.close)
 
     async def consume(
         self,
@@ -236,7 +235,7 @@ class ConsumerService:
 
     async def _consume(self, filters: RecordFilters) -> list[Record]:
         if not self.started:
-            await self._run_blocking(self.start)
+            await run_blocking(self.start)
         chunk_started_at = perf_counter()
         records: list[Record] = []
         poll_retries = 0
@@ -254,7 +253,7 @@ class ConsumerService:
             and poll_retries < max_poll_retries
             and stabilization_retries < max_stabilization_retries
         ):
-            record_batch = await self._run_blocking(
+            record_batch = await run_blocking(
                 self.consumer.consume,
                 self.page_size - len(records),
                 timeout=self.timeouts.consumer_poll,
@@ -271,18 +270,16 @@ class ConsumerService:
                 continue
             poll_retries = 0
 
-            for record_metadata in record_batch:
-                scanned_records += 1
-                if first_record_at is None:
-                    first_record_at = perf_counter()
-                record = await self._run_blocking(
-                    self._record_from_message,
-                    record_metadata,
-                )
-                if self._matches(record, filters):
-                    records.append(record)
-                if len(records) >= self.page_size:
-                    break
+            if first_record_at is None:
+                first_record_at = perf_counter()
+            matched, scanned = await run_blocking(
+                self._records_from_batch,
+                record_batch,
+                filters,
+                self.page_size - len(records),
+            )
+            records.extend(matched)
+            scanned_records += scanned
 
         logger.info(
             "consumer chunk completed topic=%s scanned=%d matched=%d first_record=%.3fs "
@@ -296,15 +293,27 @@ class ConsumerService:
 
         return records
 
-    @staticmethod
-    async def _run_blocking(func: Any, *args: Any, **kwargs: Any) -> Any:
-        loop = asyncio.get_running_loop()
-        future = loop.run_in_executor(None, functools.partial(func, *args, **kwargs))
-        try:
-            return await asyncio.shield(future)
-        except asyncio.CancelledError:
-            await future
-            raise
+    def _records_from_batch(
+        self,
+        messages: list[Any],
+        filters: RecordFilters,
+        limit: int,
+    ) -> tuple[list[Record], int]:
+        """Convert and filter one polled batch in a single worker-thread call.
+
+        Returns the matching records, at most ``limit``, and how many messages were
+        scanned; messages after the limit is reached are neither deserialized nor scanned.
+        """
+        records: list[Record] = []
+        scanned = 0
+        for message in messages:
+            scanned += 1
+            record = self._record_from_message(message)
+            if self._matches(record, filters):
+                records.append(record)
+                if len(records) >= limit:
+                    break
+        return records, scanned
 
     def _record_from_message(self, message: Any) -> Record:
         if message.error():
@@ -491,7 +500,7 @@ class TopicService:
 
     async def metadata(self) -> dict[str, Topic]:
         started_at = perf_counter()
-        topics_metadata = await make_it_async(self._list_topics_metadata)
+        topics_metadata = await run_blocking(self._list_topics_metadata)
         topics = self._map_topics(topics_metadata)
         logger.info(
             "admin metadata loaded topics=%d partitions=%d elapsed=%.3fs",
