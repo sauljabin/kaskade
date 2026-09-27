@@ -7,7 +7,7 @@ from xml.etree import ElementTree
 
 from kaskade import APP_VERSION
 from kaskade.themes import EVA01_BERSERK_THEME
-from scripts import banner, screenshots
+from scripts import BOX_GLYPHS, banner, draw_box_glyphs, screenshots
 
 
 class TestReadmeVisualScripts(unittest.IsolatedAsyncioTestCase):
@@ -23,6 +23,33 @@ class TestReadmeVisualScripts(unittest.IsolatedAsyncioTestCase):
         _, _, view_width, view_height = root.attrib["viewBox"].split()
         self.assertEqual(view_width, root.attrib["width"])
         self.assertEqual(view_height, root.attrib["height"])
+
+    def assert_box_glyphs_drawn(self, svg: str, color: str) -> None:
+        self.assertFalse(BOX_GLYPHS.keys() & set(svg))
+        strokes = {
+            element.get("stroke", "").lower()
+            for element in ElementTree.fromstring(svg).iter()
+            if element.tag.endswith("path")
+        }
+        self.assertIn(color.lower(), strokes)
+
+    def test_draw_box_glyphs_draws_paths_and_keeps_text_on_the_cell_grid(self) -> None:
+        svg = (
+            '<svg xmlns="http://www.w3.org/2000/svg"><style>.t-r1 { fill: #9b4dca }</style>'
+            '<g class="t-matrix"><text class="t-r1" x="0" y="20" textLength="48.8">┌─ a</text>'
+            "</g></svg>"
+        )
+
+        root = ElementTree.fromstring(draw_box_glyphs(svg))
+
+        texts = [element for element in root.iter() if element.tag.endswith("text")]
+        path = next(element for element in root.iter() if element.tag.endswith("path"))
+        self.assertEqual(
+            [(text.get("x"), text.get("textLength"), text.text) for text in texts],
+            [("24.4", "24.4", " a")],
+        )
+        self.assertEqual(path.get("stroke"), "#9b4dca")
+        self.assertEqual(path.get("d"), "M12.2 13.7H6.1V25.9M12.2 13.7H24.4")
 
     async def test_banner_generates_framed_and_borderless_default_theme_variants(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
@@ -41,19 +68,7 @@ class TestReadmeVisualScripts(unittest.IsolatedAsyncioTestCase):
                     svg = path.read_text(encoding="utf-8")
                     self.assert_default_theme_colors(svg.lower())
                     self.assert_intrinsic_dimensions(svg)
-                    self.assertFalse(banner.FRAME_GLYPHS & set(svg))
-                    frame = [
-                        child
-                        for child in ElementTree.fromstring(svg).iter()
-                        if child.tag.endswith("rect") and child.get("fill") == "none"
-                    ]
-                    self.assertEqual(len(frame), 2)
-                    self.assertTrue(
-                        all(
-                            rect.get("stroke", "").lower() == EVA01_BERSERK_THEME.primary.lower()
-                            for rect in frame
-                        )
-                    )
+                    self.assert_box_glyphs_drawn(svg, EVA01_BERSERK_THEME.primary)
                     circles = sum(
                         child.tag.endswith("circle") for child in ElementTree.fromstring(svg).iter()
                     )
@@ -86,6 +101,7 @@ class TestReadmeVisualScripts(unittest.IsolatedAsyncioTestCase):
                     self.assert_default_theme_colors(svg.lower())
                     self.assert_intrinsic_dimensions(svg)
                     self.assertIn(f"v{screenshots.SCREENSHOT_VERSION}", svg)
+                    self.assertFalse(BOX_GLYPHS.keys() & set(svg))
                     if APP_VERSION != screenshots.SCREENSHOT_VERSION:
                         self.assertNotIn(f"v{APP_VERSION}", svg)
 

@@ -23,7 +23,7 @@ from kaskade.models import (
 )
 from kaskade.services import ConsumerService, EnrichmentResult, GroupSnapshot, TopicService
 from kaskade.widgets import KaskadeHeader
-from scripts import normalize_svg, remove_svg_terminal_chrome
+from scripts import draw_box_glyphs, normalize_svg, remove_svg_terminal_chrome
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 IMAGES_DIRECTORY = PROJECT_ROOT / "images"
@@ -201,7 +201,7 @@ async def _export(app: KaskadeAdmin | KaskadeConsumer, name: str) -> tuple[Path,
     async with app.run_test(size=SCREENSHOT_SIZE) as pilot:
         await app.workers.wait_for_complete()
         await pilot.pause()
-        svg = app.export_screenshot(title=app.TITLE, simplify=True)
+        svg = draw_box_glyphs(app.export_screenshot(title=app.TITLE, simplify=True))
 
     framed_path = IMAGES_DIRECTORY / f"{name}.svg"
     borderless_path = IMAGES_DIRECTORY / f"{name}-borderless.svg"

@@ -179,7 +179,11 @@ Generated SVGs in `images/` come from `uv run python -m scripts.banner` and
 `uv run python -m scripts.screenshots`; neither needs Kafka. The screenshot
 commands emit framed README images and borderless site variants. Use absolute
 `raw.githubusercontent.com` URLs targeting `main`. Paired README screenshots
-use equal 50% table columns and 100% image width.
+use equal 50% table columns and 100% image width. Never leave box-drawing
+glyphs as SVG text: Linux and Android take them from fallback fonts whose cells
+differ from the monospace grid, which splits borders and squeezes border titles.
+`scripts.draw_box_glyphs` draws them as paths; extend its `BOX_GLYPHS` when a
+new border style appears.
 
 The static site source lives in `site/`. Keep its slogan and capability claims
 aligned with `README.md`, assemble its generated SVG dependencies exactly as the
