@@ -8,7 +8,11 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
+from confluent_kafka.schema_registry.protobuf import (
+    ProtobufDeserializer as ConfluentProtobufDeserializer,
+)
 from confluent_kafka.serialization import MessageField
+from fastavro.schema import load_schema
 from google.protobuf.descriptor_pb2 import (
     FieldDescriptorProto,
     FileDescriptorProto,
@@ -771,6 +775,52 @@ class TestDeserializer(unittest.TestCase):
             ),
         )
 
+    def test_protobuf_reuses_one_confluent_deserializer_per_message_class(self):
+        descriptor = FileDescriptorProto()
+        descriptor.CopyFrom(PROTOBUF_DESCRIPTOR)
+        descriptor.message_type.add(name="Account").field.add(
+            name="id",
+            number=1,
+            label=FieldDescriptorProto.LABEL_OPTIONAL,
+            type=FieldDescriptorProto.TYPE_STRING,
+        )
+        pool = DescriptorPool()
+        pool.Add(descriptor)
+        account_class = GetMessageClass(pool.FindMessageTypeByName("Account"))
+        framing = b"\x00\x00\x00\x00\x01\x00"
+        with tempfile.TemporaryDirectory() as directory:
+            descriptor_path = Path(directory) / "models.desc"
+            descriptor_path.write_bytes(FileDescriptorSet(file=[descriptor]).SerializeToString())
+            deserializer = ProtobufDeserializer(
+                {
+                    "descriptor": str(descriptor_path),
+                    "key": "User",
+                    "value": "Account",
+                    "framing": "confluent",
+                }
+            )
+
+            with patch(
+                "kaskade.deserializers.ConfluentProtobufDeserializer",
+                wraps=ConfluentProtobufDeserializer,
+            ) as constructor:
+                for number in range(3):
+                    key = User(name=f"user {number}").SerializeToString()
+                    value = account_class(id=f"account {number}").SerializeToString()
+                    self.assertEqual(
+                        {"name": f"user {number}"},
+                        deserializer.deserialize(framing + key, "orders", MessageField.KEY),
+                    )
+                    self.assertEqual(
+                        {"id": f"account {number}"},
+                        deserializer.deserialize(framing + value, "orders", MessageField.VALUE),
+                    )
+
+        self.assertEqual(
+            ["User", "Account"],
+            [call.args[0].DESCRIPTOR.name for call in constructor.call_args_list],
+        )
+
     def test_avro_deserialization(self):
         expected_value = {"name": "Pedro Pascal"}
         deserializer = AvroDeserializer({"value": self.avro_path})
@@ -832,6 +882,26 @@ class TestDeserializer(unittest.TestCase):
                 "orders",
                 MessageField.VALUE,
             ),
+        )
+
+    def test_avro_reads_each_schema_file_once(self):
+        with tempfile.TemporaryDirectory() as directory:
+            value_path = str(Path(directory) / "value.avsc")
+            Path(value_path).write_text(json.dumps(AVRO_SCHEMA), encoding="utf-8")
+            deserializer = AvroDeserializer({"key": self.avro_path, "value": value_path})
+
+            with patch("kaskade.deserializers.load_schema", wraps=load_schema) as loader:
+                for name in ["Pedro Pascal", "Jonathan Rivers", "Ana Gomez"]:
+                    encoded = py_to_avro(self.avro_path, {"name": name})
+                    for context in (MessageField.KEY, MessageField.VALUE):
+                        self.assertEqual(
+                            {"name": name},
+                            deserializer.deserialize(encoded, "orders", context),
+                        )
+
+        self.assertEqual(
+            [self.avro_path, value_path],
+            [call.args[0] for call in loader.call_args_list],
         )
 
     def test_raw_avro_starting_with_zero_is_not_mistaken_for_framing(self):

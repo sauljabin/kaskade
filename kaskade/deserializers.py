@@ -12,11 +12,12 @@ from io import BytesIO
 from pathlib import Path
 from struct import error as StructError
 from struct import unpack
-from typing import Any
+from typing import Any, cast
 
 import grpc_tools  # type: ignore[import-untyped]
 from confluent_kafka.serialization import MessageField, SerializationContext, SerializationError
 from fastavro import parse_schema, schemaless_reader
+from fastavro.schema import load_schema
 from google.protobuf.descriptor_pb2 import DescriptorProto, FileDescriptorProto, FileDescriptorSet
 from google.protobuf.descriptor_pool import Default as DefaultDescriptorPool
 from google.protobuf.descriptor_pool import DescriptorPool
@@ -46,7 +47,7 @@ from kaskade.configs import (
     SCHEMA_REGISTRY_HEADER_SIZE,
     SCHEMA_REGISTRY_MAGIC_BYTE,
 )
-from kaskade.utils import avro_to_py, file_to_bytes, unpack_bytes
+from kaskade.utils import file_to_bytes, unpack_bytes
 
 with warnings.catch_warnings():
     # Confluent's Registry client imports Authlib's deprecated httpx integration. Authlib
@@ -970,6 +971,7 @@ class AvroDeserializer(Deserializer):
         self.config = avro_config
         self.key_path = avro_config.get("key")
         self.value_path = avro_config.get("value")
+        self._schemas: dict[str, Any] = {}
 
     def deserialize(
         self, data: bytes, topic: str | None = None, context: MessageField = MessageField.NONE
@@ -993,7 +995,16 @@ class AvroDeserializer(Deserializer):
             raise DeserializationError("Avro schema file not found")
 
         payload = _payload(data, self.config, context, "Avro")
-        return _deserialize_avro(avro_to_py, schema_path, payload)
+        return _deserialize_avro(
+            schemaless_reader, BytesIO(payload), self._schema(schema_path), None
+        )
+
+    def _schema(self, schema_path: str) -> Any:
+        schema = self._schemas.get(schema_path)
+        if schema is None:
+            schema = load_schema(schema_path)
+            self._schemas[schema_path] = schema
+        return schema
 
 
 class ProtobufDeserializer(Deserializer):
@@ -1003,6 +1014,7 @@ class ProtobufDeserializer(Deserializer):
         self.key_class = protobuf_config.get("key")
         self.value_class = protobuf_config.get("value")
         self.descriptor_classes: dict[str, type[Message]] | None = None
+        self._confluent_deserializers: dict[type[Message], ConfluentProtobufDeserializer] = {}
 
     def deserialize(
         self, data: bytes, topic: str | None = None, context: MessageField = MessageField.NONE
@@ -1047,17 +1059,21 @@ class ProtobufDeserializer(Deserializer):
             )
         return class_name
 
-    @staticmethod
     def _deserialize_confluent(
+        self,
         data: bytes,
         topic: str,
         context: MessageField,
         message_class: type[Message],
     ) -> Any:
-        deserializer = ConfluentProtobufDeserializer(
-            message_class, {"use.deprecated.format": False}
-        )
-        message = deserializer(data, SerializationContext(topic, context))
+        deserializer = self._confluent_deserializers.get(message_class)
+        if deserializer is None:
+            deserializer = ConfluentProtobufDeserializer(
+                message_class, {"use.deprecated.format": False}
+            )
+            self._confluent_deserializers[message_class] = deserializer
+        # Confluent annotates the result as bytes, but it returns the parsed message.
+        message = cast(Message, deserializer(data, SerializationContext(topic, context)))
         return MessageToDict(message, always_print_fields_with_no_presence=True)
 
 
