@@ -113,40 +113,27 @@
         <rect fill="#0e0024" x="12.2" y="172.3" width="488" height="24.65" shape-rendering="crispEdges" />
         <rect fill="#0e0024" x="500.2" y="172.3" width="12.2" height="24.65" shape-rendering="crispEdges" />
         <g class="terminal-1355979006-matrix">
-            <text class="terminal-1355979006-r2" x="12.2" y="20" textLength="488" clip-path="url(#terminal-1355979006-line-0)">╔══════════════════════════════════════╗</text>
+            <path fill="none" stroke="#9b4dca" stroke-width="1.5" stroke-linecap="square" d="M24.4 10.7H15.3V25.9M24.4 16.7H21.3V25.9M24.4 10.7H36.6M24.4 16.7H36.6M36.6 10.7H48.8M36.6 16.7H48.8M48.8 10.7H61M48.8 16.7H61M61 10.7H73.2M61 16.7H73.2M73.2 10.7H85.4M73.2 16.7H85.4M85.4 10.7H97.6M85.4 16.7H97.6M97.6 10.7H109.8M97.6 16.7H109.8M109.8 10.7H122M109.8 16.7H122M122 10.7H134.2M122 16.7H134.2M134.2 10.7H146.4M134.2 16.7H146.4M146.4 10.7H158.6M146.4 16.7H158.6M158.6 10.7H170.8M158.6 16.7H170.8M170.8 10.7H183M170.8 16.7H183M183 10.7H195.2M183 16.7H195.2M195.2 10.7H207.4M195.2 16.7H207.4M207.4 10.7H219.6M207.4 16.7H219.6M219.6 10.7H231.8M219.6 16.7H231.8M231.8 10.7H244M231.8 16.7H244M244 10.7H256.2M244 16.7H256.2M256.2 10.7H268.4M256.2 16.7H268.4M268.4 10.7H280.6M268.4 16.7H280.6M280.6 10.7H292.8M280.6 16.7H292.8M292.8 10.7H305M292.8 16.7H305M305 10.7H317.2M305 16.7H317.2M317.2 10.7H329.4M317.2 16.7H329.4M329.4 10.7H341.6M329.4 16.7H341.6M341.6 10.7H353.8M341.6 16.7H353.8M353.8 10.7H366M353.8 16.7H366M366 10.7H378.2M366 16.7H378.2M378.2 10.7H390.4M378.2 16.7H390.4M390.4 10.7H402.6M390.4 16.7H402.6M402.6 10.7H414.8M402.6 16.7H414.8M414.8 10.7H427M414.8 16.7H427M427 10.7H439.2M427 16.7H439.2M439.2 10.7H451.4M439.2 16.7H451.4M451.4 10.7H463.6M451.4 16.7H463.6M463.6 10.7H475.8M463.6 16.7H475.8M475.8 10.7H488M475.8 16.7H488M488 10.7H497.1V25.9M488 16.7H491.1V25.9M15.3 25.9V50.3M21.3 25.9V50.3M491.1 25.9V50.3M497.1 25.9V50.3M15.3 50.3V74.7M21.3 50.3V74.7M491.1 50.3V74.7M497.1 50.3V74.7M15.3 74.7V99.1M21.3 74.7V99.1M491.1 74.7V99.1M497.1 74.7V99.1M15.3 99.1V123.5M21.3 99.1V123.5M491.1 99.1V123.5M497.1 99.1V123.5M15.3 123.5V147.9M21.3 123.5V147.9M491.1 123.5V147.9M497.1 123.5V147.9M15.3 147.9V172.3M21.3 147.9V172.3M491.1 147.9V172.3M497.1 147.9V172.3M24.4 187.5H15.3V172.3M24.4 181.5H21.3V172.3M24.4 181.5H36.6M24.4 187.5H36.6M36.6 181.5H48.8M36.6 187.5H48.8M48.8 181.5H61M48.8 187.5H61M61 181.5H73.2M61 187.5H73.2M73.2 181.5H85.4M73.2 187.5H85.4M85.4 181.5H97.6M85.4 187.5H97.6M97.6 181.5H109.8M97.6 187.5H109.8M109.8 181.5H122M109.8 187.5H122M122 181.5H134.2M122 187.5H134.2M134.2 181.5H146.4M134.2 187.5H146.4M146.4 181.5H158.6M146.4 187.5H158.6M158.6 181.5H170.8M158.6 187.5H170.8M170.8 181.5H183M170.8 187.5H183M183 181.5H195.2M183 187.5H195.2M195.2 181.5H207.4M195.2 187.5H207.4M207.4 181.5H219.6M207.4 187.5H219.6M219.6 181.5H231.8M219.6 187.5H231.8M231.8 181.5H244M231.8 187.5H244M244 181.5H256.2M244 187.5H256.2M256.2 181.5H268.4M256.2 187.5H268.4M268.4 181.5H280.6M268.4 187.5H280.6M280.6 181.5H292.8M280.6 187.5H292.8M292.8 181.5H305M292.8 187.5H305M305 181.5H317.2M305 187.5H317.2M317.2 181.5H329.4M317.2 187.5H329.4M329.4 181.5H341.6M329.4 187.5H341.6M341.6 181.5H353.8M341.6 187.5H353.8M353.8 181.5H366M353.8 187.5H366M366 181.5H378.2M366 187.5H378.2M378.2 181.5H390.4M378.2 187.5H390.4M390.4 181.5H402.6M390.4 187.5H402.6M402.6 181.5H414.8M402.6 187.5H414.8M414.8 181.5H427M414.8 187.5H427M427 181.5H439.2M427 187.5H439.2M439.2 181.5H451.4M439.2 187.5H451.4M451.4 181.5H463.6M451.4 187.5H463.6M463.6 181.5H475.8M463.6 187.5H475.8M475.8 181.5H488M475.8 187.5H488M488 187.5H497.1V172.3M488 181.5H491.1V172.3" />
             <text class="terminal-1355979006-r1" x="512.4" y="20" textLength="12.2" clip-path="url(#terminal-1355979006-line-0)">
 </text>
-            <text class="terminal-1355979006-r2" x="12.2" y="44.4" textLength="12.2" clip-path="url(#terminal-1355979006-line-1)">║</text>
             <text class="terminal-1355979006-r3" x="36.6" y="44.4" textLength="366" clip-path="url(#terminal-1355979006-line-1)"> _             _             _</text>
-            <text class="terminal-1355979006-r2" x="488" y="44.4" textLength="12.2" clip-path="url(#terminal-1355979006-line-1)">║</text>
             <text class="terminal-1355979006-r1" x="512.4" y="44.4" textLength="12.2" clip-path="url(#terminal-1355979006-line-1)">
 </text>
-            <text class="terminal-1355979006-r2" x="12.2" y="68.8" textLength="12.2" clip-path="url(#terminal-1355979006-line-2)">║</text>
             <text class="terminal-1355979006-r3" x="36.6" y="68.8" textLength="427" clip-path="url(#terminal-1355979006-line-2)">| | ____ _ ___| | ____ _  __| | ___</text>
-            <text class="terminal-1355979006-r2" x="488" y="68.8" textLength="12.2" clip-path="url(#terminal-1355979006-line-2)">║</text>
             <text class="terminal-1355979006-r1" x="512.4" y="68.8" textLength="12.2" clip-path="url(#terminal-1355979006-line-2)">
 </text>
-            <text class="terminal-1355979006-r2" x="12.2" y="93.2" textLength="12.2" clip-path="url(#terminal-1355979006-line-3)">║</text>
             <text class="terminal-1355979006-r3" x="36.6" y="93.2" textLength="439.2" clip-path="url(#terminal-1355979006-line-3)">| |/ / _` / __| |/ / _` |/ _` |/ _ \</text>
-            <text class="terminal-1355979006-r2" x="488" y="93.2" textLength="12.2" clip-path="url(#terminal-1355979006-line-3)">║</text>
             <text class="terminal-1355979006-r1" x="512.4" y="93.2" textLength="12.2" clip-path="url(#terminal-1355979006-line-3)">
 </text>
-            <text class="terminal-1355979006-r2" x="12.2" y="117.6" textLength="12.2" clip-path="url(#terminal-1355979006-line-4)">║</text>
             <text class="terminal-1355979006-r3" x="36.6" y="117.6" textLength="439.2" clip-path="url(#terminal-1355979006-line-4)">|   &lt; (_| \__ \   &lt; (_| | (_| |  __/</text>
-            <text class="terminal-1355979006-r2" x="488" y="117.6" textLength="12.2" clip-path="url(#terminal-1355979006-line-4)">║</text>
             <text class="terminal-1355979006-r1" x="512.4" y="117.6" textLength="12.2" clip-path="url(#terminal-1355979006-line-4)">
 </text>
-            <text class="terminal-1355979006-r2" x="12.2" y="142" textLength="12.2" clip-path="url(#terminal-1355979006-line-5)">║</text>
             <text class="terminal-1355979006-r3" x="36.6" y="142" textLength="439.2" clip-path="url(#terminal-1355979006-line-5)">|_|\_\__,_|___/_|\_\__,_|\__,_|\___|</text>
-            <text class="terminal-1355979006-r2" x="488" y="142" textLength="12.2" clip-path="url(#terminal-1355979006-line-5)">║</text>
             <text class="terminal-1355979006-r1" x="512.4" y="142" textLength="12.2" clip-path="url(#terminal-1355979006-line-5)">
 </text>
-            <text class="terminal-1355979006-r2" x="12.2" y="166.4" textLength="12.2" clip-path="url(#terminal-1355979006-line-6)">║</text>
             <text class="terminal-1355979006-r4" x="97.6" y="166.4" textLength="378.2" clip-path="url(#terminal-1355979006-line-6)">a text user interface for kafka</text>
-            <text class="terminal-1355979006-r2" x="488" y="166.4" textLength="12.2" clip-path="url(#terminal-1355979006-line-6)">║</text>
             <text class="terminal-1355979006-r1" x="512.4" y="166.4" textLength="12.2" clip-path="url(#terminal-1355979006-line-6)">
 </text>
-            <text class="terminal-1355979006-r2" x="12.2" y="190.8" textLength="488" clip-path="url(#terminal-1355979006-line-7)">╚══════════════════════════════════════╝</text>
         </g>
     </g>
 </svg>

@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="640" viewBox="0 0 1280 640">
+  <!-- Social preview for the site and the GitHub repository. Render the PNG with
+       the command in DEVELOPMENT.md (Website); fonts are the system's own. -->
+  <defs>
+    <radialGradient id="glow" cx="1126" cy="20" r="700" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#9b4dca" stop-opacity="0.3"/>
+      <stop offset="1" stop-color="#9b4dca" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="lime" cx="50" cy="205" r="360" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#a6ff4d" stop-opacity="0.06"/>
+      <stop offset="1" stop-color="#a6ff4d" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="scanlines" width="4" height="4" patternUnits="userSpaceOnUse">
+      <rect width="4" height="1" fill="#f3ecff" fill-opacity="0.022"/>
+    </pattern>
+  </defs>
+  <rect width="1280" height="640" fill="#0e0024"/>
+  <rect width="1280" height="640" fill="url(#glow)"/>
+  <rect width="1280" height="640" fill="url(#lime)"/>
+  <rect width="1280" height="640" fill="url(#scanlines)"/>
+  <rect x="290" y="100" width="729" height="326" fill="#512875" fill-opacity="0.3"/>
+  <rect x="275.5" y="85.5" width="729" height="326" fill="#100a1c" stroke="#9b4dca"/>
+  <rect x="276" y="86" width="728" height="45" fill="#1f0e36"/>
+  <line x1="276" y1="131.5" x2="1004" y2="131.5" stroke="#512875"/>
+  <circle cx="303" cy="108" r="7" fill="#ff5f57"/>
+  <circle cx="325" cy="108" r="7" fill="#febc2e"/>
+  <circle cx="347" cy="108" r="7" fill="#28c840"/>
+  <g font-family="'Fira Code', SFMono-Regular, Menlo, 'DejaVu Sans Mono', 'Liberation Mono', monospace" font-size="16" fill="#a9a2b4">
+    <text x="640" y="114" text-anchor="middle">kaskade&#160;—&#160;zsh</text>
+    <text x="980" y="114" text-anchor="end">⌘1</text>
+  </g>
+  <g font-family="'Fira Code', SFMono-Regular, Menlo, 'DejaVu Sans Mono', 'Liberation Mono', monospace" font-size="24">
+    <rect x="355.6" y="155.84" width="568.8" height="217.2" fill="none" stroke="#9b4dca" stroke-width="1.8"/>
+    <rect x="362.8" y="163.04" width="554.4" height="202.8" fill="none" stroke="#9b4dca" stroke-width="1.8"/>
+    <text x="380.8" y="197" fill="#f3ecff">&#160;_&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;_&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;_</text>
+    <text x="380.8" y="227" fill="#f3ecff">|&#160;|&#160;____&#160;_&#160;___|&#160;|&#160;____&#160;_&#160;&#160;__|&#160;|&#160;___</text>
+    <text x="380.8" y="257" fill="#f3ecff">|&#160;|/&#160;/&#160;_`&#160;/&#160;__|&#160;|/&#160;/&#160;_`&#160;|/&#160;_`&#160;|/&#160;_&#160;\</text>
+    <text x="380.8" y="287" fill="#f3ecff">|&#160;&#160;&#160;&lt;&#160;(_|&#160;\__&#160;\&#160;&#160;&#160;&lt;&#160;(_|&#160;|&#160;(_|&#160;|&#160;&#160;__/</text>
+    <text x="380.8" y="317" fill="#f3ecff">|_|\_\__,_|___/_|\_\__,_|\__,_|\___|</text>
+    <text x="452.8" y="347" fill="#a6ff4d">a&#160;text&#160;user&#160;interface&#160;for&#160;kafka</text>
+  </g>
+  <text x="640" y="495" text-anchor="middle" font-family="'Fira Code', SFMono-Regular, Menlo, 'DejaVu Sans Mono', 'Liberation Mono', monospace" font-size="38" font-weight="700"><tspan fill="#f3ecff">Kafka&#160;flows&#160;through&#160;</tspan><tspan fill="#a6ff4d">your&#160;terminal.</tspan></text>
+  <text x="640" y="553" text-anchor="middle" font-family="'Fira Code', SFMono-Regular, Menlo, 'DejaVu Sans Mono', 'Liberation Mono', monospace" font-size="28"><tspan fill="#a6ff4d">$&#160;</tspan><tspan fill="#f3ecff">brew&#160;install&#160;kaskade</tspan></text>
+</svg>

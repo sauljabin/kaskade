@@ -6,7 +6,7 @@ from textual.app import ComposeResult
 
 from kaskade.banner import KaskadeBanner
 from kaskade.themes import KaskadeApp
-from scripts import normalize_svg, remove_svg_terminal_chrome
+from scripts import draw_box_glyphs, normalize_svg, remove_svg_terminal_chrome
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 IMAGES_DIRECTORY = PROJECT_ROOT / "images"
@@ -45,7 +45,7 @@ class BorderlessBanner(Banner):
 async def _render(app: Banner) -> str:
     async with app.run_test(size=BANNER_SIZE) as pilot:
         await pilot.pause()
-        return app.export_screenshot(title="Kaskade", simplify=True)
+        return draw_box_glyphs(app.export_screenshot(title="Kaskade", simplify=True))
 
 
 async def generate_banner() -> tuple[Path, Path]:
