@@ -50,7 +50,7 @@ from kaskade.record_export import readable_json, record_filename
 from kaskade.services import PartitionSelectionError
 from kaskade.themes import KaskadeApp
 from kaskade.unicodes import WARNING as WARNING_INDICATOR
-from kaskade.utils import make_it_async
+from kaskade.utils import run_blocking
 from kaskade.widgets import KaskadeScrollableContainer, TableFrame
 
 
@@ -1358,7 +1358,7 @@ class TestRecordFilterRebuild(unittest.IsolatedAsyncioTestCase):
             closed.set()
 
         async def aclose() -> None:
-            await make_it_async(blocking_close)
+            await run_blocking(blocking_close)
 
         previous = consumer_service_mock("previous-group")
         previous.close = MagicMock(side_effect=blocking_close)

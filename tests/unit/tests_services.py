@@ -44,6 +44,7 @@ from kaskade.models import (
 )
 from kaskade.services import ConsumerService, TopicService
 from kaskade.timeouts import TimeoutConfig
+from kaskade.utils import run_blocking
 from tests import faker
 
 
@@ -1019,6 +1020,120 @@ class TestConsumerService(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(3, deserializer_factory.get.call_count)
         consumer.unsubscribe.assert_called_once_with()
+        consumer.close.assert_called_once_with()
+
+    @patch("kaskade.services.Consumer")
+    async def test_deserializes_each_polled_batch_in_one_worker_call(
+        self, mock_class_consumer: MagicMock
+    ) -> None:
+        consumer = mock_class_consumer.return_value
+        consumer.consume.return_value = [
+            consumer_message(key=f"key-{number}".encode()) for number in range(3)
+        ]
+        service = ConsumerService(
+            "orders",
+            {"bootstrap.servers": "localhost:9092"},
+            DeserializerPool(),
+            Deserialization.STRING,
+            Deserialization.STRING,
+            page_size=3,
+        )
+        service.on_assign(consumer, [TopicPartition("orders", 0)])
+
+        with patch("kaskade.services.run_blocking", wraps=run_blocking) as worker_call:
+            records = await service.consume()
+
+        self.assertEqual(["key-0", "key-1", "key-2"], [record.key_str() for record in records])
+        self.assertEqual(
+            [service.start, consumer.consume, service._records_from_batch],
+            [call.args[0] for call in worker_call.call_args_list],
+        )
+
+    @patch("kaskade.services.Consumer")
+    async def test_filters_and_limits_records_within_a_batch(
+        self, mock_class_consumer: MagicMock
+    ) -> None:
+        consumer = mock_class_consumer.return_value
+        consumer.consume.return_value = [
+            consumer_message(key=key)
+            for key in (b"match-1", b"other", b"match-2", b"match-3", b"match-4")
+        ]
+        deserialized_keys: list[bytes] = []
+
+        class RecordingDeserializer(StringDeserializer):
+            def deserialize(self, data, topic=None, context=None):
+                deserialized_keys.append(data)
+                return super().deserialize(data, topic, context)
+
+        deserializer_factory = MagicMock(spec=DeserializerPool)
+        deserializer_factory.get.side_effect = [
+            RecordingDeserializer(),
+            StringDeserializer(),
+            StringDeserializer(),
+        ]
+        service = ConsumerService(
+            "orders",
+            {"bootstrap.servers": "localhost:9092"},
+            deserializer_factory,
+            Deserialization.STRING,
+            Deserialization.STRING,
+            page_size=3,
+        )
+        service.on_assign(consumer, [TopicPartition("orders", 0)])
+
+        records = await service.consume(filters=RecordFilters(key="match"))
+
+        self.assertEqual(
+            ["match-1", "match-2", "match-3"], [record.key_str() for record in records]
+        )
+        self.assertEqual([b"match-1", b"other", b"match-2", b"match-3"], deserialized_keys)
+
+    @patch("kaskade.services.Consumer")
+    async def test_cancelling_consume_waits_for_the_batch_before_closing(
+        self, mock_class_consumer: MagicMock
+    ) -> None:
+        started = threading.Event()
+        release = threading.Event()
+        finished = threading.Event()
+
+        class BlockingDeserializer(Deserializer):
+            def deserialize(self, data, topic=None, context=None):
+                started.set()
+                release.wait(timeout=2)
+                finished.set()
+                return data.decode()
+
+        consumer = mock_class_consumer.return_value
+        consumer.consume.return_value = [consumer_message(), consumer_message()]
+        deserializer_factory = MagicMock(spec=DeserializerPool)
+        deserializer_factory.get.side_effect = [
+            StringDeserializer(),
+            BlockingDeserializer(),
+            StringDeserializer(),
+        ]
+        service = ConsumerService(
+            "orders",
+            {"bootstrap.servers": "localhost:9092"},
+            deserializer_factory,
+            Deserialization.STRING,
+            Deserialization.STRING,
+            page_size=2,
+        )
+        service.on_assign(consumer, [TopicPartition("orders", 0)])
+        consume_task = asyncio.create_task(service.consume())
+        await asyncio.to_thread(started.wait, 2)
+
+        consume_task.cancel()
+        close_task = asyncio.create_task(service.aclose())
+        await asyncio.sleep(0.05)
+        self.assertFalse(consume_task.done())
+        consumer.close.assert_not_called()
+
+        release.set()
+        with self.assertRaises(asyncio.CancelledError):
+            await consume_task
+        self.assertTrue(finished.is_set())
+        await close_task
         consumer.close.assert_called_once_with()
 
     @patch("kaskade.services.Consumer")
