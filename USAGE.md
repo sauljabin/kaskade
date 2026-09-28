@@ -29,7 +29,6 @@ records, and configuring Schema Registry, TLS, and cloud services.
   - [Amazon MSK with IAM authentication](#amazon-msk-with-iam-authentication)
   - [Kafka ACLs](#kafka-acls)
   - [Confluent Cloud](#confluent-cloud)
-  - [Docker](#docker)
 - [Format-specific consumers](#format-specific-consumers)
   - [JSON consumer](#json-consumer)
   - [Avro consumer](#avro-consumer)
@@ -829,13 +828,6 @@ kaskade consumer -b ${BOOTSTRAP_SERVERS} -t my-avro-topic \
 
 See the
 [Kafka client quick start for Confluent Cloud](https://docs.confluent.io/cloud/current/client-apps/config-client.html).
-
-### Docker
-
-Kaskade 6 no longer publishes Docker images. The existing 5.x tags of
-`sauljabin/kaskade` stay on Docker Hub until March 2027, when the repository is
-removed. Install Kaskade with Homebrew or pipx instead; see the
-[Quick start](README.md#quick-start).
 
 ## Format-specific consumers
 
