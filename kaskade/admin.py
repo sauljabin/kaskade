@@ -50,6 +50,7 @@ from kaskade.widgets import (
     MetadataCell,
     StretchyDataTable,
     TableFrame,
+    kantrip_profile,
 )
 
 REFRESH_TABLE_DELAY = 1
@@ -1384,7 +1385,7 @@ class KaskadeAdmin(KaskadeApp):
             self._auto_refresh_timer.reset()
 
     def compose(self) -> ComposeResult:
-        yield KaskadeHeader(self.kafka_config)
+        yield KaskadeHeader(self.kafka_config, profile=kantrip_profile())
         yield ListTopics(
             TopicService(
                 self.kafka_config,

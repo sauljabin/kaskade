@@ -1,3 +1,4 @@
+import os
 from collections.abc import Mapping
 from typing import Any, ClassVar
 
@@ -14,6 +15,13 @@ from textual.widgets.data_table import CellType, ColumnKey
 
 from kaskade import APP_NAME, APP_VERSION
 from kaskade.configs import BOOTSTRAP_SERVERS
+
+KANTRIP_PROFILE = "KANTRIP_PROFILE"
+
+
+def kantrip_profile() -> str:
+    """Return the display-only profile name exported by ``kantrip exec``."""
+    return os.environ.get(KANTRIP_PROFILE, "").strip()
 
 
 def labelled_value(label: str, value: str) -> Text:
@@ -59,19 +67,35 @@ class MetadataCell(Static):
 
 
 class KaskadeHeader(Horizontal):
-    """Display the application version and active Kafka bootstrap servers."""
+    """Display the application version, Kantrip profile, and Kafka bootstrap servers."""
 
-    def __init__(self, kafka_config: Mapping[str, Any], *, version: str = APP_VERSION) -> None:
+    def __init__(
+        self,
+        kafka_config: Mapping[str, Any],
+        *,
+        version: str = APP_VERSION,
+        profile: str = "",
+    ) -> None:
         super().__init__(id="kaskade-header")
         bootstrap_servers = kafka_config.get(BOOTSTRAP_SERVERS, "Not configured")
         self.bootstrap_servers = str(bootstrap_servers).split(",", maxsplit=1)[0].strip()
         self.version = version
+        self.profile = profile
 
     def _product_text(self) -> Text:
         product = Text()
         product.append(APP_NAME.title(), style="primary")
         product.append(f" v{self.version}", style="secondary")
         return product
+
+    def _connection_text(self) -> Text:
+        connection = Text()
+        if self.profile:
+            connection.append(self.profile, style="foreground")
+            connection.stylize("bold", 0, len(self.profile))
+            connection.append(" · ")
+        connection.append(self.bootstrap_servers)
+        return connection
 
     def compose(self) -> ComposeResult:
         yield Static(
@@ -80,17 +104,21 @@ class KaskadeHeader(Horizontal):
             markup=False,
         )
         yield Static(
-            self.bootstrap_servers,
+            self._connection_text(),
             id="kaskade-kafka",
             markup=False,
         )
 
     def on_mount(self) -> None:
-        self.watch(self.app, "theme", self._refresh_product, init=False)
+        self.watch(self.app, "theme", self._refresh_styles, init=False)
 
-    def _refresh_product(self) -> None:
+    def _refresh_styles(self) -> None:
         self.query_one("#kaskade-product", Static).update(
             self._product_text(),
+            layout=False,
+        )
+        self.query_one("#kaskade-kafka", Static).update(
+            self._connection_text(),
             layout=False,
         )
 

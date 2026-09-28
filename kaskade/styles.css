@@ -19,6 +19,7 @@ KaskadeHeader > #kaskade-product {
 
 KaskadeHeader > #kaskade-kafka {
     width: 1fr;
+    padding-left: 1;
     color: $text-muted;
     text-align: right;
     text-overflow: ellipsis;

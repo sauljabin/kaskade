@@ -15,6 +15,7 @@ records, and configuring Schema Registry, TLS, and cloud services.
   - [Custom themes](#custom-themes)
   - [Admin auto-refresh](#admin-auto-refresh)
   - [Keyboard shortcuts](#keyboard-shortcuts)
+  - [Kantrip profile](#kantrip-profile)
   - [Logs](#logs)
   - [Clipboard and record export](#clipboard-and-record-export)
 - [Consumer behavior](#consumer-behavior)
@@ -278,6 +279,14 @@ Common configurable binding IDs are:
 
 Unknown binding IDs, invalid key names, and malformed configuration produce an
 in-app warning while Kaskade continues with its default bindings.
+
+### Kantrip profile
+
+When `KANTRIP_PROFILE` is set to a non-empty value, as
+[`kantrip exec`](https://github.com/sauljabin/kantrip/blob/main/USAGE.md#application-environment-from-kantrip-exec)
+does, Admin and Consumer show it before the bootstrap server in the header, as
+`staging · kafka:9092`. The name is display-only: it does not change the
+connection, and Kaskade reads no other `KANTRIP_*` variable.
 
 ### Logs
 

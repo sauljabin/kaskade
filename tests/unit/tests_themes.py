@@ -1,3 +1,4 @@
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -59,6 +60,7 @@ from kaskade.themes import (
     parse_custom_themes,
 )
 from kaskade.widgets import (
+    KANTRIP_PROFILE,
     KaskadeHeader,
     KaskadeOptionList,
     KaskadeScrollableContainer,
@@ -99,6 +101,10 @@ class TestThemes(unittest.TestCase):
             app.console.get_style("text-warning").color.get_truecolor().hex,
         )
         self.assertTrue(app.console.get_style("muted").dim)
+        self.assertEqual(
+            app.get_css_variables()["foreground"].lower(),
+            app.console.get_style("foreground").color.get_truecolor().hex,
+        )
 
         app.theme = "dracula"
 
@@ -106,6 +112,7 @@ class TestThemes(unittest.TestCase):
         self.assertEqual("#6272a4", app.console.get_style("secondary").color.get_truecolor().hex)
         self.assertEqual("#bd93f9", app.console.get_style("json.str").color.get_truecolor().hex)
         self.assertEqual("#6272a4", app.console.get_style("json.number").color.get_truecolor().hex)
+        self.assertEqual("#f8f8f2", app.console.get_style("foreground").color.get_truecolor().hex)
         self.assertTrue(app.console.get_style("muted").dim)
 
     def test_updates_rich_semantic_styles_for_ansi_themes(self):
@@ -995,6 +1002,97 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 )
                 self.assertLess(kafka.content_region.width, len(kafka.render().plain))
                 self.assertEqual("ellipsis", kafka.styles.text_overflow)
+
+    async def test_header_shows_kantrip_profile_before_bootstrap_server(self):
+        environment = {
+            KANTRIP_PROFILE: " staging [bold]eu[/] ",
+            "KANTRIP_SESSION_ID": "session-secret",
+        }
+        with (
+            patch.dict(os.environ, environment),
+            patch("kaskade.admin.TopicService") as topic_service,
+            patch("kaskade.consumer.ConsumerService") as consumer_service,
+        ):
+            configure_admin_service(topic_service.return_value, {})
+            consumer_service.return_value.consume = AsyncMock(return_value=[])
+            apps = {
+                "admin": KaskadeAdmin({BOOTSTRAP_SERVERS: "kafka1:9092"}),
+                "consumer": KaskadeConsumer(
+                    "orders",
+                    {BOOTSTRAP_SERVERS: "kafka1:9092"},
+                    {},
+                    {},
+                    {},
+                    Deserialization.STRING,
+                    Deserialization.STRING,
+                ),
+            }
+
+            for mode, app in apps.items():
+                with self.subTest(mode=mode):
+                    async with app.run_test(size=(100, 24)) as pilot:
+                        await pilot.pause()
+                        header = app.query_one(KaskadeHeader)
+                        kafka = header.query_one("#kaskade-kafka", Static)
+                        connection = kafka.render()
+                        profile_style = connection.get_style_at_offset(0)
+
+                        self.assertEqual(
+                            "staging [bold]eu[/] · kafka1:9092",
+                            connection.plain,
+                        )
+                        self.assertTrue(profile_style.bold)
+                        self.assertEqual(
+                            app.get_css_variables()["foreground"].lower(),
+                            profile_style.foreground.hex.lower(),
+                        )
+                        self.assertEqual(3, header.region.height)
+                        self.assertNotIn(
+                            "session-secret",
+                            " ".join(static.render().plain for static in header.query(Static)),
+                        )
+
+    async def test_header_truncates_bootstrap_server_before_kantrip_profile(self):
+        with (
+            patch.dict(os.environ, {KANTRIP_PROFILE: "staging"}),
+            patch("kaskade.admin.TopicService") as topic_service,
+        ):
+            configure_admin_service(topic_service.return_value, {})
+            app = KaskadeAdmin({BOOTSTRAP_SERVERS: "kafka1.example.com:9092"})
+
+            async with app.run_test(size=(40, 18)) as pilot:
+                await pilot.pause()
+                header = app.query_one(KaskadeHeader)
+                product = header.query_one("#kaskade-product", Static)
+                kafka = header.query_one("#kaskade-kafka", Static)
+                visible = kafka.render_line(0).text
+
+                self.assertTrue(visible.startswith("staging · kafka1"))
+                self.assertEqual(product.region.right + 1, kafka.content_region.x)
+                self.assertTrue(visible.rstrip().endswith("…"))
+                self.assertEqual(3, header.region.height)
+
+    async def test_header_keeps_layout_without_kantrip_profile(self):
+        for value in (None, "", "   "):
+            environment = {} if value is None else {KANTRIP_PROFILE: value}
+            with (
+                self.subTest(profile=value),
+                patch.dict(os.environ, environment),
+                patch("kaskade.admin.TopicService") as topic_service,
+            ):
+                if value is None:
+                    os.environ.pop(KANTRIP_PROFILE, None)
+                configure_admin_service(topic_service.return_value, {})
+                app = KaskadeAdmin({BOOTSTRAP_SERVERS: "kafka1:9092"})
+
+                async with app.run_test(size=(100, 24)) as pilot:
+                    await pilot.pause()
+                    header = app.query_one(KaskadeHeader)
+                    connection = header.query_one("#kaskade-kafka", Static).render()
+
+                    self.assertEqual("kafka1:9092", connection.plain)
+                    self.assertEqual([], connection.spans)
+                    self.assertEqual(3, header.region.height)
 
     async def test_record_details_use_native_tabs_and_fill_narrow_layout(self):
         with patch("kaskade.consumer.ConsumerService") as consumer_service:
