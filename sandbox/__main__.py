@@ -33,7 +33,6 @@ from rich.status import Status
 from kaskade.authentication import configure_aws_msk_iam
 from kaskade.cli_utils import tuple_properties_to_dict, validate_aws_config
 from kaskade.configs import AWS_CONFIGS, BOOTSTRAP_SERVERS, MIN_INSYNC_REPLICAS_CONFIG
-from kaskade.utils import pack_bytes
 
 AVRO_USER_SCHEMA: dict[str, Any] = {
     "name": "User",
@@ -243,12 +242,12 @@ class Populator:
         self.populate(
             topic,
             partial(generator, min_value=FAKE_NUMBER_MIN, max_value=FAKE_NUMBER_MAX),
-            partial(pack_bytes, struct_format),
+            partial(struct.pack, struct_format),
             total_messages,
         )
 
     def populate_boolean(self, faker: Faker, total_messages: int) -> None:
-        self.populate("boolean", faker.pybool, partial(pack_bytes, ">?"), total_messages)
+        self.populate("boolean", faker.pybool, partial(struct.pack, ">?"), total_messages)
 
     def populate_null(self, total_messages: int) -> None:
         for _ in range(total_messages):
@@ -525,7 +524,7 @@ def validate_topics(
 @click.option(
     "--aws",
     "aws_config",
-    help=f"Amazon MSK IAM property. Multiple are allowed. Valid properties: {AWS_CONFIGS}.",
+    help=f"Amazon MSK IAM property. Multiple are allowed. Valid properties: {list(AWS_CONFIGS)}.",
     metavar="property=value",
     multiple=True,
     callback=tuple_properties_to_dict,

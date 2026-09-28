@@ -35,6 +35,7 @@ from kaskade.admin import (
     KaskadeAdmin,
     ListTopics,
 )
+from kaskade.app import KaskadeApp
 from kaskade.commands import RecordFilters
 from kaskade.configs import BOOTSTRAP_SERVERS
 from kaskade.consumer import (
@@ -46,15 +47,19 @@ from kaskade.consumer import (
     TopicScreen,
 )
 from kaskade.deserializers import Deserialization, StringDeserializer
-from kaskade.help import KASKADE_ISSUES_URL, KASKADE_URL, HelpableModalScreen, HelpScreen
+from kaskade.help import (
+    KASKADE_ISSUES_URL,
+    KASKADE_URL,
+    SELECTED_TEXT_COPY_KEY_DISPLAY,
+    SELECTED_TEXT_COPY_SHORTCUT,
+    HelpableModalScreen,
+    HelpScreen,
+)
 from kaskade.models import Header, Record, Topic, TopicConfiguration
 from kaskade.themes import (
     DEFAULT_THEME,
     EVA01_BERSERK_THEME,
     EVA01_THEME,
-    SELECTED_TEXT_COPY_KEY_DISPLAY,
-    SELECTED_TEXT_COPY_SHORTCUT,
-    KaskadeApp,
     available_theme_names,
     configured_theme_names,
     parse_custom_themes,

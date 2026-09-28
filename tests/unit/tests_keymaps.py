@@ -15,6 +15,7 @@ from kaskade.admin import (
     KaskadeAdmin,
     ListTopics,
 )
+from kaskade.app import KaskadeApp
 from kaskade.consumer import (
     ChunkSizeScreen,
     FilterRecordScreen,
@@ -27,7 +28,7 @@ from kaskade.keymaps import (
 )
 from kaskade.models import Topic
 from kaskade.settings import SETTINGS_ENV_VAR, default_settings_path, load_settings
-from kaskade.themes import DEFAULT_THEME, KaskadeApp
+from kaskade.themes import DEFAULT_THEME
 from kaskade.widgets import KaskadeOptionList, KaskadeScrollableContainer, StretchyDataTable
 from tests import configure_admin_service
 

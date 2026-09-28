@@ -22,9 +22,10 @@ from textual.widgets import (
 )
 from textual.widgets.option_list import Option
 
-from kaskade.colors import NULL, PRIMARY
-from kaskade.colors import WARNING as WARNING_STYLE
+from kaskade.app import KaskadeApp
+from kaskade.colors import NULL, PRIMARY, WARNING
 from kaskade.commands import RecordFilters
+from kaskade.consumer_service import ConsumerService, PartitionSelectionError
 from kaskade.deserializers import (
     DESERIALIZATION_EXCEPTIONS,
     Deserialization,
@@ -38,11 +39,9 @@ from kaskade.record_export import (
     record_json,
     record_json_renderable,
 )
-from kaskade.services import ConsumerService, PartitionSelectionError
-from kaskade.themes import KaskadeApp
 from kaskade.timeouts import TimeoutConfig
-from kaskade.unicodes import WARNING as WARNING_INDICATOR
-from kaskade.utils import copy_text, notify_error
+from kaskade.ui import copy_text, notify_error
+from kaskade.unicodes import WARNING_SIGN
 from kaskade.widgets import (
     KaskadeHeader,
     KaskadeOptionList,
@@ -313,7 +312,7 @@ class RecordFieldDetails(Container):
             error.append("\nFallback: ", style="secondary")
             error.append(
                 f"{Deserialization.BYTES.name} · {self.outcome.bytes_encoding.name}",
-                style=WARNING_STYLE,
+                style=WARNING,
             )
         return error
 
@@ -974,8 +973,8 @@ class ListRecords(Container):
         content = outcome.content_str().strip()
         if outcome.used_fallback:
             return Text(
-                f"{WARNING_INDICATOR} {content}",
-                style=WARNING_STYLE,
+                f"{WARNING_SIGN} {content}",
+                style=WARNING,
             )
         return content
 
@@ -1000,8 +999,8 @@ class ListRecords(Container):
     ) -> Text:
         tooltip = Text()
         tooltip.append(
-            f"{WARNING_INDICATOR} {field_name.title()} Deserialization Warning",
-            style=WARNING_STYLE,
+            f"{WARNING_SIGN} {field_name.title()} Deserialization Warning",
+            style=WARNING,
         )
         tooltip.append(f"\nRecord: {record.topic}[{record.partition}][{record.offset}]")
         tooltip.append(f"\nRequested: {outcome.requested.name}")
@@ -1013,7 +1012,7 @@ class ListRecords(Container):
     @staticmethod
     def _null_tooltip(record: Record, field_name: str) -> Text:
         tooltip = Text()
-        tooltip.append(f"Null {field_name.title()}", style=WARNING_STYLE)
+        tooltip.append(f"Null {field_name.title()}", style=WARNING)
         tooltip.append(f"\nRecord: {record.topic}[{record.partition}][{record.offset}]")
         if field_name == "key":
             tooltip.append("\nThis Kafka record has no key")

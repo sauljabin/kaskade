@@ -39,7 +39,8 @@
   keep `examples/client.ini` synchronized.
 - Keep `-k` as the short form of consumer `--key`; `--kafka` has no short form.
 - Keep settings loading in `settings.py`, key binding parsing in `keymaps.py`,
-  and supported-theme resolution in `themes.py`. Settings failures retain valid
+  supported-theme resolution in `themes.py`, and the shared `KaskadeApp` in
+  `app.py`. Settings failures retain valid
   values and produce an in-app warning; keep `examples/settings.yaml`
   synchronized. Theme precedence is CLI, settings, then `eva01-berserk`, with
   the original `eva01` and all Textual built-in themes available. Custom
@@ -79,7 +80,7 @@
   is configured by `admin.refresh-interval` or
   `admin --refresh-interval`; `0` disables it.
 - Never run blocking Kafka calls on Textual's event loop; use
-  `utils.run_blocking`, which finishes the call before propagating a
+  `concurrency.run_blocking`, which finishes the call before propagating a
   cancellation. The consumer converts each polled batch in one such call.
   Constructing a `ConsumerService` performs no network I/O: the CLI calls
   `start()` before the TUI opens to report connection errors, and `consume()`

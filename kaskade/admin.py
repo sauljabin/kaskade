@@ -26,8 +26,10 @@ from textual.widgets import (
 )
 
 from kaskade import logger
+from kaskade.app import KaskadeApp
 from kaskade.colors import PRIMARY
 from kaskade.commands import CreateTopicCommand, UpdateTopicCommand
+from kaskade.concurrency import run_blocking
 from kaskade.configs import (
     CLEANUP_POLICY_CONFIG,
     MILLISECONDS_1W,
@@ -37,14 +39,13 @@ from kaskade.configs import (
 from kaskade.help import HelpableModalScreen, modal_bindings
 from kaskade.models import CleanupPolicy, MetricState, Topic, TopicConfiguration
 from kaskade.refresh import RefreshCoordinator, RefreshReason
-from kaskade.services import (
+from kaskade.timeouts import TimeoutConfig
+from kaskade.topic_service import (
     ADMIN_EXCEPTIONS,
     TopicService,
 )
-from kaskade.themes import KaskadeApp
-from kaskade.timeouts import TimeoutConfig
+from kaskade.ui import copy_text, notify_error
 from kaskade.unicodes import APPROXIMATION
-from kaskade.utils import copy_text, notify_error, run_blocking
 from kaskade.widgets import (
     KaskadeHeader,
     MetadataCell,

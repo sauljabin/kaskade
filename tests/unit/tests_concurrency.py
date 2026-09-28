@@ -3,7 +3,7 @@ import threading
 import unittest
 
 from kaskade import logger
-from kaskade.utils import run_blocking
+from kaskade.concurrency import run_blocking
 
 
 class TestRunBlocking(unittest.IsolatedAsyncioTestCase):

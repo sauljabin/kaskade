@@ -47,7 +47,7 @@ from kaskade.configs import (
     SCHEMA_REGISTRY_HEADER_SIZE,
     SCHEMA_REGISTRY_MAGIC_BYTE,
 )
-from kaskade.utils import file_to_bytes, unpack_bytes
+from kaskade.files import file_to_bytes
 
 with warnings.catch_warnings():
     # Confluent's Registry client imports Authlib's deprecated httpx integration. Authlib
@@ -72,7 +72,7 @@ class DeserializationError(Exception):
 
 def _unpack_payload(struct_format: str, data: bytes) -> Any:
     try:
-        return unpack_bytes(struct_format, data)
+        return unpack(struct_format, data)[0]
     except StructError as ex:
         raise DeserializationError(str(ex)) from ex
 
@@ -939,7 +939,8 @@ class RegistryDeserializer(Deserializer):
             backend = ApicurioRegistryDeserializer(registry_config)
         else:
             raise DeserializationError(
-                f"Unsupported registry provider: {provider}; expected one of {REGISTRY_PROVIDERS}"
+                f"Unsupported registry provider: {provider}; "
+                f"expected one of {list(REGISTRY_PROVIDERS)}"
             )
         object.__setattr__(self, "_backend", backend)
 

@@ -17,7 +17,7 @@ def validate_aws_config(aws_config: dict[str, str]) -> None:
         return
 
     if [config for config in aws_config if config not in AWS_CONFIGS]:
-        raise BadParameter(message=f"Valid properties: {AWS_CONFIGS}.")
+        raise BadParameter(message=f"Valid properties: {list(AWS_CONFIGS)}.")
 
     if not aws_config.get("region"):
         raise MissingParameter(param_hint="'--aws region=my-region'", param_type="option")

@@ -22,12 +22,11 @@ from kaskade.configs import (
     AUTO_OFFSET_RESET,
     BOOTSTRAP_SERVERS,
     EARLIEST,
-    REGISTRY_PROVIDERS,
 )
+from kaskade.consumer_service import PartitionSelectionError
 from kaskade.deserializers import Deserialization
 from kaskade.main import PARTITION_SELECTION_METAVAR, cli
 from kaskade.models import PartitionOffset, PartitionSelection
-from kaskade.services import PartitionSelectionError
 from kaskade.settings import SETTINGS_ENV_VAR
 from kaskade.timeouts import TimeoutConfig
 from tests import faker
@@ -1071,7 +1070,7 @@ class TestConsumerCli(unittest.TestCase):
         )
 
         self.assertGreater(result.exit_code, 0)
-        self.assertIn(f"one of {REGISTRY_PROVIDERS}", result.output)
+        self.assertIn("one of ['apicurio', 'confluent']", result.output)
 
     def test_validate_avro_invalid_config(self):
         result = self.runner.invoke(
