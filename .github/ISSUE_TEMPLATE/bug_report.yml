@@ -22,7 +22,6 @@ body:
       options:
         - Homebrew
         - pipx or pip
-        - Docker
         - Source checkout
         - Other
     validations:
@@ -38,7 +37,6 @@ body:
     id: python-version
     attributes:
       label: Python version
-      description: Required for Python installations; enter `not applicable` for Docker.
       placeholder: "3.13.7"
     validations:
       required: true

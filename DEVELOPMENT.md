@@ -6,7 +6,6 @@
 - [Scripts](#scripts)
 - [Website](#website)
 - [Build Artifacts](#build-artifacts)
-- [Docker](#docker)
 - [Release](#release)
 - [Manual Tests](#manual-tests)
   - [Start the local sandbox](#start-the-local-sandbox)
@@ -168,22 +167,6 @@ required source-distribution files, and consistency between the wheel and source
 distribution versions. Use `--expected-version VERSION` when the version must
 also match a release tag.
 
-## Docker
-
-Build the wheel and the Docker image. The image installs the wheel from `dist/`
-and runs as an unprivileged `kaskade` user:
-
-```bash
-uv build --clear
-docker build -t sauljabin/kaskade:latest .
-```
-
-Run the image on the sandbox network:
-
-```bash
-docker run --rm -it --network sandbox sauljabin/kaskade:latest admin -b kafka:9092
-```
-
 ## Release
 
 Follow the [AI Agent Release Checklist](RELEASE_CHECKLIST.md) for shared checks,
@@ -218,11 +201,10 @@ For a prerelease, append the next PEP 440 `aN`, `bN`, or `rcN` suffix to
 `release_version`. The release workflow validates the stable or prerelease tag
 and requires it to point to a commit on `main`. It then tests and builds the
 distributions, derives release notes from Conventional Commits, and waits for
-approval in the protected `release` environment. After approval, PyPI and Docker
-Hub are published before the GitHub release is created.
+approval in the protected `release` environment. After approval, PyPI is
+published before the GitHub release is created.
 
-The GitHub `release` environment must contain `DOCKER_HUB_USERNAME` and
-`DOCKER_HUB_ACCESS_TOKEN`. Configure the PyPI trusted publisher for owner
+Configure the PyPI trusted publisher for owner
 `sauljabin`, repository `kaskade`, workflow `release.yml`, and environment
 `release`. GitHub release creation uses the built-in token and needs no personal
 access token.
