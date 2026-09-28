@@ -12,6 +12,7 @@ records, and configuring Schema Registry, TLS, and cloud services.
 - [Configuration files at a glance](#configuration-files-at-a-glance)
 - [Application settings and controls](#application-settings-and-controls)
   - [Themes](#themes)
+  - [Custom themes](#custom-themes)
   - [Admin auto-refresh](#admin-auto-refresh)
   - [Keyboard shortcuts](#keyboard-shortcuts)
   - [Logs](#logs)
@@ -84,7 +85,7 @@ interchangeable:
 
 | File | Purpose | Loading behavior | Typical contents |
 | --- | --- | --- | --- |
-| `settings.yaml` | Personal TUI preferences | Discovered and loaded automatically on every run | Theme, keybindings, and Admin auto-refresh interval |
+| `settings.yaml` | Personal TUI preferences | Discovered and loaded automatically on every run | Theme, custom themes, keybindings, and Admin auto-refresh interval |
 | `client.ini` | Kafka connection profile | Loaded only when passed with `--config-file` | Kafka, Schema Registry, AWS IAM, and operation-timeout properties |
 
 Use `settings.yaml` for how Kaskade should look and behave on the local machine.
@@ -130,6 +131,52 @@ kaskade admin -b my-kafka:9092 --theme dracula
 While Kaskade is running, press `:` (or `Ctrl+P`) and select a theme from the
 Commands window. Command-line and in-application theme changes apply only to the
 current session.
+
+### Custom themes
+
+Define themes under `themes` in `settings.yaml`, then select one by name with
+`theme`, `--theme`, or the Commands window:
+
+```yaml
+theme: solarized-kaskade
+
+themes:
+  solarized-kaskade:
+    primary: "#268BD2"
+    secondary: "#2AA198"
+    warning: "#B58900"
+    error: "#DC322F"
+    success: "#859900"
+    accent: "#6C71C4"
+    foreground: "#839496"
+    background: "#002B36"
+    surface: "#073642"
+    panel: "#002B36"
+    boost: "#0A4050"
+    dark: true
+```
+
+Only `primary` is required. Omitted properties fall back as follows:
+
+| Property | When omitted |
+| --- | --- |
+| `secondary`, `warning`, `accent` | `primary` |
+| `error`, `success` | `secondary` |
+| `background`, `surface` | Textual's dark or light default |
+| `foreground` | A contrasting color for `background` |
+| `panel`, `boost` | Derived from `surface` and `primary` |
+| `dark` | `true`; set `false` for a light theme |
+
+Colors are opaque hex values, `rgb()` or `hsl()` values, CSS color names, or
+Textual ANSI colors such as `ansi_blue`, which follow the terminal palette.
+Quote hex colors, because YAML reads an unquoted `#` as a comment.
+
+Theme names use lowercase letters, digits, and single hyphens. A custom theme
+never replaces a Textual or Kaskade theme: a definition that reuses one of those
+names is ignored, and the built-in theme stays available. Kaskade warns about
+invalid names and properties at startup, ignores those properties, and keeps
+the rest. A theme without a valid `primary` is ignored; selecting it falls back
+to `eva01-berserk`.
 
 ### Admin auto-refresh
 

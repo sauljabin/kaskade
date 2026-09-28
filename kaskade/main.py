@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Any, TypeVar
 
 import cloup
-from click import BadParameter, ClickException, MissingParameter
+from click import BadParameter, Choice, ClickException, MissingParameter
 from cloup.constraints import mutually_exclusive
 from confluent_kafka import KafkaException
 
@@ -43,7 +43,7 @@ from kaskade.settings import (
     MIN_ADMIN_REFRESH_INTERVAL_SECONDS,
     is_valid_admin_refresh_interval,
 )
-from kaskade.themes import available_theme_names
+from kaskade.themes import configured_theme_names
 from kaskade.timeouts import TIMEOUT_PROPERTIES, TimeoutConfig
 from kaskade.utils import load_ini
 
@@ -85,8 +85,8 @@ TIMEOUT_CONFIG_HELP = (
     f"--config-file. Properties: {', '.join(TIMEOUT_PROPERTIES)}."
 )
 THEME_HELP = (
-    "Textual theme name; overrides settings.yaml. When omitted, settings.yaml or "
-    "Eva01 Berserk is used."
+    "Textual, Kaskade, or settings.yaml custom theme name; overrides settings.yaml. When "
+    "omitted, settings.yaml or Eva01 Berserk is used."
 )
 AVRO_CONFIG_HELP = (
     "Avro deserializer property. Repeatable; required when the key or value format is "
@@ -187,10 +187,22 @@ def timeout_options() -> Callable[[CliDecoratorTarget], CliDecoratorTarget]:
     )
 
 
+class ThemeChoice(Choice[str]):
+    """Theme names, read from settings.yaml only when --theme is parsed or completed."""
+
+    def __init__(self) -> None:
+        self.case_sensitive = False
+
+    # Click assigns choices in __init__; loading them lazily keeps import free of file reads.
+    @property
+    def choices(self) -> tuple[str, ...]:  # type: ignore[override]
+        return configured_theme_names()
+
+
 def theme_option() -> Callable[[CliDecoratorTarget], CliDecoratorTarget]:
     return cloup.option(
         "--theme",
-        type=cloup.Choice(available_theme_names(), case_sensitive=False),
+        type=ThemeChoice(),
         default=None,
         help=THEME_HELP,
         metavar="name",

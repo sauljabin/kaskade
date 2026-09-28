@@ -1,7 +1,23 @@
 # Copy this file to ~/.config/kaskade/settings.yaml on Linux or macOS.
 
-# Use any theme listed by the in-application Commands window or --theme help.
+# Use any theme from the in-application Commands window, or a custom theme below.
 theme: eva01-berserk
+
+# Custom themes. Only primary is required; quote hex colors.
+themes:
+  solarized-kaskade:
+    primary: "#268BD2"
+    secondary: "#2AA198"
+    warning: "#B58900"
+    error: "#DC322F"
+    success: "#859900"
+    accent: "#6C71C4"
+    foreground: "#839496"
+    background: "#002B36"
+    surface: "#073642"
+    panel: "#002B36"
+    boost: "#0A4050"
+    dark: true
 
 # Set to 0 to disable auto-refresh. Enabled intervals must be at least 5 seconds.
 admin:

@@ -1,6 +1,6 @@
 import os
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -21,6 +21,7 @@ class AppSettings:
     keymap: dict[str, str]
     admin_refresh_interval_seconds: int = DEFAULT_ADMIN_REFRESH_INTERVAL_SECONDS
     theme: str | None = None
+    custom_themes: dict[Any, Any] = field(default_factory=dict)
     warnings: tuple[str, ...] = ()
 
 
@@ -46,12 +47,20 @@ def load_settings(path: Path | None = None) -> AppSettings:
     keymap, keymap_warnings = parse_keymap(data.get("keymap", {}), settings_path)
     refresh_interval, admin_warnings = _parse_admin_settings(data.get("admin", {}))
     theme, theme_warnings = _parse_theme(data.get("theme"))
+    custom_themes, custom_theme_warnings = _parse_custom_themes(data.get("themes"))
     return AppSettings(
         settings_path,
         keymap,
         admin_refresh_interval_seconds=refresh_interval,
         theme=theme,
-        warnings=(*read_warnings, *keymap_warnings, *admin_warnings, *theme_warnings),
+        custom_themes=custom_themes,
+        warnings=(
+            *read_warnings,
+            *keymap_warnings,
+            *admin_warnings,
+            *theme_warnings,
+            *custom_theme_warnings,
+        ),
     )
 
 
@@ -81,6 +90,15 @@ def _parse_theme(configured_theme: Any) -> tuple[str | None, tuple[str, ...]]:
     if not isinstance(configured_theme, str) or not configured_theme.strip():
         return None, ("Ignoring 'theme': it must be a non-empty string",)
     return configured_theme, ()
+
+
+def _parse_custom_themes(configured_themes: Any) -> tuple[dict[Any, Any], tuple[str, ...]]:
+    """Return the raw custom theme definitions; themes.py validates each one."""
+    if configured_themes is None:
+        return {}, ()
+    if not isinstance(configured_themes, dict):
+        return {}, ("Ignoring 'themes': it must be a mapping",)
+    return configured_themes, ()
 
 
 def _parse_admin_settings(configured_admin: Any) -> tuple[int, tuple[str, ...]]:
