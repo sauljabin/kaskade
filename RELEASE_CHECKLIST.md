@@ -49,9 +49,8 @@ requires explicit approval of the prepared draft.
   limitations for claims affected by this prerelease.
 - [ ] Run focused manual, visual, and sandbox checks for changed behavior and its
   integration paths.
-- [ ] Confirm GitHub marks the release as a prerelease, Docker publishes only the
-  exact version tag without moving `latest`, and installation guidance uses an
-  explicit prerelease version.
+- [ ] Confirm GitHub marks the release as a prerelease and installation guidance
+  uses an explicit prerelease version.
 
 ## Major Release — Comprehensive Review
 
@@ -119,9 +118,6 @@ requires explicit approval of the prepared draft.
   build-once distribution bundle and review generated release notes.
 - [ ] Verify the expected version is available on PyPI and installs successfully
   in an isolated environment; check version reporting and both CLI help commands.
-- [ ] Verify the exact versioned Docker tag, expected image platforms, and
-  version reporting from the published image. Verify `latest` only for a stable
-  release; prereleases must not move it.
 - [ ] Verify the GitHub release tag, downloadable wheel and source distribution,
   release notes, and links match the intended release.
 - [ ] Verify the live website's release discovery and relevant deployment status.

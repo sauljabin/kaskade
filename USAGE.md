@@ -29,7 +29,6 @@ records, and configuring Schema Registry, TLS, and cloud services.
   - [Amazon MSK with IAM authentication](#amazon-msk-with-iam-authentication)
   - [Kafka ACLs](#kafka-acls)
   - [Confluent Cloud](#confluent-cloud)
-  - [Docker](#docker)
 - [Format-specific consumers](#format-specific-consumers)
   - [JSON consumer](#json-consumer)
   - [Avro consumer](#avro-consumer)
@@ -74,8 +73,7 @@ alias ksk kaskade
 ```
 
 Open a new shell or `source` the file, then run `ksk --version`. Aliases only
-exist in interactive shells, so scripts, CI jobs, and the Docker image must call
-`kaskade`. Inside a [Kantrip](https://github.com/sauljabin/kantrip) session,
+exist in interactive shells, so scripts and CI jobs must call `kaskade`. Inside a [Kantrip](https://github.com/sauljabin/kantrip) session,
 `ksk` still runs Kantrip's `kaskade` shim, so the session's connection applies.
 
 ## Configuration files at a glance
@@ -830,34 +828,6 @@ kaskade consumer -b ${BOOTSTRAP_SERVERS} -t my-avro-topic \
 
 See the
 [Kafka client quick start for Confluent Cloud](https://docs.confluent.io/cloud/current/client-apps/config-client.html).
-
-### Docker
-
-Admin:
-
-```bash
-docker run --rm -it --network my-network sauljabin/kaskade:latest \
-    admin -b my-kafka:9092
-```
-
-Consumer:
-
-```bash
-docker run --rm -it --network my-network sauljabin/kaskade:latest \
-    consumer -b my-kafka:9092 -t my-topic
-```
-
-The image runs as the unprivileged `kaskade` user with `/kaskade` as its working
-directory. Mount a client profile read-only to use `--config-file`:
-
-```bash
-docker run --rm -it --network my-network \
-    -v "$PWD/client.ini:/kaskade/client.ini:ro" \
-    sauljabin/kaskade:latest admin --config-file client.ini
-```
-
-On Linux, the mounted file must be readable by UID `10001`, or run the container
-with `--user "$(id -u):$(id -g)"`.
 
 ## Format-specific consumers
 
