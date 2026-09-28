@@ -142,10 +142,12 @@ entries.
 - Keep shared styling in `kaskade/styles.css`; admin and consumer inherit
   `KaskadeApp.CSS_PATH`. Put main-table borders, titles, subtitles, and loading
   state on `TableFrame`.
-- Both root screens use the shared one-line header: version on the left and only
-  Kafka `bootstrap.servers` on the right. Preserve semantic contrast, truncate
-  Kafka text before the version, use one row of panel padding, and leave one
-  column around the root view.
+- Both root screens use the shared one-line header: version on the left and
+  Kafka `bootstrap.servers` on the right, prefixed by a non-empty
+  `KANTRIP_PROFILE` as `profile · server`. The profile is display-only; never
+  read or render any other `KANTRIP_*` value. Preserve semantic contrast,
+  truncate the server before the profile and Kafka text before the version, use
+  one row of panel padding, and leave one column around the root view.
 - Deliver record JSON through Textual's file-delivery API from both the table and
   Record Details. Expose Export in Help and Commands, not the Footer.
 - Use Title Case for visible titles, headings, tabs, commands, and field labels.

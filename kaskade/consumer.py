@@ -50,6 +50,7 @@ from kaskade.widgets import (
     MetadataCell,
     StretchyDataTable,
     TableFrame,
+    kantrip_profile,
     labelled_value,
 )
 
@@ -1120,7 +1121,7 @@ class KaskadeConsumer(KaskadeApp):
             raise
 
     def compose(self) -> ComposeResult:
-        yield KaskadeHeader(self.kafka_config)
+        yield KaskadeHeader(self.kafka_config, profile=kantrip_profile())
         yield ListRecords(
             self.topic,
             self.kafka_config,
