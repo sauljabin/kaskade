@@ -30,7 +30,8 @@
   options`, `AWS options`, and `Application options`; consumer also separates
   `Consumption options` and `Deserialization options`.
 - Keep `--earliest` and `--partition` declaratively mutually exclusive. Render
-  the theme argument as `name` without weakening choice validation.
+  the theme argument as `name` without weakening choice validation; its choices
+  include valid custom themes and read `settings.yaml` only when parsed.
 - `--config-file client.ini` loads optional `[kafka]`, `[registry]`, and `[aws]`
   sections. Merge file values before matching repeatable CLI properties, then
   apply `-b/--bootstrap-servers`; require a non-empty resolved
@@ -41,7 +42,9 @@
   and supported-theme resolution in `themes.py`. Settings failures retain valid
   values and produce an in-app warning; keep `examples/settings.yaml`
   synchronized. Theme precedence is CLI, settings, then `eva01-berserk`, with
-  the original `eva01` and all Textual built-in themes available.
+  the original `eva01` and all Textual built-in themes available. Custom
+  `themes` never replace those names; invalid definitions and properties are
+  skipped with a warning.
 - `--aws region=<region>` enables Amazon MSK IAM in admin, consumer, and sandbox
   population. Validate repeatable `--aws property=value` settings before client
   construction. Do not raise the `aws-msk-iam-sasl-signer-python>=1.0` baseline
@@ -157,13 +160,14 @@ entries.
   remain borderless. Put counts in tab labels such as `Partitions [50]`.
 - Table backgrounds are transparent. Primary tables keep focus-aware borders;
   nested detail tables use `details-table`.
-- `eva01-berserk` is the default custom theme; retain the original `eva01` and
+- `eva01-berserk` is the default bundled theme; retain the original `eva01` and
   every Textual built-in theme.
   Style CSS with semantic variables and Rich renderables with semantic names,
   never Eva01 hex values.
 - `KaskadeApp` synchronizes Rich semantic colors from the active theme and on
-  theme changes. Strip `ansi_` before passing Textual ANSI tokens to Rich. Use
-  Textual's nested theme provider rather than registering another one.
+  theme changes, using Textual's fallbacks for omitted colors. Strip `ansi_`
+  before passing Textual ANSI tokens to Rich. Use Textual's nested theme
+  provider rather than registering another one.
 - Verify visual work with both Eva01 variants, a light theme, and an ANSI theme. Keep theme,
   responsive layout, modal, border, and Footer behavior covered in
   `tests/unit/tests_themes.py`.

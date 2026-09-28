@@ -28,6 +28,7 @@ from kaskade.deserializers import Deserialization
 from kaskade.main import PARTITION_SELECTION_METAVAR, cli
 from kaskade.models import PartitionOffset, PartitionSelection
 from kaskade.services import PartitionSelectionError
+from kaskade.settings import SETTINGS_ENV_VAR
 from kaskade.timeouts import TimeoutConfig
 from tests import faker
 
@@ -402,6 +403,35 @@ class TestAdminCli(unittest.TestCase):
     def test_invalid_theme(self):
         result = self.runner.invoke(
             cli, [self.command, "-b", EXPECTED_SERVER, "--theme", "invalid"]
+        )
+
+        self.assertGreater(result.exit_code, 0)
+        self.assertIn("Invalid value for '--theme'", result.output)
+
+    @patch("kaskade.main.KaskadeAdmin")
+    def test_pass_custom_theme_from_settings(self, mock_class_kaskade_admin):
+        settings_path = Path(self.temp_directory.name) / "settings.yaml"
+        settings_path.write_text(
+            'themes:\n  solarized-kaskade:\n    primary: "#268BD2"\n', encoding="utf-8"
+        )
+
+        result = self.runner.invoke(
+            cli,
+            [self.command, "-b", EXPECTED_SERVER, "--theme", "Solarized-Kaskade"],
+            env={SETTINGS_ENV_VAR: str(settings_path)},
+        )
+
+        self.assertEqual(0, result.exit_code, result.output)
+        self.assertEqual("solarized-kaskade", mock_class_kaskade_admin.return_value.theme)
+
+    def test_invalid_custom_theme_is_not_a_theme_choice(self):
+        settings_path = Path(self.temp_directory.name) / "settings.yaml"
+        settings_path.write_text("themes:\n  broken:\n    dark: true\n", encoding="utf-8")
+
+        result = self.runner.invoke(
+            cli,
+            [self.command, "-b", EXPECTED_SERVER, "--theme", "broken"],
+            env={SETTINGS_ENV_VAR: str(settings_path)},
         )
 
         self.assertGreater(result.exit_code, 0)

@@ -1,4 +1,6 @@
+import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from textual.command import CommandList, CommandPalette
@@ -53,6 +55,8 @@ from kaskade.themes import (
     SELECTED_TEXT_COPY_SHORTCUT,
     KaskadeApp,
     available_theme_names,
+    configured_theme_names,
+    parse_custom_themes,
 )
 from kaskade.widgets import (
     KaskadeHeader,
@@ -173,6 +177,233 @@ class TestThemes(unittest.TestCase):
                     binding.description for binding in modal.BINDINGS if binding.show
                 ]
                 self.assertEqual(expected, visible_commands)
+
+
+SOLARIZED_SETTINGS = """
+theme: solarized-kaskade
+themes:
+  solarized-kaskade:
+    primary: "#268BD2"
+    secondary: "#2AA198"
+    warning: "#B58900"
+    error: "#DC322F"
+    success: "#859900"
+    accent: "#6C71C4"
+    foreground: "#839496"
+    background: "#002B36"
+    surface: "#073642"
+    panel: "#002B36"
+    boost: "#0A4050"
+    dark: true
+  minimal-light:
+    primary: crimson
+    dark: false
+  two-tone:
+    primary: "#268BD2"
+    secondary: "#2AA198"
+"""
+
+
+class TestCustomThemes(unittest.TestCase):
+    def settings_path(self, content: str) -> Path:
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        path = Path(directory.name) / "settings.yaml"
+        path.write_text(content, encoding="utf-8")
+        return path
+
+    def test_builds_every_supported_property(self):
+        themes, warnings = parse_custom_themes(
+            {
+                "solarized-kaskade": {
+                    "primary": "#268bd2",
+                    "secondary": "ansi_cyan",
+                    "accent": "crimson",
+                    "background": "rgb(0, 43, 54)",
+                    "dark": True,
+                }
+            }
+        )
+
+        self.assertEqual((), warnings)
+        self.assertEqual(1, len(themes))
+        theme = themes[0]
+        self.assertEqual("solarized-kaskade", theme.name)
+        self.assertEqual("#268BD2", theme.primary)
+        self.assertEqual("ansi_cyan", theme.secondary)
+        self.assertEqual("#DC143C", theme.accent)
+        self.assertEqual("#002B36", theme.background)
+        self.assertIsNone(theme.surface)
+        self.assertTrue(theme.dark)
+
+    def test_ignores_invalid_names_and_collisions(self):
+        themes, warnings = parse_custom_themes(
+            {
+                "Solarized": {"primary": "#268BD2"},
+                "double--hyphen": {"primary": "#268BD2"},
+                1: {"primary": "#268BD2"},
+                "dracula": {"primary": "#268BD2"},
+                "eva01": {"primary": "#268BD2"},
+                "not-a-mapping": "#268BD2",
+            }
+        )
+
+        self.assertEqual((), themes)
+        name_reason = "names use lowercase letters, digits, and single hyphens"
+        self.assertEqual(
+            (
+                f"Ignoring 'themes.Solarized': {name_reason}",
+                f"Ignoring 'themes.double--hyphen': {name_reason}",
+                f"Ignoring 'themes.1': {name_reason}",
+                "Ignoring 'themes.dracula': a built-in theme already uses this name",
+                "Ignoring 'themes.eva01': a built-in theme already uses this name",
+                "Ignoring 'themes.not-a-mapping': it must be a mapping",
+            ),
+            warnings,
+        )
+
+    def test_ignores_invalid_properties_and_keeps_valid_ones(self):
+        themes, warnings = parse_custom_themes(
+            {
+                "partial": {
+                    "primary": "#268BD2",
+                    "secondary": None,
+                    "surface": "#07364280",
+                    "panel": "not-a-color",
+                    "dark": "yes",
+                    "shadow": "#000000",
+                    "accent": "#6C71C4",
+                }
+            }
+        )
+
+        self.assertEqual(1, len(themes))
+        self.assertEqual("#268BD2", themes[0].primary)
+        self.assertEqual("#6C71C4", themes[0].accent)
+        self.assertIsNone(themes[0].secondary)
+        self.assertIsNone(themes[0].surface)
+        self.assertIsNone(themes[0].panel)
+        self.assertTrue(themes[0].dark)
+        color_reason = 'it must be an opaque color such as "#268BD2"; quote hex colors in YAML'
+        self.assertEqual(
+            (
+                f"Ignoring 'themes.partial.secondary': {color_reason}",
+                f"Ignoring 'themes.partial.surface': {color_reason}",
+                f"Ignoring 'themes.partial.panel': {color_reason}",
+                "Ignoring 'themes.partial.dark': it must be true or false",
+                "Ignoring 'themes.partial.shadow': unknown theme property",
+            ),
+            warnings,
+        )
+
+    def test_requires_a_valid_primary_color(self):
+        themes, warnings = parse_custom_themes(
+            {"missing": {"background": "#002B36"}, "unquoted": {"primary": None}}
+        )
+
+        self.assertEqual((), themes)
+        color_reason = 'it must be an opaque color such as "#268BD2"; quote hex colors in YAML'
+        self.assertEqual(
+            (
+                "Ignoring 'themes.missing': it needs a valid 'primary' color",
+                f"Ignoring 'themes.unquoted.primary': {color_reason}",
+                "Ignoring 'themes.unquoted': it needs a valid 'primary' color",
+            ),
+            warnings,
+        )
+
+    def test_selects_a_custom_theme_from_settings(self):
+        app = KaskadeApp(settings_path=self.settings_path(SOLARIZED_SETTINGS))
+
+        self.assertEqual("solarized-kaskade", app.theme)
+        self.assertEqual((), app.settings.warnings)
+        self.assertIn("minimal-light", app.available_themes)
+        self.assertEqual("#268bd2", app.console.get_style("primary").color.get_truecolor().hex)
+        self.assertEqual("#2aa198", app.console.get_style("json.number").color.get_truecolor().hex)
+        self.assertEqual("#002B36", app.get_css_variables()["background"])
+
+    def test_rich_styles_follow_a_minimal_custom_theme(self):
+        app = KaskadeApp(settings_path=self.settings_path(SOLARIZED_SETTINGS))
+
+        app.theme = "minimal-light"
+
+        self.assertFalse(app.current_theme.dark)
+        for style in ("primary", "secondary", "accent", "json.key", "json.null"):
+            self.assertEqual("#dc143c", app.console.get_style(style).color.get_truecolor().hex)
+
+    def test_rich_error_and_success_fall_back_to_secondary_like_textual(self):
+        app = KaskadeApp(settings_path=self.settings_path(SOLARIZED_SETTINGS))
+
+        app.theme = "two-tone"
+
+        css = app.get_css_variables()
+        for style, variable in (
+            ("error", "error"),
+            ("success", "success"),
+            ("json.bool_false", "error"),
+            ("json.bool_true", "success"),
+            ("warning", "warning"),
+            ("accent", "accent"),
+        ):
+            self.assertEqual(
+                css[variable].lower(),
+                app.console.get_style(style).color.get_truecolor().hex,
+                style,
+            )
+        self.assertEqual("#2aa198", app.console.get_style("error").color.get_truecolor().hex)
+        self.assertEqual("#268bd2", app.console.get_style("warning").color.get_truecolor().hex)
+
+    def test_invalid_selected_custom_theme_falls_back_to_the_default(self):
+        app = KaskadeApp(
+            settings_path=self.settings_path(
+                'theme: broken\nthemes:\n  broken:\n    background: "#002B36"\n'
+            )
+        )
+
+        self.assertEqual(DEFAULT_THEME, app.theme)
+        self.assertEqual(
+            (
+                "Ignoring 'themes.broken': it needs a valid 'primary' color",
+                "Ignoring 'theme': unknown theme 'broken'",
+            ),
+            app.settings.warnings,
+        )
+
+    def test_colliding_custom_theme_keeps_the_built_in_theme(self):
+        app = KaskadeApp(
+            settings_path=self.settings_path(
+                'theme: dracula\nthemes:\n  dracula:\n    primary: "#268BD2"\n'
+            )
+        )
+
+        self.assertEqual("dracula", app.theme)
+        self.assertEqual("#BD93F9", app.current_theme.primary)
+        self.assertEqual(
+            ("Ignoring 'themes.dracula': a built-in theme already uses this name",),
+            app.settings.warnings,
+        )
+
+    def test_themes_must_be_a_mapping(self):
+        app = KaskadeApp(settings_path=self.settings_path("themes: [solarized]\n"))
+
+        self.assertEqual(DEFAULT_THEME, app.theme)
+        self.assertEqual(("Ignoring 'themes': it must be a mapping",), app.settings.warnings)
+
+    def test_example_settings_define_a_valid_custom_theme(self):
+        example = Path(__file__).parents[2] / "examples" / "settings.yaml"
+
+        app = KaskadeApp(settings_path=example)
+
+        self.assertEqual((), app.settings.warnings)
+        self.assertEqual(DEFAULT_THEME, app.theme)
+        self.assertIn("solarized-kaskade", app.available_themes)
+
+    def test_configured_theme_names_include_valid_custom_themes(self):
+        names = configured_theme_names(self.settings_path(SOLARIZED_SETTINGS))
+
+        self.assertIn("solarized-kaskade", names)
+        self.assertIn("minimal-light", names)
+        self.assertTrue(set(available_theme_names()) <= set(names))
 
 
 class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
