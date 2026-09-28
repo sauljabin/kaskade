@@ -10,6 +10,7 @@ from kaskade.admin import KaskadeAdmin, ListTopics
 from kaskade.commands import EMPTY_RECORD_FILTERS, RecordFilters
 from kaskade.configs import BOOTSTRAP_SERVERS
 from kaskade.consumer import KaskadeConsumer, ListRecords
+from kaskade.consumer_service import ConsumerService
 from kaskade.deserializers import Deserialization, DeserializerPool, StringDeserializer
 from kaskade.models import (
     Group,
@@ -21,7 +22,7 @@ from kaskade.models import (
     Record,
     Topic,
 )
-from kaskade.services import ConsumerService, EnrichmentResult, GroupSnapshot, TopicService
+from kaskade.topic_service import EnrichmentResult, GroupSnapshot, TopicService
 from kaskade.widgets import KaskadeHeader
 from scripts import draw_box_glyphs, normalize_svg, remove_svg_terminal_chrome
 

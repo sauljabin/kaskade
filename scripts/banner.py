@@ -4,8 +4,8 @@ from pathlib import Path
 
 from textual.app import ComposeResult
 
+from kaskade.app import KaskadeApp
 from kaskade.banner import KaskadeBanner
-from kaskade.themes import KaskadeApp
 from scripts import draw_box_glyphs, normalize_svg, remove_svg_terminal_chrome
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]

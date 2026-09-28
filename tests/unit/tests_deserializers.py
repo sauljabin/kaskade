@@ -4,6 +4,7 @@ import struct
 import tempfile
 import unittest
 from base64 import b64encode
+from io import BytesIO
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
@@ -12,6 +13,7 @@ from confluent_kafka.schema_registry.protobuf import (
     ProtobufDeserializer as ConfluentProtobufDeserializer,
 )
 from confluent_kafka.serialization import MessageField
+from fastavro import schemaless_writer
 from fastavro.schema import load_schema
 from google.protobuf.descriptor_pb2 import (
     FieldDescriptorProto,
@@ -42,8 +44,13 @@ from kaskade.deserializers import (
 )
 from kaskade.models import Header, Record
 from kaskade.record_export import record_json
-from kaskade.utils import py_to_avro
 from tests import faker
+
+
+def py_to_avro(schema_path: str, data: dict[str, object]) -> bytes:
+    buffer = BytesIO()
+    schemaless_writer(buffer, load_schema(schema_path), data)
+    return buffer.getvalue()
 
 
 def apicurio_type_ref(name: str) -> bytes:

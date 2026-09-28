@@ -43,8 +43,8 @@ from kaskade.models import (
     Topic,
     TopicConfiguration,
 )
-from kaskade.services import EnrichmentResult, GroupSnapshot
 from kaskade.settings import SETTINGS_ENV_VAR
+from kaskade.topic_service import EnrichmentResult, GroupSnapshot
 from kaskade.widgets import TableFrame
 from tests import configure_admin_service
 

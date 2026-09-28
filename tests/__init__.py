@@ -1,11 +1,24 @@
+from concurrent.futures import Future
 from unittest.mock import AsyncMock, MagicMock
 
 from faker import Faker
 
 from kaskade.models import MetricState, Topic
-from kaskade.services import EnrichmentResult, GroupSnapshot
+from kaskade.topic_service import EnrichmentResult, GroupSnapshot
 
 faker = Faker()
+
+
+def completed(value: object) -> Future[object]:
+    future: Future[object] = Future()
+    future.set_result(value)
+    return future
+
+
+def failed(error: Exception) -> Future[object]:
+    future: Future[object] = Future()
+    future.set_exception(error)
+    return future
 
 
 def configure_admin_service(service: MagicMock, topics: dict[str, Topic]) -> None:

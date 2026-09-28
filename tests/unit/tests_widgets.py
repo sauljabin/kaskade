@@ -5,7 +5,7 @@ from rich.text import Text
 from textual.app import App, ComposeResult
 from textual.widgets import OptionList
 
-from kaskade.themes import KaskadeApp
+from kaskade.app import KaskadeApp
 from kaskade.widgets import KaskadeOptionList, MetadataCell, StretchyDataTable
 
 

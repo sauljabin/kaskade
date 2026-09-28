@@ -1,5 +1,5 @@
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import Any, TypeVar
 
@@ -35,17 +35,17 @@ from kaskade.configs import (
     REGISTRY_PROVIDERS,
 )
 from kaskade.consumer import KaskadeConsumer
+from kaskade.consumer_service import PartitionSelectionError
 from kaskade.deserializers import Deserialization
+from kaskade.files import load_ini
 from kaskade.logs import configure_logging
 from kaskade.models import PartitionOffset, PartitionSelection
-from kaskade.services import PartitionSelectionError
 from kaskade.settings import (
     MIN_ADMIN_REFRESH_INTERVAL_SECONDS,
     is_valid_admin_refresh_interval,
 )
 from kaskade.themes import configured_theme_names
 from kaskade.timeouts import TIMEOUT_PROPERTIES, TimeoutConfig
-from kaskade.utils import load_ini
 
 KAFKA_CONFIG_HELP = (
     "Kafka client property. Repeatable; overrides matching properties from --config-file."
@@ -641,16 +641,16 @@ def validate_deserializer(
 
 def validate_properties(
     config: dict[str, str],
-    valid_properties: list[str],
+    valid_properties: Sequence[str],
 ) -> None:
     if [property_name for property_name in config if property_name not in valid_properties]:
-        raise BadParameter(message=f"Valid properties: {valid_properties}.")
+        raise BadParameter(message=f"Valid properties: {list(valid_properties)}.")
 
 
 def normalize_choices(
     config: dict[str, str],
-    properties: list[str],
-    choices: list[str],
+    properties: Sequence[str],
+    choices: Sequence[str],
     label: str,
 ) -> None:
     for property_name in properties:
@@ -658,7 +658,7 @@ def normalize_choices(
             continue
         value = config[property_name].lower().replace("_", "-")
         if value not in choices:
-            raise BadParameter(message=f"{label} should be one of {choices}.")
+            raise BadParameter(message=f"{label} should be one of {list(choices)}.")
         config[property_name] = value
 
 
@@ -813,7 +813,7 @@ def validate_registry_config(registry_config: dict[str, str]) -> None:
     provider = provider_value.lower()
     if provider not in REGISTRY_PROVIDERS:
         raise BadParameter(
-            message=f"Registry provider should be one of {REGISTRY_PROVIDERS}.",
+            message=f"Registry provider should be one of {list(REGISTRY_PROVIDERS)}.",
             param_hint="'--registry provider'",
         )
     if "provider" in registry_config:

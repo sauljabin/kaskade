@@ -16,9 +16,11 @@ from textual.containers import Container, Grid
 from textual.coordinate import Coordinate
 from textual.widgets import DataTable, Static, Tab, TabbedContent, TabPane, Tabs
 
+from kaskade.app import KaskadeApp
 from kaskade.colors import NULL as NULL_STYLE
 from kaskade.colors import WARNING as WARNING_STYLE
 from kaskade.commands import RecordFilters
+from kaskade.concurrency import run_blocking
 from kaskade.configs import CONFLUENT
 from kaskade.consumer import (
     HeaderDataTable,
@@ -33,6 +35,7 @@ from kaskade.consumer import (
     record_json_renderable,
     record_payload_size,
 )
+from kaskade.consumer_service import PartitionSelectionError
 from kaskade.deserializers import (
     BooleanDeserializer,
     BytesEncoding,
@@ -47,10 +50,7 @@ from kaskade.deserializers import (
 from kaskade.help import HelpScreen
 from kaskade.models import Header, Record
 from kaskade.record_export import readable_json, record_filename
-from kaskade.services import PartitionSelectionError
-from kaskade.themes import KaskadeApp
-from kaskade.unicodes import WARNING as WARNING_INDICATOR
-from kaskade.utils import run_blocking
+from kaskade.unicodes import WARNING_SIGN
 from kaskade.widgets import KaskadeScrollableContainer, TableFrame
 
 
@@ -1212,7 +1212,7 @@ class TestConsumptionCoordination(unittest.IsolatedAsyncioTestCase):
             self.assertEqual("renderable", table.cursor_foreground_priority)
             self.assertIsInstance(row[0], Text)
             self.assertEqual(
-                f"{WARNING_INDICATOR} ff",
+                f"{WARNING_SIGN} ff",
                 row[0].plain,
             )
             self.assertEqual(WARNING_STYLE, row[0].style)
