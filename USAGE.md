@@ -59,17 +59,17 @@ examples below.
 
 ### Short command name
 
-Kaskade doesn't install a shortcut. If you want a shorter command, `ksk` is the
+Kaskade doesn't install a shortcut. If you want a shorter command, `kas` is the
 suggested name. Make it a symlink in a directory on your `PATH`, such as
 `~/.local/bin`:
 
 ```bash
-ln -s "$(command -v kaskade)" ~/.local/bin/ksk
+ln -s "$(command -v kaskade)" ~/.local/bin/kas
 ```
 
-Then run `ksk --version`. A symlink works in every shell and in scripts, and
+Then run `kas --version`. A symlink works in every shell and in scripts, and
 [Kantrip](https://github.com/sauljabin/kantrip) recognizes it as Kaskade, so a
-Kantrip session's connection applies to `ksk` too.
+Kantrip session's connection applies to `kas` too.
 
 ## Configuration files at a glance
 
