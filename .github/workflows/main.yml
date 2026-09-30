@@ -5,6 +5,7 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -105,7 +106,9 @@ jobs:
           # Keep identical to the tests-e2e exclude in .pre-commit-config.yaml.
           E2E_EXEMPT: '^(.*\.md|LICENSE|cliff\.toml|examples/.*|images/.*|site/.*|\.github/(ISSUE_TEMPLATE|PULL_REQUEST_TEMPLATE)/.*|\.github/workflows/(pages|pr-title)\.yml)$'
         run: |
-          if ! git cat-file -e "${BASE}^{commit}" 2>/dev/null; then
+          if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ]; then
+            run=true
+          elif ! git cat-file -e "${BASE}^{commit}" 2>/dev/null; then
             run=true
           elif git diff --name-only "$BASE...$HEAD" | grep -Ev "$E2E_EXEMPT" > /dev/null; then
             run=true
