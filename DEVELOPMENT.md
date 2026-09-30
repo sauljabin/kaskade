@@ -46,7 +46,10 @@ uv run pre-commit install
 ```
 
 Commits run formatting, screenshot generation, and code analysis. Pushes run the
-unit and E2E tests; the E2E tests require Docker.
+unit tests and the E2E tests, which require Docker. A push, pull request, or
+`main` commit that changes only documentation, the site, images, examples, or
+GitHub templates skips E2E, both in the hook and in CI. A manual run of the CI
+workflow from the Actions tab always runs E2E.
 
 Running kaskade:
 

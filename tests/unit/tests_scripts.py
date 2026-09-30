@@ -1,9 +1,12 @@
 import os
+import re
 import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
 from xml.etree import ElementTree
+
+import yaml
 
 from kaskade import APP_VERSION
 from kaskade.themes import EVA01_BERSERK_THEME
@@ -123,3 +126,53 @@ class TestReadmeVisualScripts(unittest.IsolatedAsyncioTestCase):
 
             consumer_svg = (output / "consumer.svg").read_text(encoding="utf-8")
             self.assertIn("Group&#160;order-inspector", consumer_svg)
+
+
+ROOT = Path(__file__).resolve().parents[2]
+
+
+def e2e_exempt_patterns() -> tuple[str, str]:
+    hooks = yaml.safe_load((ROOT / ".pre-commit-config.yaml").read_text(encoding="utf-8"))
+    hook = next(
+        hook for repo in hooks["repos"] for hook in repo["hooks"] if hook["id"] == "tests-e2e"
+    )
+    workflow = yaml.safe_load((ROOT / ".github/workflows/main.yml").read_text(encoding="utf-8"))
+    step = next(
+        step for step in workflow["jobs"]["e2e-selection"]["steps"] if step.get("id") == "select"
+    )
+    return hook["exclude"], step["env"]["E2E_EXEMPT"]
+
+
+class TestE2ESelection(unittest.TestCase):
+    def test_pre_push_hook_and_ci_skip_the_same_paths(self) -> None:
+        hook_pattern, ci_pattern = e2e_exempt_patterns()
+        self.assertEqual(hook_pattern, ci_pattern)
+
+    def test_only_documentation_paths_skip_e2e(self) -> None:
+        pattern = re.compile(e2e_exempt_patterns()[0])
+        skipped = [
+            "README.md",
+            "USAGE.md",
+            "LICENSE",
+            "cliff.toml",
+            "examples/client.ini",
+            "images/banner.svg",
+            "site/index.html",
+            ".github/PULL_REQUEST_TEMPLATE/pull_request.md",
+            ".github/workflows/pages.yml",
+        ]
+        selected = [
+            "kaskade/main.py",
+            "tests/e2e/tests_e2e.py",
+            "scripts/tests.py",
+            "sandbox/__main__.py",
+            "pyproject.toml",
+            "uv.lock",
+            ".pre-commit-config.yaml",
+            ".github/workflows/main.yml",
+            "kaskade/readme.md.py",
+        ]
+        for path in skipped:
+            self.assertIsNotNone(pattern.search(path), path)
+        for path in selected:
+            self.assertIsNone(pattern.search(path), path)

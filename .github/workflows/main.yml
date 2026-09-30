@@ -5,6 +5,7 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -85,8 +86,41 @@ jobs:
       - name: Build distributions
         run: uv build --clear
 
+  e2e-selection:
+    name: E2E selection
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      run: ${{ steps.select.outputs.run }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Select E2E for changes outside documentation
+        id: select
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+          # Keep identical to the tests-e2e exclude in .pre-commit-config.yaml.
+          E2E_EXEMPT: '^(.*\.md|LICENSE|cliff\.toml|examples/.*|images/.*|site/.*|\.github/(ISSUE_TEMPLATE|PULL_REQUEST_TEMPLATE)/.*|\.github/workflows/(pages|pr-title)\.yml)$'
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ]; then
+            run=true
+          elif ! git cat-file -e "${BASE}^{commit}" 2>/dev/null; then
+            run=true
+          elif git diff --name-only "$BASE...$HEAD" | grep -Ev "$E2E_EXEMPT" > /dev/null; then
+            run=true
+          else
+            run=false
+          fi
+          echo "run=$run" >> "$GITHUB_OUTPUT"
+
   e2e:
     name: End-to-end
+    needs: e2e-selection
+    if: needs.e2e-selection.outputs.run == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -109,7 +143,7 @@ jobs:
   result:
     name: CI result
     if: always()
-    needs: [quality, unit-tests, build, e2e]
+    needs: [quality, unit-tests, build, e2e-selection, e2e]
     runs-on: ubuntu-latest
     steps:
       - name: Require successful jobs
@@ -117,9 +151,16 @@ jobs:
           QUALITY_RESULT: ${{ needs.quality.result }}
           UNIT_RESULT: ${{ needs.unit-tests.result }}
           BUILD_RESULT: ${{ needs.build.result }}
+          SELECTION_RESULT: ${{ needs.e2e-selection.result }}
+          E2E_SELECTED: ${{ needs.e2e-selection.outputs.run }}
           E2E_RESULT: ${{ needs.e2e.result }}
         run: |
           test "$QUALITY_RESULT" = success
           test "$UNIT_RESULT" = success
           test "$BUILD_RESULT" = success
-          test "$E2E_RESULT" = success
+          test "$SELECTION_RESULT" = success
+          if [ "$E2E_SELECTED" = true ]; then
+            test "$E2E_RESULT" = success
+          else
+            test "$E2E_RESULT" = skipped
+          fi
