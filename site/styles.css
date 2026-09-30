@@ -192,7 +192,7 @@ h1 {
   margin: 0;
   font-size: clamp(2.75rem, 6vw, 5.1rem);
   line-height: 0.98;
-  letter-spacing: -0.08em;
+  letter-spacing: -0.02em;
 }
 
 h1 span {
