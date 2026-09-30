@@ -14,9 +14,11 @@
 <a href="https://pypi.org/project/kaskade"><img alt="macOS support" src="https://img.shields.io/badge/os-macOS-7C3AED?style=flat-square&logo=apple&logoColor=white"></a>
 </p>
 
-Kafka flows through your terminal. Kaskade brings topic administration and record
-inspection into one fast, keyboard-driven interface, with flexible
-deserialization and secure connections built in.
+Kaskade is a terminal UI for Kafka. `kaskade admin` shows your topics,
+partitions, and consumer groups and lets you create, edit, and delete topics.
+`kaskade consumer` reads records from a topic and decodes them as JSON, Avro,
+or Protobuf, with or without Schema Registry. Everything works from the
+keyboard.
 
 ## Screenshots
 
@@ -42,25 +44,24 @@ deserialization and secure connections built in.
 - Browse topics, partitions, consumer groups, and group members
 - Inspect topic configuration, lag, replicas, and record counts
 - Create, edit, delete, and filter topics without leaving the TUI
-- Refresh topic metadata and metrics automatically or manually
+- Refresh topic metadata and metrics every 30 seconds by default, or on demand
 
 ### Record consumption
 
 - Deserialize keys and values as bytes, primitives, JSON, Avro, or Protobuf,
   including Confluent Schema Registry and native Apicurio Registry v3
 - Resolve Registry Protobuf messages and referenced schemas without generated classes
-- Select raw, Apicurio, or Confluent framing independently for local key and value deserializers
+- Choose raw, Apicurio, or Confluent framing separately for keys and values when decoding with local schemas
 - Filter records by key, value, header, or partition
 - Start from the earliest offsets or explicit partition/offset selections
-- Preserve malformed keys, values, and headers with BYTES fallback metadata
-- Present bytes as Base64, hex, byte arrays, or escaped bytes with encoding metadata
+- Keep consuming when a key, value, or header fails to decode, and show it as bytes next to the error
+- Show bytes as Base64, hex, byte arrays, or escaped bytes
 - Copy or export individual records as JSON
 
 ### Connections and configuration
 
-- Reuse Kafka, Registry, and AWS settings from an INI client profile
-- Pass Kafka and Registry client properties directly from the command line
-- Configure consumer and admin operation deadlines for higher-latency clusters
+- Keep Kafka, Registry, and AWS settings in an INI file, or pass them on the command line
+- Raise operation timeouts for slow or distant clusters
 - Connect through TLS, SASL, Confluent Cloud, or Amazon MSK IAM authentication
 - Use Confluent Schema Registry, native Apicurio Registry, or Apicurio's
   Confluent-compatible API
@@ -99,35 +100,33 @@ Consumer view:
 kaskade consumer -b my-kafka:9092 -t my-topic
 ```
 
-## Usage
+## Documentation
 
-For configuration and usage examples, see the [Kaskade usage guide](https://github.com/sauljabin/kaskade/blob/main/USAGE.md).
-
-## Development
-
-For development instructions, see the [Kaskade development guide](https://github.com/sauljabin/kaskade/blob/main/DEVELOPMENT.md).
-
-## Releases
-
-See [GitHub Releases](https://github.com/sauljabin/kaskade/releases) for release notes and downloadable artifacts.
+- [Usage](https://github.com/sauljabin/kaskade/blob/main/USAGE.md): commands,
+  settings, connections, and decoding.
+- [Development](https://github.com/sauljabin/kaskade/blob/main/DEVELOPMENT.md):
+  working on Kaskade itself.
+- [GitHub Releases](https://github.com/sauljabin/kaskade/releases): release
+  notes and downloads.
 
 ## Questions
 
-For Q&A go to [GitHub Discussions](https://github.com/sauljabin/kaskade/discussions/categories/q-a).
+Ask in [GitHub Discussions](https://github.com/sauljabin/kaskade/discussions/categories/q-a).
 
 ## Security
 
-Report suspected vulnerabilities privately by following the [Kaskade security policy](https://github.com/sauljabin/kaskade/blob/main/SECURITY.md).
+Please report vulnerabilities privately, as described in the
+[security policy](https://github.com/sauljabin/kaskade/blob/main/SECURITY.md).
 
 ## Donations
 
-If Kaskade is useful to you, consider [supporting its development on GitHub Sponsors](https://github.com/sponsors/sauljabin).
+If Kaskade saves you time, you can
+[sponsor it on GitHub](https://github.com/sponsors/sauljabin).
 
 ## AI Assistance
 
-This project uses AI-assisted development tools. Some code and documentation
-may be generated or revised with AI assistance. All AI-assisted changes are
-reviewed and tested by the maintainer before they are included.
+Kaskade is developed with AI assistance. Every AI-assisted change is reviewed
+and tested before it's merged.
 
 ## Acknowledgements
 

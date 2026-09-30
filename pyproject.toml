@@ -1,7 +1,7 @@
 [project]
 name = "kaskade"
 dynamic = ["version"]
-description = "kaskade is a text user interface for kafka"
+description = "kafka in your terminal"
 authors = [{ name = "Saúl Piña", email = "sauljabin@gmail.com" }]
 license = "MIT"
 readme = "README.md"
