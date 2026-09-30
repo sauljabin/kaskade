@@ -39,7 +39,8 @@ repos:
       - id: tests-e2e
         name: running e2e tests
         language: system
-        always_run: true
         pass_filenames: false
+        # Keep identical to E2E_EXEMPT in .github/workflows/main.yml.
+        exclude: '^(.*\.md|LICENSE|cliff\.toml|examples/.*|images/.*|site/.*|\.github/(ISSUE_TEMPLATE|PULL_REQUEST_TEMPLATE)/.*|\.github/workflows/(pages|pr-title)\.yml)$'
         stages: [pre-push]
         entry: uv run --locked python -m scripts.tests --e2e

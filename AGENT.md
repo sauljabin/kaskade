@@ -189,6 +189,12 @@ fixtures live in `tests/unit`; E2E tests live in `tests/e2e`, use Confluent Kafk
 and Schema Registry through Testcontainers, and should rely on conditions and
 public Textual APIs rather than sleeps or private widget state.
 
+E2E runs in the pre-push hook and CI only when a change touches a path outside
+the documentation-only pattern. The pattern appears twice, as the `tests-e2e`
+`exclude` in `.pre-commit-config.yaml` and as `E2E_EXEMPT` in the CI
+`e2e-selection` job; keep them identical (a unit test checks it), and add a path
+only when nothing under `tests/e2e` or `kaskade/` reads it.
+
 Generated SVGs in `images/` come from `uv run python -m scripts.banner` and
 `uv run python -m scripts.screenshots`; neither needs Kafka. The screenshot
 commands emit framed README images and borderless site variants. Use absolute
