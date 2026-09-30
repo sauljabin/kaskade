@@ -37,8 +37,7 @@
     <text x="380.8" y="257" fill="#f3ecff">|&#160;|/&#160;/&#160;_`&#160;/&#160;__|&#160;|/&#160;/&#160;_`&#160;|/&#160;_`&#160;|/&#160;_&#160;\</text>
     <text x="380.8" y="287" fill="#f3ecff">|&#160;&#160;&#160;&lt;&#160;(_|&#160;\__&#160;\&#160;&#160;&#160;&lt;&#160;(_|&#160;|&#160;(_|&#160;|&#160;&#160;__/</text>
     <text x="380.8" y="317" fill="#f3ecff">|_|\_\__,_|___/_|\_\__,_|\__,_|\___|</text>
-    <text x="452.8" y="347" fill="#a6ff4d">a&#160;text&#160;user&#160;interface&#160;for&#160;kafka</text>
+    <text x="582.4" y="347" fill="#a6ff4d">kafka&#160;in&#160;your&#160;terminal</text>
   </g>
-  <text x="640" y="495" text-anchor="middle" font-family="'Fira Code', SFMono-Regular, Menlo, 'DejaVu Sans Mono', 'Liberation Mono', monospace" font-size="38" font-weight="700"><tspan fill="#f3ecff">Kafka&#160;flows&#160;through&#160;</tspan><tspan fill="#a6ff4d">your&#160;terminal.</tspan></text>
-  <text x="640" y="553" text-anchor="middle" font-family="'Fira Code', SFMono-Regular, Menlo, 'DejaVu Sans Mono', 'Liberation Mono', monospace" font-size="28"><tspan fill="#a6ff4d">$&#160;</tspan><tspan fill="#f3ecff">brew&#160;install&#160;kaskade</tspan></text>
+  <text x="640" y="510" text-anchor="middle" font-family="'Fira Code', SFMono-Regular, Menlo, 'DejaVu Sans Mono', 'Liberation Mono', monospace" font-size="28"><tspan fill="#a6ff4d">$&#160;</tspan><tspan fill="#f3ecff">brew&#160;install&#160;kaskade</tspan></text>
 </svg>

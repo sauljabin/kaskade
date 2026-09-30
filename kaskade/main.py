@@ -342,7 +342,7 @@ def configured_timeout_options(
 @cloup.group(epilog=EPILOG_HELP)
 @cloup.version_option(APP_VERSION)
 def cli() -> None:
-    """kaskade is a text user interface for kafka."""
+    """Kafka in your terminal."""
     configure_logging()
 
 

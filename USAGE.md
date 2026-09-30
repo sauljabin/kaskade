@@ -1,7 +1,7 @@
 # Usage
 
-This guide provides common Kaskade commands for connecting to Kafka, consuming
-records, and configuring Schema Registry, TLS, and cloud services.
+How to connect Kaskade to Kafka, read and decode records, and set it up the way
+you like.
 
 ## Contents
 
@@ -14,6 +14,7 @@ records, and configuring Schema Registry, TLS, and cloud services.
   - [Themes](#themes)
   - [Custom themes](#custom-themes)
   - [Admin auto-refresh](#admin-auto-refresh)
+  - [Topic Details](#topic-details)
   - [Keyboard shortcuts](#keyboard-shortcuts)
   - [Kantrip profile](#kantrip-profile)
   - [Logs](#logs)
@@ -73,31 +74,24 @@ Kantrip session's connection applies to `kas` too.
 
 ## Configuration files at a glance
 
-Kaskade uses two configuration files for different purposes. They are not
-interchangeable:
+Kaskade uses two files, and they aren't interchangeable:
 
 | File | Purpose | Loading behavior | Typical contents |
 | --- | --- | --- | --- |
 | `settings.yaml` | Personal TUI preferences | Discovered and loaded automatically on every run | Theme, custom themes, keybindings, and Admin auto-refresh interval |
 | `client.ini` | Kafka connection profile | Loaded only when passed with `--config-file` | Kafka, Schema Registry, AWS IAM, and operation-timeout properties |
 
-Use `settings.yaml` for how Kaskade should look and behave on the local machine.
-Use one or more `client.ini` files for where and how Kaskade should connect. For
-example, separate `development.ini` and `production.ini` files can describe
-different clusters while sharing the same personal TUI settings.
-
-`settings.yaml` is normally safe to keep as a local preference file.
-`client.ini` may contain SASL passwords or Schema Registry credentials, so
-protect it with appropriate file permissions and do not commit secrets. AWS IAM
-credentials should remain in the standard AWS credential provider chain rather
-than being written to either file.
+You can keep one `client.ini` per cluster, such as `development.ini` and
+`production.ini`, and share one `settings.yaml` between them. A `client.ini`
+may hold SASL passwords or Registry credentials, so restrict its permissions
+and don't commit it. Leave AWS credentials in the standard AWS credential
+provider chain rather than in either file.
 
 ## Application settings and controls
 
 On Linux and macOS, Kaskade reads `$XDG_CONFIG_HOME/kaskade/settings.yaml`. If
 `XDG_CONFIG_HOME` is not set, it reads `~/.config/kaskade/settings.yaml`. Set
-`KASKADE_SETTINGS` to use a different file. This automatically loaded YAML file
-does not contain Kafka connection properties.
+`KASKADE_SETTINGS` to use a different file.
 
 Copy the complete example to the default location before customizing it:
 
@@ -195,6 +189,8 @@ kaskade admin -b my-kafka:9092 --refresh-interval 0
 
 The command-line value takes precedence and follows the same validation rules.
 
+### Topic Details
+
 Topic Details keeps partition, replica, in-sync replica, approximate record,
 consumer-group, member, and approximate lag totals visible above its tabs.
 The Partitions tab includes each partition's earliest and end offsets. Group
@@ -205,8 +201,8 @@ Only partitions with available committed offsets appear in Group Offsets.
 
 ### Keyboard shortcuts
 
-Kaskade supports arrow keys and Vim-style navigation. The defaults follow
-familiar k9s conventions where the applications have equivalent actions.
+Kaskade supports arrow keys and Vim-style navigation. Where k9s has the same
+action, Kaskade uses the same key.
 
 | Action | Shortcut |
 | --- | --- |
@@ -470,8 +466,8 @@ kaskade consumer -b my-kafka:9092 -t my-avro-topic \
 ```
 
 `provider` accepts `confluent` or `apicurio` case-insensitively and defaults to
-`confluent`. Confluent client properties retain their existing names and are
-forwarded unchanged.
+`confluent`. Kaskade passes every other `--registry property=value` setting to
+the Schema Registry client unchanged, under its usual name.
 
 With Confluent Schema Registry, the Registry deserializer detects Avro, JSON
 Schema, and Protobuf from each record's schema ID. Protobuf messages are resolved
@@ -482,9 +478,7 @@ See the
 [Confluent Schema Registry client documentation](https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#schemaregistry-client)
 for additional Schema Registry settings.
 
-Kaskade forwards every repeated `--registry property=value` setting to the
-Schema Registry client. For an OAuth/OIDC Registry using the client credentials
-flow:
+For an OAuth/OIDC Registry using the client credentials flow:
 
 ```bash
 kaskade consumer -b my-kafka:9092 -t my-avro-topic \
@@ -569,9 +563,8 @@ for SSL encryption and authentication settings.
 
 ### Client configuration file
 
-Both admin and consumer modes accept an explicitly selected INI connection
-profile. Unlike `settings.yaml`, `client.ini` has no fixed location and is not
-loaded automatically. Kafka client properties belong in `[kafka]`, consumer
+Both admin and consumer accept an INI connection file through `--config-file`.
+Kafka client properties belong in `[kafka]`, consumer
 Schema Registry properties in `[registry]`, Amazon MSK IAM settings in `[aws]`,
 and Kaskade operation deadlines in `[timeouts]`. Any section may be omitted when
 it is not needed:
@@ -614,8 +607,7 @@ admin.write = 60
 
 The `[kafka]` section contains `confluent-kafka` properties. The `[registry]`
 section contains Confluent client properties by default or native Apicurio
-properties when `provider=apicurio`. Kaskade UI, admin, and keymap settings remain in
-`settings.yaml` as documented above. Both commands require a non-empty
+properties when `provider=apicurio`. Both commands require a non-empty
 `bootstrap.servers` after Kafka properties are merged. It can come from
 `--config-file`, an inline property, or the dedicated option:
 
@@ -705,7 +697,7 @@ The IAM principal used by `--aws` needs these `kafka-cluster` actions:
 | Admin (full access) | Read-only actions plus `CreateTopic`, `AlterTopic`, `DeleteTopic`, `AlterTopicDynamicConfiguration` |
 | Consumer | `Connect`, `DescribeTopic`, `ReadData`, `DescribeGroup`, `AlterGroup` |
 
-Ready-to-customize identity policy examples are available for each mode:
+Example identity policies for each mode:
 
 - [Admin](examples/aws-msk-iam-admin-policy.json)
 - [Consumer](examples/aws-msk-iam-consumer-policy.json)
