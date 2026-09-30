@@ -8,7 +8,7 @@ records, and configuring Schema Registry, TLS, and cloud services.
 - [Common commands](#common-commands)
   - [Multiple bootstrap servers](#multiple-bootstrap-servers)
   - [Consume and deserialize](#consume-and-deserialize)
-  - [Shell alias](#shell-alias)
+  - [Short command name](#short-command-name)
 - [Configuration files at a glance](#configuration-files-at-a-glance)
 - [Application settings and controls](#application-settings-and-controls)
   - [Themes](#themes)
@@ -57,25 +57,19 @@ Deserializer settings are repeatable `property=value` options: `--bytes` and
 deserializers, and `--registry` configures Schema Registry. See the detailed
 examples below.
 
-### Shell alias
+### Short command name
 
-Kaskade does not install an alias. If you want a shorter command, `ksk` is the
-suggested name.
+Kaskade doesn't install a shortcut. If you want a shorter command, `ksk` is the
+suggested name. Make it a symlink in a directory on your `PATH`, such as
+`~/.local/bin`:
 
 ```bash
-# zsh (macOS default): ~/.zshrc
-# bash (common on Linux): ~/.bashrc
-alias ksk='kaskade'
+ln -s "$(command -v kaskade)" ~/.local/bin/ksk
 ```
 
-```fish
-# fish: ~/.config/fish/config.fish
-alias ksk kaskade
-```
-
-Open a new shell or `source` the file, then run `ksk --version`. Aliases only
-exist in interactive shells, so scripts and CI jobs must call `kaskade`. Inside a [Kantrip](https://github.com/sauljabin/kantrip) session,
-`ksk` still runs Kantrip's `kaskade` shim, so the session's connection applies.
+Then run `ksk --version`. A symlink works in every shell and in scripts, and
+[Kantrip](https://github.com/sauljabin/kantrip) recognizes it as Kaskade, so a
+Kantrip session's connection applies to `ksk` too.
 
 ## Configuration files at a glance
 
