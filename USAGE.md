@@ -35,6 +35,7 @@ you like.
   - [JSON consumer](#json-consumer)
   - [Avro consumer](#avro-consumer)
   - [Protobuf consumer](#protobuf-consumer)
+- [Agent skill and cheatsheet](#agent-skill-and-cheatsheet)
 
 ## Common commands
 
@@ -924,3 +925,18 @@ before decoding with the local descriptor.
 See the
 [Protocol Buffers documentation](https://protobuf.dev/programming-guides/techniques/#self-description)
 for more about `FileDescriptorSet`.
+
+## Agent skill and cheatsheet
+
+The [agentskills](https://github.com/sauljabin/agentskills) repository has a
+`kaskade` skill that teaches coding agents such as Claude Code, Codex, or Cursor
+to use Kaskade. Install it with the [skills](https://www.skills.sh/) CLI:
+
+```bash
+skills add sauljabin/agentskills --skill kaskade
+```
+
+The [cheatsheets](https://github.com/sauljabin/cheatsheets) repository has a
+`kaskade` sheet with common commands for the [cheat](https://github.com/cheat/cheat)
+CLI. After installing the cheatsheets as their README describes, run
+`cheat kaskade`.
