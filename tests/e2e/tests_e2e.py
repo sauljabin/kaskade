@@ -327,22 +327,22 @@ class TestE2E(unittest.IsolatedAsyncioTestCase):
             ):
                 kafka_config = {BOOTSTRAP_SERVERS: kafka.get_bootstrap_server()}
                 registry_config = {"url": schema_registry_url(registry)}
-                registry_client = SchemaRegistryClient(registry_config)
-                cases = (
-                    (JSON_TOPIC, JSONSerializer(JSON_SCHEMA, registry_client), {"name": "Ada"}),
-                    (AVRO_TOPIC, AvroSerializer(registry_client, AVRO_SCHEMA), {"name": "Ada"}),
-                    (
-                        PROTOBUF_TOPIC,
-                        ProtobufSerializer(ProtobufUser, registry_client),
-                        ProtobufUser(name="Ada"),
-                    ),
-                )
-                producer = Producer(kafka_config)
-                for topic, serializer, value in cases:
-                    create_topic(kafka_config, topic)
-                    context = SerializationContext(topic, MessageField.VALUE)
-                    producer.produce(topic, key=MY_KEY, value=serializer(value, context))
-                producer.flush()
+                with SchemaRegistryClient(registry_config) as registry_client:
+                    cases = (
+                        (JSON_TOPIC, JSONSerializer(JSON_SCHEMA, registry_client), {"name": "Ada"}),
+                        (AVRO_TOPIC, AvroSerializer(registry_client, AVRO_SCHEMA), {"name": "Ada"}),
+                        (
+                            PROTOBUF_TOPIC,
+                            ProtobufSerializer(ProtobufUser, registry_client),
+                            ProtobufUser(name="Ada"),
+                        ),
+                    )
+                    producer = Producer(kafka_config)
+                    for topic, serializer, value in cases:
+                        create_topic(kafka_config, topic)
+                        context = SerializationContext(topic, MessageField.VALUE)
+                        producer.produce(topic, key=MY_KEY, value=serializer(value, context))
+                    producer.flush()
 
                 for topic, _, _ in cases:
                     with self.subTest(topic=topic):
