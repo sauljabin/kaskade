@@ -18,14 +18,12 @@ classifiers = [
 ]
 requires-python = ">=3.10,<3.15"
 dependencies = [
-    # Confluent's Schema Registry client still imports Authlib's deprecated httpx API.
-    "authlib>=1.0,<1.9",
     "aws-msk-iam-sasl-signer-python>=1.0",
     "cloup>=3.1",
     "fastavro>=1.12",
     # Kaskade overrides private DataTable members; lift the cap once #151 removes them.
     "textual>=8.2,<9",
-    "confluent-kafka[avro,json,protobuf]>=2.15",
+    "confluent-kafka[avro,json,protobuf]>=2.16",
     "grpcio-tools>=1.75",
     "httpx>=0.28",
     "jsonschema>=4.25",

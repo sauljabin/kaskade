@@ -1,6 +1,5 @@
 import json
 import tempfile
-import warnings
 from abc import ABC, abstractmethod
 from base64 import b64decode
 from binascii import Error as BinasciiError
@@ -15,6 +14,15 @@ from struct import unpack
 from typing import Any, cast
 
 import grpc_tools  # type: ignore[import-untyped]
+from confluent_kafka.schema_registry import Schema, SchemaRegistryClient
+from confluent_kafka.schema_registry.avro import AvroDeserializer as ConfluentAvroDeserializer
+from confluent_kafka.schema_registry.error import SchemaRegistryError
+from confluent_kafka.schema_registry.json_schema import (
+    JSONDeserializer as ConfluentJsonDeserializer,
+)
+from confluent_kafka.schema_registry.protobuf import (
+    ProtobufDeserializer as ConfluentProtobufDeserializer,
+)
 from confluent_kafka.serialization import MessageField, SerializationContext, SerializationError
 from fastavro import parse_schema, schemaless_reader
 from fastavro.schema import load_schema
@@ -48,22 +56,6 @@ from kaskade.configs import (
     SCHEMA_REGISTRY_MAGIC_BYTE,
 )
 from kaskade.files import file_to_bytes
-
-with warnings.catch_warnings():
-    # Confluent's Registry client imports Authlib's deprecated httpx integration. Authlib
-    # installs an "always" filter on import, so load it before adding this narrower one.
-    from authlib.deprecate import AuthlibDeprecationWarning  # type: ignore[import-untyped]
-
-    warnings.filterwarnings("ignore", "The httpx module is deprecated", AuthlibDeprecationWarning)
-    from confluent_kafka.schema_registry import Schema, SchemaRegistryClient
-    from confluent_kafka.schema_registry.avro import AvroDeserializer as ConfluentAvroDeserializer
-    from confluent_kafka.schema_registry.error import SchemaRegistryError
-    from confluent_kafka.schema_registry.json_schema import (
-        JSONDeserializer as ConfluentJsonDeserializer,
-    )
-    from confluent_kafka.schema_registry.protobuf import (
-        ProtobufDeserializer as ConfluentProtobufDeserializer,
-    )
 
 
 class DeserializationError(Exception):
@@ -287,6 +279,9 @@ class ConfluentRegistryDeserializer(Deserializer):
         self._writer_schema_cache: dict[int, Schema] = {}
         self._protobuf_descriptor_cache: dict[int, tuple[FileDescriptorProto, DescriptorPool]] = {}
         self._schema_cache: dict[tuple[int, str, MessageField], RegistrySchema | None] = {}
+
+    def close(self) -> None:
+        self.registry_client.close()
 
     def deserialize(
         self, data: bytes, topic: str | None = None, context: MessageField = MessageField.NONE
