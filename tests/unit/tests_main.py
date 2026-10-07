@@ -30,6 +30,7 @@ from kaskade.models import PartitionOffset, PartitionSelection
 from kaskade.settings import SETTINGS_ENV_VAR
 from kaskade.timeouts import TimeoutConfig
 from tests import faker
+from tests.unit import close_log_handlers_on_cleanup
 
 EXPECTED_TOPIC = "my.topic"
 EXPECTED_SERVER = "localhost:9092"
@@ -76,6 +77,7 @@ class TestAdminCli(unittest.TestCase):
     def setUp(self):
         self.runner = CliRunner()
         self.command = "admin"
+        close_log_handlers_on_cleanup(self)
         self.temp_directory = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp_directory.cleanup)
         aws_credentials_patcher = patch("kaskade.main.validate_aws_msk_credentials")
@@ -586,6 +588,7 @@ class TestConsumerCli(unittest.TestCase):
     def setUp(self):
         self.runner = CliRunner()
         self.command = "consumer"
+        close_log_handlers_on_cleanup(self)
         self.temp_directory = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp_directory.cleanup)
         aws_credentials_patcher = patch("kaskade.main.validate_aws_msk_credentials")

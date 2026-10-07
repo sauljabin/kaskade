@@ -183,7 +183,7 @@ class TestApicurioConfig(unittest.TestCase):
                     }
                 )
             )
-            self.assertEqual((str(certificate), str(key)), config.certificate)
+            self.assertEqual((str(certificate), str(key)), config.tls.client_identity)
 
     def test_official_registry_trust_applies_to_oauth_by_default(self) -> None:
         shared_pem, _, shared_der = tls_identity()
@@ -198,14 +198,26 @@ class TestApicurioConfig(unittest.TestCase):
                 }
             )
         )
+        verify = config.tls.registry_verification()
+        token_verify = config.tls.token_verification()
 
-        self.assertIsInstance(config.verify, ssl.SSLContext)
-        self.assertIsInstance(config.token_verify, ssl.SSLContext)
-        assert isinstance(config.verify, ssl.SSLContext)
-        assert isinstance(config.token_verify, ssl.SSLContext)
-        self.assertIsNot(config.verify, config.token_verify)
-        self.assertIn(shared_der, config.verify.get_ca_certs(binary_form=True))
-        self.assertIn(shared_der, config.token_verify.get_ca_certs(binary_form=True))
+        self.assertIsInstance(verify, ssl.SSLContext)
+        self.assertIsInstance(token_verify, ssl.SSLContext)
+        assert isinstance(verify, ssl.SSLContext)
+        assert isinstance(token_verify, ssl.SSLContext)
+        self.assertIsNot(verify, token_verify)
+        self.assertIn(shared_der, verify.get_ca_certs(binary_form=True))
+        self.assertIn(shared_der, token_verify.get_ca_certs(binary_form=True))
+
+    def test_rejects_invalid_trusted_certificate_files(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            certificate = Path(directory) / "ca.pem"
+            certificate.write_text("not a certificate", encoding="utf-8")
+
+            with self.assertRaisesRegex(ApicurioRegistryError, "certificate file is invalid"):
+                ApicurioConfig.from_dict(
+                    apicurio_config(**{APICURIO_TLS_CERTIFICATES: str(certificate)})
+                )
 
     def test_requires_oauth_for_scope(self) -> None:
         with self.assertRaisesRegex(ApicurioRegistryError, "OAuth options require"):
@@ -238,7 +250,7 @@ class TestApicurioClient(unittest.TestCase):
         oauth_http.close.assert_called_once_with()
 
     @patch("kaskade.apicurio.httpx.Client")
-    def test_loads_client_identity_only_into_registry_context(
+    def test_loads_inline_client_identity_into_registry_context(
         self, client_class: MagicMock
     ) -> None:
         certificate, key, _ = tls_identity()
@@ -253,10 +265,42 @@ class TestApicurioClient(unittest.TestCase):
         )
         client.close()
 
-        self.assertIsInstance(client.config.verify, ssl.SSLContext)
         self.assertEqual(1, client_class.call_count)
         self.assertNotIn("cert", client_class.call_args.kwargs)
-        self.assertIs(client.config.verify, client_class.call_args.kwargs["verify"])
+        self.assertIsInstance(client_class.call_args.kwargs["verify"], ssl.SSLContext)
+        self.assertIsNone(client._certificate_directory)
+
+    @patch("kaskade.apicurio.ssl.create_default_context")
+    @patch("kaskade.apicurio.httpx.Client")
+    def test_loads_client_identity_only_into_registry_context(
+        self, client_class: MagicMock, create_context: MagicMock
+    ) -> None:
+        create_context.side_effect = lambda: MagicMock(spec=ssl.SSLContext)
+        certificate, key, _ = tls_identity()
+        properties = apicurio_config(
+            **{
+                APICURIO_TOKEN_ENDPOINT: "https://idp/token",
+                APICURIO_CLIENT_ID: "reader",
+                APICURIO_CLIENT_SECRET: "secret",
+                APICURIO_TLS_CERTIFICATES: certificate,
+                APICURIO_TLS_CLIENT_CERTIFICATE: certificate,
+                APICURIO_TLS_CLIENT_KEY: key,
+            }
+        )
+
+        client = ApicurioClient(properties)
+        client.close()
+
+        registry_call, oauth_call = client_class.call_args_list
+        registry_verify = registry_call.kwargs["verify"]
+        token_verify = oauth_call.kwargs["verify"]
+        self.assertIsNot(registry_verify, token_verify)
+        registry_verify.load_cert_chain.assert_called_once()
+        token_verify.load_cert_chain.assert_not_called()
+        token_verify.load_verify_locations.assert_called_once()
+        self.assertNotIn("cert", registry_call.kwargs)
+        self.assertNotIn("cert", oauth_call.kwargs)
+        self.assertEqual(ApicurioConfig.from_dict(properties), client.config)
 
     @patch("kaskade.apicurio.httpx.Client")
     def test_fetches_artifact_references_metadata_and_caches(self, client_class: MagicMock) -> None:

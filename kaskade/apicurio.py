@@ -138,6 +138,117 @@ def _oauth_scope(value: str | None) -> str | None:
     return " ".join(scopes)
 
 
+def _check_properties(config: dict[str, str]) -> None:
+    unknown = sorted(set(config) - APICURIO_PROPERTIES - {"provider"})
+    store_prefixes = (f"{APICURIO_PREFIX}tls.keystore.", f"{APICURIO_PREFIX}tls.truststore.")
+    if any(name.startswith(store_prefixes) for name in config):
+        raise ApicurioRegistryError(
+            "JKS and PKCS12 stores are not supported; use the Apicurio PEM TLS properties"
+        )
+    if unknown:
+        raise ApicurioRegistryError(f"Unrecognized Apicurio properties: {', '.join(unknown)}")
+
+
+def _parse_url(config: dict[str, str]) -> str:
+    url = config.get(APICURIO_URL, "").rstrip("/")
+    if not url:
+        raise ApicurioRegistryError(f"Missing required configuration property {APICURIO_URL}")
+    parsed_url = httpx.URL(url)
+    if parsed_url.scheme not in {"http", "https"} or parsed_url.host is None:
+        raise ApicurioRegistryError(f"Invalid url {url}")
+    return url
+
+
+def _parse_use_id(config: dict[str, str]) -> str:
+    use_id_value = config.get(APICURIO_USE_ID, "contentId")
+    use_id_lookup = {"contentid": "contentId", "globalid": "globalId"}
+    use_id = use_id_lookup.get(use_id_value.lower())
+    if use_id is None:
+        raise ApicurioRegistryError(f"{APICURIO_USE_ID} must be contentId or globalId")
+    return use_id
+
+
+def _parse_auth(config: dict[str, str]) -> None:
+    basic_names = {APICURIO_USERNAME, APICURIO_PASSWORD}
+    oauth_names = {APICURIO_TOKEN_ENDPOINT, APICURIO_CLIENT_ID, APICURIO_CLIENT_SECRET}
+    has_basic = _complete_set(config, basic_names, "Basic authentication")
+    has_oauth = _complete_set(config, oauth_names, "OAuth client credentials")
+    if has_basic and has_oauth:
+        raise ApicurioRegistryError("Basic authentication and OAuth cannot be configured together")
+    if APICURIO_OAUTH_SCOPE in config and not has_oauth:
+        raise ApicurioRegistryError("OAuth options require OAuth client credentials")
+
+
+def _parse_proxy(config: dict[str, str]) -> str | None:
+    has_proxy = _complete_set(config, {APICURIO_PROXY_HOST, APICURIO_PROXY_PORT}, "proxy")
+    proxy_username = config.get(APICURIO_PROXY_USERNAME)
+    proxy_password = config.get(APICURIO_PROXY_PASSWORD)
+    if bool(proxy_username) != bool(proxy_password):
+        raise ApicurioRegistryError("Proxy username and password must be configured together")
+    if (proxy_username or proxy_password) and not has_proxy:
+        raise ApicurioRegistryError("Proxy credentials require proxy host and port")
+    if not has_proxy:
+        return None
+    try:
+        proxy_port = int(config[APICURIO_PROXY_PORT])
+    except ValueError as ex:
+        raise ApicurioRegistryError(f"{APICURIO_PROXY_PORT} must be an integer") from ex
+    if not 1 <= proxy_port <= 65535:
+        raise ApicurioRegistryError(f"{APICURIO_PROXY_PORT} must be between 1 and 65535")
+    credentials = ""
+    if proxy_username is not None and proxy_password is not None:
+        credentials = f"{quote(proxy_username, safe='')}:{quote(proxy_password, safe='')}@"
+    return f"http://{credentials}{config[APICURIO_PROXY_HOST]}:{proxy_port}"
+
+
+@dataclass(frozen=True)
+class ApicurioTls:
+    """TLS settings from which each client builds its own SSL contexts."""
+
+    certificates: str | None = None
+    trust_all: bool = False
+    verify_host: bool = True
+    client_identity: tuple[str, str] | None = None
+
+    def registry_verification(self) -> bool | ssl.SSLContext:
+        """Build the Registry trust; the client loads its identity into the result."""
+        return _verification(
+            self.certificates,
+            trust_all=self.trust_all,
+            verify_host=self.verify_host,
+            force_context=self.client_identity is not None,
+            label="Registry TLS",
+        )
+
+    def token_verification(self) -> bool | ssl.SSLContext:
+        """Build the OAuth token-endpoint trust, which never carries client identity."""
+        return _verification(self.certificates, label="OAuth token endpoint TLS")
+
+
+def _parse_tls(config: dict[str, str]) -> ApicurioTls:
+    trust_all = _boolean(config, APICURIO_TLS_TRUST_ALL, False)
+    verify_host = _boolean(config, APICURIO_TLS_VERIFY_HOST, True)
+    client_certificate = config.get(APICURIO_TLS_CLIENT_CERTIFICATE)
+    client_key = config.get(APICURIO_TLS_CLIENT_KEY)
+    if bool(client_certificate) != bool(client_key):
+        raise ApicurioRegistryError(
+            "TLS client certificate and client key must be configured together"
+        )
+    client_identity = None
+    if client_certificate is not None and client_key is not None:
+        client_identity = (client_certificate, client_key)
+    tls = ApicurioTls(
+        certificates=config.get(APICURIO_TLS_CERTIFICATES),
+        trust_all=trust_all,
+        verify_host=verify_host,
+        client_identity=client_identity,
+    )
+    # Load the trust material so invalid certificate files fail during validation.
+    tls.registry_verification()
+    tls.token_verification()
+    return tls
+
+
 @dataclass(frozen=True)
 class ApicurioConfig:
     url: str
@@ -152,98 +263,16 @@ class ApicurioConfig:
     client_secret: str | None
     oauth_scope: str | None
     proxy: str | None
-    verify: bool | ssl.SSLContext
-    token_verify: bool | ssl.SSLContext
-    certificate: tuple[str, str] | None
+    tls: ApicurioTls
 
     @classmethod
-    def from_dict(cls, config: dict[str, str]) -> ApicurioConfig:  # noqa: C901
-        unknown = sorted(set(config) - APICURIO_PROPERTIES - {"provider"})
-        unsupported_stores = [
-            name
-            for name in config
-            if name.startswith(
-                (
-                    f"{APICURIO_PREFIX}tls.keystore.",
-                    f"{APICURIO_PREFIX}tls.truststore.",
-                )
-            )
-        ]
-        if unsupported_stores:
-            raise ApicurioRegistryError(
-                "JKS and PKCS12 stores are not supported; use the Apicurio PEM TLS properties"
-            )
-        if unknown:
-            raise ApicurioRegistryError(f"Unrecognized Apicurio properties: {', '.join(unknown)}")
-
-        url = config.get(APICURIO_URL, "").rstrip("/")
-        if not url:
-            raise ApicurioRegistryError(f"Missing required configuration property {APICURIO_URL}")
-        parsed_url = httpx.URL(url)
-        if parsed_url.scheme not in {"http", "https"} or parsed_url.host is None:
-            raise ApicurioRegistryError(f"Invalid url {url}")
-
-        use_id_value = config.get(APICURIO_USE_ID, "contentId")
-        use_id_lookup = {"contentid": "contentId", "globalid": "globalId"}
-        use_id = use_id_lookup.get(use_id_value.lower())
-        if use_id is None:
-            raise ApicurioRegistryError(f"{APICURIO_USE_ID} must be contentId or globalId")
-
-        basic_names = {APICURIO_USERNAME, APICURIO_PASSWORD}
-        oauth_names = {APICURIO_TOKEN_ENDPOINT, APICURIO_CLIENT_ID, APICURIO_CLIENT_SECRET}
-        has_basic = _complete_set(config, basic_names, "Basic authentication")
-        has_oauth = _complete_set(config, oauth_names, "OAuth client credentials")
-        if has_basic and has_oauth:
-            raise ApicurioRegistryError(
-                "Basic authentication and OAuth cannot be configured together"
-            )
-        if APICURIO_OAUTH_SCOPE in config and not has_oauth:
-            raise ApicurioRegistryError("OAuth options require OAuth client credentials")
-
-        proxy_names = {APICURIO_PROXY_HOST, APICURIO_PROXY_PORT}
-        has_proxy = _complete_set(config, proxy_names, "proxy")
-        proxy_username = config.get(APICURIO_PROXY_USERNAME)
-        proxy_password = config.get(APICURIO_PROXY_PASSWORD)
-        if bool(proxy_username) != bool(proxy_password):
-            raise ApicurioRegistryError("Proxy username and password must be configured together")
-        if (proxy_username or proxy_password) and not has_proxy:
-            raise ApicurioRegistryError("Proxy credentials require proxy host and port")
-        proxy = None
-        if has_proxy:
-            try:
-                proxy_port = int(config[APICURIO_PROXY_PORT])
-            except ValueError as ex:
-                raise ApicurioRegistryError(f"{APICURIO_PROXY_PORT} must be an integer") from ex
-            if not 1 <= proxy_port <= 65535:
-                raise ApicurioRegistryError(f"{APICURIO_PROXY_PORT} must be between 1 and 65535")
-            credentials = ""
-            if proxy_username is not None and proxy_password is not None:
-                credentials = f"{quote(proxy_username, safe='')}:{quote(proxy_password, safe='')}@"
-            proxy = f"http://{credentials}{config[APICURIO_PROXY_HOST]}:{proxy_port}"
-
-        trust_all = _boolean(config, APICURIO_TLS_TRUST_ALL, False)
-        verify_host = _boolean(config, APICURIO_TLS_VERIFY_HOST, True)
-        client_certificate = config.get(APICURIO_TLS_CLIENT_CERTIFICATE)
-        client_key = config.get(APICURIO_TLS_CLIENT_KEY)
-        if bool(client_certificate) != bool(client_key):
-            raise ApicurioRegistryError(
-                "TLS client certificate and client key must be configured together"
-            )
-        verify = _verification(
-            config.get(APICURIO_TLS_CERTIFICATES),
-            trust_all=trust_all,
-            verify_host=verify_host,
-            force_context=bool(client_certificate and client_key),
-            label="Registry TLS",
-        )
-        token_verify = _verification(
-            config.get(APICURIO_TLS_CERTIFICATES),
-            label="OAuth token endpoint TLS",
-        )
-        certificate = None
-        if client_certificate is not None and client_key is not None:
-            certificate = (client_certificate, client_key)
-
+    def from_dict(cls, config: dict[str, str]) -> ApicurioConfig:
+        _check_properties(config)
+        url = _parse_url(config)
+        use_id = _parse_use_id(config)
+        _parse_auth(config)
+        proxy = _parse_proxy(config)
+        tls = _parse_tls(config)
         return cls(
             url=url,
             use_id=use_id,
@@ -257,9 +286,7 @@ class ApicurioConfig:
             client_secret=config.get(APICURIO_CLIENT_SECRET),
             oauth_scope=_oauth_scope(config.get(APICURIO_OAUTH_SCOPE)),
             proxy=proxy,
-            verify=verify,
-            token_verify=token_verify,
-            certificate=certificate,
+            tls=tls,
         )
 
 
@@ -300,7 +327,7 @@ class ApicurioClient:
                 verify=self._registry_verification(),
             )
             oauth_http = (
-                httpx.Client(proxy=self.config.proxy, verify=self.config.token_verify)
+                httpx.Client(proxy=self.config.proxy, verify=self.config.tls.token_verification())
                 if self.config.token_endpoint is not None
                 else None
             )
@@ -337,15 +364,13 @@ class ApicurioClient:
         return str(certificate_path), str(key_path)
 
     def _registry_verification(self) -> bool | ssl.SSLContext:
-        if self.config.certificate is None:
-            return self.config.verify
-        context = cast(ssl.SSLContext, self.config.verify)
-        certificate_path, key_path = self._certificate_files(self.config.certificate)
+        verify = self.config.tls.registry_verification()
+        if self.config.tls.client_identity is None:
+            return verify
+        context = cast(ssl.SSLContext, verify)
+        certificate_path, key_path = self._certificate_files(self.config.tls.client_identity)
         try:
-            context.load_cert_chain(
-                certificate_path,
-                key_path,
-            )
+            context.load_cert_chain(certificate_path, key_path)
         except (OSError, ssl.SSLError) as ex:
             raise ApicurioRegistryError(f"TLS client identity is invalid: {ex}") from ex
         return context
@@ -422,7 +447,6 @@ class ApicurioClient:
                 continue
             if response.status_code == 401 and token is not None and not refreshed:
                 refreshed = True
-                self._token = None
                 self._oauth_token(force=True)
                 continue
             if response.status_code == 429 or response.status_code >= 500:
