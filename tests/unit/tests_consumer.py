@@ -1348,13 +1348,16 @@ class TestRecordFilterRebuild(unittest.IsolatedAsyncioTestCase):
     async def test_filter_closes_the_previous_consumer_off_the_ui_thread(
         self, consumer_service: MagicMock
     ) -> None:
+        safety_timeout = 60
         release = threading.Event()
         closing = threading.Event()
         closed = threading.Event()
+        released = threading.Event()
 
         def blocking_close() -> None:
             closing.set()
-            release.wait(timeout=2)
+            if release.wait(timeout=safety_timeout):
+                released.set()
             closed.set()
 
         async def aclose() -> None:
@@ -1376,8 +1379,12 @@ class TestRecordFilterRebuild(unittest.IsolatedAsyncioTestCase):
                 records.action_all()
                 self.assertFalse(closed.is_set())
 
-                await asyncio.to_thread(closing.wait, 2)
+                self.assertTrue(
+                    await asyncio.to_thread(closing.wait, safety_timeout),
+                    "The previous consumer never started closing",
+                )
                 await pilot.pause()
+                self.assertFalse(closed.is_set(), "The close finished before it was released")
                 self.assertTrue(table.loading)
                 self.assertFalse(records.check_action("filter", ()))
                 self.assertFalse(records.check_action("consume", ()))
@@ -1388,6 +1395,7 @@ class TestRecordFilterRebuild(unittest.IsolatedAsyncioTestCase):
             await pilot.pause()
 
             self.assertTrue(closed.is_set())
+            self.assertTrue(released.is_set(), "The close hit its safety timeout")
             replacement.consume.assert_awaited_once()
             self.assertEqual(1, len(records.records))
             self.assertFalse(table.loading)
