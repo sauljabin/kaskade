@@ -31,6 +31,7 @@ from kaskade.settings import SETTINGS_ENV_VAR, default_settings_path, load_setti
 from kaskade.themes import DEFAULT_THEME
 from kaskade.widgets import KaskadeOptionList, KaskadeScrollableContainer, StretchyDataTable
 from tests import configure_admin_service
+from tests.unit import USER_FILES_DIRECTORY
 
 
 class TestSettingsConfiguration(unittest.TestCase):
@@ -84,6 +85,9 @@ class TestSettingsConfiguration(unittest.TestCase):
         path = default_settings_path(environ={}, home=Path("/users/kaskade"))
 
         self.assertEqual(Path("/users/kaskade/.config/kaskade/settings.yaml"), path)
+
+    def test_unit_tests_resolve_settings_in_a_temporary_directory(self):
+        self.assertTrue(default_settings_path().is_relative_to(USER_FILES_DIRECTORY))
 
     def test_explicit_settings_environment_variable_takes_precedence(self):
         path = default_settings_path(

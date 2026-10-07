@@ -187,7 +187,10 @@ uv run --locked python -m scripts.tests
 Add focused keymap or theme assertions when changing those conventions. Unit
 fixtures live in `tests/unit`; E2E tests live in `tests/e2e`, use Confluent Kafka
 and Schema Registry through Testcontainers, and should rely on conditions and
-public Textual APIs rather than sleeps or private widget state.
+public Textual APIs rather than sleeps or private widget state. Unit tests never
+touch the developer's log or settings files: `tests/unit/__init__.py` points the
+XDG config and state directories at a temporary directory, and tests that invoke
+the CLI call `close_log_handlers_on_cleanup` so `assertLogs` leaks no handler.
 
 E2E runs in the pre-push hook and CI only when a change touches a path outside
 the documentation-only pattern. The pattern appears twice, as the `tests-e2e`
