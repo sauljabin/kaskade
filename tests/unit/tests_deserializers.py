@@ -29,6 +29,7 @@ from kaskade.deserializers import (
     AvroDeserializer,
     BooleanDeserializer,
     BytesEncoding,
+    ConfluentRegistryDeserializer,
     DefaultDeserializer,
     Deserialization,
     DeserializationError,
@@ -452,7 +453,7 @@ class TestDeserializer(unittest.TestCase):
             ),
         )
 
-    @patch("kaskade.deserializers.SchemaRegistryClient")
+    @patch("kaskade.deserializers.confluent.SchemaRegistryClient")
     def test_registry_deserializer_closes_confluent_registry_client(self, mock_sr_client_class):
         deserializer = RegistryDeserializer({})
 
@@ -460,7 +461,7 @@ class TestDeserializer(unittest.TestCase):
 
         mock_sr_client_class.return_value.close.assert_called_once_with()
 
-    @patch("kaskade.deserializers.SchemaRegistryClient")
+    @patch("kaskade.deserializers.confluent.SchemaRegistryClient")
     def test_registry_deserialization_avro(self, mock_sr_client_class):
         expected_value = {"name": "Pedro Pascal"}
 
@@ -477,7 +478,7 @@ class TestDeserializer(unittest.TestCase):
 
         self.assertEqual(expected_value, result)
 
-    @patch("kaskade.deserializers.SchemaRegistryClient")
+    @patch("kaskade.deserializers.confluent.SchemaRegistryClient")
     def test_registry_avro_normalizes_corrupt_payload_error(self, mock_sr_client_class):
         schema = mock_sr_client_class.return_value.get_schema.return_value
         schema.schema_str = json.dumps(AVRO_SCHEMA)
@@ -493,7 +494,7 @@ class TestDeserializer(unittest.TestCase):
 
         self.assertIsInstance(raised.exception.__cause__, IndexError)
 
-    @patch("kaskade.deserializers.SchemaRegistryClient")
+    @patch("kaskade.deserializers.confluent.SchemaRegistryClient")
     def test_registry_deserialization_json(self, mock_sr_client_class):
         expected_value = {"name": "Pedro Pascal"}
         expected_json = json.dumps(expected_value)
@@ -509,7 +510,7 @@ class TestDeserializer(unittest.TestCase):
 
         self.assertEqual(expected_value, result)
 
-    @patch("kaskade.deserializers.SchemaRegistryClient")
+    @patch("kaskade.deserializers.confluent.SchemaRegistryClient")
     def test_registry_deserialization_protobuf_without_generated_class(self, mock_sr_client_class):
         registry_client = mock_sr_client_class.return_value
         registry_client.get_schema.return_value = registry_protobuf_schema(PROTOBUF_DESCRIPTOR)
@@ -529,7 +530,7 @@ class TestDeserializer(unittest.TestCase):
         )
         registry_client.clear_caches.assert_called_once_with()
 
-    @patch("kaskade.deserializers.SchemaRegistryClient")
+    @patch("kaskade.deserializers.confluent.SchemaRegistryClient")
     def test_registry_protobuf_uses_message_indexes_for_nested_messages(self, mock_sr_client_class):
         descriptor = FileDescriptorProto(name="event.proto", package="events", syntax="proto3")
         outer = descriptor.message_type.add(name="Envelope")
@@ -556,7 +557,7 @@ class TestDeserializer(unittest.TestCase):
 
         self.assertEqual({"id": "evt-42"}, result)
 
-    @patch("kaskade.deserializers.SchemaRegistryClient")
+    @patch("kaskade.deserializers.confluent.SchemaRegistryClient")
     def test_registry_protobuf_resolves_schema_references(self, mock_sr_client_class):
         address_descriptor = FileDescriptorProto(
             name="address.proto", package="models", syntax="proto3"
@@ -609,7 +610,7 @@ class TestDeserializer(unittest.TestCase):
             "address", 3, deleted=True, fmt="serialized"
         )
 
-    @patch("kaskade.deserializers.SchemaRegistryClient")
+    @patch("kaskade.deserializers.confluent.SchemaRegistryClient")
     def test_registry_protobuf_rejects_malformed_message_indexes(self, mock_sr_client_class):
         mock_sr_client_class.return_value.get_schema.return_value = registry_protobuf_schema(
             PROTOBUF_DESCRIPTOR
@@ -622,14 +623,14 @@ class TestDeserializer(unittest.TestCase):
                 MessageField.VALUE,
             )
 
-    @patch("kaskade.deserializers.SchemaRegistryClient")
+    @patch("kaskade.deserializers.confluent.SchemaRegistryClient")
     def test_registry_metadata_uses_a_unique_registration_and_caches_it(self, mock_sr_client_class):
         registry_client = mock_sr_client_class.return_value
         registry_client.get_schema.return_value.schema_type = "JSON"
         registry_client.get_schema_versions.return_value = [
             SimpleNamespace(subject="orders-key", version=2)
         ]
-        deserializer = RegistryDeserializer({})
+        deserializer = ConfluentRegistryDeserializer({})
         deserializer.json_deserializer = MagicMock(return_value={"id": "order-1049"})
         payload = b"\x00\x00\x00\x00\x0c{}"
 
@@ -651,7 +652,7 @@ class TestDeserializer(unittest.TestCase):
         )
         registry_client.get_schema_versions.assert_called_once_with(12)
 
-    @patch("kaskade.deserializers.SchemaRegistryClient")
+    @patch("kaskade.deserializers.confluent.SchemaRegistryClient")
     def test_registry_metadata_prefers_the_conventional_field_subject(self, mock_sr_client_class):
         registry_client = mock_sr_client_class.return_value
         registry_client.get_schema.return_value.schema_type = "AVRO"
@@ -659,7 +660,7 @@ class TestDeserializer(unittest.TestCase):
             SimpleNamespace(subject="shared-order", version=1),
             SimpleNamespace(subject="orders-value", version=5),
         ]
-        deserializer = RegistryDeserializer({})
+        deserializer = ConfluentRegistryDeserializer({})
         deserializer.avro_deserializer = MagicMock(return_value={"status": "shipped"})
 
         result = deserializer.deserialize_with_metadata(
@@ -672,7 +673,7 @@ class TestDeserializer(unittest.TestCase):
         self.assertEqual("orders-value", result.schema.subject)
         self.assertEqual(5, result.schema.version)
 
-    @patch("kaskade.deserializers.SchemaRegistryClient")
+    @patch("kaskade.deserializers.confluent.SchemaRegistryClient")
     def test_registry_metadata_is_null_when_registrations_are_ambiguous(self, mock_sr_client_class):
         registry_client = mock_sr_client_class.return_value
         registry_client.get_schema.return_value.schema_type = "JSON"
@@ -680,7 +681,7 @@ class TestDeserializer(unittest.TestCase):
             SimpleNamespace(subject="shared-one", version=1),
             SimpleNamespace(subject="shared-two", version=2),
         ]
-        deserializer = RegistryDeserializer({})
+        deserializer = ConfluentRegistryDeserializer({})
         deserializer.json_deserializer = MagicMock(return_value={"status": "paid"})
 
         result = deserializer.deserialize_with_metadata(
@@ -692,14 +693,14 @@ class TestDeserializer(unittest.TestCase):
         self.assertEqual({"status": "paid"}, result.content)
         self.assertIsNone(result.schema)
 
-    @patch("kaskade.deserializers.SchemaRegistryClient")
+    @patch("kaskade.deserializers.confluent.SchemaRegistryClient")
     def test_registry_metadata_lookup_failure_does_not_fail_deserialization(
         self, mock_sr_client_class
     ):
         registry_client = mock_sr_client_class.return_value
         registry_client.get_schema.return_value.schema_type = "JSON"
         registry_client.get_schema_versions.side_effect = OSError("registry unavailable")
-        deserializer = RegistryDeserializer({})
+        deserializer = ConfluentRegistryDeserializer({})
         deserializer.json_deserializer = MagicMock(return_value={"status": "paid"})
 
         with self.assertLogs("kaskade", level="WARNING"):
@@ -816,7 +817,7 @@ class TestDeserializer(unittest.TestCase):
             )
 
             with patch(
-                "kaskade.deserializers.ConfluentProtobufDeserializer",
+                "kaskade.deserializers.local.ConfluentProtobufDeserializer",
                 wraps=ConfluentProtobufDeserializer,
             ) as constructor:
                 for number in range(3):
@@ -905,7 +906,7 @@ class TestDeserializer(unittest.TestCase):
             Path(value_path).write_text(json.dumps(AVRO_SCHEMA), encoding="utf-8")
             deserializer = AvroDeserializer({"key": self.avro_path, "value": value_path})
 
-            with patch("kaskade.deserializers.load_schema", wraps=load_schema) as loader:
+            with patch("kaskade.deserializers.local.load_schema", wraps=load_schema) as loader:
                 for name in ["Pedro Pascal", "Jonathan Rivers", "Ana Gomez"]:
                     encoded = py_to_avro(self.avro_path, {"name": name})
                     for context in (MessageField.KEY, MessageField.VALUE):

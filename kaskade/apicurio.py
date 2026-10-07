@@ -5,13 +5,15 @@ import os
 import ssl
 import tempfile
 import time
-from collections import OrderedDict
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
 from urllib.parse import quote
 
 import httpx
+
+from kaskade.cache import LruCache
+from kaskade.configs import SchemaType
 
 APICURIO_PREFIX = "apicurio.registry."
 APICURIO_URL = f"{APICURIO_PREFIX}url"
@@ -314,7 +316,7 @@ class ApicurioClient:
         self.oauth_http = oauth_http
         self._token: str | None = None
         self._token_expires_at = 0.0
-        self._cache: OrderedDict[tuple[Any, ...], tuple[float, Any]] = OrderedDict()
+        self._cache: LruCache[tuple[Any, ...], tuple[float, Any]] = LruCache(self.CACHE_CAPACITY)
 
     def _certificate_files(self, certificate: tuple[str, str]) -> tuple[str, str]:
         certificate_value, key_value = certificate
@@ -365,16 +367,12 @@ class ApicurioClient:
             self.config.check_period_ms == 0
             or (time.monotonic() - created_at) * 1000 >= self.config.check_period_ms
         ):
-            del self._cache[key]
+            self._cache.remove(key)
             return None
-        self._cache.move_to_end(key)
         return value
 
     def _store(self, key: tuple[Any, ...], value: Any) -> None:
-        self._cache[key] = (time.monotonic(), value)
-        self._cache.move_to_end(key)
-        while len(self._cache) > self.CACHE_CAPACITY:
-            self._cache.popitem(last=False)
+        self._cache.put(key, (time.monotonic(), value))
 
     def _oauth_token(self, force: bool = False) -> str | None:
         if self.config.token_endpoint is None:
@@ -468,16 +466,18 @@ class ApicurioClient:
             }
             if len(metadata_types) == 1:
                 artifact_type = metadata_types.pop()
-        if artifact_type not in {"AVRO", "JSON", "PROTOBUF"}:
+        try:
+            schema_type = SchemaType(artifact_type)
+        except ValueError:
             raise ApicurioRegistryError(
                 f"Unsupported or missing Apicurio artifact type: {artifact_type or 'unknown'}"
-            )
+            ) from None
         references = self._references(f"/ids/{id_path}/{artifact_id}/references")
         result = ApicurioArtifact(
             id=artifact_id,
             id_kind="CONTENT_ID" if self.config.use_id == "contentId" else "GLOBAL_ID",
             content=response.text,
-            type=artifact_type,
+            type=schema_type.value,
             references=references,
         )
         self._store(cache_key, result)
@@ -489,15 +489,17 @@ class ApicurioClient:
             schema = json.loads(content)
         except json.JSONDecodeError:
             stripped = content.lstrip()
-            return "PROTOBUF" if stripped.startswith("syntax") or "message " in stripped else ""
+            if stripped.startswith("syntax") or "message " in stripped:
+                return SchemaType.PROTOBUF
+            return ""
         if isinstance(schema, str):
-            return "AVRO"
+            return SchemaType.AVRO
         if not isinstance(schema, dict):
             return ""
         if schema.get("type") in {"record", "enum", "fixed"} or "fields" in schema:
-            return "AVRO"
+            return SchemaType.AVRO
         if "$schema" in schema or "properties" in schema or "required" in schema:
-            return "JSON"
+            return SchemaType.JSON
         return ""
 
     def get_referenced_artifact(

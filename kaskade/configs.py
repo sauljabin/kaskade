@@ -1,3 +1,5 @@
+from enum import Enum
+
 MILLISECONDS_24H = 86400000
 MILLISECONDS_1W = 604800000
 MIN_INSYNC_REPLICAS_CONFIG = "min.insync.replicas"
@@ -26,3 +28,14 @@ LOGGER = "logger"
 MAX_POLL_INTERVAL_MS = "max.poll.interval.ms"
 ENABLE_AUTO_COMMIT = "enable.auto.commit"
 GROUP_ID = "group.id"
+
+
+class SchemaType(str, Enum):
+    """Schema formats supported by the Registry deserializers."""
+
+    AVRO = "AVRO"
+    JSON = "JSON"
+    PROTOBUF = "PROTOBUF"
+
+    def __str__(self) -> str:
+        return self.value
