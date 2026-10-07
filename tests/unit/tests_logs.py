@@ -11,6 +11,7 @@ from kaskade.logs import (
     configure_logging,
     default_log_path,
 )
+from tests.unit import USER_FILES_DIRECTORY
 
 
 class TestLogging(unittest.TestCase):
@@ -61,6 +62,9 @@ class TestLogging(unittest.TestCase):
         path = default_log_path(environ={}, home=Path("/users/kaskade"))
 
         self.assertEqual(Path("/users/kaskade/.local/state/kaskade/kaskade.log"), path)
+
+    def test_unit_tests_resolve_the_log_in_a_temporary_directory(self) -> None:
+        self.assertTrue(default_log_path().is_relative_to(USER_FILES_DIRECTORY))
 
     def test_rotates_log_files_at_the_size_limit(self) -> None:
         with tempfile.TemporaryDirectory() as directory, patch("kaskade.logs.LOG_MAX_BYTES", 100):
