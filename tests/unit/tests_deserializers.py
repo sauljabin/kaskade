@@ -453,6 +453,14 @@ class TestDeserializer(unittest.TestCase):
         )
 
     @patch("kaskade.deserializers.SchemaRegistryClient")
+    def test_registry_deserializer_closes_confluent_registry_client(self, mock_sr_client_class):
+        deserializer = RegistryDeserializer({})
+
+        deserializer.close()
+
+        mock_sr_client_class.return_value.close.assert_called_once_with()
+
+    @patch("kaskade.deserializers.SchemaRegistryClient")
     def test_registry_deserialization_avro(self, mock_sr_client_class):
         expected_value = {"name": "Pedro Pascal"}
 

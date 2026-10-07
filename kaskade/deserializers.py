@@ -280,6 +280,9 @@ class ConfluentRegistryDeserializer(Deserializer):
         self._protobuf_descriptor_cache: dict[int, tuple[FileDescriptorProto, DescriptorPool]] = {}
         self._schema_cache: dict[tuple[int, str, MessageField], RegistrySchema | None] = {}
 
+    def close(self) -> None:
+        self.registry_client.close()
+
     def deserialize(
         self, data: bytes, topic: str | None = None, context: MessageField = MessageField.NONE
     ) -> Any:
