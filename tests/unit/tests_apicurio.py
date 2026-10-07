@@ -573,14 +573,14 @@ class TestApicurioClient(unittest.TestCase):
 
 class TestApicurioDeserializer(unittest.TestCase):
     def setUp(self) -> None:
-        patcher = patch("kaskade.deserializers.ApicurioClient")
+        patcher = patch("kaskade.deserializers.apicurio.ApicurioClient")
         self.addCleanup(patcher.stop)
         self.client_class = patcher.start()
         self.client = self.client_class.return_value
         self.deserializer = ApicurioRegistryDeserializer(apicurio_config())
 
     def test_factory_defaults_to_confluent_and_selects_apicurio(self) -> None:
-        with patch("kaskade.deserializers.SchemaRegistryClient"):
+        with patch("kaskade.deserializers.confluent.SchemaRegistryClient"):
             confluent = RegistryDeserializer({})
             self.assertIsInstance(confluent._backend, ConfluentRegistryDeserializer)
         apicurio = RegistryDeserializer(apicurio_config())
