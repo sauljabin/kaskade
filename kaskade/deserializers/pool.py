@@ -2,6 +2,7 @@ from typing import Any
 
 from confluent_kafka.serialization import MessageField
 
+from kaskade.apicurio import ApicurioConfig
 from kaskade.configs import APICURIO_OPTION, CONFLUENT_OPTION, REGISTRY_PROVIDERS
 from kaskade.deserializers.apicurio import ApicurioRegistryDeserializer
 from kaskade.deserializers.base import (
@@ -24,15 +25,23 @@ from kaskade.deserializers.primitives import (
 
 
 class RegistryDeserializer(Deserializer):
-    """Delegates to the deserializer of the configured Registry provider."""
+    """Delegates to the deserializer of the configured Registry provider.
 
-    def __init__(self, registry_config: dict[str, str]):
+    Pass ``apicurio_config`` when the CLI already parsed it, so its TLS material
+    is loaded once.
+    """
+
+    def __init__(
+        self, registry_config: dict[str, str], apicurio_config: ApicurioConfig | None = None
+    ):
         provider = registry_config.get("provider", CONFLUENT_OPTION).lower()
         self._backend: ConfluentRegistryDeserializer | ApicurioRegistryDeserializer
         if provider == CONFLUENT_OPTION:
             self._backend = ConfluentRegistryDeserializer(registry_config)
         elif provider == APICURIO_OPTION:
-            self._backend = ApicurioRegistryDeserializer(registry_config)
+            self._backend = ApicurioRegistryDeserializer(
+                apicurio_config or ApicurioConfig.from_dict(registry_config)
+            )
         else:
             raise DeserializationError(
                 f"Unsupported registry provider: {provider}; "
@@ -60,13 +69,14 @@ class DeserializerPool:
         protobuf_config: dict[str, str] | None = None,
         avro_config: dict[str, str] | None = None,
         json_config: dict[str, str] | None = None,
+        apicurio_config: ApicurioConfig | None = None,
     ):
         self.registry_deserializer: RegistryDeserializer | None = None
         self.protobuf_deserializer: ProtobufDeserializer | None = None
         self.avro_deserializer: AvroDeserializer | None = None
 
         if registry_config:
-            self.registry_deserializer = RegistryDeserializer(registry_config)
+            self.registry_deserializer = RegistryDeserializer(registry_config, apicurio_config)
 
         if avro_config:
             self.avro_deserializer = AvroDeserializer(avro_config)

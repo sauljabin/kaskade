@@ -80,7 +80,7 @@ class TestAdminCli(unittest.TestCase):
         close_log_handlers_on_cleanup(self)
         self.temp_directory = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp_directory.cleanup)
-        aws_credentials_patcher = patch("kaskade.main.validate_aws_msk_credentials")
+        aws_credentials_patcher = patch("kaskade.cli.connection.validate_aws_msk_credentials")
         self.mock_validate_aws_msk_credentials = aws_credentials_patcher.start()
         self.addCleanup(aws_credentials_patcher.stop)
 
@@ -591,7 +591,7 @@ class TestConsumerCli(unittest.TestCase):
         close_log_handlers_on_cleanup(self)
         self.temp_directory = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp_directory.cleanup)
-        aws_credentials_patcher = patch("kaskade.main.validate_aws_msk_credentials")
+        aws_credentials_patcher = patch("kaskade.cli.connection.validate_aws_msk_credentials")
         self.mock_validate_aws_msk_credentials = aws_credentials_patcher.start()
         self.addCleanup(aws_credentials_patcher.stop)
         self.temp_descriptor_path = Path(self.temp_directory.name) / "descriptor"
@@ -901,7 +901,10 @@ class TestConsumerCli(unittest.TestCase):
         )
 
         self.assertGreater(result.exit_code, 0)
-        self.assertIn("Invalid value: File should exist.", result.output)
+        self.assertIn(
+            "Invalid value for '--protobuf descriptor': File 'not-afile' should exist.",
+            result.output,
+        )
 
     def test_invalid_protobuf_file_should_be_a_file(self):
         result = self.runner.invoke(
@@ -922,7 +925,9 @@ class TestConsumerCli(unittest.TestCase):
         )
 
         self.assertGreater(result.exit_code, 0)
-        self.assertIn("Invalid value: Path is a directory.", result.output)
+        self.assertIn(
+            "Invalid value for '--protobuf descriptor': Path '~' is a directory.", result.output
+        )
 
     def test_schema_registry_client_validates_missing_url(self):
         result = self.runner.invoke(
@@ -992,6 +997,9 @@ class TestConsumerCli(unittest.TestCase):
             "http://registry/apis/registry/v3",
             registry_config["apicurio.registry.url"],
         )
+        apicurio_config = mock_class_kaskade_consumer.call_args.args[0].apicurio_config
+        self.assertEqual("http://registry/apis/registry/v3", apicurio_config.url)
+        self.assertEqual("globalId", apicurio_config.use_id)
 
     def test_native_apicurio_rejects_serializer_only_properties(self):
         result = self.runner.invoke(
@@ -2009,6 +2017,8 @@ class TestConsumerCli(unittest.TestCase):
                 EXPECTED_TOPIC,
                 "--protobuf",
                 "value=MyMessage",
+                "-v",
+                "protobuf",
             ],
         )
 

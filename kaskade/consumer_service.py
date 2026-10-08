@@ -17,6 +17,7 @@ from confluent_kafka import (
 from confluent_kafka.serialization import MessageField
 
 from kaskade import logger
+from kaskade.apicurio import ApicurioConfig
 from kaskade.commands import EMPTY_RECORD_FILTERS, RecordFilters
 from kaskade.concurrency import run_blocking
 from kaskade.configs import (
@@ -58,6 +59,8 @@ class ConsumerSettings:
     key_deserialization: Deserialization
     value_deserialization: Deserialization
     registry_config: dict[str, str] = field(default_factory=dict)
+    # Parsed from registry_config by the CLI when the provider is Apicurio.
+    apicurio_config: ApicurioConfig | None = None
     protobuf_config: dict[str, str] = field(default_factory=dict)
     avro_config: dict[str, str] = field(default_factory=dict)
     json_config: dict[str, str] = field(default_factory=dict)
@@ -72,6 +75,7 @@ class ConsumerSettings:
             self.protobuf_config,
             self.avro_config,
             self.json_config,
+            apicurio_config=self.apicurio_config,
         )
 
 

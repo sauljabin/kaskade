@@ -29,6 +29,10 @@
   declarations. Help groups are `Configuration options`, `Kafka connection
   options`, `AWS options`, and `Application options`; consumer also separates
   `Consumption options` and `Deserialization options`.
+- `main.py` declares commands. Every command resolves Kafka, Registry, and AWS
+  settings through `kaskade.cli.connection.resolve_connection`; validators in
+  `kaskade.cli.validation` return normalized copies and never mutate their
+  arguments. The CLI parses `ApicurioConfig` once and passes it to the client.
 - Keep `--earliest` and `--partition` declaratively mutually exclusive. Render
   the theme argument as `name` without weakening choice validation; its choices
   include valid custom themes and read `settings.yaml` only when parsed.

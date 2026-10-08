@@ -18,7 +18,12 @@ from referencing import Resource
 from referencing.jsonschema import DRAFT202012
 
 from kaskade import logger
-from kaskade.apicurio import APICURIO_CACHE_CAPACITY, ApicurioArtifact, ApicurioClient
+from kaskade.apicurio import (
+    APICURIO_CACHE_CAPACITY,
+    ApicurioArtifact,
+    ApicurioClient,
+    ApicurioConfig,
+)
 from kaskade.cache import LruCache
 from kaskade.configs import SCHEMA_REGISTRY_HEADER_SIZE, SCHEMA_REGISTRY_MAGIC_BYTE, SchemaType
 from kaskade.deserializers.base import (
@@ -37,8 +42,8 @@ ArtifactKey = tuple[str, int]
 
 
 class ApicurioRegistryDeserializer(Deserializer):
-    def __init__(self, registry_config: dict[str, str]):
-        self.registry_client = ApicurioClient(registry_config)
+    def __init__(self, config: ApicurioConfig):
+        self.registry_client = ApicurioClient(config)
         self._protobuf_descriptor_cache: LruCache[
             ArtifactKey, tuple[FileDescriptorProto, DescriptorPool]
         ] = LruCache(APICURIO_CACHE_CAPACITY)
