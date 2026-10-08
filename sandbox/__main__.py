@@ -32,7 +32,7 @@ from rich.status import Status
 
 from kaskade.authentication import configure_aws_msk_iam
 from kaskade.cli.connection import validate_aws_config
-from kaskade.cli.properties import tuple_properties_to_dict
+from kaskade.cli.properties import join_bootstrap_servers, tuple_properties_to_dict
 from kaskade.configs import AWS_CONFIGS, BOOTSTRAP_SERVERS, MIN_INSYNC_REPLICAS_CONFIG
 
 AVRO_USER_SCHEMA: dict[str, Any] = {
@@ -508,7 +508,15 @@ def validate_topics(
     help="Minimum in-sync replicas for created topics. Uses the broker default when omitted.",
 )
 @click.option(
-    "--bootstrap-servers", default="localhost:9092", help="Bootstrap servers.", show_default=True
+    "-b",
+    "--bootstrap-server",
+    "bootstrap_servers",
+    default=("localhost:9092",),
+    metavar="host:port",
+    multiple=True,
+    callback=join_bootstrap_servers,
+    help="Kafka broker. Repeatable, and each value may be a comma-separated list.",
+    show_default=True,
 )
 @click.option(
     "--registry",

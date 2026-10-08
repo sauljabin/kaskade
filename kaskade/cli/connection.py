@@ -15,7 +15,7 @@ from kaskade.files import load_ini
 
 CONFIG_FILE_SECTIONS = ("kafka", "registry", "aws", "timeouts")
 BOOTSTRAP_SERVERS_REQUIRED = (
-    "Bootstrap servers are required. Use -b/--bootstrap-servers or set "
+    "Bootstrap servers are required. Use -b/--bootstrap-server or set "
     "bootstrap.servers with --kafka or --config-file."
 )
 

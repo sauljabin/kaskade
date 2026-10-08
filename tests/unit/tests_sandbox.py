@@ -247,7 +247,7 @@ class TestSandboxKafkaConfig(unittest.TestCase):
             [
                 "--messages",
                 "0",
-                "--bootstrap-servers",
+                "--bootstrap-server",
                 "broker:9098",
                 "--aws",
                 "region=us-west-2",

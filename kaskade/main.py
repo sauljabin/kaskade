@@ -10,7 +10,7 @@ from confluent_kafka import KafkaException
 from kaskade import APP_VERSION
 from kaskade.admin import KaskadeAdmin
 from kaskade.cli.connection import load_config_file, resolve_connection
-from kaskade.cli.properties import tuple_properties_to_dict
+from kaskade.cli.properties import join_bootstrap_servers, tuple_properties_to_dict
 from kaskade.cli.validation import normalize_deserializer_options
 from kaskade.configs import (
     APICURIO_OPTION,
@@ -45,9 +45,9 @@ KAFKA_CONFIG_HELP = (
 CONFIG_FILE_HELP = (
     "INI file with [kafka], [registry], [aws], and/or [timeouts] configuration sections."
 )
-BOOTSTRAP_SERVERS_HELP = (
-    "Bootstrap servers. Comma-separated host:port pairs; overrides bootstrap.servers "
-    "from Kafka client configuration."
+BOOTSTRAP_SERVER_HELP = (
+    "Kafka broker. Repeatable, and each value may be a comma-separated list; overrides "
+    "bootstrap.servers from Kafka client configuration."
 )
 EPILOG_HELP = "More information at https://github.com/sauljabin/kaskade."
 EARLIEST_HELP = (
@@ -117,10 +117,12 @@ def kafka_connection_options() -> Callable[[CliDecoratorTarget], CliDecoratorTar
         "Kafka connection options",
         cloup.option(
             "-b",
-            "--bootstrap-servers",
+            "--bootstrap-server",
             "bootstrap_servers",
-            help=BOOTSTRAP_SERVERS_HELP,
+            help=BOOTSTRAP_SERVER_HELP,
             metavar="host:port",
+            multiple=True,
+            callback=join_bootstrap_servers,
         ),
         cloup.option(
             "--kafka",
