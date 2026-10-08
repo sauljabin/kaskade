@@ -3,6 +3,7 @@ import os
 import tempfile
 import unittest
 from contextlib import redirect_stderr
+from dataclasses import replace
 from io import StringIO
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -46,7 +47,7 @@ from kaskade.models import (
     TopicConfiguration,
 )
 from kaskade.refresh import RefreshCoordinator, RefreshReason
-from kaskade.settings import SETTINGS_ENV_VAR
+from kaskade.settings import SETTINGS_ENV_VAR, load_settings
 from kaskade.topic_service import EnrichmentResult, GroupSnapshot
 from kaskade.widgets import TableFrame
 from tests import configure_admin_service
@@ -860,7 +861,9 @@ class TestAdminRefresh(unittest.IsolatedAsyncioTestCase):
                 encoding="utf-8",
             )
             with patch.dict(os.environ, {SETTINGS_ENV_VAR: str(config_path)}):
-                app = KaskadeAdmin({}, refresh_interval=10)
+                app = KaskadeAdmin(
+                    {}, settings=replace(load_settings(), admin_refresh_interval_seconds=10)
+                )
 
                 self.assertEqual(10, app.auto_refresh_interval)
 

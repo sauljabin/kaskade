@@ -29,6 +29,7 @@ from kaskade.keymaps import (
 from kaskade.models import Topic
 from kaskade.settings import SETTINGS_ENV_VAR, default_settings_path, load_settings
 from kaskade.themes import DEFAULT_THEME
+from kaskade.timeouts import TimeoutConfig
 from kaskade.widgets import KaskadeOptionList, KaskadeScrollableContainer, StretchyDataTable
 from tests import configure_admin_service
 from tests.unit import USER_FILES_DIRECTORY
@@ -177,6 +178,79 @@ class TestSettingsConfiguration(unittest.TestCase):
         self.assertEqual(10, settings.admin_refresh_interval_seconds)
         self.assertEqual((), settings.warnings)
 
+    def test_loads_admin_and_consumer_timeouts(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            path = Path(temporary_directory) / "settings.yaml"
+            path.write_text(
+                "admin:\n  timeouts:\n    read: 20\n    write: 90\n"
+                "consumer:\n  timeouts:\n    poll: 0.25\n    idle: 3\n"
+                "    assignment: 30\n    request: 12.5\n",
+                encoding="utf-8",
+            )
+
+            settings = load_settings(path)
+
+        self.assertEqual(
+            TimeoutConfig(
+                admin_read=20.0,
+                admin_write=90.0,
+                consumer_poll=0.25,
+                consumer_idle=3.0,
+                consumer_assignment=30.0,
+                consumer_request=12.5,
+            ),
+            settings.timeouts,
+        )
+        self.assertEqual((), settings.warnings)
+
+    def test_example_settings_load_without_warnings(self):
+        settings = load_settings(Path(__file__).parents[2] / "examples" / "settings.yaml")
+
+        self.assertEqual((), settings.warnings)
+        self.assertEqual(TimeoutConfig(), settings.timeouts)
+
+    def test_invalid_timeouts_warn_and_keep_valid_values(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            path = Path(temporary_directory) / "settings.yaml"
+            path.write_text(
+                "admin:\n  timeouts:\n    read: 0\n    write: '90'\n    poll: 1\n"
+                "consumer:\n  timeouts:\n    idle: true\n    request: .inf\n"
+                "    assignment: 30\n  refresh-interval: 10\n",
+                encoding="utf-8",
+            )
+
+            settings = load_settings(path)
+
+        self.assertEqual(TimeoutConfig(consumer_assignment=30.0), settings.timeouts)
+        invalid = "it must be a number of seconds greater than zero"
+        self.assertEqual(
+            (
+                f"Ignoring 'admin.timeouts.read': {invalid}",
+                f"Ignoring 'admin.timeouts.write': {invalid}",
+                "Ignoring 'admin.timeouts.poll': unknown setting",
+                "Ignoring 'consumer.refresh-interval': unknown setting",
+                f"Ignoring 'consumer.timeouts.idle': {invalid}",
+                f"Ignoring 'consumer.timeouts.request': {invalid}",
+            ),
+            settings.warnings,
+        )
+
+    def test_timeouts_and_consumer_must_be_mappings(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            path = Path(temporary_directory) / "settings.yaml"
+            path.write_text("admin:\n  timeouts: 10\nconsumer: []\n", encoding="utf-8")
+
+            settings = load_settings(path)
+
+        self.assertEqual(TimeoutConfig(), settings.timeouts)
+        self.assertEqual(
+            (
+                "Ignoring 'admin.timeouts': it must be a mapping",
+                "Ignoring 'consumer': it must be a mapping",
+            ),
+            settings.warnings,
+        )
+
     def test_rejects_underscore_admin_setting_names(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
             path = Path(temporary_directory) / "settings.yaml"
@@ -271,7 +345,7 @@ class TestConfiguredKeymap(unittest.IsolatedAsyncioTestCase):
             path = Path(temporary_directory) / "settings.yaml"
             path.write_text("theme: dracula\n", encoding="utf-8")
 
-            app = KaskadeApp(settings_path=path)
+            app = KaskadeApp(settings=load_settings(path))
 
         self.assertEqual("dracula", app.theme)
 
@@ -280,7 +354,7 @@ class TestConfiguredKeymap(unittest.IsolatedAsyncioTestCase):
             path = Path(temporary_directory) / "settings.yaml"
             path.write_text("theme: unknown\n", encoding="utf-8")
 
-            app = KaskadeApp(settings_path=path)
+            app = KaskadeApp(settings=load_settings(path))
 
         self.assertEqual(DEFAULT_THEME, app.theme)
         self.assertTrue(any("unknown theme" in warning for warning in app.settings.warnings))
@@ -289,7 +363,7 @@ class TestConfiguredKeymap(unittest.IsolatedAsyncioTestCase):
         with tempfile.TemporaryDirectory() as temporary_directory:
             path = Path(temporary_directory) / "settings.yaml"
             path.write_text("keymap:\n  help.toggle: x,y\n", encoding="utf-8")
-            app = KaskadeApp(settings_path=path)
+            app = KaskadeApp(settings=load_settings(path))
 
             async with app.run_test() as pilot:
                 await pilot.press("x")

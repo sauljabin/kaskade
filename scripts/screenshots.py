@@ -1,5 +1,6 @@
 import asyncio
 import os
+from dataclasses import replace
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -22,6 +23,7 @@ from kaskade.models import (
     Record,
     Topic,
 )
+from kaskade.settings import load_settings
 from kaskade.topic_service import EnrichmentResult, GroupSnapshot, TopicService
 from kaskade.widgets import KaskadeHeader
 from scripts import draw_box_glyphs, normalize_svg, remove_svg_terminal_chrome
@@ -223,7 +225,9 @@ async def generate_screenshots() -> tuple[Path, Path, Path, Path]:
 def _new_apps() -> tuple[AdminScreenshotApp, ConsumerScreenshotApp]:
     no_color = os.environ.pop("NO_COLOR", None)
     try:
-        return AdminScreenshotApp(KAFKA_CONFIG, refresh_interval=0), ConsumerScreenshotApp(
+        return AdminScreenshotApp(
+            KAFKA_CONFIG, settings=replace(load_settings(), admin_refresh_interval_seconds=0)
+        ), ConsumerScreenshotApp(
             ConsumerSettings(
                 "order-events",
                 KAFKA_CONFIG,

@@ -9,6 +9,7 @@ from confluent_kafka import KafkaException
 
 from kaskade import APP_VERSION
 from kaskade.admin import KaskadeAdmin
+from kaskade.cli.application import resolve_app_settings
 from kaskade.cli.connection import load_config_file, resolve_connection
 from kaskade.cli.properties import join_bootstrap_servers, tuple_properties_to_dict
 from kaskade.cli.validation import normalize_deserializer_options
@@ -37,14 +38,15 @@ from kaskade.settings import (
     is_valid_admin_refresh_interval,
 )
 from kaskade.themes import configured_theme_names
-from kaskade.timeouts import TIMEOUT_PROPERTIES, TimeoutConfig
+from kaskade.timeouts import (
+    ADMIN_TIMEOUT_PROPERTIES,
+    CONSUMER_TIMEOUT_PROPERTIES,
+)
 
 KAFKA_CONFIG_HELP = (
     "Kafka client property. Repeatable; overrides matching properties from --config-file."
 )
-CONFIG_FILE_HELP = (
-    "INI file with [kafka], [registry], [aws], and/or [timeouts] configuration sections."
-)
+CONFIG_FILE_HELP = "INI file with [kafka], [registry], and/or [aws] connection sections."
 BOOTSTRAP_SERVER_HELP = (
     "Kafka broker. Repeatable, and each value may be a comma-separated list; overrides "
     "bootstrap.servers from Kafka client configuration."
@@ -66,10 +68,6 @@ PARTITION_SELECTION_PATTERN = re.compile(
 AWS_CONFIG_HELP = (
     "Amazon MSK IAM property. Repeatable; overrides matching properties from "
     f"--config-file. Properties: {', '.join(AWS_CONFIGS)}."
-)
-TIMEOUT_CONFIG_HELP = (
-    "Kaskade operation timeout in seconds. Repeatable; overrides matching properties from "
-    f"--config-file. Properties: {', '.join(TIMEOUT_PROPERTIES)}."
 )
 THEME_HELP = (
     "Textual, Kaskade, or settings.yaml custom theme name; overrides settings.yaml. When "
@@ -162,13 +160,18 @@ def aws_options() -> Callable[[CliDecoratorTarget], CliDecoratorTarget]:
     )
 
 
-def timeout_options() -> Callable[[CliDecoratorTarget], CliDecoratorTarget]:
+def timeout_options(
+    properties: tuple[str, ...],
+) -> Callable[[CliDecoratorTarget], CliDecoratorTarget]:
     return cloup.option_group(
         "Timeout options",
         cloup.option(
             "--timeout",
             "timeout_config",
-            help=TIMEOUT_CONFIG_HELP,
+            help=(
+                "Kaskade operation timeout in seconds. Repeatable; overrides settings.yaml. "
+                f"Properties: {', '.join(properties)}."
+            ),
             metavar="property=seconds",
             multiple=True,
             callback=tuple_properties_to_dict,
@@ -273,25 +276,6 @@ def parse_partition_selections(
     return tuple(selections)
 
 
-def resolve_timeout_config(
-    file_config: dict[str, str], inline_config: dict[str, str]
-) -> TimeoutConfig:
-    try:
-        return TimeoutConfig.from_dict(file_config | inline_config)
-    except ValueError as ex:
-        raise BadParameter(
-            message=str(ex), param_hint="'--timeout' or the [timeouts] section"
-        ) from ex
-
-
-def configured_timeout_options(
-    file_config: dict[str, str], inline_config: dict[str, str]
-) -> dict[str, TimeoutConfig]:
-    if not file_config and not inline_config:
-        return {}
-    return {"timeouts": resolve_timeout_config(file_config, inline_config)}
-
-
 @cloup.group(epilog=EPILOG_HELP)
 @cloup.version_option(APP_VERSION)
 def cli() -> None:
@@ -303,7 +287,7 @@ def cli() -> None:
 @configuration_options()
 @kafka_connection_options()
 @aws_options()
-@timeout_options()
+@timeout_options(ADMIN_TIMEOUT_PROPERTIES)
 @admin_application_options()
 def admin(
     bootstrap_servers: str | None,
@@ -327,25 +311,18 @@ def admin(
 
     file_config = load_config_file(config_file)
     connection = resolve_connection(file_config, bootstrap_servers, kafka_config, aws_config)
-    application_timeout_options = configured_timeout_options(
-        file_config.get("timeouts", {}), timeout_config
+    app_settings = resolve_app_settings(
+        ADMIN_TIMEOUT_PROPERTIES, timeout_config, theme=theme, refresh_interval=refresh_interval
     )
 
-    admin_options: dict[str, Any] = {
-        "refresh_interval": refresh_interval,
-        **application_timeout_options,
-    }
-    kaskade_app = KaskadeAdmin(connection.kafka_config, **admin_options)
-    if theme is not None:
-        kaskade_app.theme = theme
-    kaskade_app.run()
+    KaskadeAdmin(connection.kafka_config, settings=app_settings).run()
 
 
 @cli.command(epilog=EPILOG_HELP, show_constraints=True)
 @configuration_options()
 @kafka_connection_options()
 @aws_options()
-@timeout_options()
+@timeout_options(CONSUMER_TIMEOUT_PROPERTIES)
 @cloup.option_group(
     "Consumption options",
     cloup.option(
@@ -497,9 +474,7 @@ def consumer(
     connection = resolve_connection(
         file_config, bootstrap_servers, kafka_config, aws_config, registry_config
     )
-    application_timeout_options = configured_timeout_options(
-        file_config.get("timeouts", {}), timeout_config
-    )
+    app_settings = resolve_app_settings(CONSUMER_TIMEOUT_PROPERTIES, timeout_config, theme=theme)
     kafka_config = connection.kafka_config
     if earliest:
         kafka_config = kafka_config | {AUTO_OFFSET_RESET: EARLIEST}
@@ -514,7 +489,7 @@ def consumer(
         bytes_config=bytes_config,
         fallback_config=fallback_config,
     )
-    settings = ConsumerSettings(
+    consumer_settings = ConsumerSettings(
         topic=topic,
         kafka_config=kafka_config,
         key_deserialization=key_deserialization,
@@ -527,16 +502,14 @@ def consumer(
         bytes_config=options.bytes_config,
         fallback_config=options.fallback_config,
         partitions=partitions,
-        **application_timeout_options,
+        timeouts=app_settings.timeouts,
     )
     try:
-        kaskade_app = KaskadeConsumer(settings)
+        kaskade_app = KaskadeConsumer(consumer_settings, settings=app_settings)
     except PartitionSelectionError as ex:
         raise BadParameter(message=str(ex), param_hint="'--partition'") from ex
     except (KafkaException, ValueError) as ex:
         raise ClickException(str(ex)) from ex
-    if theme is not None:
-        kaskade_app.theme = theme
     kaskade_app.run()
 
 

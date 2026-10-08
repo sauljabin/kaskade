@@ -9,7 +9,7 @@ from textual.widgets import Footer
 from kaskade.admin.topics import ListTopics
 from kaskade.app import KaskadeApp
 from kaskade.refresh import RefreshReason
-from kaskade.timeouts import TimeoutConfig
+from kaskade.settings import AppSettings
 from kaskade.topic_service import TopicService
 from kaskade.widgets import KaskadeHeader, kantrip_profile
 
@@ -18,20 +18,11 @@ class KaskadeAdmin(KaskadeApp):
     TITLE = "Kaskade Admin"
     AUTO_FOCUS = "#topics-table"
 
-    def __init__(
-        self,
-        kafka_config: dict[str, Any],
-        refresh_interval: int | None = None,
-        timeouts: TimeoutConfig | None = None,
-    ):
-        super().__init__()
+    def __init__(self, kafka_config: dict[str, Any], *, settings: AppSettings | None = None):
+        super().__init__(settings=settings)
         self.kafka_config = kafka_config
-        self.timeouts = timeouts or TimeoutConfig()
-        self.auto_refresh_interval = (
-            self.settings.admin_refresh_interval_seconds
-            if refresh_interval is None
-            else refresh_interval
-        )
+        self.timeouts = self.settings.timeouts
+        self.auto_refresh_interval = self.settings.admin_refresh_interval_seconds
         self._periodic_refresh_timer: Timer | None = None
 
     def on_mount(self) -> None:

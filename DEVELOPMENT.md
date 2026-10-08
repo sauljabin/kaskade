@@ -4,6 +4,7 @@
 
 - [Setup](#setup)
 - [Scripts](#scripts)
+- [Configuration conventions](#configuration-conventions)
 - [Website](#website)
 - [Build Artifacts](#build-artifacts)
 - [Release](#release)
@@ -108,6 +109,28 @@ Generate framed README screenshots and borderless site variants with mock data
 ```bash
 uv run python -m scripts.screenshots
 ```
+
+## Configuration conventions
+
+Each setting belongs to the file that owns its responsibility:
+
+- `--config-file` (INI) says how to connect to a cluster: `[kafka]`,
+  `[registry]`, and `[aws]`.
+- `settings.yaml` says how Kaskade behaves: theme, custom themes, keymap, admin
+  auto-refresh, and operation timeouts. Command-line options such as `--theme`,
+  `--refresh-interval`, and `--timeout` override it for one session. The CLI
+  loads `settings.yaml` once, applies those overrides, and passes the resulting
+  `AppSettings` to the application.
+
+Name new settings the same way:
+
+- In `settings.yaml`, use nesting for hierarchy and kebab-case for multi-word
+  keys, such as `admin: refresh-interval:`. Don't put dots in YAML keys;
+  `refresh.interval:` is a literal key, not `refresh: interval:`.
+- Use dots only in flat names where nesting isn't possible: Kafka and Registry
+  properties in the INI and `--kafka`/`--registry`, `--timeout` properties such
+  as `admin.write`, and Textual binding IDs in `keymap`, such as
+  `kaskade.records.chunk-size`.
 
 ## Website
 

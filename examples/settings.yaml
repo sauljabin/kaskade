@@ -19,9 +19,21 @@ themes:
     boost: "#0A4050"
     dark: true
 
-# Set to 0 to disable auto-refresh. Enabled intervals must be at least 5 seconds.
+# Set refresh-interval to 0 to disable auto-refresh; enabled intervals must be at
+# least 5 seconds. Timeouts are Kaskade operation deadlines in seconds;
+# --timeout admin.read=20 overrides admin.timeouts.read for one session.
 admin:
   refresh-interval: 30
+  timeouts:
+    read: 10
+    write: 60
+
+consumer:
+  timeouts:
+    poll: 0.5
+    idle: 2.5
+    assignment: 15
+    request: 10
 
 # Values are Textual key names; use commas to assign multiple keys.
 keymap:
