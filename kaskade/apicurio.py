@@ -312,8 +312,8 @@ class ApicurioClient:
 
     CACHE_CAPACITY = APICURIO_CACHE_CAPACITY
 
-    def __init__(self, config: dict[str, str]):
-        self.config = ApicurioConfig.from_dict(config)
+    def __init__(self, config: ApicurioConfig):
+        self.config = config
         self._certificate_directory: tempfile.TemporaryDirectory[str] | None = None
         auth = None
         if self.config.username is not None and self.config.password is not None:

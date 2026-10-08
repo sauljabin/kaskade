@@ -31,7 +31,8 @@ from rich.console import Console
 from rich.status import Status
 
 from kaskade.authentication import configure_aws_msk_iam
-from kaskade.cli_utils import tuple_properties_to_dict, validate_aws_config
+from kaskade.cli.connection import validate_aws_config
+from kaskade.cli.properties import tuple_properties_to_dict
 from kaskade.configs import AWS_CONFIGS, BOOTSTRAP_SERVERS, MIN_INSYNC_REPLICAS_CONFIG
 
 AVRO_USER_SCHEMA: dict[str, Any] = {

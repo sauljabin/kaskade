@@ -60,6 +60,10 @@ def apicurio_config(**overrides: str) -> dict[str, str]:
     } | overrides
 
 
+def parsed_apicurio_config(**overrides: str) -> ApicurioConfig:
+    return ApicurioConfig.from_dict(apicurio_config(**overrides))
+
+
 def apicurio_frame(artifact_id: int, payload: bytes) -> bytes:
     return struct.pack(">bI", 0, artifact_id) + payload
 
@@ -232,7 +236,7 @@ class TestApicurioClient(unittest.TestCase):
         client_class.side_effect = [registry_http, oauth_http]
 
         client = ApicurioClient(
-            apicurio_config(
+            parsed_apicurio_config(
                 **{
                     APICURIO_TOKEN_ENDPOINT: "https://idp/token",
                     APICURIO_CLIENT_ID: "reader",
@@ -256,7 +260,7 @@ class TestApicurioClient(unittest.TestCase):
         certificate, key, _ = tls_identity()
 
         client = ApicurioClient(
-            apicurio_config(
+            parsed_apicurio_config(
                 **{
                     APICURIO_TLS_CLIENT_CERTIFICATE: certificate,
                     APICURIO_TLS_CLIENT_KEY: key,
@@ -288,7 +292,7 @@ class TestApicurioClient(unittest.TestCase):
             }
         )
 
-        client = ApicurioClient(properties)
+        client = ApicurioClient(ApicurioConfig.from_dict(properties))
         client.close()
 
         registry_call, oauth_call = client_class.call_args_list
@@ -328,7 +332,7 @@ class TestApicurioClient(unittest.TestCase):
             references_response,
             metadata_response,
         ]
-        client = ApicurioClient(apicurio_config())
+        client = ApicurioClient(parsed_apicurio_config())
 
         first = client.get_artifact(7)
         second = client.get_artifact(7)
@@ -369,7 +373,7 @@ class TestApicurioClient(unittest.TestCase):
         references_response = MagicMock(status_code=200)
         references_response.json.return_value = []
         client_class.return_value.request.side_effect = [content_response, references_response]
-        client = ApicurioClient(apicurio_config())
+        client = ApicurioClient(parsed_apicurio_config())
 
         artifact = client.get_artifact(7)
 
@@ -389,7 +393,7 @@ class TestApicurioClient(unittest.TestCase):
         success = MagicMock(status_code=200)
         client_class.return_value.request.side_effect = [unauthorized, success]
         client = ApicurioClient(
-            apicurio_config(
+            parsed_apicurio_config(
                 **{
                     APICURIO_TOKEN_ENDPOINT: "http://idp/token",
                     APICURIO_CLIENT_ID: "reader",
@@ -434,7 +438,7 @@ class TestApicurioClient(unittest.TestCase):
         oauth_http.post.side_effect = [first_token, second_token]
         client_class.side_effect = [registry_http, oauth_http]
         client = ApicurioClient(
-            apicurio_config(
+            parsed_apicurio_config(
                 **{
                     APICURIO_TOKEN_ENDPOINT: "https://idp/token",
                     APICURIO_CLIENT_ID: "reader",
@@ -461,7 +465,7 @@ class TestApicurioClient(unittest.TestCase):
         request = httpx.Request("POST", "https://idp/token")
         client_class.return_value.post.side_effect = httpx.ConnectError(secret, request=request)
         client = ApicurioClient(
-            apicurio_config(
+            parsed_apicurio_config(
                 **{
                     APICURIO_TOKEN_ENDPOINT: "https://idp/token",
                     APICURIO_CLIENT_ID: "reader",
@@ -484,7 +488,7 @@ class TestApicurioClient(unittest.TestCase):
         success = MagicMock(status_code=200)
         client_class.return_value.request.side_effect = [unavailable, success]
         client = ApicurioClient(
-            apicurio_config(**{APICURIO_RETRY_COUNT: "1", APICURIO_RETRY_BACKOFF: "25"})
+            parsed_apicurio_config(**{APICURIO_RETRY_COUNT: "1", APICURIO_RETRY_BACKOFF: "25"})
         )
 
         self.assertIs(success, client._request("GET", "/groups"))
@@ -498,7 +502,7 @@ class TestApicurioClient(unittest.TestCase):
             404,
             request=request,
         )
-        client = ApicurioClient(apicurio_config())
+        client = ApicurioClient(parsed_apicurio_config())
 
         with self.assertRaisesRegex(ApicurioRegistryError, "404 Not Found"):
             client._request("GET", "/ids/contentIds/518")
@@ -516,7 +520,7 @@ class TestApicurioClient(unittest.TestCase):
             httpx.ConnectError("offline", request=request),
             httpx.ConnectError("still offline", request=request),
         ]
-        client = ApicurioClient(apicurio_config(**{APICURIO_RETRY_COUNT: "1"}))
+        client = ApicurioClient(parsed_apicurio_config(**{APICURIO_RETRY_COUNT: "1"}))
 
         with self.assertRaisesRegex(ApicurioRegistryError, "Apicurio request failed"):
             client._request("GET", "/groups")
@@ -534,7 +538,7 @@ class TestApicurioClient(unittest.TestCase):
             content,
             references,
         ]
-        client = ApicurioClient(apicurio_config(**{APICURIO_CHECK_PERIOD: "0"}))
+        client = ApicurioClient(parsed_apicurio_config(**{APICURIO_CHECK_PERIOD: "0"}))
 
         client.get_artifact(1)
         client.get_artifact(1)
@@ -547,7 +551,7 @@ class TestApicurioClient(unittest.TestCase):
         references = MagicMock(status_code=200)
         references.json.return_value = []
         client_class.return_value.request.side_effect = [content, references]
-        client = ApicurioClient(apicurio_config(**{APICURIO_USE_ID: "globalId"}))
+        client = ApicurioClient(parsed_apicurio_config(**{APICURIO_USE_ID: "globalId"}))
 
         artifact = client.get_artifact(27)
 
@@ -562,7 +566,7 @@ class TestApicurioClient(unittest.TestCase):
 
     @patch("kaskade.apicurio.httpx.Client")
     def test_cache_is_bounded(self, client_class: MagicMock) -> None:
-        client = ApicurioClient(apicurio_config())
+        client = ApicurioClient(parsed_apicurio_config())
 
         for index in range(client.CACHE_CAPACITY + 1):
             client._store(("schema", index), index)
@@ -577,7 +581,7 @@ class TestApicurioDeserializer(unittest.TestCase):
         self.addCleanup(patcher.stop)
         self.client_class = patcher.start()
         self.client = self.client_class.return_value
-        self.deserializer = ApicurioRegistryDeserializer(apicurio_config())
+        self.deserializer = ApicurioRegistryDeserializer(parsed_apicurio_config())
 
     def test_factory_defaults_to_confluent_and_selects_apicurio(self) -> None:
         with patch("kaskade.deserializers.confluent.SchemaRegistryClient"):
@@ -589,6 +593,15 @@ class TestApicurioDeserializer(unittest.TestCase):
         self.assertIsInstance(uppercase._backend, ApicurioRegistryDeserializer)
         with self.assertRaisesRegex(DeserializationError, "Unsupported registry provider"):
             RegistryDeserializer({"provider": "OTHER"})
+
+    def test_factory_reuses_the_parsed_configuration(self) -> None:
+        config = parsed_apicurio_config()
+
+        with patch.object(ApicurioConfig, "from_dict") as from_dict:
+            RegistryDeserializer(apicurio_config(), config)
+
+        from_dict.assert_not_called()
+        self.client_class.assert_called_with(config)
 
     def test_deserializes_json_with_default_type_reference(self) -> None:
         self.client.get_artifact.return_value = ApicurioArtifact(42, "CONTENT_ID", "{}", "JSON", ())
