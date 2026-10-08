@@ -6,6 +6,7 @@ from textual.widgets import Footer
 from kaskade.app import KaskadeApp
 from kaskade.consumer.records import ListRecords
 from kaskade.consumer_service import ConsumerService, ConsumerSettings
+from kaskade.settings import AppSettings
 from kaskade.widgets import KaskadeHeader, kantrip_profile
 
 
@@ -13,10 +14,12 @@ class KaskadeConsumer(KaskadeApp):
     TITLE = "Kaskade Consumer"
     AUTO_FOCUS = "#records-table"
 
-    def __init__(self, settings: ConsumerSettings) -> None:
-        super().__init__()
-        self.consumer_settings = settings
-        self.deserializer_pool = settings.deserializer_pool()
+    def __init__(
+        self, consumer_settings: ConsumerSettings, *, settings: AppSettings | None = None
+    ) -> None:
+        super().__init__(settings=settings)
+        self.consumer_settings = consumer_settings
+        self.deserializer_pool = consumer_settings.deserializer_pool()
         self.consumer = self.new_consumer()
         try:
             self.consumer.start()

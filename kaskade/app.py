@@ -19,7 +19,7 @@ from kaskade.help import (
     contextual_help,
 )
 from kaskade.keymaps import NAVIGATION_BINDING_IDS
-from kaskade.settings import load_settings
+from kaskade.settings import AppSettings, load_settings
 from kaskade.themes import KASKADE_THEMES, parse_custom_themes, resolve_theme
 
 KASKADE_COMMAND_ID_PREFIX = "kaskade."
@@ -93,7 +93,8 @@ class KaskadeApp(App, inherit_bindings=False):
         ),
     ]
 
-    def __init__(self, *, settings_path: Path | None = None) -> None:
+    def __init__(self, *, settings: AppSettings | None = None) -> None:
+        """Use settings the CLI already resolved, or load settings.yaml."""
         self._rich_theme_pushed = False
         # Textual resolves a relative CSS_PATH against the subclass's module, so
         # anchor it here for apps defined in other packages.
@@ -101,7 +102,7 @@ class KaskadeApp(App, inherit_bindings=False):
         super().__init__(
             css_path=Path(__file__).parent / css_path if isinstance(css_path, str) else css_path
         )
-        settings = load_settings(settings_path)
+        settings = load_settings() if settings is None else settings
         custom_themes, custom_theme_warnings = parse_custom_themes(settings.custom_themes)
         for theme in (*KASKADE_THEMES, *custom_themes):
             self.register_theme(theme)

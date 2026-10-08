@@ -36,13 +36,22 @@
 - Keep `--earliest` and `--partition` declaratively mutually exclusive. Render
   the theme argument as `name` without weakening choice validation; its choices
   include valid custom themes and read `settings.yaml` only when parsed.
+- `--config-file` says how to connect and `settings.yaml` says how Kaskade
+  behaves; follow [Configuration conventions](DEVELOPMENT.md#configuration-conventions)
+  for placement and naming. The CLI loads `settings.yaml` once and resolves
+  `--theme`, `--refresh-interval`, and `--timeout` into the `AppSettings` it
+  passes to the app; apps never re-apply command-line overrides. Operation
+  timeouts live in `admin.timeouts` and `consumer.timeouts`, and each command's
+  `--timeout` accepts and lists only its own properties.
+- Don't keep deprecated options, settings, or sections, compatibility aliases,
+  deprecation warnings, or migration notes; remove replaced behavior outright.
 - `--config-file client.ini` loads optional `[kafka]`, `[registry]`, and `[aws]`
   sections. Merge file values before matching repeatable CLI properties, then
   apply `-b/--bootstrap-server`; require a non-empty resolved
   `bootstrap.servers`. `-b` is repeatable and accepts comma-separated lists;
-  flatten them in order and reject empty or duplicate brokers. There is no
-  `--bootstrap-servers` alias. Forward client properties for downstream
-  validation and keep `examples/client.ini` synchronized.
+  flatten them in order and reject empty or duplicate brokers. Forward client
+  properties for downstream validation and keep `examples/client.ini`
+  synchronized.
 - Keep `-k` as the short form of consumer `--key`; `--kafka` has no short form.
 - Keep settings loading in `settings.py`, key binding parsing in `keymaps.py`,
   supported-theme resolution in `themes.py`, and the shared `KaskadeApp` in

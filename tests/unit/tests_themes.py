@@ -56,6 +56,7 @@ from kaskade.help import (
     HelpScreen,
 )
 from kaskade.models import Header, Partition, Record, Topic, TopicConfiguration
+from kaskade.settings import AppSettings, load_settings
 from kaskade.themes import (
     DEFAULT_THEME,
     EVA01_BERSERK_THEME,
@@ -224,6 +225,9 @@ class TestCustomThemes(unittest.TestCase):
         path.write_text(content, encoding="utf-8")
         return path
 
+    def load_settings(self, content: str) -> AppSettings:
+        return load_settings(self.settings_path(content))
+
     def test_builds_every_supported_property(self):
         themes, warnings = parse_custom_themes(
             {
@@ -325,7 +329,7 @@ class TestCustomThemes(unittest.TestCase):
         )
 
     def test_selects_a_custom_theme_from_settings(self):
-        app = KaskadeApp(settings_path=self.settings_path(SOLARIZED_SETTINGS))
+        app = KaskadeApp(settings=self.load_settings(SOLARIZED_SETTINGS))
 
         self.assertEqual("solarized-kaskade", app.theme)
         self.assertEqual((), app.settings.warnings)
@@ -335,7 +339,7 @@ class TestCustomThemes(unittest.TestCase):
         self.assertEqual("#002B36", app.get_css_variables()["background"])
 
     def test_rich_styles_follow_a_minimal_custom_theme(self):
-        app = KaskadeApp(settings_path=self.settings_path(SOLARIZED_SETTINGS))
+        app = KaskadeApp(settings=self.load_settings(SOLARIZED_SETTINGS))
 
         app.theme = "minimal-light"
 
@@ -344,7 +348,7 @@ class TestCustomThemes(unittest.TestCase):
             self.assertEqual("#dc143c", app.console.get_style(style).color.get_truecolor().hex)
 
     def test_rich_error_and_success_fall_back_to_secondary_like_textual(self):
-        app = KaskadeApp(settings_path=self.settings_path(SOLARIZED_SETTINGS))
+        app = KaskadeApp(settings=self.load_settings(SOLARIZED_SETTINGS))
 
         app.theme = "two-tone"
 
@@ -367,7 +371,7 @@ class TestCustomThemes(unittest.TestCase):
 
     def test_invalid_selected_custom_theme_falls_back_to_the_default(self):
         app = KaskadeApp(
-            settings_path=self.settings_path(
+            settings=self.load_settings(
                 'theme: broken\nthemes:\n  broken:\n    background: "#002B36"\n'
             )
         )
@@ -383,7 +387,7 @@ class TestCustomThemes(unittest.TestCase):
 
     def test_colliding_custom_theme_keeps_the_built_in_theme(self):
         app = KaskadeApp(
-            settings_path=self.settings_path(
+            settings=self.load_settings(
                 'theme: dracula\nthemes:\n  dracula:\n    primary: "#268BD2"\n'
             )
         )
@@ -396,7 +400,7 @@ class TestCustomThemes(unittest.TestCase):
         )
 
     def test_themes_must_be_a_mapping(self):
-        app = KaskadeApp(settings_path=self.settings_path("themes: [solarized]\n"))
+        app = KaskadeApp(settings=self.load_settings("themes: [solarized]\n"))
 
         self.assertEqual(DEFAULT_THEME, app.theme)
         self.assertEqual(("Ignoring 'themes': it must be a mapping",), app.settings.warnings)
@@ -404,7 +408,7 @@ class TestCustomThemes(unittest.TestCase):
     def test_example_settings_define_a_valid_custom_theme(self):
         example = Path(__file__).parents[2] / "examples" / "settings.yaml"
 
-        app = KaskadeApp(settings_path=example)
+        app = KaskadeApp(settings=load_settings(example))
 
         self.assertEqual((), app.settings.warnings)
         self.assertEqual(DEFAULT_THEME, app.theme)

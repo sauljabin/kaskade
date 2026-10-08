@@ -13,7 +13,7 @@ from kaskade.authentication import (
 from kaskade.configs import AWS_CONFIGS, BOOTSTRAP_SERVERS
 from kaskade.files import load_ini
 
-CONFIG_FILE_SECTIONS = ("kafka", "registry", "aws", "timeouts")
+CONFIG_FILE_SECTIONS = ("kafka", "registry", "aws")
 BOOTSTRAP_SERVERS_REQUIRED = (
     "Bootstrap servers are required. Use -b/--bootstrap-server or set "
     "bootstrap.servers with --kafka or --config-file."

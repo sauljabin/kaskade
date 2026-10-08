@@ -3,7 +3,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import ANY, patch
 
 from click.testing import CliRunner
 
@@ -27,7 +27,7 @@ from kaskade.consumer_service import ConsumerSettings, PartitionSelectionError
 from kaskade.deserializers import Deserialization
 from kaskade.main import PARTITION_SELECTION_METAVAR, cli
 from kaskade.models import PartitionOffset, PartitionSelection
-from kaskade.settings import SETTINGS_ENV_VAR
+from kaskade.settings import SETTINGS_ENV_VAR, load_settings
 from kaskade.timeouts import TimeoutConfig
 from tests import faker
 from tests.unit import close_log_handlers_on_cleanup
@@ -145,6 +145,131 @@ class TestBootstrapServerOption(unittest.TestCase):
                 self.assertIn("No such option '--bootstrap-servers'", result.output)
 
 
+class TestTimeoutOptions(unittest.TestCase):
+    def setUp(self):
+        self.runner = CliRunner()
+        close_log_handlers_on_cleanup(self)
+        self.temp_directory = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp_directory.cleanup)
+        self.settings_path = Path(self.temp_directory.name) / "settings.yaml"
+
+    def invoke(self, command: str, *args: str) -> tuple[object, TimeoutConfig]:
+        command_args = ["-t", EXPECTED_TOPIC] if command == "consumer" else []
+        with (
+            patch("kaskade.main.KaskadeAdmin") as admin,
+            patch("kaskade.main.KaskadeConsumer") as consumer,
+        ):
+            result = self.runner.invoke(
+                cli,
+                [command, "-b", EXPECTED_SERVER, *command_args, *args],
+                env={SETTINGS_ENV_VAR: str(self.settings_path)},
+            )
+        self.assertEqual(0, result.exit_code, result.output)
+        app = admin if command == "admin" else consumer
+        app_timeouts = app.call_args.kwargs["settings"].timeouts
+        if command == "consumer":
+            self.assertEqual(app_timeouts, consumer.call_args.args[0].timeouts)
+        return result, app_timeouts
+
+    def test_help_lists_only_the_command_timeouts(self):
+        expected = {
+            "admin": "Properties: admin.read, admin.write.",
+            "consumer": (
+                "Properties: consumer.poll, consumer.idle, consumer.assignment, consumer.request."
+            ),
+        }
+        for command, properties in expected.items():
+            with self.subTest(command):
+                result = self.runner.invoke(cli, [command, "--help"], terminal_width=200)
+
+                self.assertEqual(0, result.exit_code)
+                self.assertIn("overrides settings.yaml", result.output)
+                self.assertIn(properties, result.output)
+                self.assertNotIn("[timeouts]", result.output)
+
+    def test_rejects_the_other_command_timeout(self):
+        cases = (
+            ("admin", "consumer.poll=1", "consumer.poll applies only to consumer."),
+            ("consumer", "admin.write=90", "admin.write applies only to admin."),
+        )
+        for command, timeout, message in cases:
+            with self.subTest(command):
+                topic_args = ["-t", EXPECTED_TOPIC] if command == "consumer" else []
+                result = self.runner.invoke(
+                    cli, [command, "-b", EXPECTED_SERVER, *topic_args, "--timeout", timeout]
+                )
+
+                self.assertEqual(2, result.exit_code, result.output)
+                self.assertIn("Invalid value for '--timeout'", result.output)
+                self.assertIn(message, result.output)
+
+    def test_reads_timeouts_from_settings(self):
+        self.settings_path.write_text(
+            "admin:\n  timeouts:\n    write: 90\n"
+            "consumer:\n  timeouts:\n    assignment: 30\n    poll: 0.25\n",
+            encoding="utf-8",
+        )
+
+        _, admin_timeouts = self.invoke("admin")
+        _, consumer_timeouts = self.invoke("consumer")
+
+        expected = TimeoutConfig(admin_write=90.0, consumer_assignment=30.0, consumer_poll=0.25)
+        self.assertEqual(expected, admin_timeouts)
+        self.assertEqual(expected, consumer_timeouts)
+
+    def test_option_overrides_settings(self):
+        self.settings_path.write_text(
+            "admin:\n  timeouts:\n    read: 12\n    write: 62\n", encoding="utf-8"
+        )
+
+        _, timeouts = self.invoke("admin", "--timeout", "admin.read=13")
+
+        self.assertEqual(TimeoutConfig(admin_read=13.0, admin_write=62.0), timeouts)
+
+    def test_loads_settings_once_and_passes_overrides_to_the_app(self):
+        self.settings_path.write_text(
+            "theme: nord\nadmin:\n  refresh-interval: 60\n  timeouts:\n    write: 62\n",
+            encoding="utf-8",
+        )
+
+        with (
+            patch("kaskade.cli.application.load_settings", wraps=load_settings) as loader,
+            patch("kaskade.main.KaskadeAdmin") as admin,
+        ):
+            result = self.runner.invoke(
+                cli,
+                [
+                    "admin",
+                    "-b",
+                    EXPECTED_SERVER,
+                    "--theme",
+                    "dracula",
+                    "--refresh-interval",
+                    "10",
+                    "--timeout",
+                    "admin.read=20",
+                ],
+                env={SETTINGS_ENV_VAR: str(self.settings_path)},
+            )
+
+        self.assertEqual(0, result.exit_code, result.output)
+        loader.assert_called_once_with()
+        settings = admin.call_args.kwargs["settings"]
+        self.assertEqual("dracula", settings.theme)
+        self.assertEqual(10, settings.admin_refresh_interval_seconds)
+        self.assertEqual(TimeoutConfig(admin_read=20.0, admin_write=62.0), settings.timeouts)
+
+    def test_config_file_rejects_timeouts_section(self):
+        config_path = write_config_ini(self.temp_directory.name, timeouts={"admin.read": "12"})
+
+        result = self.runner.invoke(
+            cli, ["admin", "-b", EXPECTED_SERVER, "--config-file", config_path]
+        )
+
+        self.assertEqual(1, result.exit_code, result.output)
+        self.assertIn("Unknown configuration sections: timeouts", result.output)
+
+
 class TestAdminCli(unittest.TestCase):
     def setUp(self):
         self.runner = CliRunner()
@@ -257,7 +382,7 @@ class TestAdminCli(unittest.TestCase):
         result = self.runner.invoke(cli, [self.command, "-b", EXPECTED_SERVER])
 
         mock_class_kaskade_admin.assert_called_with(
-            {BOOTSTRAP_SERVERS: EXPECTED_SERVER}, refresh_interval=None
+            {BOOTSTRAP_SERVERS: EXPECTED_SERVER}, settings=ANY
         )
         self.assertEqual(0, result.exit_code)
 
@@ -270,34 +395,7 @@ class TestAdminCli(unittest.TestCase):
 
         mock_class_kaskade_admin.assert_called_with(
             {BOOTSTRAP_SERVERS: EXPECTED_SERVER, "security.protocol": "SSL"},
-            refresh_interval=None,
-        )
-        self.assertEqual(0, result.exit_code)
-
-    @patch("kaskade.main.KaskadeAdmin")
-    def test_timeout_config_file_and_inline_override(self, mock_class_kaskade_admin):
-        config_path = write_config_ini(
-            self.temp_directory.name,
-            timeouts={"admin.read": "12", "admin.write": "90"},
-        )
-
-        result = self.runner.invoke(
-            cli,
-            [
-                self.command,
-                "-b",
-                EXPECTED_SERVER,
-                "--config-file",
-                config_path,
-                "--timeout",
-                "admin.read=20",
-            ],
-        )
-
-        mock_class_kaskade_admin.assert_called_once_with(
-            {BOOTSTRAP_SERVERS: EXPECTED_SERVER},
-            refresh_interval=None,
-            timeouts=TimeoutConfig(admin_read=20.0, admin_write=90.0),
+            settings=ANY,
         )
         self.assertEqual(0, result.exit_code)
 
@@ -312,7 +410,7 @@ class TestAdminCli(unittest.TestCase):
 
         mock_class_kaskade_admin.assert_called_with(
             {BOOTSTRAP_SERVERS: CONFIGURED_SERVER, "security.protocol": "SSL"},
-            refresh_interval=None,
+            settings=ANY,
         )
         self.assertEqual(0, result.exit_code)
 
@@ -329,7 +427,7 @@ class TestAdminCli(unittest.TestCase):
         )
 
         mock_class_kaskade_admin.assert_called_with(
-            {BOOTSTRAP_SERVERS: EXPECTED_SERVER}, refresh_interval=None
+            {BOOTSTRAP_SERVERS: EXPECTED_SERVER}, settings=ANY
         )
         self.assertEqual(0, result.exit_code)
 
@@ -356,7 +454,7 @@ class TestAdminCli(unittest.TestCase):
 
         mock_class_kaskade_admin.assert_called_with(
             {BOOTSTRAP_SERVERS: CONFIGURED_SERVER, "sasl.password": "secret%value"},
-            refresh_interval=None,
+            settings=ANY,
         )
         self.assertEqual(0, result.exit_code)
 
@@ -368,7 +466,7 @@ class TestAdminCli(unittest.TestCase):
         )
 
         mock_class_kaskade_admin.assert_called_with(
-            {BOOTSTRAP_SERVERS: CONFIGURED_SERVER}, refresh_interval=None
+            {BOOTSTRAP_SERVERS: CONFIGURED_SERVER}, settings=ANY
         )
         self.assertEqual(0, result.exit_code)
 
@@ -399,7 +497,7 @@ class TestAdminCli(unittest.TestCase):
 
         mock_class_kaskade_admin.assert_called_with(
             {BOOTSTRAP_SERVERS: EXPECTED_SERVER, "security.protocol": "SASL_SSL"},
-            refresh_interval=None,
+            settings=ANY,
         )
         self.assertEqual(0, result.exit_code)
 
@@ -429,7 +527,7 @@ class TestAdminCli(unittest.TestCase):
 
         mock_class_kaskade_admin.assert_called_with(
             {BOOTSTRAP_SERVERS: EXPECTED_SERVER, "security.protocol": "SASL_SSL"},
-            refresh_interval=None,
+            settings=ANY,
         )
         self.assertEqual(0, result.exit_code)
 
@@ -453,7 +551,7 @@ class TestAdminCli(unittest.TestCase):
 
         mock_class_kaskade_admin.assert_called_with(
             {BOOTSTRAP_SERVERS: CONFIGURED_SERVER, "security.protocol": "SSL"},
-            refresh_interval=None,
+            settings=ANY,
         )
         self.assertEqual(0, result.exit_code)
 
@@ -470,7 +568,7 @@ class TestAdminCli(unittest.TestCase):
             cli, [self.command, "-b", EXPECTED_SERVER, "--theme", "dracula"]
         )
 
-        self.assertEqual("dracula", mock_class_kaskade_admin.return_value.theme)
+        self.assertEqual("dracula", mock_class_kaskade_admin.call_args.kwargs["settings"].theme)
         self.assertEqual(0, result.exit_code)
 
     def test_invalid_theme(self):
@@ -495,7 +593,9 @@ class TestAdminCli(unittest.TestCase):
         )
 
         self.assertEqual(0, result.exit_code, result.output)
-        self.assertEqual("solarized-kaskade", mock_class_kaskade_admin.return_value.theme)
+        self.assertEqual(
+            "solarized-kaskade", mock_class_kaskade_admin.call_args.kwargs["settings"].theme
+        )
 
     def test_invalid_custom_theme_is_not_a_theme_choice(self):
         settings_path = Path(self.temp_directory.name) / "settings.yaml"
@@ -518,8 +618,10 @@ class TestAdminCli(unittest.TestCase):
         )
 
         mock_class_kaskade_admin.assert_called_with(
-            {BOOTSTRAP_SERVERS: EXPECTED_SERVER}, refresh_interval=10
+            {BOOTSTRAP_SERVERS: EXPECTED_SERVER}, settings=ANY
         )
+        settings = mock_class_kaskade_admin.call_args.kwargs["settings"]
+        self.assertEqual(10, settings.admin_refresh_interval_seconds)
         self.assertEqual(0, result.exit_code)
 
     @patch("kaskade.main.KaskadeAdmin")
@@ -530,8 +632,10 @@ class TestAdminCli(unittest.TestCase):
         )
 
         mock_class_kaskade_admin.assert_called_with(
-            {BOOTSTRAP_SERVERS: EXPECTED_SERVER}, refresh_interval=0
+            {BOOTSTRAP_SERVERS: EXPECTED_SERVER}, settings=ANY
         )
+        settings = mock_class_kaskade_admin.call_args.kwargs["settings"]
+        self.assertEqual(0, settings.admin_refresh_interval_seconds)
         self.assertEqual(0, result.exit_code)
 
     def test_reject_refresh_interval_below_minimum(self):
@@ -561,7 +665,7 @@ class TestAdminCli(unittest.TestCase):
 
         mock_class_kaskade_admin.assert_called_with(
             {BOOTSTRAP_SERVERS: EXPECTED_SERVER, expected_property_name: expected_property_value},
-            refresh_interval=None,
+            settings=ANY,
         )
         self.assertEqual(0, result.exit_code)
 
@@ -591,7 +695,7 @@ class TestAdminCli(unittest.TestCase):
                 expected_property_name: expected_property_value,
                 expected_property_name2: expected_property_value2,
             },
-            refresh_interval=None,
+            settings=ANY,
         )
         self.assertEqual(0, result.exit_code)
 
@@ -1259,7 +1363,8 @@ class TestConsumerCli(unittest.TestCase):
                     "url": "http://my-url",
                     "bearer.auth.credentials.source": "OAUTHBEARER",
                 },
-            )
+            ),
+            settings=ANY,
         )
         self.assertEqual(0, result.exit_code)
 
@@ -1300,7 +1405,8 @@ class TestConsumerCli(unittest.TestCase):
                     "url": "http://inline-url",
                     "bearer.auth.credentials.source": "OAUTHBEARER",
                 },
-            )
+            ),
+            settings=ANY,
         )
         self.assertEqual(0, result.exit_code)
 
@@ -1322,7 +1428,8 @@ class TestConsumerCli(unittest.TestCase):
                 {BOOTSTRAP_SERVERS: CONFIGURED_SERVER, "security.protocol": "SSL"},
                 Deserialization.BYTES,
                 Deserialization.BYTES,
-            )
+            ),
+            settings=ANY,
         )
         self.assertEqual(0, result.exit_code)
 
@@ -1345,7 +1452,8 @@ class TestConsumerCli(unittest.TestCase):
                 {BOOTSTRAP_SERVERS: CONFIGURED_SERVER},
                 Deserialization.BYTES,
                 Deserialization.BYTES,
-            )
+            ),
+            settings=ANY,
         )
         self.assertEqual(0, result.exit_code)
 
@@ -1373,7 +1481,8 @@ class TestConsumerCli(unittest.TestCase):
                 {BOOTSTRAP_SERVERS: EXPECTED_SERVER, "security.protocol": "SASL_SSL"},
                 Deserialization.BYTES,
                 Deserialization.BYTES,
-            )
+            ),
+            settings=ANY,
         )
         self.assertEqual(0, result.exit_code)
 
@@ -1389,7 +1498,8 @@ class TestConsumerCli(unittest.TestCase):
                 {BOOTSTRAP_SERVERS: EXPECTED_SERVER},
                 Deserialization.BYTES,
                 Deserialization.BYTES,
-            )
+            ),
+            settings=ANY,
         )
         self.assertEqual(0, result.exit_code)
 
@@ -1431,7 +1541,7 @@ class TestConsumerCli(unittest.TestCase):
             cli, [self.command, "-b", EXPECTED_SERVER, "-t", EXPECTED_TOPIC, "--theme", "dracula"]
         )
 
-        self.assertEqual("dracula", mock_class_kaskade_consumer.return_value.theme)
+        self.assertEqual("dracula", mock_class_kaskade_consumer.call_args.kwargs["settings"].theme)
         self.assertEqual(0, result.exit_code)
 
     @patch("kaskade.main.KaskadeConsumer")
@@ -1462,7 +1572,8 @@ class TestConsumerCli(unittest.TestCase):
                 {BOOTSTRAP_SERVERS: EXPECTED_SERVER},
                 Deserialization.from_str(expected_key_deserialization),
                 Deserialization.from_str(expected_value_deserialization),
-            )
+            ),
+            settings=ANY,
         )
         self.assertEqual(0, result.exit_code)
 
@@ -1713,7 +1824,8 @@ class TestConsumerCli(unittest.TestCase):
                 },
                 Deserialization.BYTES,
                 Deserialization.BYTES,
-            )
+            ),
+            settings=ANY,
         )
         self.assertEqual(0, result.exit_code)
 
@@ -1749,7 +1861,8 @@ class TestConsumerCli(unittest.TestCase):
                 },
                 Deserialization.BYTES,
                 Deserialization.BYTES,
-            )
+            ),
+            settings=ANY,
         )
         self.assertEqual(0, result.exit_code)
 
@@ -1843,7 +1956,8 @@ class TestConsumerCli(unittest.TestCase):
                     expected_property_name2: expected_property_value2,
                     expected_property_name3: expected_property_value3,
                 },
-            )
+            ),
+            settings=ANY,
         )
         self.assertEqual(0, result.exit_code)
 
@@ -2154,7 +2268,8 @@ class TestConsumerCli(unittest.TestCase):
                     expected_value_name: expected_value,
                     "value.framing": "confluent",
                 },
-            )
+            ),
+            settings=ANY,
         )
         self.assertEqual(0, result.exit_code)
 
