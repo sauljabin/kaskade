@@ -36,7 +36,6 @@ you like.
   - [Avro consumer](#avro-consumer)
   - [Protobuf consumer](#protobuf-consumer)
 - [Agent skill and cheatsheet](#agent-skill-and-cheatsheet)
-- [Migrating from v5](#migrating-from-v5)
 
 ## Common commands
 
@@ -947,11 +946,3 @@ The [cheatsheets](https://github.com/sauljabin/cheatsheets) repository has a
 `kaskade` sheet with common commands for the [cheat](https://github.com/cheat/cheat)
 CLI. After installing the cheatsheets as their README describes, run
 `cheat kaskade`.
-
-## Migrating from v5
-
-- `-b/--bootstrap-servers` is now `-b/--bootstrap-server`, and there is no
-  alias for the old name. `-b` keeps working, now repeatable: replace
-  `--bootstrap-servers a:9092,b:9092` with `-b a:9092,b:9092` or
-  `-b a:9092 -b b:9092`. `bootstrap.servers` in `--kafka` and `--config-file` is
-  unchanged.
