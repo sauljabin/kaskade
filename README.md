@@ -104,6 +104,8 @@ kaskade consumer -b my-kafka:9092 -t my-topic
 
 - [Usage](https://github.com/sauljabin/kaskade/blob/main/USAGE.md): commands,
   settings, connections, and decoding.
+- [Migration](https://github.com/sauljabin/kaskade/blob/main/MIGRATION.md):
+  upgrading between major versions.
 - [Development](https://github.com/sauljabin/kaskade/blob/main/DEVELOPMENT.md):
   working on Kaskade itself.
 - [GitHub Releases](https://github.com/sauljabin/kaskade/releases): release
