@@ -8,6 +8,7 @@ from textual import events
 from textual.app import ComposeResult
 from textual.binding import Binding, BindingType
 from textual.containers import Container, Horizontal, ScrollableContainer
+from textual.coordinate import Coordinate
 from textual.geometry import Size
 from textual.widgets import DataTable, OptionList, Static
 from textual.widgets._data_table import RowRenderables
@@ -316,6 +317,27 @@ class StretchyDataTable(DataTable[CellType]):
         data_width = sum(column.get_render_width(self) for column in columns)
         self.virtual_size = Size(data_width + row_label_width, self.virtual_size.height)
         self.refresh()
+
+
+class TruncatedTooltipDataTable(StretchyDataTable[CellType]):
+    """A stretchy data table that shows the full text of a truncated cell as a tooltip."""
+
+    TOOLTIP_COLUMNS: ClassVar[frozenset[str] | None] = None
+    """Column keys whose truncated cells get a tooltip, or ``None`` for every column."""
+
+    def watch_hover_coordinate(self, old: Coordinate, value: Coordinate) -> None:
+        super().watch_hover_coordinate(old, value)
+        self.tooltip = self._truncated_text(value)
+
+    def _truncated_text(self, coordinate: Coordinate) -> str | None:
+        if not self.is_valid_coordinate(coordinate):
+            return None
+        column_key = self.coordinate_to_cell_key(coordinate).column_key
+        if self.TOOLTIP_COLUMNS is not None and column_key.value not in self.TOOLTIP_COLUMNS:
+            return None
+        cell = self.get_cell_at(coordinate)
+        text = cell.plain if isinstance(cell, Text) else str(cell)
+        return text if cell_len(text) > self.columns[column_key].width else None
 
 
 class KaskadeOptionList(OptionList):

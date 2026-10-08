@@ -3,7 +3,6 @@ from inspect import isawaitable
 from typing import Any, ClassVar
 
 from confluent_kafka import KafkaException
-from rich.cells import cell_len
 from rich.text import Text
 from textual import work
 from textual.app import ComposeResult
@@ -49,6 +48,7 @@ from kaskade.widgets import (
     MetadataCell,
     StretchyDataTable,
     TableFrame,
+    TruncatedTooltipDataTable,
     kantrip_profile,
     labelled_value,
 )
@@ -106,20 +106,10 @@ class RecordDataTable(StretchyDataTable[str | Text]):
         self.tooltip = self._cell_tooltips.get(value)
 
 
-class HeaderDataTable(StretchyDataTable[str | Text]):
+class HeaderDataTable(TruncatedTooltipDataTable[str | Text]):
     """A compact header table that reveals truncated header names."""
 
-    def watch_hover_coordinate(self, old: Coordinate, value: Coordinate) -> None:
-        super().watch_hover_coordinate(old, value)
-        self.tooltip = None
-        if not self.is_valid_coordinate(value):
-            return
-        cell_key = self.coordinate_to_cell_key(value)
-        if cell_key.column_key.value != "name":
-            return
-        header_name = str(self.get_cell_at(value))
-        if cell_len(header_name) > self.columns[cell_key.column_key].width:
-            self.tooltip = header_name
+    TOOLTIP_COLUMNS = frozenset({"name"})
 
 
 class FilterRecordScreen(HelpableModalScreen[RecordFilters]):

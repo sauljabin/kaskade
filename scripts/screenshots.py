@@ -106,11 +106,11 @@ class AdminScreenshotApp(KaskadeAdmin):
 
     def compose(self) -> ComposeResult:
         yield KaskadeHeader(self.kafka_config, version=SCREENSHOT_VERSION)
-        yield ListTopics(MockTopicService())
+        yield ListTopics(MockTopicService(), refresh_interval=self.auto_refresh_interval)
         yield Footer(compact=True)
 
-    def admin_refresh_completed(self) -> None:
-        super().admin_refresh_completed()
+    def on_list_topics_refresh_completed(self, message: ListTopics.RefreshCompleted) -> None:
+        super().on_list_topics_refresh_completed(message)
         topics = self.query_one(ListTopics)
         topics.last_updated_at = datetime(2026, 8, 28, 14, 30, tzinfo=timezone.utc)
         topics._update_status(refreshing=False)

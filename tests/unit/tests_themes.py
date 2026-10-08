@@ -55,7 +55,7 @@ from kaskade.help import (
     HelpableModalScreen,
     HelpScreen,
 )
-from kaskade.models import Header, Record, Topic, TopicConfiguration
+from kaskade.models import Header, Partition, Record, Topic, TopicConfiguration
 from kaskade.themes import (
     DEFAULT_THEME,
     EVA01_BERSERK_THEME,
@@ -420,7 +420,7 @@ class TestCustomThemes(unittest.TestCase):
 
 class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
     async def test_themes_use_one_shared_semantic_surface_treatment(self):
-        with patch("kaskade.admin.TopicService") as topic_service:
+        with patch("kaskade.admin.app.TopicService") as topic_service:
             configure_admin_service(topic_service.return_value, {})
             app = KaskadeAdmin({})
 
@@ -457,7 +457,7 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                         )
 
     async def test_header_updates_semantic_colors_when_theme_changes(self):
-        with patch("kaskade.admin.TopicService") as topic_service:
+        with patch("kaskade.admin.app.TopicService") as topic_service:
             configure_admin_service(topic_service.return_value, {})
             app = KaskadeAdmin({})
 
@@ -478,7 +478,7 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                     )
 
     async def test_uses_footer_and_opens_a_keyboard_navigable_help_window(self):
-        with patch("kaskade.admin.TopicService") as topic_service:
+        with patch("kaskade.admin.app.TopicService") as topic_service:
             configure_admin_service(
                 topic_service.return_value,
                 {
@@ -695,7 +695,7 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual("Topics", app.screen.context)
 
     async def test_admin_supports_vim_navigation(self):
-        with patch("kaskade.admin.TopicService") as topic_service:
+        with patch("kaskade.admin.app.TopicService") as topic_service:
             configure_admin_service(
                 topic_service.return_value,
                 {
@@ -721,7 +721,7 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(0, table.cursor_row)
 
     async def test_plain_shortcuts_do_not_intercept_filter_input(self):
-        with patch("kaskade.admin.TopicService") as topic_service:
+        with patch("kaskade.admin.app.TopicService") as topic_service:
             configure_admin_service(topic_service.return_value, {})
             app = KaskadeAdmin({})
 
@@ -745,7 +745,7 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 self.assertIs(filter_input, app.screen.focused)
 
     async def test_modal_footers_show_and_run_implicit_submit_actions(self):
-        with patch("kaskade.admin.TopicService") as topic_service:
+        with patch("kaskade.admin.app.TopicService") as topic_service:
             configure_admin_service(topic_service.return_value, {})
             app = KaskadeAdmin({})
             results: list[object] = []
@@ -836,7 +836,14 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 await pilot.press("escape")
 
                 app.push_screen(
-                    EditTopicScreen("orders", "1", "1", "delete", "1000"),
+                    EditTopicScreen(
+                        Topic(name="orders", partitions=[Partition(id=0)]),
+                        {
+                            "min.insync.replicas": "1",
+                            "cleanup.policy": "delete",
+                            "retention.ms": "1000",
+                        },
+                    ),
                     results.append,
                 )
                 await pilot.pause()
@@ -847,7 +854,7 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 await pilot.press("escape")
 
     async def test_admin_uses_title_case_labels_and_contextual_palette_commands(self):
-        with patch("kaskade.admin.TopicService") as topic_service:
+        with patch("kaskade.admin.app.TopicService") as topic_service:
             configure_admin_service(
                 topic_service.return_value,
                 {"orders": Topic(name="orders")},
@@ -906,7 +913,7 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 self.assertTrue({"Maximize", "Minimize"}.isdisjoint(maximized_command_titles))
 
     async def test_selected_text_copy_is_separate_from_ctrl_c_quit(self):
-        with patch("kaskade.admin.TopicService") as topic_service:
+        with patch("kaskade.admin.app.TopicService") as topic_service:
             configure_admin_service(topic_service.return_value, {"orders": Topic(name="orders")})
             app = KaskadeAdmin({})
 
@@ -987,7 +994,7 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
 
     async def test_header_constrains_kafka_information_on_narrow_terminals(self):
         bootstrap_servers = "[::1]:9092,kafka2.example.com:9092"
-        with patch("kaskade.admin.TopicService") as topic_service:
+        with patch("kaskade.admin.app.TopicService") as topic_service:
             configure_admin_service(topic_service.return_value, {})
             app = KaskadeAdmin({BOOTSTRAP_SERVERS: bootstrap_servers})
 
@@ -1015,7 +1022,7 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
         }
         with (
             patch.dict(os.environ, environment),
-            patch("kaskade.admin.TopicService") as topic_service,
+            patch("kaskade.admin.app.TopicService") as topic_service,
             patch("kaskade.consumer.ConsumerService") as consumer_service,
         ):
             configure_admin_service(topic_service.return_value, {})
@@ -1060,7 +1067,7 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
     async def test_header_truncates_bootstrap_server_before_kantrip_profile(self):
         with (
             patch.dict(os.environ, {KANTRIP_PROFILE: "staging"}),
-            patch("kaskade.admin.TopicService") as topic_service,
+            patch("kaskade.admin.app.TopicService") as topic_service,
         ):
             configure_admin_service(topic_service.return_value, {})
             app = KaskadeAdmin({BOOTSTRAP_SERVERS: "kafka1.example.com:9092"})
@@ -1083,7 +1090,7 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
             with (
                 self.subTest(profile=value),
                 patch.dict(os.environ, environment),
-                patch("kaskade.admin.TopicService") as topic_service,
+                patch("kaskade.admin.app.TopicService") as topic_service,
             ):
                 if value is None:
                     os.environ.pop(KANTRIP_PROFILE, None)
@@ -1270,7 +1277,7 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 self.assertIsNone(deserializer.tooltip)
 
     async def test_topic_details_use_native_tabs_and_a_contextual_footer(self):
-        with patch("kaskade.admin.TopicService") as topic_service:
+        with patch("kaskade.admin.app.TopicService") as topic_service:
             configure_admin_service(topic_service.return_value, {})
             app = KaskadeAdmin({})
             configurations = (
@@ -1358,7 +1365,7 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual("configurations", tabs.active)
 
     async def test_topic_details_metadata_wraps_on_narrow_screens(self):
-        with patch("kaskade.admin.TopicService") as topic_service:
+        with patch("kaskade.admin.app.TopicService") as topic_service:
             configure_admin_service(topic_service.return_value, {})
             app = KaskadeAdmin({})
 
@@ -1381,7 +1388,7 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 )
 
     async def test_topic_details_metadata_uses_three_columns_on_compact_screens(self):
-        with patch("kaskade.admin.TopicService") as topic_service:
+        with patch("kaskade.admin.app.TopicService") as topic_service:
             configure_admin_service(topic_service.return_value, {})
             app = KaskadeAdmin({})
 
@@ -1402,7 +1409,7 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 self.assertIsNone(partitions.tooltip)
 
     async def test_topic_details_metadata_ellipsizes_labels_on_tiny_screens(self):
-        with patch("kaskade.admin.TopicService") as topic_service:
+        with patch("kaskade.admin.app.TopicService") as topic_service:
             configure_admin_service(topic_service.return_value, {})
             app = KaskadeAdmin({})
 
@@ -1416,7 +1423,7 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual("Partitions", partitions.tooltip)
 
     async def test_topic_details_help_excludes_ctrl_c_from_selected_text_copy(self):
-        with patch("kaskade.admin.TopicService") as topic_service:
+        with patch("kaskade.admin.app.TopicService") as topic_service:
             configure_admin_service(topic_service.return_value, {})
             app = KaskadeAdmin({})
 
@@ -1444,7 +1451,7 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 )
 
     async def test_chunk_size_uses_an_option_list_with_the_current_value_selected(self):
-        with patch("kaskade.admin.TopicService") as topic_service:
+        with patch("kaskade.admin.app.TopicService") as topic_service:
             configure_admin_service(topic_service.return_value, {})
             app = KaskadeAdmin({})
 
@@ -1463,7 +1470,10 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
 
     async def test_renders_dark_light_and_ansi_themes(self):
         for theme in (DEFAULT_THEME, "textual-light", "ansi-light"):
-            with self.subTest(theme=theme), patch("kaskade.admin.TopicService") as topic_service:
+            with (
+                self.subTest(theme=theme),
+                patch("kaskade.admin.app.TopicService") as topic_service,
+            ):
                 configure_admin_service(topic_service.return_value, {})
                 app = KaskadeAdmin({})
                 app.theme = theme

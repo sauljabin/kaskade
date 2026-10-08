@@ -95,7 +95,12 @@ class KaskadeApp(App, inherit_bindings=False):
 
     def __init__(self, *, settings_path: Path | None = None) -> None:
         self._rich_theme_pushed = False
-        super().__init__()
+        # Textual resolves a relative CSS_PATH against the subclass's module, so
+        # anchor it here for apps defined in other packages.
+        css_path = self.CSS_PATH
+        super().__init__(
+            css_path=Path(__file__).parent / css_path if isinstance(css_path, str) else css_path
+        )
         settings = load_settings(settings_path)
         custom_themes, custom_theme_warnings = parse_custom_themes(settings.custom_themes)
         for theme in (*KASKADE_THEMES, *custom_themes):
