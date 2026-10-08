@@ -10,8 +10,9 @@
   maintainability, then rerun relevant analysis and tests.
 - Keep each document authoritative for one audience: `README.md` and `site/`
   share the product slogan and capability summary, `USAGE.md` owns user-facing
-  commands and behavior, and `DEVELOPMENT.md` owns contributor workflows and the
-  sandbox. This file records implementation invariants; link to the canonical
+  commands and behavior, `DEVELOPMENT.md` owns contributor workflows and the
+  sandbox, and `MIGRATION.md` owns upgrade steps between major versions; no other
+  document repeats them. This file records implementation invariants; link to the canonical
   document instead of repeating its examples or reference material.
   `CLAUDE.md` only imports this file so Claude Code loads it.
 - `USAGE.md` and `DEVELOPMENT.md` open with a `## Contents` list of their `##`
@@ -44,7 +45,8 @@
   timeouts live in `admin.timeouts` and `consumer.timeouts`, and each command's
   `--timeout` accepts and lists only its own properties.
 - Don't keep deprecated options, settings, or sections, compatibility aliases,
-  deprecation warnings, or migration notes; remove replaced behavior outright.
+  or deprecation warnings; remove replaced behavior outright and record the
+  upgrade step in `MIGRATION.md`.
 - `--config-file client.ini` loads optional `[kafka]`, `[registry]`, and `[aws]`
   sections. Merge file values before matching repeatable CLI properties, then
   apply `-b/--bootstrap-server`; require a non-empty resolved

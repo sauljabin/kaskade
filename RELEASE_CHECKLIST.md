@@ -67,14 +67,14 @@ requires explicit approval of the prepared draft.
   releases, including major upgrades. Update dependencies and the lockfile,
   apply required adaptations, and document unresolved upgrade blockers.
 - [ ] Explicitly review dependency-related Python, operating-system, and service
-  compatibility changes. Document support changes and migrations; do not raise
+  compatibility changes. Record support changes in `MIGRATION.md`; do not raise
   minimum dependency versions merely to match the lockfile. Preserve documented
   baselines unless newer functionality requires changing them.
 - [ ] Compact `AGENT.md` by removing duplication and obsolete guidance without
   losing unique instructions. Verify every removed instruction is still
   represented or linked, unless it is demonstrably obsolete.
 - [ ] Review CLI, configuration, consumer-record schema, and TUI compatibility.
-  Document breaking changes and actionable migration steps.
+  Confirm `MIGRATION.md` has an actionable step for every breaking change.
 - [ ] Run the documented [sandbox smoke tests](DEVELOPMENT.md#manual-tests),
   including admin, consumer, deserialization, and Registry behavior. Follow
   the agent instructions for theme and responsive-layout verification.
@@ -134,7 +134,7 @@ requires explicit approval of the prepared draft.
   for patches with significant fixes or security updates. Record the reason
   when no announcement is needed.
 - [ ] When required, prepare the complete title and body in the agent's task
-  report. Include relevant features, fixes, breaking changes, migration steps,
+  report. Include relevant features, fixes, breaking changes, a link to `MIGRATION.md`,
   known limitations, and release links, supported by the release diff and notes.
 - [ ] After release verification, check the
   [Announcements category](https://github.com/sauljabin/kaskade/discussions/categories/announcements)
