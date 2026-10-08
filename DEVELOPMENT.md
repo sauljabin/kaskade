@@ -330,7 +330,7 @@ region. AWS credentials use the standard provider chain:
 
 ```bash
 uv run python -m sandbox \
-    --bootstrap-servers "${AWS_MSK_BOOTSTRAP_SERVERS}" \
+    --bootstrap-server "${AWS_MSK_BOOTSTRAP_SERVERS}" \
     --aws region=us-east-1
 ```
 

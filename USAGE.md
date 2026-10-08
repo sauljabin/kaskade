@@ -36,14 +36,21 @@ you like.
   - [Avro consumer](#avro-consumer)
   - [Protobuf consumer](#protobuf-consumer)
 - [Agent skill and cheatsheet](#agent-skill-and-cheatsheet)
+- [Migrating from v5](#migrating-from-v5)
 
 ## Common commands
 
 ### Multiple bootstrap servers
 
+Repeat `-b/--bootstrap-server` or pass a comma-separated list; both produce the
+same `bootstrap.servers`, in order:
+
 ```bash
+kaskade admin -b my-kafka:9092 -b my-kafka:9093
 kaskade admin -b my-kafka:9092,my-kafka:9093
 ```
+
+Empty entries and duplicate brokers are rejected.
 
 ### Consume and deserialize
 
@@ -617,7 +624,7 @@ kaskade admin --kafka bootstrap.servers=my-kafka:9092
 kaskade consumer -t my-topic --kafka bootstrap.servers=my-kafka:9092
 ```
 
-`-b/--bootstrap-servers` remains the most concise choice for ordinary commands
+`-b/--bootstrap-server` remains the most concise choice for ordinary commands
 and overrides a value from Kafka client configuration. For example, this uses
 `override-kafka:9092` while retaining the other file and inline properties:
 
@@ -634,7 +641,7 @@ Configuration precedence, from lowest to highest, is:
    section of `--config-file`.
 2. Repeated `--kafka property=value`, `--registry property=value`, and
    `--aws property=value` options, plus `--timeout property=seconds`.
-3. When supplied, `-b/--bootstrap-servers` for `bootstrap.servers`.
+3. When supplied, `-b/--bootstrap-server` for `bootstrap.servers`.
 4. Resolved AWS settings configure the Amazon MSK IAM authentication properties.
 5. In consumer mode, `--earliest` for `auto.offset.reset=earliest`.
 
@@ -940,3 +947,11 @@ The [cheatsheets](https://github.com/sauljabin/cheatsheets) repository has a
 `kaskade` sheet with common commands for the [cheat](https://github.com/cheat/cheat)
 CLI. After installing the cheatsheets as their README describes, run
 `cheat kaskade`.
+
+## Migrating from v5
+
+- `-b/--bootstrap-servers` is now `-b/--bootstrap-server`, and there is no
+  alias for the old name. `-b` keeps working, now repeatable: replace
+  `--bootstrap-servers a:9092,b:9092` with `-b a:9092,b:9092` or
+  `-b a:9092 -b b:9092`. `bootstrap.servers` in `--kafka` and `--config-file` is
+  unchanged.

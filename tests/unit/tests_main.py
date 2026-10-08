@@ -73,6 +73,78 @@ class TestCliImport(unittest.TestCase):
         self.assertEqual(result.stderr, "")
 
 
+class TestBootstrapServerOption(unittest.TestCase):
+    COMMANDS = (("admin",), ("consumer", "-t", EXPECTED_TOPIC))
+
+    def setUp(self):
+        self.runner = CliRunner()
+        close_log_handlers_on_cleanup(self)
+
+    def resolved_bootstrap_servers(self, command: tuple[str, ...], *args: str) -> str:
+        with (
+            patch("kaskade.main.KaskadeAdmin") as admin,
+            patch("kaskade.main.KaskadeConsumer") as consumer,
+        ):
+            result = self.runner.invoke(cli, [*command, *args])
+        self.assertEqual(0, result.exit_code, result.output)
+        if command[0] == "admin":
+            return admin.call_args.args[0][BOOTSTRAP_SERVERS]
+        return consumer.call_args.args[0].kafka_config[BOOTSTRAP_SERVERS]
+
+    def test_help_shows_singular_repeatable_option(self):
+        for command in self.COMMANDS:
+            with self.subTest(command[0]):
+                result = self.runner.invoke(cli, [command[0], "--help"])
+
+                self.assertEqual(0, result.exit_code)
+                self.assertIn("-b, --bootstrap-server host:port", result.output)
+                self.assertIn("Repeatable, and each value may be a", result.output)
+                self.assertNotIn("--bootstrap-servers", result.output)
+
+    def test_repeated_and_comma_forms_resolve_in_order(self):
+        for command in self.COMMANDS:
+            with self.subTest(command[0]):
+                repeated = self.resolved_bootstrap_servers(
+                    command, "-b", "kafka-3:9092", "-b", "kafka-1:9092", "-b", "kafka-2:9092"
+                )
+                comma = self.resolved_bootstrap_servers(
+                    command, "-b", "kafka-3:9092, kafka-1:9092,kafka-2:9092"
+                )
+                mixed = self.resolved_bootstrap_servers(
+                    command, "--bootstrap-server", "kafka-3:9092,kafka-1:9092", "-b", "kafka-2:9092"
+                )
+
+                self.assertEqual("kafka-3:9092,kafka-1:9092,kafka-2:9092", repeated)
+                self.assertEqual(repeated, comma)
+                self.assertEqual(repeated, mixed)
+
+    def test_rejects_empty_entries_and_duplicates(self):
+        cases = (
+            (("-b", "kafka-1:9092,"), "Empty broker in 'kafka-1:9092,'."),
+            (("-b", " "), "Empty broker in ' '."),
+            (
+                ("-b", "kafka-1:9092", "-b", "kafka-2:9092,kafka-1:9092"),
+                "Broker 'kafka-1:9092' was specified more than once.",
+            ),
+        )
+        for command in self.COMMANDS:
+            for args, message in cases:
+                with self.subTest(command[0], args=args):
+                    result = self.runner.invoke(cli, [*command, *args])
+
+                    self.assertEqual(2, result.exit_code, result.output)
+                    self.assertIn("'-b' / '--bootstrap-server'", result.output)
+                    self.assertIn(message, result.output)
+
+    def test_plural_option_is_unknown(self):
+        for command in self.COMMANDS:
+            with self.subTest(command[0]):
+                result = self.runner.invoke(cli, [*command, "--bootstrap-servers", EXPECTED_SERVER])
+
+                self.assertEqual(2, result.exit_code)
+                self.assertIn("No such option '--bootstrap-servers'", result.output)
+
+
 class TestAdminCli(unittest.TestCase):
     def setUp(self):
         self.runner = CliRunner()
@@ -89,7 +161,7 @@ class TestAdminCli(unittest.TestCase):
 
         self.assertGreater(result.exit_code, 0)
         self.assertIn("Bootstrap servers are required", result.output)
-        self.assertIn("-b/--bootstrap-servers", result.output)
+        self.assertIn("-b/--bootstrap-server or", result.output)
         self.assertIn("--kafka or --config-file", result.output)
 
     def test_help_uses_connection_and_application_groups_with_compact_theme(self):
@@ -604,7 +676,7 @@ class TestConsumerCli(unittest.TestCase):
 
         self.assertGreater(result.exit_code, 0)
         self.assertIn("Bootstrap servers are required", result.output)
-        self.assertIn("-b/--bootstrap-servers", result.output)
+        self.assertIn("-b/--bootstrap-server or", result.output)
         self.assertIn("--kafka or --config-file", result.output)
 
     def test_topic_required(self):
