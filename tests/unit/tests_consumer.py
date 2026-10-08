@@ -29,7 +29,7 @@ from kaskade.consumer.details import (
     record_payload_size,
 )
 from kaskade.consumer.records import RecordDataTable
-from kaskade.consumer_service import PartitionSelectionError
+from kaskade.consumer_service import ConsumerSettings, PartitionSelectionError
 from kaskade.deserializers import (
     BooleanDeserializer,
     BytesEncoding,
@@ -52,6 +52,7 @@ from kaskade.record_export import (
 )
 from kaskade.unicodes import WARNING_SIGN
 from kaskade.widgets import KaskadeScrollableContainer, TableFrame
+from tests import configure_consumer_service
 
 
 class TestPayloadSizeFormatting(unittest.TestCase):
@@ -400,47 +401,40 @@ class TestRecordExport(unittest.TestCase):
 
 
 class TestRecordExportActions(unittest.IsolatedAsyncioTestCase):
-    @patch("kaskade.consumer.records.ConsumerService")
+    @patch("kaskade.consumer.app.ConsumerService")
     def test_consumer_passes_bytes_and_fallback_configs_independently(
         self, consumer_service: MagicMock
     ) -> None:
-        consumer_service.return_value.consume = AsyncMock(return_value=[])
+        configure_consumer_service(consumer_service.return_value)
 
         KaskadeConsumer(
-            "orders",
-            {},
-            {},
-            {},
-            {},
-            Deserialization.BYTES,
-            Deserialization.STRING,
-            bytes_config={"key.encoding": "hex"},
-            fallback_config={"encoding": "escaped"},
+            ConsumerSettings(
+                "orders",
+                {},
+                Deserialization.BYTES,
+                Deserialization.STRING,
+                bytes_config={"key.encoding": "hex"},
+                fallback_config={"encoding": "escaped"},
+            )
         )
 
         self.assertEqual(
             {"key.encoding": "hex"},
-            consumer_service.call_args.kwargs["bytes_config"],
+            consumer_service.call_args.args[0].bytes_config,
         )
         self.assertEqual(
             {"encoding": "escaped"},
-            consumer_service.call_args.kwargs["fallback_config"],
+            consumer_service.call_args.args[0].fallback_config,
         )
 
-    @patch("kaskade.consumer.records.ConsumerService")
+    @patch("kaskade.consumer.app.ConsumerService")
     async def test_ctrl_e_exports_from_table_and_record_details(
         self, consumer_service: MagicMock
     ) -> None:
         record = exported_record()
-        consumer_service.return_value.consume = AsyncMock(return_value=[record])
+        configure_consumer_service(consumer_service.return_value, [record])
         app = KaskadeConsumer(
-            "orders",
-            {},
-            {},
-            {},
-            {},
-            Deserialization.STRING,
-            Deserialization.JSON,
+            ConsumerSettings("orders", {}, Deserialization.STRING, Deserialization.JSON)
         )
         app.deliver_text = MagicMock(return_value="delivery-key")
 
@@ -492,19 +486,13 @@ class TestRecordExportActions(unittest.IsolatedAsyncioTestCase):
             delivered_content = app.deliver_text.call_args.args[0]
             self.assertEqual(record_json(record), delivered_content.getvalue())
 
-    @patch("kaskade.consumer.records.ConsumerService")
+    @patch("kaskade.consumer.app.ConsumerService")
     async def test_table_export_is_disabled_without_a_record(
         self, consumer_service: MagicMock
     ) -> None:
-        consumer_service.return_value.consume = AsyncMock(return_value=[])
+        configure_consumer_service(consumer_service.return_value)
         app = KaskadeConsumer(
-            "orders",
-            {},
-            {},
-            {},
-            {},
-            Deserialization.STRING,
-            Deserialization.JSON,
+            ConsumerSettings("orders", {}, Deserialization.STRING, Deserialization.JSON)
         )
         app.deliver_text = MagicMock()
 
@@ -519,21 +507,15 @@ class TestRecordExportActions(unittest.IsolatedAsyncioTestCase):
 
 
 class TestRecordCopyActions(unittest.IsolatedAsyncioTestCase):
-    @patch("kaskade.consumer.records.ConsumerService")
+    @patch("kaskade.consumer.app.ConsumerService")
     async def test_y_copies_json_from_table_and_active_record_details_tab(
         self, consumer_service: MagicMock
     ) -> None:
         record = exported_record()
         expected_json = record_json(record).removesuffix("\n")
-        consumer_service.return_value.consume = AsyncMock(return_value=[record])
+        configure_consumer_service(consumer_service.return_value, [record])
         app = KaskadeConsumer(
-            "orders",
-            {},
-            {},
-            {},
-            {},
-            Deserialization.STRING,
-            Deserialization.JSON,
+            ConsumerSettings("orders", {}, Deserialization.STRING, Deserialization.JSON)
         )
         app.notify = MagicMock()
 
@@ -584,17 +566,11 @@ class TestRecordCopyActions(unittest.IsolatedAsyncioTestCase):
                         title="Copied",
                     )
 
-    @patch("kaskade.consumer.records.ConsumerService")
+    @patch("kaskade.consumer.app.ConsumerService")
     async def test_copy_is_disabled_without_a_record(self, consumer_service: MagicMock) -> None:
-        consumer_service.return_value.consume = AsyncMock(return_value=[])
+        configure_consumer_service(consumer_service.return_value)
         app = KaskadeConsumer(
-            "orders",
-            {},
-            {},
-            {},
-            {},
-            Deserialization.STRING,
-            Deserialization.JSON,
+            ConsumerSettings("orders", {}, Deserialization.STRING, Deserialization.JSON)
         )
         app.notify = MagicMock()
 
@@ -609,18 +585,12 @@ class TestRecordCopyActions(unittest.IsolatedAsyncioTestCase):
             self.assertEqual("", app.clipboard)
             app.notify.assert_not_called()
 
-    @patch("kaskade.consumer.records.ConsumerService")
+    @patch("kaskade.consumer.app.ConsumerService")
     async def test_copy_reports_deserialization_errors(self, consumer_service: MagicMock) -> None:
         record = exported_record()
-        consumer_service.return_value.consume = AsyncMock(return_value=[record])
+        configure_consumer_service(consumer_service.return_value, [record])
         app = KaskadeConsumer(
-            "orders",
-            {},
-            {},
-            {},
-            {},
-            Deserialization.STRING,
-            Deserialization.JSON,
+            ConsumerSettings("orders", {}, Deserialization.STRING, Deserialization.JSON)
         )
         app.notify = MagicMock()
 
@@ -765,7 +735,7 @@ class TestRecordDetailsTabs(unittest.IsolatedAsyncioTestCase):
                         if size[0] == 140:
                             self.assertLess(scroll.region.height, available_height)
 
-    @patch("kaskade.consumer.records.ConsumerService")
+    @patch("kaskade.consumer.app.ConsumerService")
     async def test_displays_ordered_headers_and_complete_field_diagnostics(
         self, consumer_service: MagicMock
     ) -> None:
@@ -812,15 +782,9 @@ class TestRecordDetailsTabs(unittest.IsolatedAsyncioTestCase):
             value_deserializer=MetadataDeserializer(),
             key_bytes_encoding=BytesEncoding.HEX,
         )
-        consumer_service.return_value.consume = AsyncMock(return_value=[])
+        configure_consumer_service(consumer_service.return_value)
         app = KaskadeConsumer(
-            "orders",
-            {},
-            {},
-            {},
-            {},
-            Deserialization.BYTES,
-            Deserialization.REGISTRY,
+            ConsumerSettings("orders", {}, Deserialization.BYTES, Deserialization.REGISTRY)
         )
 
         async with app.run_test() as pilot:
@@ -971,7 +935,7 @@ class TestRecordDetailsTabs(unittest.IsolatedAsyncioTestCase):
 
 
 class TestRecordDetailsNavigation(unittest.IsolatedAsyncioTestCase):
-    @patch("kaskade.consumer.records.ConsumerService")
+    @patch("kaskade.consumer.app.ConsumerService")
     async def test_navigates_records_without_closing_details_and_keeps_selection(
         self, consumer_service: MagicMock
     ) -> None:
@@ -993,15 +957,9 @@ class TestRecordDetailsNavigation(unittest.IsolatedAsyncioTestCase):
                 headers=[Header("source", b"mobile", StringDeserializer())],
             ),
         ]
-        consumer_service.return_value.consume = AsyncMock(return_value=consumed_records)
+        configure_consumer_service(consumer_service.return_value, consumed_records)
         app = KaskadeConsumer(
-            "orders",
-            {},
-            {},
-            {},
-            {},
-            Deserialization.STRING,
-            Deserialization.JSON,
+            ConsumerSettings("orders", {}, Deserialization.STRING, Deserialization.JSON)
         )
 
         async with app.run_test() as pilot:
@@ -1102,7 +1060,7 @@ class TestRecordDetailsNavigation(unittest.IsolatedAsyncioTestCase):
 
 
 class TestConsumptionCoordination(unittest.IsolatedAsyncioTestCase):
-    @patch("kaskade.consumer.records.ConsumerService")
+    @patch("kaskade.consumer.app.ConsumerService")
     async def test_keeps_records_frame_visible_while_table_loads(
         self, consumer_service: MagicMock
     ) -> None:
@@ -1114,17 +1072,11 @@ class TestConsumptionCoordination(unittest.IsolatedAsyncioTestCase):
             await release.wait()
             return []
 
+        configure_consumer_service(consumer_service.return_value)
         consumer_service.return_value.consume = AsyncMock(side_effect=consume)
-        consumer_service.return_value.aclose = AsyncMock()
         consumer_service.return_value.group_id = "authorized-reader"
         app = KaskadeConsumer(
-            "orders",
-            {},
-            {},
-            {},
-            {},
-            Deserialization.STRING,
-            Deserialization.JSON,
+            ConsumerSettings("orders", {}, Deserialization.STRING, Deserialization.JSON)
         )
 
         async with app.run_test() as pilot:
@@ -1144,7 +1096,7 @@ class TestConsumptionCoordination(unittest.IsolatedAsyncioTestCase):
                 release.set()
             await app.workers.wait_for_complete()
 
-    @patch("kaskade.consumer.records.ConsumerService")
+    @patch("kaskade.consumer.app.ConsumerService")
     async def test_boolean_cells_use_json_literals(self, consumer_service: MagicMock) -> None:
         deserializer = BooleanDeserializer()
         record = Record(
@@ -1156,15 +1108,9 @@ class TestConsumptionCoordination(unittest.IsolatedAsyncioTestCase):
             key_deserializer=deserializer,
             value_deserializer=deserializer,
         )
-        consumer_service.return_value.consume = AsyncMock(return_value=[record])
+        configure_consumer_service(consumer_service.return_value, [record])
         app = KaskadeConsumer(
-            "boolean",
-            {},
-            {},
-            {},
-            {},
-            Deserialization.BOOLEAN,
-            Deserialization.BOOLEAN,
+            ConsumerSettings("boolean", {}, Deserialization.BOOLEAN, Deserialization.BOOLEAN)
         )
 
         async with app.run_test() as pilot:
@@ -1174,7 +1120,7 @@ class TestConsumptionCoordination(unittest.IsolatedAsyncioTestCase):
 
             self.assertEqual(["false", "true"], row[:2])
 
-    @patch("kaskade.consumer.records.ConsumerService")
+    @patch("kaskade.consumer.app.ConsumerService")
     async def test_warning_record_has_visible_indicator_and_warning_cells(
         self, consumer_service: MagicMock
     ) -> None:
@@ -1192,15 +1138,9 @@ class TestConsumptionCoordination(unittest.IsolatedAsyncioTestCase):
             value_deserializer=StringDeserializer(),
             fallback_bytes_encoding=BytesEncoding.HEX,
         )
-        consumer_service.return_value.consume = AsyncMock(return_value=[record])
+        configure_consumer_service(consumer_service.return_value, [record])
         app = KaskadeConsumer(
-            "orders",
-            {},
-            {},
-            {},
-            {},
-            Deserialization.JSON,
-            Deserialization.STRING,
+            ConsumerSettings("orders", {}, Deserialization.JSON, Deserialization.STRING)
         )
 
         async with app.run_test() as pilot:
@@ -1235,7 +1175,7 @@ class TestConsumptionCoordination(unittest.IsolatedAsyncioTestCase):
 
             self.assertIsNone(table.tooltip)
 
-    @patch("kaskade.consumer.records.ConsumerService")
+    @patch("kaskade.consumer.app.ConsumerService")
     async def test_null_key_and_value_have_colored_cells_and_tooltips(
         self, consumer_service: MagicMock
     ) -> None:
@@ -1246,15 +1186,9 @@ class TestConsumptionCoordination(unittest.IsolatedAsyncioTestCase):
             key_deserialization=Deserialization.STRING,
             value_deserialization=Deserialization.JSON,
         )
-        consumer_service.return_value.consume = AsyncMock(return_value=[record])
+        configure_consumer_service(consumer_service.return_value, [record])
         app = KaskadeConsumer(
-            "orders",
-            {},
-            {},
-            {},
-            {},
-            Deserialization.STRING,
-            Deserialization.JSON,
+            ConsumerSettings("orders", {}, Deserialization.STRING, Deserialization.JSON)
         )
 
         async with app.run_test() as pilot:
@@ -1285,7 +1219,7 @@ class TestConsumptionCoordination(unittest.IsolatedAsyncioTestCase):
             self.assertIn("This Kafka record is a tombstone", table.tooltip.plain)
             self.assertEqual(WARNING_STYLE, table.tooltip.spans[0].style)
 
-    @patch("kaskade.consumer.records.ConsumerService")
+    @patch("kaskade.consumer.app.ConsumerService")
     async def test_duplicate_requests_do_not_schedule_overlapping_consumers(
         self, consumer_service: MagicMock
     ) -> None:
@@ -1297,16 +1231,10 @@ class TestConsumptionCoordination(unittest.IsolatedAsyncioTestCase):
             await release.wait()
             return []
 
+        configure_consumer_service(consumer_service.return_value)
         consumer_service.return_value.consume = AsyncMock(side_effect=consume)
-        consumer_service.return_value.aclose = AsyncMock()
         app = KaskadeConsumer(
-            "orders",
-            {},
-            {},
-            {},
-            {},
-            Deserialization.STRING,
-            Deserialization.JSON,
+            ConsumerSettings("orders", {}, Deserialization.STRING, Deserialization.JSON)
         )
 
         async with app.run_test():
@@ -1331,11 +1259,13 @@ def consumer_service_mock(group_id: str, records: list[Record] | None = None) ->
 
 
 def new_consumer_app() -> KaskadeConsumer:
-    return KaskadeConsumer("orders", {}, {}, {}, {}, Deserialization.STRING, Deserialization.STRING)
+    return KaskadeConsumer(
+        ConsumerSettings("orders", {}, Deserialization.STRING, Deserialization.STRING)
+    )
 
 
 class TestRecordFilterRebuild(unittest.IsolatedAsyncioTestCase):
-    @patch("kaskade.consumer.records.ConsumerService")
+    @patch("kaskade.consumer.app.ConsumerService")
     def test_cli_closes_the_consumer_when_start_fails(self, consumer_service: MagicMock) -> None:
         consumer_service.return_value.start.side_effect = PartitionSelectionError("missing")
 
@@ -1344,7 +1274,7 @@ class TestRecordFilterRebuild(unittest.IsolatedAsyncioTestCase):
 
         consumer_service.return_value.close.assert_called_once_with()
 
-    @patch("kaskade.consumer.records.ConsumerService")
+    @patch("kaskade.consumer.app.ConsumerService")
     async def test_filter_closes_the_previous_consumer_off_the_ui_thread(
         self, consumer_service: MagicMock
     ) -> None:
@@ -1402,7 +1332,7 @@ class TestRecordFilterRebuild(unittest.IsolatedAsyncioTestCase):
             frame = app.query_one("#records-frame", TableFrame)
             self.assertIn("replacement-group", frame.border_subtitle)
 
-    @patch("kaskade.consumer.records.ConsumerService")
+    @patch("kaskade.consumer.app.ConsumerService")
     async def test_failed_rebuild_is_reported_and_consumption_can_retry(
         self, consumer_service: MagicMock
     ) -> None:

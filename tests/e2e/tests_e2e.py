@@ -39,6 +39,7 @@ from kaskade.configs import (
     EARLIEST,
 )
 from kaskade.consumer import KaskadeConsumer, ListRecords
+from kaskade.consumer_service import ConsumerSettings
 from kaskade.deserializers import Deserialization
 from kaskade.models import PartitionOffset, PartitionSelection
 
@@ -220,14 +221,16 @@ class TestE2E(unittest.IsolatedAsyncioTestCase):
         expected_registry_provider: str | None = None,
     ) -> None:
         consumer_app = KaskadeConsumer(
-            topic,
-            kafka_config | {AUTO_OFFSET_RESET: EARLIEST},
-            registry_config or {},
-            protobuf_config or {},
-            avro_config or {},
-            Deserialization.STRING,
-            value_deserialization,
-            json_config=json_config,
+            ConsumerSettings(
+                topic,
+                kafka_config | {AUTO_OFFSET_RESET: EARLIEST},
+                Deserialization.STRING,
+                value_deserialization,
+                registry_config=registry_config or {},
+                protobuf_config=protobuf_config or {},
+                avro_config=avro_config or {},
+                json_config=json_config,
+            )
         )
         async with consumer_app.run_test():
             table = consumer_app.query_one(DataTable)
@@ -268,13 +271,12 @@ class TestE2E(unittest.IsolatedAsyncioTestCase):
             populate_topic(config)
 
             consumer_app = KaskadeConsumer(
-                MY_TOPIC,
-                config | {AUTO_OFFSET_RESET: EARLIEST},
-                {},
-                {},
-                {},
-                Deserialization.STRING,
-                Deserialization.STRING,
+                ConsumerSettings(
+                    MY_TOPIC,
+                    config | {AUTO_OFFSET_RESET: EARLIEST},
+                    Deserialization.STRING,
+                    Deserialization.STRING,
+                )
             )
             async with consumer_app.run_test():
                 table = consumer_app.query_one(DataTable)
@@ -294,14 +296,13 @@ class TestE2E(unittest.IsolatedAsyncioTestCase):
             producer.flush()
 
             consumer_app = KaskadeConsumer(
-                MY_TOPIC,
-                config,
-                {},
-                {},
-                {},
-                Deserialization.STRING,
-                Deserialization.STRING,
-                partitions=(PartitionSelection(1, PartitionOffset.EARLIEST),),
+                ConsumerSettings(
+                    MY_TOPIC,
+                    config,
+                    Deserialization.STRING,
+                    Deserialization.STRING,
+                    partitions=(PartitionSelection(1, PartitionOffset.EARLIEST),),
+                )
             )
             async with consumer_app.run_test():
                 table = consumer_app.query_one(DataTable)

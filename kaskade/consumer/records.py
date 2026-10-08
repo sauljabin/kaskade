@@ -1,6 +1,6 @@
 """The consumed records list."""
 
-from inspect import isawaitable
+from collections.abc import Callable
 from typing import Any, ClassVar
 
 from confluent_kafka import KafkaException
@@ -34,9 +34,8 @@ from kaskade.deserializers import (
     Deserialization,
     DeserializerPool,
 )
-from kaskade.models import DeserializationOutcome, PartitionSelection, Record
+from kaskade.models import DeserializationOutcome, Record
 from kaskade.record_export import deliver_record, record_json
-from kaskade.timeouts import TimeoutConfig
 from kaskade.ui import copy_text, notify_error
 from kaskade.unicodes import WARNING_SIGN
 from kaskade.widgets import StretchyDataTable, TableFrame
@@ -46,32 +45,6 @@ FILTER_SHORTCUT = "/,ctrl+f"
 CONSUMER_EXCEPTIONS: tuple[type[Exception], ...] = (KafkaException, PartitionSelectionError)
 KEY_COLUMN_INDEX = 0
 VALUE_COLUMN_INDEX = 1
-
-
-def new_consumer(
-    topic: str,
-    kafka_config: dict[str, Any],
-    deserializer_factory: DeserializerPool,
-    key_deserialization: Deserialization,
-    value_deserialization: Deserialization,
-    *,
-    bytes_config: dict[str, str],
-    fallback_config: dict[str, str],
-    partitions: tuple[PartitionSelection, ...],
-    timeouts: TimeoutConfig,
-) -> ConsumerService:
-    """Build the consumer the app starts and a filter change rebuilds."""
-    return ConsumerService(
-        topic,
-        kafka_config,
-        deserializer_factory,
-        key_deserialization,
-        value_deserialization,
-        bytes_config=bytes_config,
-        fallback_config=fallback_config,
-        partitions=partitions,
-        timeouts=timeouts,
-    )
 
 
 class RecordDataTable(StretchyDataTable[str | Text]):
@@ -156,45 +129,20 @@ class ListRecords(Container):
     def __init__(
         self,
         topic: str,
-        kafka_config: dict[str, Any],
-        deserializer_factory: DeserializerPool,
-        key_deserialization: Deserialization,
-        value_deserialization: Deserialization,
+        consumer_factory: Callable[[], ConsumerService],
+        deserializer_pool: DeserializerPool,
         *,
-        bytes_config: dict[str, str] | None = None,
-        fallback_config: dict[str, str] | None = None,
-        partitions: tuple[PartitionSelection, ...] = (),
         consumer: ConsumerService | None = None,
-        timeouts: TimeoutConfig | None = None,
     ):
         super().__init__()
         self.topic = topic
-        self.kafka_config = kafka_config
-        self.deserializer_factory = deserializer_factory
-        self.key_deserialization = key_deserialization
-        self.value_deserialization = value_deserialization
-        self.bytes_config = bytes_config or {}
-        self.fallback_config = fallback_config or {}
-        self.partitions = partitions
-        self.timeouts = timeouts or TimeoutConfig()
-        self.consumer = consumer or self._new_consumer()
+        self.consumer_factory = consumer_factory
+        self.deserializer_pool = deserializer_pool
+        self.consumer = consumer or consumer_factory()
         self.records: dict[str, Record] = {}
         self.current_record: Record | None = None
         self.filters = RecordFilters()
         self._is_consuming = False
-
-    def _new_consumer(self) -> ConsumerService:
-        return new_consumer(
-            self.topic,
-            self.kafka_config,
-            self.deserializer_factory,
-            self.key_deserialization,
-            self.value_deserialization,
-            bytes_config=self.bytes_config,
-            fallback_config=self.fallback_config,
-            partitions=self.partitions,
-            timeouts=self.timeouts,
-        )
 
     def _get_title(self) -> str:
         def style(text: str) -> str:
@@ -220,12 +168,8 @@ class ListRecords(Container):
         )
 
     def _get_subtitle(self) -> str:
-        group_id = getattr(self.consumer, "group_id", None)
-        description = (
-            f"Consumer Mode · Group {group_id}"
-            if isinstance(group_id, str) and group_id
-            else "Consumer Mode"
-        )
+        group_id = self.consumer.group_id
+        description = f"Consumer Mode · Group {group_id}" if group_id else "Consumer Mode"
         return rf"\[[{PRIMARY}]{description}[/]]"
 
     def compose(self) -> ComposeResult:
@@ -247,11 +191,9 @@ class ListRecords(Container):
 
     async def on_unmount(self) -> None:
         try:
-            result = self.consumer.aclose()
-            if isawaitable(result):
-                await result
+            await self.consumer.aclose()
         finally:
-            self.deserializer_factory.close()
+            self.deserializer_pool.close()
 
     def on_mount(self) -> None:
         self.query_one("#records-table", DataTable).focus()
@@ -287,7 +229,7 @@ class ListRecords(Container):
         """Restart consumption from the configured position without blocking the UI."""
         previous = self.consumer
         try:
-            self.consumer = self._new_consumer()
+            self.consumer = self.consumer_factory()
             self.query_one("#records-frame", TableFrame).border_subtitle = self._get_subtitle()
             await previous.aclose()
         except CONSUMER_EXCEPTIONS as ex:

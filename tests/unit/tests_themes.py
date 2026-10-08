@@ -2,7 +2,7 @@ import os
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 from textual.command import CommandList, CommandPalette
 from textual.containers import Container, Grid
@@ -45,6 +45,7 @@ from kaskade.consumer import (
     ListRecords,
     TopicScreen,
 )
+from kaskade.consumer_service import ConsumerSettings
 from kaskade.deserializers import Deserialization, StringDeserializer
 from kaskade.help import (
     KASKADE_ISSUES_URL,
@@ -72,7 +73,7 @@ from kaskade.widgets import (
     StretchyDataTable,
     TableFrame,
 )
-from tests import configure_admin_service
+from tests import configure_admin_service, configure_consumer_service
 
 
 class TestThemes(unittest.TestCase):
@@ -952,17 +953,16 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual("", app.clipboard)
 
     async def test_consumer_uses_a_stretchy_records_table(self):
-        with patch("kaskade.consumer.records.ConsumerService") as consumer_service:
-            consumer_service.return_value.consume = AsyncMock(return_value=[])
+        with patch("kaskade.consumer.app.ConsumerService") as consumer_service:
+            configure_consumer_service(consumer_service.return_value)
             bootstrap_servers = "kafka1:9092,kafka2:9092"
             app = KaskadeConsumer(
-                "orders",
-                {BOOTSTRAP_SERVERS: bootstrap_servers},
-                {},
-                {},
-                {},
-                Deserialization.STRING,
-                Deserialization.STRING,
+                ConsumerSettings(
+                    "orders",
+                    {BOOTSTRAP_SERVERS: bootstrap_servers},
+                    Deserialization.STRING,
+                    Deserialization.STRING,
+                )
             )
 
             async with app.run_test(size=(100, 24)) as pilot:
@@ -1022,20 +1022,19 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
         with (
             patch.dict(os.environ, environment),
             patch("kaskade.admin.app.TopicService") as topic_service,
-            patch("kaskade.consumer.records.ConsumerService") as consumer_service,
+            patch("kaskade.consumer.app.ConsumerService") as consumer_service,
         ):
             configure_admin_service(topic_service.return_value, {})
-            consumer_service.return_value.consume = AsyncMock(return_value=[])
+            configure_consumer_service(consumer_service.return_value)
             apps = {
                 "admin": KaskadeAdmin({BOOTSTRAP_SERVERS: "kafka1:9092"}),
                 "consumer": KaskadeConsumer(
-                    "orders",
-                    {BOOTSTRAP_SERVERS: "kafka1:9092"},
-                    {},
-                    {},
-                    {},
-                    Deserialization.STRING,
-                    Deserialization.STRING,
+                    ConsumerSettings(
+                        "orders",
+                        {BOOTSTRAP_SERVERS: "kafka1:9092"},
+                        Deserialization.STRING,
+                        Deserialization.STRING,
+                    )
                 ),
             }
 
@@ -1106,16 +1105,10 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                     self.assertEqual(3, header.region.height)
 
     async def test_record_details_use_native_tabs_and_fill_narrow_layout(self):
-        with patch("kaskade.consumer.records.ConsumerService") as consumer_service:
-            consumer_service.return_value.consume = AsyncMock(return_value=[])
+        with patch("kaskade.consumer.app.ConsumerService") as consumer_service:
+            configure_consumer_service(consumer_service.return_value)
             app = KaskadeConsumer(
-                "orders",
-                {},
-                {},
-                {},
-                {},
-                Deserialization.STRING,
-                Deserialization.STRING,
+                ConsumerSettings("orders", {}, Deserialization.STRING, Deserialization.STRING)
             )
 
             async with app.run_test(size=(60, 24)) as pilot:
@@ -1239,16 +1232,10 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 self.assertIs(records_table, app.screen.focused)
 
     async def test_record_metadata_ellipsizes_labels_on_tiny_screens(self):
-        with patch("kaskade.consumer.records.ConsumerService") as consumer_service:
-            consumer_service.return_value.consume = AsyncMock(return_value=[])
+        with patch("kaskade.consumer.app.ConsumerService") as consumer_service:
+            configure_consumer_service(consumer_service.return_value)
             app = KaskadeConsumer(
-                "orders",
-                {},
-                {},
-                {},
-                {},
-                Deserialization.STRING,
-                Deserialization.STRING,
+                ConsumerSettings("orders", {}, Deserialization.STRING, Deserialization.STRING)
             )
 
             async with app.run_test(size=(24, 24)) as pilot:

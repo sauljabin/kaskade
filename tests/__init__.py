@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 from faker import Faker
 
-from kaskade.models import MetricState, Topic
+from kaskade.models import MetricState, Record, Topic
 from kaskade.topic_service import EnrichmentResult, GroupSnapshot
 
 faker = Faker()
@@ -19,6 +19,13 @@ def failed(error: Exception) -> Future[object]:
     future: Future[object] = Future()
     future.set_exception(error)
     return future
+
+
+def configure_consumer_service(service: MagicMock, records: list[Record] | None = None) -> None:
+    """Make a consumer service double consume the records and close asynchronously."""
+    service.consume = AsyncMock(return_value=records or [])
+    service.aclose = AsyncMock()
+    service.group_id = ""
 
 
 def configure_admin_service(service: MagicMock, topics: dict[str, Topic]) -> None:

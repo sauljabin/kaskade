@@ -86,6 +86,10 @@
   `start()` before the TUI opens to report connection errors, and `consume()`
   starts it lazily in a worker thread, so filter changes rebuild the consumer
   off the UI thread.
+- Consumer options live in the frozen `ConsumerSettings`; adding one changes
+  only the CLI and that dataclass. `KaskadeConsumer.new_consumer()` is the
+  single place a `ConsumerService` is built, and `ListRecords` receives it as
+  a factory.
 - `consumer --earliest` subscribes to all partitions with
   `auto.offset.reset=earliest`. Repeatable
   `--partition PARTITION[:OFFSET|earliest]` uses manual assignment and must not
