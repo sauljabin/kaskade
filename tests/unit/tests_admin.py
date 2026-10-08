@@ -882,7 +882,7 @@ class TestAdminRefresh(unittest.IsolatedAsyncioTestCase):
                     await pilot.pause()
 
                     self.assertEqual(0, app.auto_refresh_interval)
-                    self.assertIsNone(app._auto_refresh_timer)
+                    self.assertIsNone(app._periodic_refresh_timer)
                     self.assertIn(
                         "Auto Off",
                         app.query_one("#topics-frame", TableFrame).border_subtitle,

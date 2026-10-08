@@ -194,7 +194,7 @@ class ListTopics(Container):
         table = self.query_one("#topics-table", DataTable)
         table.focus()
         table.loading = True
-        self._update_status(refreshing=True)
+        self.update_status(refreshing=True)
 
     def on_data_table_row_highlighted(self, data: DataTable.RowHighlighted) -> None:
         if data.row_key.value is None:
@@ -215,7 +215,7 @@ class ListTopics(Container):
             self._start_refresh(generation)
 
     def _start_refresh(self, generation: int) -> None:
-        self._update_status(refreshing=True)
+        self.update_status(refreshing=True)
         self.refresh_topics(generation)
 
     @work(exclusive=True, group="topics-refresh")
@@ -294,7 +294,7 @@ class ListTopics(Container):
         if not self.is_attached:
             return
         table.loading = False
-        self._update_status(refreshing=False)
+        self.update_status(refreshing=False)
         self.post_message(self.RefreshCompleted())
         if self.refresh_coordinator.take_pending():
             self.call_after_refresh(lambda: self.request_refresh(RefreshReason.PENDING))
@@ -573,7 +573,8 @@ class ListTopics(Container):
             metric_value(topic.groups_state, f"{APPROXIMATION}{topic.lag()}"),
         ]
 
-    def _update_status(self, *, refreshing: bool) -> None:
+    def update_status(self, *, refreshing: bool) -> None:
+        """Show the refresh state, last update time, and auto-refresh interval."""
         auto_status = f"Auto {self.refresh_interval}s" if self.refresh_interval else "Auto Off"
         if refreshing:
             state = "Refreshing…"

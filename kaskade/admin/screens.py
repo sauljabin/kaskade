@@ -250,7 +250,7 @@ class DescribeTopicScreen(HelpableModalScreen):
 
     def on_tabbed_content_tab_activated(self, event: TabbedContent.TabActivated) -> None:
         table = event.pane.query_one(StretchyDataTable)
-        table.call_after_refresh(table._stretch_columns)
+        table.call_after_refresh(table.restretch)
 
     def _partitions_table(self) -> StretchyDataTable[str]:
         table = self._new_table("partitions-table")

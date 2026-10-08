@@ -23,7 +23,6 @@ from textual.widgets import (
     TabPane,
     Tabs,
 )
-from textual.widgets._footer import FooterKey
 
 from kaskade import APP_NAME, APP_VERSION
 from kaskade.admin import (
@@ -557,12 +556,12 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                     {"Describe", "Filter", "Refresh", "Create", "Quit", "Commands"}
                     <= active_descriptions
                 )
-                palette_keys = [key for key in app.query(FooterKey) if key.key_display == ":"]
+                palette_keys = [key for key in app.query("FooterKey") if key.key_display == ":"]
                 self.assertEqual(1, len(palette_keys))
                 self.assertEqual("Commands", palette_keys[0].description)
                 self.assertEqual(
                     ["Quit", "Help", "Commands"],
-                    [key.description for key in app.query(FooterKey)][-3:],
+                    [key.description for key in app.query("FooterKey")][-3:],
                 )
 
                 await pilot.press("?")
@@ -590,7 +589,7 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(f"{APP_NAME.title()} v{APP_VERSION}", help_heading.render().plain)
                 self.assertEqual(1, help_about.styles.margin.bottom)
                 self.assertIsNone(help_table.border_title)
-                help_footer_keys = list(help_footer.query(FooterKey))
+                help_footer_keys = list(help_footer.query("FooterKey"))
                 self.assertEqual(1, len(help_footer_keys))
                 self.assertEqual("esc", help_footer_keys[0].key_display)
                 self.assertEqual("Back", help_footer_keys[0].description)
@@ -754,7 +753,7 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
 
                 def footer_commands() -> list[tuple[str, str]]:
                     footer = app.screen.query_one(Footer)
-                    return [(key.key_display, key.description) for key in footer.query(FooterKey)]
+                    return [(key.key_display, key.description) for key in footer.query("FooterKey")]
 
                 app.push_screen(FilterTopicsScreen(), results.append)
                 await pilot.pause()
@@ -1205,10 +1204,7 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                     header_list.ordered_columns[0].width,
                     header_list.ordered_columns[1].width,
                 )
-                self.assertEqual(
-                    "ellipsis",
-                    header_list._compute_row_renderables(0).cells[1].overflow,
-                )
+                self.assertTrue(header_list.render_line(0).text.rstrip().endswith("…"))
                 header_list.hover_coordinate = Coordinate(0, 1)
                 await pilot.pause()
                 self.assertEqual("long-header-key", header_list.tooltip)

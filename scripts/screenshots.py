@@ -113,7 +113,7 @@ class AdminScreenshotApp(KaskadeAdmin):
         super().on_list_topics_refresh_completed(message)
         topics = self.query_one(ListTopics)
         topics.last_updated_at = datetime(2026, 8, 28, 14, 30, tzinfo=timezone.utc)
-        topics._update_status(refreshing=False)
+        topics.update_status(refreshing=False)
 
 
 def mock_records() -> list[Record]:

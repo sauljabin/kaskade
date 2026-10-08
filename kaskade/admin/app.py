@@ -32,12 +32,12 @@ class KaskadeAdmin(KaskadeApp):
             if refresh_interval is None
             else refresh_interval
         )
-        self._auto_refresh_timer: Timer | None = None
+        self._periodic_refresh_timer: Timer | None = None
 
     def on_mount(self) -> None:
         super().on_mount()
         if self.auto_refresh_interval:
-            self._auto_refresh_timer = self.set_interval(
+            self._periodic_refresh_timer = self.set_interval(
                 self.auto_refresh_interval,
                 self._request_periodic_refresh,
                 name="admin-auto-refresh",
@@ -65,13 +65,13 @@ class KaskadeAdmin(KaskadeApp):
         return len(self.screen_stack) == 2
 
     def _pause_auto_refresh(self) -> None:
-        if self._auto_refresh_timer is not None:
-            self._auto_refresh_timer.pause()
+        if self._periodic_refresh_timer is not None:
+            self._periodic_refresh_timer.pause()
 
     def _restart_auto_refresh(self) -> None:
-        if self._auto_refresh_timer is not None:
-            self._auto_refresh_timer.resume()
-            self._auto_refresh_timer.reset()
+        if self._periodic_refresh_timer is not None:
+            self._periodic_refresh_timer.resume()
+            self._periodic_refresh_timer.reset()
 
     def _resume_auto_refresh(self) -> None:
         if not self.auto_refresh_interval or not self._on_root_screen():
