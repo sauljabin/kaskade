@@ -27,12 +27,14 @@ from kaskade.admin import (
     FilterTopicsScreen,
     KaskadeAdmin,
     ListTopics,
-    RefreshCoordinator,
-    RefreshReason,
-    TopicDataTable,
 )
+from kaskade.admin.topics import TopicDataTable
 from kaskade.commands import CreateTopicCommand, UpdateTopicCommand
-from kaskade.configs import MIN_INSYNC_REPLICAS_CONFIG
+from kaskade.configs import (
+    CLEANUP_POLICY_CONFIG,
+    MIN_INSYNC_REPLICAS_CONFIG,
+    RETENTION_MS_CONFIG,
+)
 from kaskade.models import (
     Group,
     GroupMember,
@@ -43,10 +45,22 @@ from kaskade.models import (
     Topic,
     TopicConfiguration,
 )
+from kaskade.refresh import RefreshCoordinator, RefreshReason
 from kaskade.settings import SETTINGS_ENV_VAR
 from kaskade.topic_service import EnrichmentResult, GroupSnapshot
 from kaskade.widgets import TableFrame
 from tests import configure_admin_service
+
+
+def edit_topic_screen(
+    *, min_insync_replicas: str = "2", cleanup_policy: str = "delete"
+) -> EditTopicScreen:
+    """Edit a three-partition topic whose missing configuration has an empty value."""
+    configs = {CLEANUP_POLICY_CONFIG: cleanup_policy, RETENTION_MS_CONFIG: "1000"}
+    if min_insync_replicas:
+        configs[MIN_INSYNC_REPLICAS_CONFIG] = min_insync_replicas
+    topic = Topic(name="orders", partitions=[Partition(id=index) for index in range(3)])
+    return EditTopicScreen(topic, configs)
 
 
 class TestRefreshCoordinator(unittest.TestCase):
@@ -100,7 +114,7 @@ class TestInitialLoadingFrame(unittest.IsolatedAsyncioTestCase):
             return {}
 
         service.metadata = AsyncMock(side_effect=metadata)
-        with patch("kaskade.admin.TopicService", return_value=service):
+        with patch("kaskade.admin.app.TopicService", return_value=service):
             app = KaskadeAdmin({})
             async with app.run_test() as pilot:
                 try:
@@ -121,7 +135,7 @@ class TestInitialLoadingFrame(unittest.IsolatedAsyncioTestCase):
     async def test_shows_only_truncated_topic_name_in_table_tooltip(self) -> None:
         long_topic = Topic(name="example-streamlet.sl.example-streamlet")
         short_topic = Topic(name="orders")
-        with patch("kaskade.admin.TopicService") as topic_service:
+        with patch("kaskade.admin.app.TopicService") as topic_service:
             configure_admin_service(
                 topic_service.return_value,
                 {long_topic.name: long_topic, short_topic.name: short_topic},
@@ -147,7 +161,7 @@ class TestInitialLoadingFrame(unittest.IsolatedAsyncioTestCase):
 
 class TestCreateTopic(unittest.IsolatedAsyncioTestCase):
     async def test_f2_creates_topic_from_an_input(self) -> None:
-        with patch("kaskade.admin.TopicService") as topic_service:
+        with patch("kaskade.admin.app.TopicService") as topic_service:
             configure_admin_service(topic_service.return_value, {})
             app = KaskadeAdmin({})
             results: list[CreateTopicCommand | None] = []
@@ -162,7 +176,7 @@ class TestCreateTopic(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual("orders", results[0].name)
 
     async def test_ctrl_shift_s_creates_topic_from_an_input(self) -> None:
-        with patch("kaskade.admin.TopicService") as topic_service:
+        with patch("kaskade.admin.app.TopicService") as topic_service:
             configure_admin_service(topic_service.return_value, {})
             app = KaskadeAdmin({})
             results: list[CreateTopicCommand | None] = []
@@ -177,7 +191,7 @@ class TestCreateTopic(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual("orders", results[0].name)
 
     async def test_uses_broker_defaults_for_advanced_replication_settings(self) -> None:
-        with patch("kaskade.admin.TopicService") as topic_service:
+        with patch("kaskade.admin.app.TopicService") as topic_service:
             configure_admin_service(topic_service.return_value, {})
             app = KaskadeAdmin({})
             results: list[CreateTopicCommand | None] = []
@@ -199,7 +213,7 @@ class TestCreateTopic(unittest.IsolatedAsyncioTestCase):
                 self.assertIsNone(results[0].min_insync_replicas)
 
     async def test_keeps_invalid_topic_configuration_open(self) -> None:
-        with patch("kaskade.admin.TopicService") as topic_service:
+        with patch("kaskade.admin.app.TopicService") as topic_service:
             configure_admin_service(topic_service.return_value, {})
             app = KaskadeAdmin({})
             results: list[CreateTopicCommand | None] = []
@@ -232,7 +246,7 @@ class TestCreateTopic(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual("orders", results[0].name)
 
     async def test_stops_loading_when_kafka_rejects_topic(self) -> None:
-        with patch("kaskade.admin.TopicService") as topic_service:
+        with patch("kaskade.admin.app.TopicService") as topic_service:
             configure_admin_service(topic_service.return_value, {})
             topic_service.return_value.create.side_effect = KafkaException("invalid topic")
             app = KaskadeAdmin({})
@@ -256,11 +270,11 @@ class TestUpdateTopic(unittest.IsolatedAsyncioTestCase):
         app = KaskadeAdmin({})
         results: list[UpdateTopicCommand | None] = []
 
-        with patch("kaskade.admin.TopicService") as topic_service:
+        with patch("kaskade.admin.app.TopicService") as topic_service:
             configure_admin_service(topic_service.return_value, {})
             async with app.run_test() as pilot:
                 app.push_screen(
-                    EditTopicScreen("orders", "3", "2", "delete", "1000"),
+                    edit_topic_screen(),
                     results.append,
                 )
                 await pilot.pause()
@@ -274,12 +288,10 @@ class TestUpdateTopic(unittest.IsolatedAsyncioTestCase):
         app = KaskadeAdmin({})
         results: list[UpdateTopicCommand | None] = []
 
-        with patch("kaskade.admin.TopicService") as topic_service:
+        with patch("kaskade.admin.app.TopicService") as topic_service:
             configure_admin_service(topic_service.return_value, {})
             async with app.run_test() as pilot:
-                app.push_screen(
-                    EditTopicScreen("orders", "3", "2", "delete", "1000"), results.append
-                )
+                app.push_screen(edit_topic_screen(), results.append)
                 await pilot.pause()
 
                 advanced = app.screen.query_one("#advanced-topic-config", Collapsible)
@@ -304,11 +316,11 @@ class TestUpdateTopic(unittest.IsolatedAsyncioTestCase):
             with self.subTest(setting=setting):
                 app = KaskadeAdmin({})
                 results: list[UpdateTopicCommand | None] = []
-                with patch("kaskade.admin.TopicService") as topic_service:
+                with patch("kaskade.admin.app.TopicService") as topic_service:
                     configure_admin_service(topic_service.return_value, {})
                     async with app.run_test() as pilot:
                         app.push_screen(
-                            EditTopicScreen("orders", "3", "2", "delete", "1000"),
+                            edit_topic_screen(),
                             results.append,
                         )
                         await pilot.pause()
@@ -325,15 +337,39 @@ class TestUpdateTopic(unittest.IsolatedAsyncioTestCase):
 
                         self.assertEqual(expected, results[0])
 
+    async def test_reads_cleanup_policy_from_the_button_not_its_label(self) -> None:
+        screens: tuple[CreateTopicScreen | EditTopicScreen, ...] = (
+            CreateTopicScreen(),
+            edit_topic_screen(),
+        )
+        for screen in screens:
+            with self.subTest(screen=type(screen).__name__):
+                app = KaskadeAdmin({})
+                results: list[CreateTopicCommand | UpdateTopicCommand | None] = []
+                with patch("kaskade.admin.app.TopicService") as topic_service:
+                    configure_admin_service(topic_service.return_value, {})
+                    async with app.run_test() as pilot:
+                        app.push_screen(screen, results.append)
+                        await pilot.pause()
+                        if isinstance(screen, CreateTopicScreen):
+                            app.screen.query_one("#name", Input).value = "orders"
+                        compact = app.screen.query(RadioButton)[1]
+                        compact.label = "Compacted"
+                        compact.value = True
+
+                        await pilot.press("ctrl+s")
+
+                        self.assertEqual("compact", results[0].cleanup_policy)
+
     async def test_preserves_unsupported_cleanup_policy_when_unchanged(self) -> None:
         app = KaskadeAdmin({})
         results: list[UpdateTopicCommand | None] = []
 
-        with patch("kaskade.admin.TopicService") as topic_service:
+        with patch("kaskade.admin.app.TopicService") as topic_service:
             configure_admin_service(topic_service.return_value, {})
             async with app.run_test() as pilot:
                 app.push_screen(
-                    EditTopicScreen("orders", "3", "2", "compact,delete", "1000"),
+                    edit_topic_screen(cleanup_policy="compact,delete"),
                     results.append,
                 )
                 await pilot.pause()
@@ -346,12 +382,10 @@ class TestUpdateTopic(unittest.IsolatedAsyncioTestCase):
         app = KaskadeAdmin({})
         results: list[UpdateTopicCommand | None] = []
 
-        with patch("kaskade.admin.TopicService") as topic_service:
+        with patch("kaskade.admin.app.TopicService") as topic_service:
             configure_admin_service(topic_service.return_value, {})
             async with app.run_test() as pilot:
-                app.push_screen(
-                    EditTopicScreen("orders", "3", "2", "delete", "1000"), results.append
-                )
+                app.push_screen(edit_topic_screen(), results.append)
                 await pilot.pause()
                 app.screen.query_one("#min_insync_replicas", Input).value = ""
 
@@ -366,12 +400,10 @@ class TestUpdateTopic(unittest.IsolatedAsyncioTestCase):
         app = KaskadeAdmin({})
         results: list[UpdateTopicCommand | None] = []
 
-        with patch("kaskade.admin.TopicService") as topic_service:
+        with patch("kaskade.admin.app.TopicService") as topic_service:
             configure_admin_service(topic_service.return_value, {})
             async with app.run_test() as pilot:
-                app.push_screen(
-                    EditTopicScreen("orders", "3", "", "delete", "1000"), results.append
-                )
+                app.push_screen(edit_topic_screen(min_insync_replicas=""), results.append)
                 await pilot.pause()
 
                 await pilot.press("ctrl+s")
@@ -382,12 +414,10 @@ class TestUpdateTopic(unittest.IsolatedAsyncioTestCase):
         app = KaskadeAdmin({})
         results: list[UpdateTopicCommand | None] = []
 
-        with patch("kaskade.admin.TopicService") as topic_service:
+        with patch("kaskade.admin.app.TopicService") as topic_service:
             configure_admin_service(topic_service.return_value, {})
             async with app.run_test() as pilot:
-                app.push_screen(
-                    EditTopicScreen("orders", "3", "1", "delete", "1000"), results.append
-                )
+                app.push_screen(edit_topic_screen(min_insync_replicas="1"), results.append)
                 await pilot.pause()
                 app.screen.query_one("#partitions", Input).value = "2"
 
@@ -401,7 +431,7 @@ class TestUpdateTopic(unittest.IsolatedAsyncioTestCase):
         service = MagicMock()
         configure_admin_service(service, {topic.name: topic})
 
-        with patch("kaskade.admin.TopicService", return_value=service):
+        with patch("kaskade.admin.app.TopicService", return_value=service):
             app = KaskadeAdmin({})
             app.notify = MagicMock()
             async with app.run_test() as pilot:
@@ -427,7 +457,7 @@ class TestUpdateTopic(unittest.IsolatedAsyncioTestCase):
         service = MagicMock()
         configure_admin_service(service, {topic.name: topic})
 
-        with patch("kaskade.admin.TopicService", return_value=service):
+        with patch("kaskade.admin.app.TopicService", return_value=service):
             app = KaskadeAdmin({})
             app.notify = MagicMock()
             async with app.run_test() as pilot:
@@ -448,7 +478,7 @@ class TestUpdateTopic(unittest.IsolatedAsyncioTestCase):
         service = MagicMock()
         configure_admin_service(service, {topic.name: topic})
 
-        with patch("kaskade.admin.TopicService", return_value=service):
+        with patch("kaskade.admin.app.TopicService", return_value=service):
             app = KaskadeAdmin({})
             app.notify = MagicMock()
             async with app.run_test() as pilot:
@@ -470,7 +500,7 @@ class TestUpdateTopic(unittest.IsolatedAsyncioTestCase):
         configure_admin_service(service, {topic.name: topic})
         service.edit.side_effect = KafkaException("config rejected")
 
-        with patch("kaskade.admin.TopicService", return_value=service):
+        with patch("kaskade.admin.app.TopicService", return_value=service):
             app = KaskadeAdmin({})
             app.notify = MagicMock()
             async with app.run_test() as pilot:
@@ -507,7 +537,7 @@ class TestDescribeTopic(unittest.IsolatedAsyncioTestCase):
             groups_state=MetricState.READY,
         )
         for theme in ("eva01-berserk", "eva01", "textual-light", "ansi-light"):
-            with self.subTest(theme=theme), patch("kaskade.admin.TopicService") as service:
+            with self.subTest(theme=theme), patch("kaskade.admin.app.TopicService") as service:
                 configure_admin_service(service.return_value, {})
                 app = KaskadeAdmin({})
                 app.theme = theme
@@ -568,7 +598,7 @@ class TestDescribeTopic(unittest.IsolatedAsyncioTestCase):
             groups_state=MetricState.READY,
         )
 
-        with patch("kaskade.admin.TopicService") as topic_service:
+        with patch("kaskade.admin.app.TopicService") as topic_service:
             configure_admin_service(topic_service.return_value, {})
             app = KaskadeAdmin({})
             async with app.run_test(size=(80, 30)) as pilot:
@@ -630,7 +660,7 @@ class TestDescribeTopic(unittest.IsolatedAsyncioTestCase):
             groups_state=MetricState.READY,
         )
 
-        with patch("kaskade.admin.TopicService") as topic_service:
+        with patch("kaskade.admin.app.TopicService") as topic_service:
             configure_admin_service(topic_service.return_value, {})
             app = KaskadeAdmin({})
             async with app.run_test() as pilot:
@@ -668,7 +698,7 @@ class TestDescribeTopic(unittest.IsolatedAsyncioTestCase):
         configure_admin_service(service, {topic.name: topic})
         service.describe_configs.return_value = configurations
 
-        with patch("kaskade.admin.TopicService", return_value=service):
+        with patch("kaskade.admin.app.TopicService", return_value=service):
             app = KaskadeAdmin({})
             async with app.run_test() as pilot:
                 await app.workers.wait_for_complete()
@@ -689,7 +719,7 @@ class TestDescribeTopic(unittest.IsolatedAsyncioTestCase):
         configure_admin_service(service, {topic.name: topic})
         service.describe_configs.side_effect = KafkaException("configs unavailable")
 
-        with patch("kaskade.admin.TopicService", return_value=service):
+        with patch("kaskade.admin.app.TopicService", return_value=service):
             app = KaskadeAdmin({})
             app.notify = MagicMock()
             async with app.run_test() as pilot:
@@ -713,7 +743,7 @@ class TestDescribeTopic(unittest.IsolatedAsyncioTestCase):
 class TestTopicCopyActions(unittest.IsolatedAsyncioTestCase):
     async def test_y_copies_topic_from_table_and_details(self) -> None:
         topic = Topic(name="orders")
-        with patch("kaskade.admin.TopicService") as topic_service:
+        with patch("kaskade.admin.app.TopicService") as topic_service:
             configure_admin_service(topic_service.return_value, {topic.name: topic})
             app = KaskadeAdmin({})
             app.notify = MagicMock()
@@ -773,7 +803,7 @@ class TestTopicCopyActions(unittest.IsolatedAsyncioTestCase):
                 )
 
     async def test_copy_is_disabled_without_a_topic(self) -> None:
-        with patch("kaskade.admin.TopicService") as topic_service:
+        with patch("kaskade.admin.app.TopicService") as topic_service:
             configure_admin_service(topic_service.return_value, {})
             app = KaskadeAdmin({})
             app.notify = MagicMock()
@@ -816,7 +846,7 @@ class TestAdminRefresh(unittest.IsolatedAsyncioTestCase):
         service.enrich_offsets.side_effect = lambda topics: wait_for_enrichment()
         service.load_groups.side_effect = wait_for_enrichment
 
-        with patch("kaskade.admin.TopicService", return_value=service):
+        with patch("kaskade.admin.app.TopicService", return_value=service):
             app = KaskadeAdmin({})
             async with app.run_test() as pilot:
                 await pilot.pause()
@@ -843,7 +873,7 @@ class TestAdminRefresh(unittest.IsolatedAsyncioTestCase):
             )
             with (
                 patch.dict(os.environ, {SETTINGS_ENV_VAR: str(config_path)}),
-                patch("kaskade.admin.TopicService") as topic_service,
+                patch("kaskade.admin.app.TopicService") as topic_service,
             ):
                 configure_admin_service(topic_service.return_value, {})
                 app = KaskadeAdmin({})
@@ -882,7 +912,7 @@ class TestAdminRefresh(unittest.IsolatedAsyncioTestCase):
         service.load_groups.side_effect = load_groups
         service.apply_groups.side_effect = lambda topics, snapshot: EnrichmentResult()
 
-        with patch("kaskade.admin.TopicService", return_value=service):
+        with patch("kaskade.admin.app.TopicService", return_value=service):
             app = KaskadeAdmin({})
             async with app.run_test() as pilot:
                 await pilot.pause()
@@ -909,7 +939,7 @@ class TestAdminRefresh(unittest.IsolatedAsyncioTestCase):
         service.load_groups = AsyncMock(return_value=GroupSnapshot())
         service.apply_groups.return_value = EnrichmentResult()
 
-        with patch("kaskade.admin.TopicService", return_value=service):
+        with patch("kaskade.admin.app.TopicService", return_value=service):
             app = KaskadeAdmin({})
             async with app.run_test() as pilot:
                 await pilot.pause()
@@ -949,7 +979,7 @@ class TestAdminRefresh(unittest.IsolatedAsyncioTestCase):
         service.load_groups = AsyncMock(return_value=GroupSnapshot())
         service.apply_groups.return_value = EnrichmentResult()
 
-        with patch("kaskade.admin.TopicService", return_value=service):
+        with patch("kaskade.admin.app.TopicService", return_value=service):
             app = KaskadeAdmin({})
             async with app.run_test() as pilot:
                 await pilot.pause()
@@ -983,7 +1013,7 @@ class TestAdminRefresh(unittest.IsolatedAsyncioTestCase):
         )
         service.apply_groups.return_value = EnrichmentResult((RuntimeError("groups"),))
 
-        with patch("kaskade.admin.TopicService", return_value=service):
+        with patch("kaskade.admin.app.TopicService", return_value=service):
             app = KaskadeAdmin({})
             with patch.object(app, "notify") as notify:
                 async with app.run_test():
@@ -1009,7 +1039,7 @@ class TestAdminRefresh(unittest.IsolatedAsyncioTestCase):
         service.load_groups = AsyncMock(return_value=GroupSnapshot())
         service.apply_groups.return_value = EnrichmentResult()
 
-        with patch("kaskade.admin.TopicService", return_value=service):
+        with patch("kaskade.admin.app.TopicService", return_value=service):
             app = KaskadeAdmin({})
             with (
                 patch.object(app, "notify") as notify,
@@ -1042,7 +1072,7 @@ class TestAdminRefresh(unittest.IsolatedAsyncioTestCase):
         service.load_groups = AsyncMock(return_value=GroupSnapshot())
         service.apply_groups.return_value = EnrichmentResult()
 
-        with patch("kaskade.admin.TopicService", return_value=service):
+        with patch("kaskade.admin.app.TopicService", return_value=service):
             app = KaskadeAdmin({})
             async with app.run_test() as pilot:
                 await app.workers.wait_for_complete()
@@ -1075,7 +1105,7 @@ class TestAdminRefresh(unittest.IsolatedAsyncioTestCase):
         service.load_groups = AsyncMock(return_value=GroupSnapshot())
         service.apply_groups.return_value = EnrichmentResult()
 
-        with patch("kaskade.admin.TopicService", return_value=service):
+        with patch("kaskade.admin.app.TopicService", return_value=service):
             app = KaskadeAdmin({})
             async with app.run_test() as pilot:
                 await app.workers.wait_for_complete()

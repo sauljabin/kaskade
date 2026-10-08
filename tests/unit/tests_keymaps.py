@@ -313,7 +313,7 @@ class TestConfiguredKeymap(unittest.IsolatedAsyncioTestCase):
 
             with (
                 patch.dict(os.environ, {SETTINGS_ENV_VAR: str(path)}),
-                patch("kaskade.admin.TopicService") as topic_service,
+                patch("kaskade.admin.app.TopicService") as topic_service,
             ):
                 configure_admin_service(
                     topic_service.return_value,
@@ -348,7 +348,7 @@ class TestConfiguredKeymap(unittest.IsolatedAsyncioTestCase):
 
             with (
                 patch.dict(os.environ, {SETTINGS_ENV_VAR: str(path)}),
-                patch("kaskade.admin.TopicService") as topic_service,
+                patch("kaskade.admin.app.TopicService") as topic_service,
             ):
                 configure_admin_service(
                     topic_service.return_value,
