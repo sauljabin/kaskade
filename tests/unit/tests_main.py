@@ -23,7 +23,7 @@ from kaskade.configs import (
     BOOTSTRAP_SERVERS,
     EARLIEST,
 )
-from kaskade.consumer_service import PartitionSelectionError
+from kaskade.consumer_service import ConsumerSettings, PartitionSelectionError
 from kaskade.deserializers import Deserialization
 from kaskade.main import PARTITION_SELECTION_METAVAR, cli
 from kaskade.models import PartitionOffset, PartitionSelection
@@ -696,7 +696,7 @@ class TestConsumerCli(unittest.TestCase):
 
         self.assertEqual(
             EARLIEST,
-            mock_class_kaskade_consumer.call_args.args[1][AUTO_OFFSET_RESET],
+            mock_class_kaskade_consumer.call_args.args[0].kafka_config[AUTO_OFFSET_RESET],
         )
         self.assertEqual(0, result.exit_code)
 
@@ -744,7 +744,7 @@ class TestConsumerCli(unittest.TestCase):
                 PartitionSelection(3),
                 PartitionSelection(4, 0),
             ),
-            mock_class_kaskade_consumer.call_args.kwargs["partitions"],
+            mock_class_kaskade_consumer.call_args.args[0].partitions,
         )
         self.assertEqual(0, result.exit_code)
 
@@ -986,7 +986,7 @@ class TestConsumerCli(unittest.TestCase):
         )
 
         self.assertEqual(0, result.exit_code, result.output)
-        registry_config = mock_class_kaskade_consumer.call_args.args[2]
+        registry_config = mock_class_kaskade_consumer.call_args.args[0].registry_config
         self.assertEqual(APICURIO_OPTION, registry_config["provider"])
         self.assertEqual(
             "http://registry/apis/registry/v3",
@@ -1170,16 +1170,16 @@ class TestConsumerCli(unittest.TestCase):
         )
 
         mock_class_kaskade_consumer.assert_called_with(
-            EXPECTED_TOPIC,
-            {BOOTSTRAP_SERVERS: EXPECTED_SERVER, "security.protocol": "SSL"},
-            {
-                "url": "http://my-url",
-                "bearer.auth.credentials.source": "OAUTHBEARER",
-            },
-            {},
-            {},
-            Deserialization.BYTES,
-            Deserialization.REGISTRY,
+            ConsumerSettings(
+                EXPECTED_TOPIC,
+                {BOOTSTRAP_SERVERS: EXPECTED_SERVER, "security.protocol": "SSL"},
+                Deserialization.BYTES,
+                Deserialization.REGISTRY,
+                registry_config={
+                    "url": "http://my-url",
+                    "bearer.auth.credentials.source": "OAUTHBEARER",
+                },
+            )
         )
         self.assertEqual(0, result.exit_code)
 
@@ -1211,16 +1211,16 @@ class TestConsumerCli(unittest.TestCase):
         )
 
         mock_class_kaskade_consumer.assert_called_with(
-            EXPECTED_TOPIC,
-            {BOOTSTRAP_SERVERS: EXPECTED_SERVER},
-            {
-                "url": "http://inline-url",
-                "bearer.auth.credentials.source": "OAUTHBEARER",
-            },
-            {},
-            {},
-            Deserialization.BYTES,
-            Deserialization.REGISTRY,
+            ConsumerSettings(
+                EXPECTED_TOPIC,
+                {BOOTSTRAP_SERVERS: EXPECTED_SERVER},
+                Deserialization.BYTES,
+                Deserialization.REGISTRY,
+                registry_config={
+                    "url": "http://inline-url",
+                    "bearer.auth.credentials.source": "OAUTHBEARER",
+                },
+            )
         )
         self.assertEqual(0, result.exit_code)
 
@@ -1237,13 +1237,12 @@ class TestConsumerCli(unittest.TestCase):
         )
 
         mock_class_kaskade_consumer.assert_called_with(
-            EXPECTED_TOPIC,
-            {BOOTSTRAP_SERVERS: CONFIGURED_SERVER, "security.protocol": "SSL"},
-            {},
-            {},
-            {},
-            Deserialization.BYTES,
-            Deserialization.BYTES,
+            ConsumerSettings(
+                EXPECTED_TOPIC,
+                {BOOTSTRAP_SERVERS: CONFIGURED_SERVER, "security.protocol": "SSL"},
+                Deserialization.BYTES,
+                Deserialization.BYTES,
+            )
         )
         self.assertEqual(0, result.exit_code)
 
@@ -1261,13 +1260,12 @@ class TestConsumerCli(unittest.TestCase):
         )
 
         mock_class_kaskade_consumer.assert_called_with(
-            EXPECTED_TOPIC,
-            {BOOTSTRAP_SERVERS: CONFIGURED_SERVER},
-            {},
-            {},
-            {},
-            Deserialization.BYTES,
-            Deserialization.BYTES,
+            ConsumerSettings(
+                EXPECTED_TOPIC,
+                {BOOTSTRAP_SERVERS: CONFIGURED_SERVER},
+                Deserialization.BYTES,
+                Deserialization.BYTES,
+            )
         )
         self.assertEqual(0, result.exit_code)
 
@@ -1290,13 +1288,12 @@ class TestConsumerCli(unittest.TestCase):
         )
 
         mock_class_kaskade_consumer.assert_called_with(
-            EXPECTED_TOPIC,
-            {BOOTSTRAP_SERVERS: EXPECTED_SERVER, "security.protocol": "SASL_SSL"},
-            {},
-            {},
-            {},
-            Deserialization.BYTES,
-            Deserialization.BYTES,
+            ConsumerSettings(
+                EXPECTED_TOPIC,
+                {BOOTSTRAP_SERVERS: EXPECTED_SERVER, "security.protocol": "SASL_SSL"},
+                Deserialization.BYTES,
+                Deserialization.BYTES,
+            )
         )
         self.assertEqual(0, result.exit_code)
 
@@ -1307,13 +1304,12 @@ class TestConsumerCli(unittest.TestCase):
         )
 
         mock_class_kaskade_consumer.assert_called_with(
-            EXPECTED_TOPIC,
-            {BOOTSTRAP_SERVERS: EXPECTED_SERVER},
-            {},
-            {},
-            {},
-            Deserialization.BYTES,
-            Deserialization.BYTES,
+            ConsumerSettings(
+                EXPECTED_TOPIC,
+                {BOOTSTRAP_SERVERS: EXPECTED_SERVER},
+                Deserialization.BYTES,
+                Deserialization.BYTES,
+            )
         )
         self.assertEqual(0, result.exit_code)
 
@@ -1336,7 +1332,7 @@ class TestConsumerCli(unittest.TestCase):
 
         self.assertEqual(
             TimeoutConfig(consumer_request=20.0, consumer_assignment=30.0),
-            mock_class_kaskade_consumer.call_args.kwargs["timeouts"],
+            mock_class_kaskade_consumer.call_args.args[0].timeouts,
         )
         self.assertEqual(0, result.exit_code)
 
@@ -1381,13 +1377,12 @@ class TestConsumerCli(unittest.TestCase):
         )
 
         mock_class_kaskade_consumer.assert_called_with(
-            EXPECTED_TOPIC,
-            {BOOTSTRAP_SERVERS: EXPECTED_SERVER},
-            {},
-            {},
-            {},
-            Deserialization.from_str(expected_key_deserialization),
-            Deserialization.from_str(expected_value_deserialization),
+            ConsumerSettings(
+                EXPECTED_TOPIC,
+                {BOOTSTRAP_SERVERS: EXPECTED_SERVER},
+                Deserialization.from_str(expected_key_deserialization),
+                Deserialization.from_str(expected_value_deserialization),
+            )
         )
         self.assertEqual(0, result.exit_code)
 
@@ -1411,11 +1406,11 @@ class TestConsumerCli(unittest.TestCase):
         self.assertEqual(0, result.exit_code, result.output)
         self.assertEqual(
             Deserialization.STRING,
-            mock_class_kaskade_consumer.call_args.args[5],
+            mock_class_kaskade_consumer.call_args.args[0].key_deserialization,
         )
         self.assertEqual(
             Deserialization.BYTES,
-            mock_class_kaskade_consumer.call_args.args[6],
+            mock_class_kaskade_consumer.call_args.args[0].value_deserialization,
         )
 
     @patch("kaskade.main.KaskadeConsumer")
@@ -1443,7 +1438,7 @@ class TestConsumerCli(unittest.TestCase):
                 "key.encoding": "hex",
                 "value.encoding": "byte-array",
             },
-            mock_class_kaskade_consumer.call_args.kwargs["bytes_config"],
+            mock_class_kaskade_consumer.call_args.args[0].bytes_config,
         )
         self.assertEqual(0, result.exit_code)
 
@@ -1464,7 +1459,7 @@ class TestConsumerCli(unittest.TestCase):
 
         self.assertEqual(
             {"encoding": "byte-array"},
-            mock_class_kaskade_consumer.call_args.kwargs["fallback_config"],
+            mock_class_kaskade_consumer.call_args.args[0].fallback_config,
         )
         self.assertEqual(0, result.exit_code)
 
@@ -1491,7 +1486,7 @@ class TestConsumerCli(unittest.TestCase):
 
         self.assertEqual(
             {"framing": "confluent", "key.framing": "apicurio"},
-            mock_class_kaskade_consumer.call_args.kwargs["json_config"],
+            mock_class_kaskade_consumer.call_args.args[0].json_config,
         )
         self.assertEqual(0, result.exit_code)
 
@@ -1630,13 +1625,15 @@ class TestConsumerCli(unittest.TestCase):
         )
 
         mock_class_kaskade_consumer.assert_called_with(
-            EXPECTED_TOPIC,
-            {BOOTSTRAP_SERVERS: EXPECTED_SERVER, expected_property_name: expected_property_value},
-            {},
-            {},
-            {},
-            Deserialization.BYTES,
-            Deserialization.BYTES,
+            ConsumerSettings(
+                EXPECTED_TOPIC,
+                {
+                    BOOTSTRAP_SERVERS: EXPECTED_SERVER,
+                    expected_property_name: expected_property_value,
+                },
+                Deserialization.BYTES,
+                Deserialization.BYTES,
+            )
         )
         self.assertEqual(0, result.exit_code)
 
@@ -1663,17 +1660,16 @@ class TestConsumerCli(unittest.TestCase):
         )
 
         mock_class_kaskade_consumer.assert_called_with(
-            EXPECTED_TOPIC,
-            {
-                BOOTSTRAP_SERVERS: EXPECTED_SERVER,
-                expected_property_name: expected_property_value,
-                expected_property_name2: expected_property_value2,
-            },
-            {},
-            {},
-            {},
-            Deserialization.BYTES,
-            Deserialization.BYTES,
+            ConsumerSettings(
+                EXPECTED_TOPIC,
+                {
+                    BOOTSTRAP_SERVERS: EXPECTED_SERVER,
+                    expected_property_name: expected_property_value,
+                    expected_property_name2: expected_property_value2,
+                },
+                Deserialization.BYTES,
+                Deserialization.BYTES,
+            )
         )
         self.assertEqual(0, result.exit_code)
 
@@ -1692,7 +1688,7 @@ class TestConsumerCli(unittest.TestCase):
             ],
         )
 
-        config = mock_class_kaskade_consumer.call_args.args[1]
+        config = mock_class_kaskade_consumer.call_args.args[0].kafka_config
         self.assertEqual(SASL_SSL, config[SECURITY_PROTOCOL])
         self.assertEqual(OAUTHBEARER, config[SASL_MECHANISM])
         self.assertEqual(AwsMskOAuthCallback("us-west-2"), config[OAUTH_CALLBACK])
@@ -1718,7 +1714,7 @@ class TestConsumerCli(unittest.TestCase):
             ],
         )
 
-        config = mock_class_kaskade_consumer.call_args.args[1]
+        config = mock_class_kaskade_consumer.call_args.args[0].kafka_config
         self.assertEqual(SASL_SSL, config[SECURITY_PROTOCOL])
         self.assertEqual(OAUTHBEARER, config[SASL_MECHANISM])
         self.assertEqual(AwsMskOAuthCallback("us-west-2"), config[OAUTH_CALLBACK])
@@ -1755,19 +1751,19 @@ class TestConsumerCli(unittest.TestCase):
         )
 
         mock_class_kaskade_consumer.assert_called_with(
-            EXPECTED_TOPIC,
-            {
-                BOOTSTRAP_SERVERS: EXPECTED_SERVER,
-            },
-            {
-                expected_property_name: expected_property_value,
-                expected_property_name2: expected_property_value2,
-                expected_property_name3: expected_property_value3,
-            },
-            {},
-            {},
-            Deserialization.REGISTRY,
-            Deserialization.REGISTRY,
+            ConsumerSettings(
+                EXPECTED_TOPIC,
+                {
+                    BOOTSTRAP_SERVERS: EXPECTED_SERVER,
+                },
+                Deserialization.REGISTRY,
+                Deserialization.REGISTRY,
+                registry_config={
+                    expected_property_name: expected_property_value,
+                    expected_property_name2: expected_property_value2,
+                    expected_property_name3: expected_property_value3,
+                },
+            )
         )
         self.assertEqual(0, result.exit_code)
 
@@ -1998,7 +1994,7 @@ class TestConsumerCli(unittest.TestCase):
                 "framing": "confluent",
                 "key.framing": "raw",
             },
-            mock_class_kaskade_consumer.call_args.args[4],
+            mock_class_kaskade_consumer.call_args.args[0].avro_config,
         )
         self.assertEqual(0, result.exit_code)
 
@@ -2064,19 +2060,19 @@ class TestConsumerCli(unittest.TestCase):
         )
 
         mock_class_kaskade_consumer.assert_called_with(
-            EXPECTED_TOPIC,
-            {
-                BOOTSTRAP_SERVERS: EXPECTED_SERVER,
-            },
-            {},
-            {
-                expected_descriptor_name: expected_descriptor_value,
-                expected_value_name: expected_value,
-                "value.framing": "confluent",
-            },
-            {},
-            Deserialization.BYTES,
-            Deserialization.PROTOBUF,
+            ConsumerSettings(
+                EXPECTED_TOPIC,
+                {
+                    BOOTSTRAP_SERVERS: EXPECTED_SERVER,
+                },
+                Deserialization.BYTES,
+                Deserialization.PROTOBUF,
+                protobuf_config={
+                    expected_descriptor_name: expected_descriptor_value,
+                    expected_value_name: expected_value,
+                    "value.framing": "confluent",
+                },
+            )
         )
         self.assertEqual(0, result.exit_code)
 

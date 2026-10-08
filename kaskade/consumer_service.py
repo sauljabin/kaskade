@@ -1,5 +1,6 @@
 import asyncio
 import uuid
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from math import ceil
 from time import perf_counter
@@ -48,33 +49,56 @@ class PartitionSelectionError(ValueError):
     """Raised when an explicit partition or offset cannot be assigned."""
 
 
+@dataclass(frozen=True)
+class ConsumerSettings:
+    """The consumer command's configuration, shared by every consumer built for it."""
+
+    topic: str
+    kafka_config: dict[str, Any]
+    key_deserialization: Deserialization
+    value_deserialization: Deserialization
+    registry_config: dict[str, str] = field(default_factory=dict)
+    protobuf_config: dict[str, str] = field(default_factory=dict)
+    avro_config: dict[str, str] = field(default_factory=dict)
+    json_config: dict[str, str] = field(default_factory=dict)
+    bytes_config: dict[str, str] = field(default_factory=dict)
+    fallback_config: dict[str, str] = field(default_factory=dict)
+    partitions: tuple[PartitionSelection, ...] = ()
+    timeouts: TimeoutConfig = field(default_factory=TimeoutConfig)
+
+    def deserializer_pool(self) -> DeserializerPool:
+        return DeserializerPool(
+            self.registry_config,
+            self.protobuf_config,
+            self.avro_config,
+            self.json_config,
+        )
+
+
 class ConsumerService:
     def __init__(
         self,
-        topic: str,
-        kafka_config: dict[str, Any],
-        deserializer_factory: DeserializerPool,
-        key_deserialization: Deserialization,
-        value_deserialization: Deserialization,
+        settings: ConsumerSettings,
+        deserializer_pool: DeserializerPool,
         *,
-        bytes_config: dict[str, str] | None = None,
-        fallback_config: dict[str, str] | None = None,
-        partitions: tuple[PartitionSelection, ...] = (),
         page_size: int = 25,
-        timeouts: TimeoutConfig | None = None,
     ) -> None:
-        self.topic = topic
+        self.settings = settings
+        self.topic = settings.topic
         self.page_size = page_size
-        self.timeouts = timeouts or TimeoutConfig()
-        self.key_deserialization = key_deserialization
-        self.value_deserialization = value_deserialization
-        self.bytes_config = bytes_config or {}
-        self.fallback_config = fallback_config or {}
-        self.key_bytes_encoding = BytesEncoding.from_config(self.bytes_config, MessageField.KEY)
-        self.value_bytes_encoding = BytesEncoding.from_config(self.bytes_config, MessageField.VALUE)
-        self.fallback_bytes_encoding = BytesEncoding.from_config(self.fallback_config)
-        self.partitions = partitions
-        self.manually_assigned = bool(partitions) or kafka_config.get(AUTO_OFFSET_RESET) == EARLIEST
+        self.timeouts = settings.timeouts
+        self.key_deserialization = settings.key_deserialization
+        self.value_deserialization = settings.value_deserialization
+        self.key_bytes_encoding = BytesEncoding.from_config(settings.bytes_config, MessageField.KEY)
+        self.value_bytes_encoding = BytesEncoding.from_config(
+            settings.bytes_config, MessageField.VALUE
+        )
+        self.fallback_bytes_encoding = BytesEncoding.from_config(settings.fallback_config)
+        self.partitions = settings.partitions
+        kafka_config = settings.kafka_config
+        self.manually_assigned = (
+            bool(self.partitions) or kafka_config.get(AUTO_OFFSET_RESET) == EARLIEST
+        )
         self.stable = False
         self.started_at = perf_counter()
         self.assigned_at: float | None = None
@@ -90,10 +114,10 @@ class ConsumerService:
         self.consumer = Consumer(consumer_config, logger=logger)
         self.started = False
         try:
-            self.deserializer_factory = deserializer_factory
-            self.key_deserializer = deserializer_factory.get(key_deserialization)
-            self.value_deserializer = deserializer_factory.get(value_deserialization)
-            self.header_deserializer = deserializer_factory.get(Deserialization.STRING)
+            self.deserializer_pool = deserializer_pool
+            self.key_deserializer = deserializer_pool.get(self.key_deserialization)
+            self.value_deserializer = deserializer_pool.get(self.value_deserialization)
+            self.header_deserializer = deserializer_pool.get(Deserialization.STRING)
         except Exception:
             self.consumer.close()
             raise

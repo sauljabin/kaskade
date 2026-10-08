@@ -35,7 +35,7 @@ from kaskade.configs import (
     REGISTRY_PROVIDERS,
 )
 from kaskade.consumer import KaskadeConsumer
-from kaskade.consumer_service import PartitionSelectionError
+from kaskade.consumer_service import ConsumerSettings, PartitionSelectionError
 from kaskade.deserializers import Deserialization
 from kaskade.files import load_ini
 from kaskade.logs import configure_logging
@@ -581,27 +581,22 @@ def consumer(
     validate_avro(avro_config, key_deserialization, value_deserialization)
     validate_protobuf(protobuf_config, key_deserialization, value_deserialization)
 
-    consumer_args = (
-        topic,
-        kafka_config,
-        registry_config,
-        protobuf_config,
-        avro_config,
-        key_deserialization,
-        value_deserialization,
+    settings = ConsumerSettings(
+        topic=topic,
+        kafka_config=kafka_config,
+        key_deserialization=key_deserialization,
+        value_deserialization=value_deserialization,
+        registry_config=registry_config,
+        protobuf_config=protobuf_config,
+        avro_config=avro_config,
+        json_config=json_config,
+        bytes_config=bytes_config,
+        fallback_config=fallback_config,
+        partitions=partitions,
+        **application_timeout_options,
     )
-    consumer_options: dict[str, Any] = {}
-    if bytes_config:
-        consumer_options["bytes_config"] = bytes_config
-    if fallback_config:
-        consumer_options["fallback_config"] = fallback_config
-    if json_config:
-        consumer_options["json_config"] = json_config
-    if partitions:
-        consumer_options["partitions"] = partitions
-    consumer_options.update(application_timeout_options)
     try:
-        kaskade_app = KaskadeConsumer(*consumer_args, **consumer_options)
+        kaskade_app = KaskadeConsumer(settings)
     except PartitionSelectionError as ex:
         raise BadParameter(message=str(ex), param_hint="'--partition'") from ex
     except (KafkaException, ValueError) as ex:

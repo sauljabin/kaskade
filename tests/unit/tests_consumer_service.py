@@ -15,7 +15,7 @@ from confluent_kafka.cimpl import TopicPartition
 from kaskade.commands import RecordFilters
 from kaskade.concurrency import run_blocking
 from kaskade.configs import AUTO_OFFSET_RESET, EARLIEST, GROUP_ID
-from kaskade.consumer_service import ConsumerService
+from kaskade.consumer_service import ConsumerService, ConsumerSettings
 from kaskade.deserializers import (
     Deserialization,
     Deserializer,
@@ -73,17 +73,19 @@ class TestConsumerService(unittest.IsolatedAsyncioTestCase):
         consumer.list_topics.return_value.topics = {"orders": topic}
         consumer.get_watermark_offsets.return_value = (0, 100)
         service = ConsumerService(
-            "orders",
-            {"bootstrap.servers": "localhost:9092"},
-            DeserializerPool(),
-            Deserialization.STRING,
-            Deserialization.STRING,
-            partitions=(
-                PartitionSelection(0),
-                PartitionSelection(1, 0),
-                PartitionSelection(2, PartitionOffset.EARLIEST),
+            ConsumerSettings(
+                "orders",
+                {"bootstrap.servers": "localhost:9092"},
+                Deserialization.STRING,
+                Deserialization.STRING,
+                partitions=(
+                    PartitionSelection(0),
+                    PartitionSelection(1, 0),
+                    PartitionSelection(2, PartitionOffset.EARLIEST),
+                ),
+                timeouts=TimeoutConfig(consumer_request=20),
             ),
-            timeouts=TimeoutConfig(consumer_request=20),
+            DeserializerPool(),
         )
         consumer.list_topics.assert_not_called()
         consumer.get_watermark_offsets.assert_not_called()
@@ -120,14 +122,16 @@ class TestConsumerService(unittest.IsolatedAsyncioTestCase):
         consumer.list_topics.return_value.topics = {"orders": topic}
 
         service = ConsumerService(
-            "orders",
-            {
-                "bootstrap.servers": "localhost:9092",
-                AUTO_OFFSET_RESET: EARLIEST,
-            },
+            ConsumerSettings(
+                "orders",
+                {
+                    "bootstrap.servers": "localhost:9092",
+                    AUTO_OFFSET_RESET: EARLIEST,
+                },
+                Deserialization.STRING,
+                Deserialization.STRING,
+            ),
             DeserializerPool(),
-            Deserialization.STRING,
-            Deserialization.STRING,
         )
         consumer.list_topics.assert_not_called()
 
@@ -159,14 +163,16 @@ class TestConsumerService(unittest.IsolatedAsyncioTestCase):
     async def test_honors_configured_group_id(self, mock_class_consumer: MagicMock) -> None:
         consumer = mock_class_consumer.return_value
         service = ConsumerService(
-            "orders",
-            {
-                "bootstrap.servers": "localhost:9092",
-                GROUP_ID: "authorized-reader",
-            },
+            ConsumerSettings(
+                "orders",
+                {
+                    "bootstrap.servers": "localhost:9092",
+                    GROUP_ID: "authorized-reader",
+                },
+                Deserialization.STRING,
+                Deserialization.STRING,
+            ),
             DeserializerPool(),
-            Deserialization.STRING,
-            Deserialization.STRING,
         )
 
         self.assertEqual(
@@ -185,11 +191,13 @@ class TestConsumerService(unittest.IsolatedAsyncioTestCase):
         consumer = mock_class_consumer.return_value
         consumer.consume.return_value = []
         service = ConsumerService(
-            "orders",
-            {"bootstrap.servers": "localhost:9092"},
+            ConsumerSettings(
+                "orders",
+                {"bootstrap.servers": "localhost:9092"},
+                Deserialization.STRING,
+                Deserialization.STRING,
+            ),
             DeserializerPool(),
-            Deserialization.STRING,
-            Deserialization.STRING,
         )
         error = KafkaError(
             KafkaError.GROUP_AUTHORIZATION_FAILED,
@@ -210,12 +218,14 @@ class TestConsumerService(unittest.IsolatedAsyncioTestCase):
         consumer.list_topics.return_value.topics = {"orders": topic}
 
         service = ConsumerService(
-            "orders",
-            {"bootstrap.servers": "localhost:9092"},
+            ConsumerSettings(
+                "orders",
+                {"bootstrap.servers": "localhost:9092"},
+                Deserialization.STRING,
+                Deserialization.STRING,
+                partitions=(PartitionSelection(2),),
+            ),
             DeserializerPool(),
-            Deserialization.STRING,
-            Deserialization.STRING,
-            partitions=(PartitionSelection(2),),
         )
 
         with self.assertRaisesRegex(ValueError, "Partition 2 does not exist"):
@@ -234,12 +244,14 @@ class TestConsumerService(unittest.IsolatedAsyncioTestCase):
         consumer.get_watermark_offsets.return_value = (10, 20)
 
         service = ConsumerService(
-            "orders",
-            {"bootstrap.servers": "localhost:9092"},
+            ConsumerSettings(
+                "orders",
+                {"bootstrap.servers": "localhost:9092"},
+                Deserialization.STRING,
+                Deserialization.STRING,
+                partitions=(PartitionSelection(0, 0),),
+            ),
             DeserializerPool(),
-            Deserialization.STRING,
-            Deserialization.STRING,
-            partitions=(PartitionSelection(0, 0),),
         )
 
         with self.assertRaisesRegex(ValueError, "Offset 0 is out of range"):
@@ -252,12 +264,16 @@ class TestConsumerService(unittest.IsolatedAsyncioTestCase):
         consumer = mock_class_consumer.return_value
         consumer.consume.return_value = []
         service = ConsumerService(
-            "orders",
-            {"bootstrap.servers": "localhost:9092"},
+            ConsumerSettings(
+                "orders",
+                {"bootstrap.servers": "localhost:9092"},
+                Deserialization.STRING,
+                Deserialization.STRING,
+                timeouts=TimeoutConfig(
+                    consumer_idle=0.1, consumer_poll=0.1, consumer_assignment=0.1
+                ),
+            ),
             DeserializerPool(),
-            Deserialization.STRING,
-            Deserialization.STRING,
-            timeouts=TimeoutConfig(consumer_idle=0.1, consumer_poll=0.1, consumer_assignment=0.1),
         )
         consumer.subscribe.assert_not_called()
 
@@ -274,11 +290,13 @@ class TestConsumerService(unittest.IsolatedAsyncioTestCase):
         consumer = mock_class_consumer.return_value
         consumer.unsubscribe.side_effect = KafkaException("unsubscribe failed")
         service = ConsumerService(
-            "orders",
-            {"bootstrap.servers": "localhost:9092"},
+            ConsumerSettings(
+                "orders",
+                {"bootstrap.servers": "localhost:9092"},
+                Deserialization.STRING,
+                Deserialization.STRING,
+            ),
             DeserializerPool(),
-            Deserialization.STRING,
-            Deserialization.STRING,
         )
 
         with self.assertRaisesRegex(KafkaException, "unsubscribe failed"):
@@ -299,11 +317,13 @@ class TestConsumerService(unittest.IsolatedAsyncioTestCase):
         consumer = mock_class_consumer.return_value
         consumer.consume.return_value = [message]
         service = ConsumerService(
-            "orders",
-            {"bootstrap.servers": "localhost:9092"},
+            ConsumerSettings(
+                "orders",
+                {"bootstrap.servers": "localhost:9092"},
+                Deserialization.STRING,
+                Deserialization.STRING,
+            ),
             DeserializerPool(),
-            Deserialization.STRING,
-            Deserialization.STRING,
             page_size=1,
         )
         service.on_assign(consumer, [TopicPartition("orders", 0)])
@@ -338,18 +358,20 @@ class TestConsumerService(unittest.IsolatedAsyncioTestCase):
 
         consumer = mock_class_consumer.return_value
         consumer.consume.return_value = [consumer_message()]
-        deserializer_factory = MagicMock(spec=DeserializerPool)
-        deserializer_factory.get.side_effect = [
+        deserializer_pool = MagicMock(spec=DeserializerPool)
+        deserializer_pool.get.side_effect = [
             StringDeserializer(),
             BlockingDeserializer(),
             StringDeserializer(),
         ]
         service = ConsumerService(
-            "orders",
-            {"bootstrap.servers": "localhost:9092"},
-            deserializer_factory,
-            Deserialization.STRING,
-            Deserialization.STRING,
+            ConsumerSettings(
+                "orders",
+                {"bootstrap.servers": "localhost:9092"},
+                Deserialization.STRING,
+                Deserialization.STRING,
+            ),
+            deserializer_pool,
             page_size=1,
         )
         service.on_assign(consumer, [TopicPartition("orders", 0)])
@@ -376,11 +398,13 @@ class TestConsumerService(unittest.IsolatedAsyncioTestCase):
             consumer_message(key=b"valid-3", value=b"value-3"),
         ]
         service = ConsumerService(
-            "orders",
-            {"bootstrap.servers": "localhost:9092"},
+            ConsumerSettings(
+                "orders",
+                {"bootstrap.servers": "localhost:9092"},
+                Deserialization.STRING,
+                Deserialization.STRING,
+            ),
             DeserializerPool(),
-            Deserialization.STRING,
-            Deserialization.STRING,
             page_size=3,
         )
         service.on_assign(consumer, [TopicPartition("orders", 0)])
@@ -415,17 +439,19 @@ class TestConsumerService(unittest.IsolatedAsyncioTestCase):
             )
         ]
         service = ConsumerService(
-            "orders",
-            {"bootstrap.servers": "localhost:9092"},
+            ConsumerSettings(
+                "orders",
+                {"bootstrap.servers": "localhost:9092"},
+                Deserialization.BYTES,
+                Deserialization.BYTES,
+                bytes_config={
+                    "encoding": "base64",
+                    "key.encoding": "hex",
+                    "value.encoding": "byte-array",
+                },
+                fallback_config={"encoding": "escaped"},
+            ),
             DeserializerPool(),
-            Deserialization.BYTES,
-            Deserialization.BYTES,
-            bytes_config={
-                "encoding": "base64",
-                "key.encoding": "hex",
-                "value.encoding": "byte-array",
-            },
-            fallback_config={"encoding": "escaped"},
         )
         service.on_assign(consumer, [TopicPartition("orders", 0)])
 
@@ -477,12 +503,14 @@ class TestConsumerService(unittest.IsolatedAsyncioTestCase):
             )
         ]
         service = ConsumerService(
-            "orders",
-            {"bootstrap.servers": "localhost:9092"},
+            ConsumerSettings(
+                "orders",
+                {"bootstrap.servers": "localhost:9092"},
+                Deserialization.STRING,
+                Deserialization.STRING,
+                fallback_config={"encoding": "escaped"},
+            ),
             DeserializerPool(),
-            Deserialization.STRING,
-            Deserialization.STRING,
-            fallback_config={"encoding": "escaped"},
             page_size=1,
         )
         service.on_assign(consumer, [TopicPartition("orders", 0)])
@@ -534,11 +562,13 @@ class TestConsumerService(unittest.IsolatedAsyncioTestCase):
             ],
         ]
         service = ConsumerService(
-            "orders",
-            {"bootstrap.servers": "localhost:9092"},
+            ConsumerSettings(
+                "orders",
+                {"bootstrap.servers": "localhost:9092"},
+                Deserialization.STRING,
+                Deserialization.STRING,
+            ),
             DeserializerPool(),
-            Deserialization.STRING,
-            Deserialization.STRING,
             page_size=1,
         )
         service.on_assign(consumer, [TopicPartition("orders", 1)])
@@ -560,12 +590,14 @@ class TestConsumerService(unittest.IsolatedAsyncioTestCase):
         consumer = mock_class_consumer.return_value
         consumer.consume.return_value = []
         service = ConsumerService(
-            "orders",
-            {"bootstrap.servers": "localhost:9092"},
+            ConsumerSettings(
+                "orders",
+                {"bootstrap.servers": "localhost:9092"},
+                Deserialization.STRING,
+                Deserialization.STRING,
+                timeouts=TimeoutConfig(consumer_idle=1),
+            ),
             DeserializerPool(),
-            Deserialization.STRING,
-            Deserialization.STRING,
-            timeouts=TimeoutConfig(consumer_idle=1),
         )
         service.on_assign(consumer, [TopicPartition("orders", 0)])
 
@@ -578,11 +610,13 @@ class TestConsumerService(unittest.IsolatedAsyncioTestCase):
         consumer = mock_class_consumer.return_value
         consumer.consume.return_value = [consumer_message(error=error)]
         service = ConsumerService(
-            "orders",
-            {"bootstrap.servers": "localhost:9092"},
+            ConsumerSettings(
+                "orders",
+                {"bootstrap.servers": "localhost:9092"},
+                Deserialization.STRING,
+                Deserialization.STRING,
+            ),
             DeserializerPool(),
-            Deserialization.STRING,
-            Deserialization.STRING,
             page_size=1,
         )
         service.on_assign(consumer, [TopicPartition("orders", 0)])
@@ -596,14 +630,16 @@ class TestConsumerService(unittest.IsolatedAsyncioTestCase):
     ) -> None:
         consumer = mock_class_consumer.return_value
         consumer.consume.return_value = [consumer_message()]
-        deserializer_factory = MagicMock(spec=DeserializerPool)
-        deserializer_factory.get.return_value = StringDeserializer()
+        deserializer_pool = MagicMock(spec=DeserializerPool)
+        deserializer_pool.get.return_value = StringDeserializer()
         service = ConsumerService(
-            "orders",
-            {"bootstrap.servers": "localhost:9092"},
-            deserializer_factory,
-            Deserialization.STRING,
-            Deserialization.STRING,
+            ConsumerSettings(
+                "orders",
+                {"bootstrap.servers": "localhost:9092"},
+                Deserialization.STRING,
+                Deserialization.STRING,
+            ),
+            deserializer_pool,
             page_size=1,
         )
         service.on_assign(consumer, [TopicPartition("orders", 0)])
@@ -611,7 +647,7 @@ class TestConsumerService(unittest.IsolatedAsyncioTestCase):
         await service.consume()
         service.close()
 
-        self.assertEqual(3, deserializer_factory.get.call_count)
+        self.assertEqual(3, deserializer_pool.get.call_count)
         consumer.unsubscribe.assert_called_once_with()
         consumer.close.assert_called_once_with()
 
@@ -624,11 +660,13 @@ class TestConsumerService(unittest.IsolatedAsyncioTestCase):
             consumer_message(key=f"key-{number}".encode()) for number in range(3)
         ]
         service = ConsumerService(
-            "orders",
-            {"bootstrap.servers": "localhost:9092"},
+            ConsumerSettings(
+                "orders",
+                {"bootstrap.servers": "localhost:9092"},
+                Deserialization.STRING,
+                Deserialization.STRING,
+            ),
             DeserializerPool(),
-            Deserialization.STRING,
-            Deserialization.STRING,
             page_size=3,
         )
         service.on_assign(consumer, [TopicPartition("orders", 0)])
@@ -658,18 +696,20 @@ class TestConsumerService(unittest.IsolatedAsyncioTestCase):
                 deserialized_keys.append(data)
                 return super().deserialize(data, topic, context)
 
-        deserializer_factory = MagicMock(spec=DeserializerPool)
-        deserializer_factory.get.side_effect = [
+        deserializer_pool = MagicMock(spec=DeserializerPool)
+        deserializer_pool.get.side_effect = [
             RecordingDeserializer(),
             StringDeserializer(),
             StringDeserializer(),
         ]
         service = ConsumerService(
-            "orders",
-            {"bootstrap.servers": "localhost:9092"},
-            deserializer_factory,
-            Deserialization.STRING,
-            Deserialization.STRING,
+            ConsumerSettings(
+                "orders",
+                {"bootstrap.servers": "localhost:9092"},
+                Deserialization.STRING,
+                Deserialization.STRING,
+            ),
+            deserializer_pool,
             page_size=3,
         )
         service.on_assign(consumer, [TopicPartition("orders", 0)])
@@ -698,18 +738,20 @@ class TestConsumerService(unittest.IsolatedAsyncioTestCase):
 
         consumer = mock_class_consumer.return_value
         consumer.consume.return_value = [consumer_message(), consumer_message()]
-        deserializer_factory = MagicMock(spec=DeserializerPool)
-        deserializer_factory.get.side_effect = [
+        deserializer_pool = MagicMock(spec=DeserializerPool)
+        deserializer_pool.get.side_effect = [
             StringDeserializer(),
             BlockingDeserializer(),
             StringDeserializer(),
         ]
         service = ConsumerService(
-            "orders",
-            {"bootstrap.servers": "localhost:9092"},
-            deserializer_factory,
-            Deserialization.STRING,
-            Deserialization.STRING,
+            ConsumerSettings(
+                "orders",
+                {"bootstrap.servers": "localhost:9092"},
+                Deserialization.STRING,
+                Deserialization.STRING,
+            ),
+            deserializer_pool,
             page_size=2,
         )
         service.on_assign(consumer, [TopicPartition("orders", 0)])
@@ -742,11 +784,13 @@ class TestConsumerService(unittest.IsolatedAsyncioTestCase):
         consumer = mock_class_consumer.return_value
         consumer.consume.side_effect = blocking_consume
         service = ConsumerService(
-            "orders",
-            {"bootstrap.servers": "localhost:9092"},
+            ConsumerSettings(
+                "orders",
+                {"bootstrap.servers": "localhost:9092"},
+                Deserialization.STRING,
+                Deserialization.STRING,
+            ),
             DeserializerPool(),
-            Deserialization.STRING,
-            Deserialization.STRING,
             page_size=1,
         )
         service.on_assign(consumer, [TopicPartition("orders", 0)])

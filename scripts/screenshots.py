@@ -10,8 +10,8 @@ from kaskade.admin import KaskadeAdmin, ListTopics
 from kaskade.commands import EMPTY_RECORD_FILTERS, RecordFilters
 from kaskade.configs import BOOTSTRAP_SERVERS
 from kaskade.consumer import KaskadeConsumer, ListRecords
-from kaskade.consumer_service import ConsumerService
-from kaskade.deserializers import Deserialization, DeserializerPool, StringDeserializer
+from kaskade.consumer_service import ConsumerService, ConsumerSettings
+from kaskade.deserializers import Deserialization, StringDeserializer
 from kaskade.models import (
     Group,
     GroupMember,
@@ -163,6 +163,9 @@ class MockConsumerService(ConsumerService):
         self.group_id = "order-inspector"
         self._records = mock_records()
 
+    def start(self) -> None:
+        pass
+
     async def consume(
         self,
         *,
@@ -178,22 +181,19 @@ class MockConsumerService(ConsumerService):
         self.close()
 
 
-class ScreenshotRecords(ListRecords):
-    def _new_consumer(self) -> ConsumerService:
-        return MockConsumerService()
-
-
 class ConsumerScreenshotApp(KaskadeConsumer):
     CSS_PATH = str(PROJECT_ROOT / "kaskade" / "styles.css")
 
+    def new_consumer(self) -> ConsumerService:
+        return MockConsumerService()
+
     def compose(self) -> ComposeResult:
-        yield KaskadeHeader(self.kafka_config, version=SCREENSHOT_VERSION)
-        yield ScreenshotRecords(
-            self.topic,
-            self.kafka_config,
-            DeserializerPool(),
-            self.key_deserialization,
-            self.value_deserialization,
+        yield KaskadeHeader(self.consumer_settings.kafka_config, version=SCREENSHOT_VERSION)
+        yield ListRecords(
+            self.consumer_settings.topic,
+            self.new_consumer,
+            self.deserializer_pool,
+            consumer=self.consumer,
         )
         yield Footer(compact=True)
 
@@ -224,13 +224,12 @@ def _new_apps() -> tuple[AdminScreenshotApp, ConsumerScreenshotApp]:
     no_color = os.environ.pop("NO_COLOR", None)
     try:
         return AdminScreenshotApp(KAFKA_CONFIG, refresh_interval=0), ConsumerScreenshotApp(
-            "order-events",
-            KAFKA_CONFIG,
-            {},
-            {},
-            {},
-            Deserialization.STRING,
-            Deserialization.STRING,
+            ConsumerSettings(
+                "order-events",
+                KAFKA_CONFIG,
+                Deserialization.STRING,
+                Deserialization.STRING,
+            )
         )
     finally:
         if no_color is not None:
