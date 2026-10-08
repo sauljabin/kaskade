@@ -13,6 +13,8 @@ class TestTimeoutConfig(unittest.TestCase):
                 "consumer.request": 10.0,
                 "admin.read": 10.0,
                 "admin.write": 60.0,
+                "producer.delivery": 30.0,
+                "producer.flush": 5.0,
             },
             TimeoutConfig().as_dict(),
         )

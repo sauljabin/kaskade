@@ -11,8 +11,8 @@
 - Keep each document authoritative for one audience: `README.md` and `site/`
   share the product slogan and capability summary, `USAGE.md` owns user-facing
   commands and behavior, `DEVELOPMENT.md` owns contributor workflows and the
-  sandbox, and `MIGRATION.md` owns upgrade steps between major versions; no other
-  document repeats them. This file records implementation invariants; link to the canonical
+  sandbox, `MANUAL_TESTING.md` owns the release smoke tests, and `MIGRATION.md`
+  owns upgrade steps between major versions; no other document repeats them. This file records implementation invariants; link to the canonical
   document instead of repeating its examples or reference material.
   `CLAUDE.md` only imports this file so Claude Code loads it.
 - `USAGE.md` and `DEVELOPMENT.md` open with a `## Contents` list of their `##`
@@ -26,10 +26,11 @@
 
 ## CLI and Configuration
 
-- Share admin and consumer client configuration and Kafka connection
+- Share admin, consumer, and producer client configuration and Kafka connection
   declarations. Help groups are `Configuration options`, `Kafka connection
-  options`, `AWS options`, and `Application options`; consumer also separates
-  `Consumption options` and `Deserialization options`.
+  options`, `AWS options`, `Timeout options`, and `Application options`;
+  consumer also separates `Consumption options` and `Deserialization options`,
+  and producer adds `Production options`.
 - `main.py` declares commands. Every command resolves Kafka, Registry, and AWS
   settings through `kaskade.cli.connection.resolve_connection`; validators in
   `kaskade.cli.validation` return normalized copies and never mutate their
@@ -80,6 +81,21 @@
   `apicurio.registry.auth.client.scope` property. Preserve native token
   expiry/401 refresh and deterministic HTTP client cleanup.
 
+## Producer
+
+- Producer serializers live in `kaskade/serializers.py` and stay independent of
+  the consumer deserializers. Serializer errors never repeat record content.
+- Producer dedicated options (`--acks`, `--compression`, `--idempotence`) apply
+  only when passed, above `--kafka` and below `-b`. Let `confluent-kafka` reject
+  incompatible settings; never adjust them silently.
+- Report delivery only after the broker callback succeeds; the
+  `producer.delivery` deadline bounds the wait. Allow one delivery at a time,
+  keep the draft after success and failure, and flush within `producer.flush`
+  on shutdown. Never log Key, Value, or Header content.
+- `--source` drafts use the headless producer document shape (#117): ordered
+  `headers` of `key`/`value`, and `key`/`value` objects with `content`. Never
+  produce a draft without an explicit `Ctrl+S`.
+
 ## Data Loading and Consumer Records
 
 - Render topic metadata before record and consumer-group metrics. Batch
@@ -96,6 +112,9 @@
 - Admin auto-refresh defaults to 30 seconds, pauses outside the topic list, and
   is configured by `admin.refresh-interval` or
   `admin --refresh-interval`; `0` disables it.
+- Pass Kaskade's `logger` to every `confluent-kafka` client so client warnings,
+  such as properties meant for another client type, reach the log file and
+  never the terminal.
 - Never run blocking Kafka calls on Textual's event loop; use
   `concurrency.run_blocking`, which finishes the call before propagating a
   cancellation. The consumer converts each polled batch in one such call.
@@ -161,10 +180,10 @@ entries.
 
 ## Layout and Themes
 
-- Keep shared styling in `kaskade/styles.css`; admin and consumer inherit
+- Keep shared styling in `kaskade/styles.css`; admin, consumer, and producer inherit
   `KaskadeApp.CSS_PATH`. Put main-table borders, titles, subtitles, and loading
   state on `TableFrame`.
-- Both root screens use the shared one-line header: version on the left and
+- Every root screen uses the shared one-line header: version on the left and
   Kafka `bootstrap.servers` on the right, prefixed by a non-empty
   `KANTRIP_PROFILE` as `profile · server`. The profile is display-only; never
   read or render any other `KANTRIP_*` value. Preserve semantic contrast,

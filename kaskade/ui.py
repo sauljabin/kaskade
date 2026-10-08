@@ -10,11 +10,13 @@ def copy_text(application: App, text: str, subject: str) -> None:
     application.notify(f"Copied {subject} to clipboard", title="Copied")
 
 
-def notify_error(application: App, title: str, ex: Exception) -> None:
-    message = str(ex)
-
+def error_message(ex: Exception) -> str:
+    """Return a readable message, using the Kafka error text instead of its repr."""
     if isinstance(ex, KafkaException) and len(ex.args) > 0 and hasattr(ex.args[0], "str"):
-        message = ex.args[0].str()
+        return str(ex.args[0].str())
+    return str(ex)
 
+
+def notify_error(application: App, title: str, ex: Exception) -> None:
     logger.exception(ex)
-    application.notify(message, severity="error", title=title)
+    application.notify(error_message(ex), severity="error", title=title)

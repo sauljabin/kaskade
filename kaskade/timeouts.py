@@ -8,6 +8,8 @@ CONSUMER_ASSIGNMENT = "consumer.assignment"
 CONSUMER_REQUEST = "consumer.request"
 ADMIN_READ = "admin.read"
 ADMIN_WRITE = "admin.write"
+PRODUCER_DELIVERY = "producer.delivery"
+PRODUCER_FLUSH = "producer.flush"
 
 CONSUMER_TIMEOUT_PROPERTIES = (
     CONSUMER_POLL,
@@ -16,7 +18,12 @@ CONSUMER_TIMEOUT_PROPERTIES = (
     CONSUMER_REQUEST,
 )
 ADMIN_TIMEOUT_PROPERTIES = (ADMIN_READ, ADMIN_WRITE)
-TIMEOUT_PROPERTIES = (*CONSUMER_TIMEOUT_PROPERTIES, *ADMIN_TIMEOUT_PROPERTIES)
+PRODUCER_TIMEOUT_PROPERTIES = (PRODUCER_DELIVERY, PRODUCER_FLUSH)
+TIMEOUT_PROPERTIES = (
+    *CONSUMER_TIMEOUT_PROPERTIES,
+    *ADMIN_TIMEOUT_PROPERTIES,
+    *PRODUCER_TIMEOUT_PROPERTIES,
+)
 
 
 def parse_timeout_seconds(property_name: str, raw_value: str | float) -> float:
@@ -40,6 +47,8 @@ class TimeoutConfig:
     consumer_request: float = 10.0
     admin_read: float = 10.0
     admin_write: float = 60.0
+    producer_delivery: float = 30.0
+    producer_flush: float = 5.0
 
     @classmethod
     def from_dict(cls, config: Mapping[str, str | float]) -> "TimeoutConfig":

@@ -1,7 +1,7 @@
 # Usage
 
-How to connect Kaskade to Kafka, read and decode records, and set it up the way
-you like.
+How to connect Kaskade to Kafka, read, decode, and produce records, and set it
+up the way you like.
 
 ## Contents
 
@@ -31,6 +31,11 @@ you like.
   - [Amazon MSK with IAM authentication](#amazon-msk-with-iam-authentication)
   - [Kafka ACLs](#kafka-acls)
   - [Confluent Cloud](#confluent-cloud)
+- [Producer](#producer)
+  - [Compose and produce](#compose-and-produce)
+  - [Serializers](#serializers)
+  - [Load drafts from a file](#load-drafts-from-a-file)
+  - [Producer configuration](#producer-configuration)
 - [Format-specific consumers](#format-specific-consumers)
   - [JSON consumer](#json-consumer)
   - [Avro consumer](#avro-consumer)
@@ -213,6 +218,11 @@ consumer:
     idle: 2.5
     assignment: 15
     request: 10
+
+producer:
+  timeouts:
+    delivery: 30
+    flush: 5
 ```
 
 Values support decimals and must be greater than zero; missing or invalid values
@@ -238,6 +248,8 @@ kaskade admin -b my-kafka:9092 \
 | `consumer.timeouts.request` | `consumer.request` | consumer | 10 | Consumer topic metadata and watermark requests |
 | `admin.timeouts.read` | `admin.read` | admin | 10 | Topic metadata, offsets, configurations, and consumer groups |
 | `admin.timeouts.write` | `admin.write` | admin | 60 | Create, edit, delete, and partition-change operations |
+| `producer.timeouts.delivery` | `producer.delivery` | producer | 30 | Wait for the broker acknowledgement of one record |
+| `producer.timeouts.flush` | `producer.flush` | producer | 5 | Flush queued records when Kaskade closes |
 
 Precedence, from lowest to highest, is the defaults, `settings.yaml`, then
 `--timeout`. Native `confluent-kafka` properties such as `socket.timeout.ms`,
@@ -282,6 +294,9 @@ action, Kaskade uses the same key.
 | Change record chunk size | `#` |
 | Previous or next record in Record Details | `N`/`p` or `n` |
 | Save Create Topic or Edit Topic | `Ctrl+S`, `Ctrl+Shift+S`, or `F2` |
+| Produce the composed record | `Ctrl+S` |
+| Next or previous source record | `Ctrl+PageDown` or `Ctrl+PageUp` |
+| Add, edit, or delete a header | `n`, `e`/`Enter`, or `Ctrl+D` |
 
 Help lists every contextual shortcut alias. Navigate with the standard keys and
 close with `Esc`, `q`, `?`, or `F1`. The Commands palette links to the same Help.
@@ -842,6 +857,97 @@ kaskade consumer -b ${BOOTSTRAP_SERVERS} -t my-avro-topic \
 
 See the
 [Kafka client quick start for Confluent Cloud](https://docs.confluent.io/cloud/current/client-apps/config-client.html).
+
+## Producer
+
+### Compose and produce
+
+`kaskade producer` composes and produces one record at a time to the topic given
+with `-t`:
+
+```bash
+kaskade producer -b my-kafka:9092 -t orders
+kaskade producer -b my-kafka:9092 -t orders -k string -v json --partition 2
+```
+
+The composer has four tabs: **Headers**, **Key**, **Value**, and **Preview**.
+
+- **Headers** keep their order. Duplicate names, empty values, and null values
+  are allowed. Header values are UTF-8 strings or null.
+- **Key** and **Value** each have a serializer, a **Null** control, a content
+  editor, and inline validation. Empty content and null are different: an empty
+  string is valid Kafka data, while a null value can act as a tombstone on
+  compacted topics.
+- **Preview** shows the topic, partition, headers, serializers, and serialized
+  sizes before you produce.
+
+Press `Ctrl+S` to produce. Kaskade validates and serializes the Key and Value,
+then waits for the broker. It reports success only after the broker acknowledges
+the record, with its partition, offset, and timestamp:
+
+```text
+Delivered · Partition 2 · Offset 8429 · 14:20:05.120
+```
+
+Produce is disabled while a delivery is in progress. The draft stays after both
+success and failure, so you can change it and produce again. Failures say
+whether serialization, authorization, a timeout, or the broker caused them.
+Kaskade never logs record content.
+
+When Kaskade closes, it flushes queued records for up to `producer.flush`
+seconds; see [Operation timeouts](#operation-timeouts).
+
+### Serializers
+
+Choose the Key and Value serializers with `-k` and `-v`; both default to
+`string`. You can also change them in the Key and Value tabs.
+
+| Serializer | Content |
+| --- | --- |
+| `string` | UTF-8 text |
+| `bytes` | Text in the selected encoding: `base64`, `hex`, `byte-array` (a JSON array of 0–255), or `escaped` |
+| `boolean` | `true` or `false` |
+| `integer`, `long` | Big-endian 32-bit or 64-bit signed integers |
+| `float`, `double` | Big-endian 32-bit or 64-bit IEEE 754 numbers |
+| `json` | Any JSON document, sent compact |
+
+Avro, Protobuf, and Schema Registry serializers aren't supported yet.
+
+### Load drafts from a file
+
+`--source` loads record drafts into the composer instead of starting empty. A
+`.json` file holds one record, and a `.jsonl` file holds one record per line:
+
+```json
+{"headers": [{"key": "trace", "value": "abc"}, {"key": "trace", "value": null}], "key": {"content": "order-42"}, "value": {"content": {"status": "paid"}}}
+```
+
+A missing `key` or `value`, or `"content": null`, is null. With several records,
+the title shows the position, such as `Record 3/20`; move between records with
+`Ctrl+PageDown` and `Ctrl+PageUp`. Each record is still produced only when you
+press `Ctrl+S`. Invalid documents are reported with their line number, and the
+file is never modified.
+
+### Producer configuration
+
+Producer uses the same `--config-file`, `-b`, `--kafka`, `--aws`, `--timeout`,
+and `--theme` options as the other commands. These options set common producer
+properties:
+
+| Option | Kafka property |
+| --- | --- |
+| `--acks all\|-1\|0\|1` | `acks` |
+| `--compression none\|gzip\|snappy\|lz4\|zstd` | `compression.type` |
+| `--idempotence` / `--no-idempotence` | `enable.idempotence` |
+
+The same properties can live in the `[kafka]` section of `--config-file`.
+Precedence, from lowest to highest: `--config-file`, `--kafka`, the options
+above, `-b`, then AWS IAM settings. An option you don't pass never replaces a
+configured or default value.
+
+`confluent-kafka` checks that the settings are compatible. For example,
+`--idempotence --acks 1` fails before the composer opens with a message that
+`acks` must be `all`.
 
 ## Format-specific consumers
 

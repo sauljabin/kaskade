@@ -35,6 +35,11 @@ consumer:
     assignment: 15
     request: 10
 
+producer:
+  timeouts:
+    delivery: 30
+    flush: 5
+
 # Values are Textual key names; use commas to assign multiple keys.
 keymap:
   # Application
@@ -77,6 +82,14 @@ keymap:
   kaskade.records.chunk-size: "#"
   kaskade.records.show-all: escape
 
+  # Producer
+  kaskade.compose.produce: ctrl+s
+  kaskade.compose.next: ctrl+pagedown
+  kaskade.compose.previous: ctrl+pageup
+  kaskade.headers.add: n,ctrl+n
+  kaskade.headers.edit: e,enter
+  kaskade.headers.delete: ctrl+d,delete
+
   # Dialogs and editors
   kaskade.filter-topics.apply: enter
   kaskade.filter-topics.close: escape
@@ -94,3 +107,5 @@ keymap:
   kaskade.record-details.previous: N,p
   kaskade.record-details.next: n
   kaskade.record-details.close: escape
+  kaskade.header.save: ctrl+s,ctrl+shift+s,f2
+  kaskade.header.close: escape
