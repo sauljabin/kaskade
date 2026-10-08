@@ -11,6 +11,8 @@ from textual.containers import Container, Horizontal, ScrollableContainer
 from textual.coordinate import Coordinate
 from textual.geometry import Size
 from textual.widgets import DataTable, OptionList, Static
+
+# The only private Textual import; see StretchyDataTable._compute_row_renderables.
 from textual.widgets._data_table import RowRenderables
 from textual.widgets.data_table import CellType, ColumnKey
 
@@ -111,9 +113,9 @@ class KaskadeHeader(Horizontal):
         )
 
     def on_mount(self) -> None:
-        self.watch(self.app, "theme", self._refresh_styles, init=False)
+        self.watch(self.app, "theme", self._restyle_text, init=False)
 
-    def _refresh_styles(self) -> None:
+    def _restyle_text(self) -> None:
         self.query_one("#kaskade-product", Static).update(
             self._product_text(),
             layout=False,
@@ -250,6 +252,14 @@ class StretchyDataTable(DataTable[CellType]):
         self._column_stretches: dict[ColumnKey, int] = {}
 
     def _compute_row_renderables(self, row_index: int) -> RowRenderables:
+        """Ellipsize every row cell that does not set its own overflow.
+
+        This overrides a private ``DataTable`` method, Kaskade's only private
+        Textual dependency. Textual has no public alternative: ``DataTable``
+        formats ``str`` cells into ``Text`` without an overflow and ignores the
+        ``text-overflow`` style. ``tests_widgets.TestPrivateTextualHook`` fails
+        when a Textual upgrade changes this method.
+        """
         renderables = super()._compute_row_renderables(row_index)
         if row_index >= 0:
             for cell in renderables.cells:
@@ -282,19 +292,26 @@ class StretchyDataTable(DataTable[CellType]):
         self._column_stretches[column_key] = stretch
 
         if self.is_mounted:
-            self.call_after_refresh(self._stretch_columns)
+            self.call_after_refresh(self.restretch)
 
         return column_key
 
     def on_resize(self, _event: events.Resize) -> None:
-        self._stretch_columns()
+        self.restretch()
 
-    def _stretch_columns(self) -> None:
+    def _row_label_width(self) -> int:
+        labels = [row.label for row in self.rows.values() if row.label is not None]
+        if not self.show_row_labels or not labels:
+            return 0
+        return max(cell_len(label.plain) for label in labels) + 2 * self.cell_padding
+
+    def restretch(self) -> None:
+        """Divide the available width between columns by their stretch factors."""
         columns = self.ordered_columns
         if not columns:
             return
 
-        row_label_width = self._row_label_column_width
+        row_label_width = self._row_label_width()
         available_width = max(0, self.scrollable_content_region.width - row_label_width)
         padding_width = 2 * self.cell_padding * len(columns)
         available_content_width = max(0, available_width - padding_width)

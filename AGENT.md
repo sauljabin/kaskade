@@ -163,6 +163,10 @@ entries.
   remain borderless. Put counts in tab labels such as `Partitions [50]`.
 - Table backgrounds are transparent. Primary tables keep focus-aware borders;
   nested detail tables use `details-table`.
+- Use public Textual APIs and never reuse a private Textual member name. The
+  only exception is `StretchyDataTable._compute_row_renderables`, which
+  ellipsizes cells; keep it documented and guarded by `TestPrivateTextualHook`,
+  and keep `textual` capped below the next major version.
 - `eva01-berserk` is the default bundled theme; retain the original `eva01` and
   every Textual built-in theme.
   Style CSS with semantic variables and Rich renderables with semantic names,

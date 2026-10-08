@@ -1,9 +1,10 @@
+import inspect
 import unittest
 from pathlib import Path
 
 from rich.text import Text
 from textual.app import App, ComposeResult
-from textual.widgets import OptionList
+from textual.widgets import DataTable, OptionList
 
 from kaskade.app import KaskadeApp
 from kaskade.widgets import KaskadeOptionList, MetadataCell, StretchyDataTable
@@ -65,19 +66,34 @@ class TestStretchyDataTable(unittest.IsolatedAsyncioTestCase):
         async with app.run_test(size=(20, 10)) as pilot:
             table = app.query_one(StretchyDataTable)
             await pilot.pause()
-            column_width = table.ordered_columns[0].get_render_width(table)
 
-            rendered_rows = []
-            for row_index in range(2):
-                lines = table._render_cell(
-                    row_index,
-                    0,
-                    table.rich_style,
-                    column_width,
-                )
-                rendered_rows.append("".join(segment.text for segment in lines[0]).strip())
+            rendered_rows = [table.render_line(line).text.strip() for line in (1, 2)]
 
-            self.assertEqual(["abc…", "sty…"], rendered_rows)
+            self.assertEqual(
+                ["abc…", "sty…"],
+                rendered_rows,
+                "StretchyDataTable no longer ellipsizes cells; check its "
+                "_compute_row_renderables override against the installed Textual",
+            )
+
+    async def test_reserves_row_label_width_before_stretching(self):
+        class LabelledRowsApp(App):
+            def compose(self) -> ComposeResult:
+                table = StretchyDataTable[str]()
+                table.add_column("Value", width=4, stretch=1)
+                table.add_row("a", label="label")
+                yield table
+
+        app = LabelledRowsApp()
+        async with app.run_test(size=(40, 10)) as pilot:
+            table = app.query_one(StretchyDataTable)
+            await pilot.pause()
+
+            label_width = len("label") + 2 * table.cell_padding
+            self.assertEqual(
+                table.scrollable_content_region.width - label_width,
+                table.ordered_columns[0].get_render_width(table),
+            )
 
     async def test_fills_available_width_and_resizes_proportionally(self):
         app = StretchyTableApp(rows=100)
@@ -133,6 +149,23 @@ class TestStretchyDataTable(unittest.IsolatedAsyncioTestCase):
 
         async with app.run_test(size=(40, 10)):
             self.assertEqual([], app.query_one(StretchyDataTable).ordered_columns)
+
+
+class TestPrivateTextualHook(unittest.TestCase):
+    """Fail clearly when Textual changes the private hook StretchyDataTable overrides."""
+
+    def test_data_table_still_computes_row_renderables(self):
+        hook = getattr(DataTable, "_compute_row_renderables", None)
+        message = (
+            "Textual changed DataTable._compute_row_renderables, which "
+            "StretchyDataTable overrides to ellipsize cells"
+        )
+        self.assertTrue(callable(hook), message)
+        self.assertEqual(
+            ["self", "row_index"],
+            list(inspect.signature(hook).parameters),
+            message,
+        )
 
 
 class OptionListApp(App):
