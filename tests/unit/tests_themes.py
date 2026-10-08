@@ -56,6 +56,8 @@ from kaskade.help import (
     HelpScreen,
 )
 from kaskade.models import Header, Partition, Record, Topic, TopicConfiguration
+from kaskade.producer import HeaderScreen, HeadersPane, KaskadeProducer, RecordComposer
+from kaskade.producer_service import ProducerSettings
 from kaskade.settings import AppSettings, load_settings
 from kaskade.themes import (
     DEFAULT_THEME,
@@ -74,7 +76,7 @@ from kaskade.widgets import (
     StretchyDataTable,
     TableFrame,
 )
-from tests import configure_admin_service, configure_consumer_service
+from tests import configure_admin_service, configure_consumer_service, configure_producer_service
 
 
 class TestThemes(unittest.TestCase):
@@ -151,6 +153,9 @@ class TestThemes(unittest.TestCase):
             ChunkSizeScreen,
             TopicScreen,
             ListRecords,
+            RecordComposer,
+            HeadersPane,
+            HeaderScreen,
             StretchyDataTable,
             KaskadeOptionList,
             KaskadeScrollableContainer,
@@ -170,6 +175,7 @@ class TestThemes(unittest.TestCase):
         self.assertEqual("styles.css", KaskadeApp.CSS_PATH)
         self.assertEqual(KaskadeApp.CSS_PATH, KaskadeAdmin.CSS_PATH)
         self.assertEqual(KaskadeApp.CSS_PATH, KaskadeConsumer.CSS_PATH)
+        self.assertEqual(KaskadeApp.CSS_PATH, KaskadeProducer.CSS_PATH)
 
     def test_modal_commands_match_the_footer_matrix(self):
         expected_commands = {
@@ -181,6 +187,7 @@ class TestThemes(unittest.TestCase):
             FilterRecordScreen: ["Apply Filters", "Back", "Help"],
             ChunkSizeScreen: ["Select", "Back", "Help"],
             TopicScreen: ["Back", "Help"],
+            HeaderScreen: ["Save Header", "Back", "Help"],
             HelpScreen: ["Back"],
         }
 
@@ -1469,3 +1476,58 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                     screenshot = app.export_screenshot()
 
                 self.assertIn("<svg", screenshot)
+
+
+class TestProducerLayout(unittest.IsolatedAsyncioTestCase):
+    def producer(self) -> KaskadeProducer:
+        return KaskadeProducer(ProducerSettings("orders", {BOOTSTRAP_SERVERS: "kafka1:9092"}))
+
+    async def test_producer_renders_every_theme_on_wide_and_narrow_terminals(self):
+        themes = (EVA01_THEME.name, EVA01_BERSERK_THEME.name, "textual-light", "ansi-dark")
+        for theme in themes:
+            for size in ((120, 30), (60, 24)):
+                with (
+                    self.subTest(theme=theme, size=size),
+                    patch("kaskade.producer.app.ProducerService") as service,
+                ):
+                    configure_producer_service(service.return_value)
+                    app = self.producer()
+                    app.theme = theme
+                    async with app.run_test(size=size) as pilot:
+                        await pilot.pause()
+                        composer = app.query_one(RecordComposer)
+                        self.assertEqual(
+                            app.current_theme.background, app.screen.styles.background.hex
+                        )
+                        self.assertIn("orders", composer.border_title)
+                        self.assertLessEqual(composer.region.right, size[0])
+                        self.assertIn("<svg", app.export_screenshot())
+
+    async def test_header_editor_fills_narrow_terminals(self):
+        with patch("kaskade.producer.app.ProducerService") as service:
+            configure_producer_service(service.return_value)
+            app = self.producer()
+            async with app.run_test(size=(60, 24)) as pilot:
+                app.query_one("#headers-table", DataTable).focus()
+                await pilot.press("n")
+                await pilot.pause()
+
+                self.assertIsInstance(app.screen, HeaderScreen)
+                self.assertTrue(app.screen.has_class("-narrow"))
+                self.assertEqual(60, app.screen.query_one(".header-form").outer_size.width)
+
+    async def test_producer_footer_and_help_show_the_compose_commands(self):
+        with patch("kaskade.producer.app.ProducerService") as service:
+            configure_producer_service(service.return_value)
+            app = self.producer()
+            async with app.run_test(size=(120, 30)) as pilot:
+                await pilot.pause()
+                footer_keys = [key.description for key in app.query("FooterKey")]
+                self.assertEqual("Produce", footer_keys[0])
+                self.assertNotIn("Next Record", footer_keys)
+
+                await pilot.press("f1")
+                await pilot.pause()
+                help_table = app.screen.query_one("#help-table", DataTable)
+                actions = [help_table.get_row_at(row)[2] for row in range(help_table.row_count)]
+                self.assertIn("Produce", actions)

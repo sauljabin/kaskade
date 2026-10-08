@@ -39,3 +39,10 @@ class SchemaType(str, Enum):
 
     def __str__(self) -> str:
         return self.value
+
+
+ACKS = "acks"
+ACKS_CHOICES = ("all", "-1", "0", "1")
+COMPRESSION_TYPE = "compression.type"
+COMPRESSION_TYPES = ("none", "gzip", "snappy", "lz4", "zstd")
+ENABLE_IDEMPOTENCE = "enable.idempotence"

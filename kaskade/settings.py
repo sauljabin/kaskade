@@ -10,6 +10,7 @@ from kaskade.keymaps import parse_keymap
 from kaskade.timeouts import (
     ADMIN_TIMEOUT_PROPERTIES,
     CONSUMER_TIMEOUT_PROPERTIES,
+    PRODUCER_TIMEOUT_PROPERTIES,
     TimeoutConfig,
     parse_timeout_seconds,
 )
@@ -22,6 +23,7 @@ ADMIN_REFRESH_INTERVAL_SETTING = "refresh-interval"
 TIMEOUTS_SETTING = "timeouts"
 ADMIN_SETTINGS = (ADMIN_REFRESH_INTERVAL_SETTING, TIMEOUTS_SETTING)
 CONSUMER_SETTINGS = (TIMEOUTS_SETTING,)
+PRODUCER_SETTINGS = (TIMEOUTS_SETTING,)
 
 
 @dataclass(frozen=True)
@@ -64,6 +66,10 @@ def load_settings(path: Path | None = None) -> AppSettings:
     consumer_timeouts, consumer_timeout_warnings = _parse_timeouts(
         "consumer", consumer, CONSUMER_TIMEOUT_PROPERTIES
     )
+    producer, producer_warnings = _parse_section(data, "producer", PRODUCER_SETTINGS)
+    producer_timeouts, producer_timeout_warnings = _parse_timeouts(
+        "producer", producer, PRODUCER_TIMEOUT_PROPERTIES
+    )
     theme, theme_warnings = _parse_theme(data.get("theme"))
     custom_themes, custom_theme_warnings = _parse_custom_themes(data.get("themes"))
     return AppSettings(
@@ -72,7 +78,7 @@ def load_settings(path: Path | None = None) -> AppSettings:
         admin_refresh_interval_seconds=refresh_interval,
         theme=theme,
         custom_themes=custom_themes,
-        timeouts=TimeoutConfig.from_dict(admin_timeouts | consumer_timeouts),
+        timeouts=TimeoutConfig.from_dict(admin_timeouts | consumer_timeouts | producer_timeouts),
         warnings=(
             *read_warnings,
             *keymap_warnings,
@@ -81,6 +87,8 @@ def load_settings(path: Path | None = None) -> AppSettings:
             *admin_timeout_warnings,
             *consumer_warnings,
             *consumer_timeout_warnings,
+            *producer_warnings,
+            *producer_timeout_warnings,
             *theme_warnings,
             *custom_theme_warnings,
         ),

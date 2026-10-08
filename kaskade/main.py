@@ -14,15 +14,20 @@ from kaskade.cli.connection import load_config_file, resolve_connection
 from kaskade.cli.properties import join_bootstrap_servers, tuple_properties_to_dict
 from kaskade.cli.validation import normalize_deserializer_options
 from kaskade.configs import (
+    ACKS,
+    ACKS_CHOICES,
     APICURIO_OPTION,
     AUTO_OFFSET_RESET,
     AVRO_DESERIALIZER_CONFIGS,
     AWS_CONFIGS,
     BYTES_DESERIALIZER_CONFIGS,
     BYTES_ENCODINGS,
+    COMPRESSION_TYPE,
+    COMPRESSION_TYPES,
     CONFLUENT_OPTION,
     DESERIALIZER_FRAMINGS,
     EARLIEST,
+    ENABLE_IDEMPOTENCE,
     FALLBACK_CONFIGS,
     JSON_DESERIALIZER_CONFIGS,
     PROTOBUF_DESERIALIZER_CONFIGS,
@@ -33,6 +38,9 @@ from kaskade.consumer_service import ConsumerSettings, PartitionSelectionError
 from kaskade.deserializers import Deserialization
 from kaskade.logs import configure_logging
 from kaskade.models import PartitionOffset, PartitionSelection
+from kaskade.producer import KaskadeProducer, SourceError, load_drafts
+from kaskade.producer_service import ProducerSettings
+from kaskade.serializers import Serialization
 from kaskade.settings import (
     MIN_ADMIN_REFRESH_INTERVAL_SECONDS,
     is_valid_admin_refresh_interval,
@@ -41,7 +49,9 @@ from kaskade.themes import configured_theme_names
 from kaskade.timeouts import (
     ADMIN_TIMEOUT_PROPERTIES,
     CONSUMER_TIMEOUT_PROPERTIES,
+    PRODUCER_TIMEOUT_PROPERTIES,
 )
+from kaskade.ui import error_message
 
 KAFKA_CONFIG_HELP = (
     "Kafka client property. Repeatable; overrides matching properties from --config-file."
@@ -217,6 +227,24 @@ def admin_application_options() -> Callable[[CliDecoratorTarget], CliDecoratorTa
 
 def consumer_application_options() -> Callable[[CliDecoratorTarget], CliDecoratorTarget]:
     return cloup.option_group("Application options", theme_option())
+
+
+def string_to_serializer_type(ctx: Any, param: Any, value: str) -> Serialization:
+    return Serialization.from_str(value)
+
+
+def producer_kafka_config(
+    acks: str | None, compression: str | None, idempotence: bool | None
+) -> dict[str, str]:
+    """Kafka properties for the dedicated producer options that were supplied."""
+    config: dict[str, str] = {}
+    if acks is not None:
+        config[ACKS] = acks
+    if compression is not None:
+        config[COMPRESSION_TYPE] = compression
+    if idempotence is not None:
+        config[ENABLE_IDEMPOTENCE] = str(idempotence).lower()
+    return config
 
 
 def string_to_deserializer_type(ctx: Any, param: Any, value: Any) -> Any:
@@ -510,6 +538,126 @@ def consumer(
         raise BadParameter(message=str(ex), param_hint="'--partition'") from ex
     except (KafkaException, ValueError) as ex:
         raise ClickException(str(ex)) from ex
+    kaskade_app.run()
+
+
+@cli.command(epilog=EPILOG_HELP)
+@configuration_options()
+@kafka_connection_options()
+@aws_options()
+@timeout_options(PRODUCER_TIMEOUT_PROPERTIES)
+@cloup.option_group(
+    "Production options",
+    cloup.option(
+        "-t",
+        "--topic",
+        "topic",
+        help="Topic name.",
+        metavar="name",
+        required=True,
+    ),
+    cloup.option(
+        "--source",
+        "source",
+        type=cloup.Path(exists=True, dir_okay=False),
+        metavar="path",
+        help="Load record drafts from a .json file (one record) or a .jsonl file (one per line).",
+    ),
+    cloup.option(
+        "--partition",
+        "partition",
+        type=cloup.IntRange(min=0),
+        metavar="number",
+        help="Produce to this partition instead of letting the partitioner choose.",
+    ),
+    cloup.option(
+        "-k",
+        "--key",
+        "key_serialization",
+        type=cloup.Choice(Serialization.str_list(), False),
+        help="Key serializer (case-insensitive).",
+        default=str(Serialization.STRING),
+        show_default=True,
+        callback=string_to_serializer_type,
+    ),
+    cloup.option(
+        "-v",
+        "--value",
+        "value_serialization",
+        type=cloup.Choice(Serialization.str_list(), False),
+        help="Value serializer (case-insensitive).",
+        default=str(Serialization.STRING),
+        show_default=True,
+        callback=string_to_serializer_type,
+    ),
+    cloup.option(
+        "--acks",
+        type=cloup.Choice(ACKS_CHOICES),
+        help=f"Broker acknowledgements; sets {ACKS}.",
+    ),
+    cloup.option(
+        "--compression",
+        type=cloup.Choice(COMPRESSION_TYPES),
+        help=f"Compression codec; sets {COMPRESSION_TYPE}.",
+    ),
+    cloup.option(
+        "--idempotence/--no-idempotence",
+        default=None,
+        help=f"Enable or disable the idempotent producer; sets {ENABLE_IDEMPOTENCE}.",
+    ),
+)
+@consumer_application_options()
+def producer(
+    bootstrap_servers: str | None,
+    config_file: str | None,
+    kafka_config: dict[str, Any],
+    aws_config: dict[str, str],
+    timeout_config: dict[str, str],
+    topic: str,
+    source: str | None,
+    partition: int | None,
+    key_serialization: Serialization,
+    value_serialization: Serialization,
+    acks: str | None,
+    compression: str | None,
+    idempotence: bool | None,
+    theme: str | None,
+) -> None:
+    """
+    Producer mode.
+
+    \b
+    Examples:
+      kaskade producer -b localhost:9092 -t my-topic
+      kaskade producer -b localhost:9092 -t my-topic -v json --source drafts.jsonl
+      kaskade producer --config-file client.ini -t my-topic --acks all --compression zstd
+    """
+
+    file_config = load_config_file(config_file)
+    connection = resolve_connection(
+        file_config,
+        bootstrap_servers,
+        kafka_config | producer_kafka_config(acks, compression, idempotence),
+        aws_config,
+    )
+    app_settings = resolve_app_settings(PRODUCER_TIMEOUT_PROPERTIES, timeout_config, theme=theme)
+    try:
+        drafts = load_drafts(source) if source is not None else ()
+    except SourceError as ex:
+        raise BadParameter(message=str(ex), param_hint="'--source'") from ex
+
+    producer_settings = ProducerSettings(
+        topic=topic,
+        kafka_config=connection.kafka_config,
+        key_serialization=key_serialization,
+        value_serialization=value_serialization,
+        partition=partition,
+        timeouts=app_settings.timeouts,
+    )
+    try:
+        kaskade_app = KaskadeProducer(producer_settings, drafts=drafts, settings=app_settings)
+    except KafkaException as ex:
+        raise ClickException(error_message(ex)) from ex
     kaskade_app.run()
 
 

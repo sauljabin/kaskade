@@ -6,6 +6,7 @@ from pathlib import Path
 from unittest.mock import ANY, patch
 
 from click.testing import CliRunner
+from confluent_kafka import KafkaError, KafkaException
 
 from kaskade.authentication import (
     OAUTH_CALLBACK,
@@ -27,6 +28,7 @@ from kaskade.consumer_service import ConsumerSettings, PartitionSelectionError
 from kaskade.deserializers import Deserialization
 from kaskade.main import PARTITION_SELECTION_METAVAR, cli
 from kaskade.models import PartitionOffset, PartitionSelection
+from kaskade.serializers import Serialization
 from kaskade.settings import SETTINGS_ENV_VAR, load_settings
 from kaskade.timeouts import TimeoutConfig
 from tests import faker
@@ -2276,3 +2278,173 @@ class TestConsumerCli(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestProducerCli(unittest.TestCase):
+    def setUp(self):
+        self.runner = CliRunner()
+        close_log_handlers_on_cleanup(self)
+        self.temp_directory = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp_directory.cleanup)
+        patcher = patch("kaskade.main.KaskadeProducer")
+        self.addCleanup(patcher.stop)
+        self.producer = patcher.start()
+
+    def invoke(self, *args: str):
+        return self.runner.invoke(cli, ["producer", "-t", EXPECTED_TOPIC, *args])
+
+    def producer_settings(self):
+        return self.producer.call_args.args[0]
+
+    def test_requires_a_topic(self):
+        result = self.runner.invoke(cli, ["producer", "-b", EXPECTED_SERVER])
+
+        self.assertEqual(2, result.exit_code)
+        self.assertIn("Missing option '-t' / '--topic'", result.output)
+
+    def test_defaults_to_string_serializers_and_automatic_partition(self):
+        result = self.invoke("-b", EXPECTED_SERVER)
+
+        self.assertEqual(0, result.exit_code, result.output)
+        settings = self.producer_settings()
+        self.assertEqual(EXPECTED_TOPIC, settings.topic)
+        self.assertEqual({BOOTSTRAP_SERVERS: EXPECTED_SERVER}, settings.kafka_config)
+        self.assertEqual(Serialization.STRING, settings.key_serialization)
+        self.assertEqual(Serialization.STRING, settings.value_serialization)
+        self.assertIsNone(settings.partition)
+        self.assertEqual((), self.producer.call_args.kwargs["drafts"])
+
+    def test_dedicated_options_override_kafka_which_overrides_the_file(self):
+        config_path = write_config_ini(
+            self.temp_directory.name,
+            kafka={
+                BOOTSTRAP_SERVERS: CONFIGURED_SERVER,
+                "acks": "1",
+                "compression.type": "gzip",
+                "enable.idempotence": "false",
+                "linger.ms": "5",
+            },
+        )
+
+        result = self.invoke(
+            "--config-file",
+            config_path,
+            "--kafka",
+            "acks=0",
+            "--kafka",
+            "linger.ms=10",
+            "--acks",
+            "all",
+            "--idempotence",
+            "-b",
+            EXPECTED_SERVER,
+            "-k",
+            "LONG",
+            "-v",
+            "json",
+            "--partition",
+            "3",
+        )
+
+        self.assertEqual(0, result.exit_code, result.output)
+        settings = self.producer_settings()
+        self.assertEqual(
+            {
+                BOOTSTRAP_SERVERS: EXPECTED_SERVER,
+                "acks": "all",
+                "compression.type": "gzip",
+                "enable.idempotence": "true",
+                "linger.ms": "10",
+            },
+            settings.kafka_config,
+        )
+        self.assertEqual(Serialization.LONG, settings.key_serialization)
+        self.assertEqual(Serialization.JSON, settings.value_serialization)
+        self.assertEqual(3, settings.partition)
+
+    def test_dedicated_options_map_to_kafka_properties(self):
+        result = self.invoke(
+            "-b", EXPECTED_SERVER, "--acks", "-1", "--compression", "zstd", "--no-idempotence"
+        )
+
+        self.assertEqual(0, result.exit_code, result.output)
+        self.assertEqual(
+            {
+                BOOTSTRAP_SERVERS: EXPECTED_SERVER,
+                "acks": "-1",
+                "compression.type": "zstd",
+                "enable.idempotence": "false",
+            },
+            self.producer_settings().kafka_config,
+        )
+
+    def test_help_lists_only_producer_timeouts(self):
+        result = self.runner.invoke(cli, ["producer", "--help"], terminal_width=200)
+
+        self.assertEqual(0, result.exit_code)
+        self.assertIn("Properties: producer.delivery, producer.flush.", result.output)
+        self.assertIn("--idempotence / --no-idempotence", result.output)
+
+    def test_producer_timeouts_come_from_settings_and_the_option(self):
+        settings_path = Path(self.temp_directory.name) / "settings.yaml"
+        settings_path.write_text(
+            "producer:\n  timeouts:\n    delivery: 20\n    flush: 3\n", encoding="utf-8"
+        )
+
+        result = self.runner.invoke(
+            cli,
+            [
+                "producer",
+                "-t",
+                EXPECTED_TOPIC,
+                "-b",
+                EXPECTED_SERVER,
+                "--timeout",
+                "producer.flush=1",
+            ],
+            env={SETTINGS_ENV_VAR: str(settings_path)},
+        )
+
+        self.assertEqual(0, result.exit_code, result.output)
+        self.assertEqual(
+            TimeoutConfig(producer_delivery=20.0, producer_flush=1.0),
+            self.producer_settings().timeouts,
+        )
+        rejected = self.invoke("-b", EXPECTED_SERVER, "--timeout", "consumer.poll=1")
+        self.assertEqual(2, rejected.exit_code)
+        self.assertIn("consumer.poll applies only to consumer.", rejected.output)
+
+    def test_loads_source_drafts(self):
+        source = Path(self.temp_directory.name) / "drafts.jsonl"
+        source.write_text('{"key": {"content": "1"}}\n{}\n', encoding="utf-8")
+
+        result = self.invoke("-b", EXPECTED_SERVER, "--source", str(source))
+
+        self.assertEqual(0, result.exit_code, result.output)
+        self.assertEqual(2, len(self.producer.call_args.kwargs["drafts"]))
+
+    def test_reports_invalid_source_documents(self):
+        source = Path(self.temp_directory.name) / "drafts.jsonl"
+        source.write_text("{}\n[]\n", encoding="utf-8")
+
+        result = self.invoke("-b", EXPECTED_SERVER, "--source", str(source))
+
+        self.assertEqual(2, result.exit_code)
+        self.assertIn("Invalid value for '--source': Line 2:", result.output)
+        self.producer.assert_not_called()
+
+    def test_reports_invalid_producer_configuration(self):
+        self.producer.side_effect = KafkaException(
+            KafkaError(
+                KafkaError._INVALID_ARG,
+                "Failed to create producer: `acks` must be set to `all` when "
+                "`enable.idempotence` is true",
+            )
+        )
+
+        result = self.invoke("-b", EXPECTED_SERVER, "--idempotence", "--acks", "1")
+
+        self.assertEqual(1, result.exit_code)
+        self.assertIn(
+            "Error: Failed to create producer: `acks` must be set to `all`", result.output
+        )

@@ -7,7 +7,7 @@ from io import BytesIO
 from pathlib import Path
 
 import httpx
-from confluent_kafka import Producer
+from confluent_kafka import Consumer, Producer
 from confluent_kafka.admin import AdminClient
 from confluent_kafka.cimpl import NewTopic
 from confluent_kafka.schema_registry import SchemaRegistryClient
@@ -42,6 +42,10 @@ from kaskade.consumer import KaskadeConsumer, ListRecords
 from kaskade.consumer_service import ConsumerSettings
 from kaskade.deserializers import Deserialization
 from kaskade.models import PartitionOffset, PartitionSelection
+from kaskade.producer import KaskadeProducer, RecordComposer, RecordDraft
+from kaskade.producer.source import DraftField
+from kaskade.producer_service import ProducerSettings
+from kaskade.serializers import Serialization
 
 MY_VALUE = "my-value"
 MY_KEY = "my-key"
@@ -199,6 +203,22 @@ def populate_topic(config):
     producer.flush()
 
 
+def consume_all(config, topic: str, expected: int) -> list:
+    consumer = Consumer(config | {"group.id": "kaskade-e2e-verify", AUTO_OFFSET_RESET: EARLIEST})
+    consumer.subscribe([topic])
+    messages = []
+    try:
+        for _ in range(60):
+            message = consumer.poll(0.5)
+            if message is not None and message.error() is None:
+                messages.append(message)
+            if len(messages) == expected:
+                break
+    finally:
+        consumer.close()
+    return messages
+
+
 class TestE2E(unittest.IsolatedAsyncioTestCase):
     async def wait_for_rows(self, table: DataTable, expected: int, timeout: float = 15) -> None:
         loop = asyncio.get_running_loop()
@@ -263,6 +283,51 @@ class TestE2E(unittest.IsolatedAsyncioTestCase):
                 await self.wait_for_rows(table, 1)
 
                 self.assertEqual(MY_TOPIC, table.get_row(MY_TOPIC)[0])
+
+    async def wait_for_subtitle(self, composer: RecordComposer, text: str) -> None:
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + 30
+        while text not in str(composer.border_subtitle):
+            if loop.time() >= deadline:
+                self.fail(f"Expected {text!r}, found {composer.border_subtitle!r}")
+            await asyncio.sleep(0.1)
+
+    async def test_producer_delivers_composed_records(self):
+        with kafka_container() as kafka:
+            config = {BOOTSTRAP_SERVERS: kafka.get_bootstrap_server()}
+            create_topic(config, partitions=2)
+            drafts = (
+                RecordDraft(
+                    headers=(("trace", "a"), ("trace", None), ("empty", "")),
+                    key=DraftField("order-1", is_null=False),
+                    value=DraftField({"status": "paid"}, is_null=False),
+                ),
+                RecordDraft(value=DraftField({}, is_null=False)),
+            )
+            producer_app = KaskadeProducer(
+                ProducerSettings(
+                    MY_TOPIC, config, value_serialization=Serialization.JSON, partition=1
+                ),
+                drafts=drafts,
+            )
+            async with producer_app.run_test() as pilot:
+                composer = producer_app.query_one(RecordComposer)
+                await pilot.pause()
+                await pilot.press("ctrl+s")
+                await self.wait_for_subtitle(composer, "Delivered · Partition 1 · Offset 0")
+                await pilot.press("ctrl+pagedown")
+                await pilot.pause()
+                await pilot.press("ctrl+s")
+                await self.wait_for_subtitle(composer, "Delivered · Partition 1 · Offset 1")
+
+            first, second = sorted(consume_all(config, MY_TOPIC, 2), key=lambda m: m.offset())
+            self.assertEqual(
+                (1, b"order-1", b'{"status":"paid"}'),
+                (first.partition(), first.key(), first.value()),
+            )
+            self.assertEqual([("trace", b"a"), ("trace", None), ("empty", b"")], first.headers())
+            self.assertIsNone(second.key())
+            self.assertEqual(b"{}", second.value())
 
     async def test_consumer(self):
         with kafka_container() as kafka:
