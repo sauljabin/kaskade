@@ -953,7 +953,7 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual("", app.clipboard)
 
     async def test_consumer_uses_a_stretchy_records_table(self):
-        with patch("kaskade.consumer.ConsumerService") as consumer_service:
+        with patch("kaskade.consumer.records.ConsumerService") as consumer_service:
             consumer_service.return_value.consume = AsyncMock(return_value=[])
             bootstrap_servers = "kafka1:9092,kafka2:9092"
             app = KaskadeConsumer(
@@ -1023,7 +1023,7 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
         with (
             patch.dict(os.environ, environment),
             patch("kaskade.admin.app.TopicService") as topic_service,
-            patch("kaskade.consumer.ConsumerService") as consumer_service,
+            patch("kaskade.consumer.records.ConsumerService") as consumer_service,
         ):
             configure_admin_service(topic_service.return_value, {})
             consumer_service.return_value.consume = AsyncMock(return_value=[])
@@ -1107,7 +1107,7 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                     self.assertEqual(3, header.region.height)
 
     async def test_record_details_use_native_tabs_and_fill_narrow_layout(self):
-        with patch("kaskade.consumer.ConsumerService") as consumer_service:
+        with patch("kaskade.consumer.records.ConsumerService") as consumer_service:
             consumer_service.return_value.consume = AsyncMock(return_value=[])
             app = KaskadeConsumer(
                 "orders",
@@ -1243,7 +1243,7 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 self.assertIs(records_table, app.screen.focused)
 
     async def test_record_metadata_ellipsizes_labels_on_tiny_screens(self):
-        with patch("kaskade.consumer.ConsumerService") as consumer_service:
+        with patch("kaskade.consumer.records.ConsumerService") as consumer_service:
             consumer_service.return_value.consume = AsyncMock(return_value=[])
             app = KaskadeConsumer(
                 "orders",
