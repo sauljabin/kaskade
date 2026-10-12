@@ -1540,6 +1540,12 @@ class TestProducerLayout(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual("Produce", footer_keys[0])
                 self.assertNotIn("Next Record", footer_keys)
 
+                app.query_one("#composer-tabs", TabbedContent).active = "value-tab"
+                app.query_one("#value-content").focus()
+                await pilot.pause()
+                footer_keys = [key.description for key in app.query("FooterKey")]
+                self.assertEqual(["Produce", "Quit", "Help"], footer_keys[:3])
+
                 await pilot.press("f1")
                 await pilot.pause()
                 help_table = app.screen.query_one("#help-table", DataTable)

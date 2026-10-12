@@ -1,5 +1,6 @@
 """The record composer: Headers, Key, Value, and Preview tabs."""
 
+from dataclasses import replace
 from typing import ClassVar
 
 from rich.text import Text
@@ -28,6 +29,19 @@ PRODUCE_SHORTCUT = "ctrl+s"
 NEXT_DRAFT_SHORTCUT = "ctrl+pagedown"
 PREVIOUS_DRAFT_SHORTCUT = "ctrl+pageup"
 FIELDS = ("key", "value")
+
+
+class ContentArea(TextArea, inherit_bindings=False):
+    """A text editor without Textual's ctrl+c copy alias, which belongs to Quit."""
+
+    BINDINGS: ClassVar[list[BindingType]] = [
+        (
+            replace(binding, key="super+c")
+            if isinstance(binding, Binding) and binding.action == "copy"
+            else binding
+        )
+        for binding in TextArea.BINDINGS
+    ]
 
 
 def byte_size(data: bytes) -> str:
@@ -68,9 +82,8 @@ class FieldEditor(Container):
             encoding.display = self.initial_serialization == Serialization.BYTES
             yield encoding
             yield Checkbox("Null", False, id=f"{self.field_name}-null", classes="field-null")
-        content = TextArea(id=f"{self.field_name}-content", classes="field-content")
-        content.border_title = "Content"
-        yield content
+        yield Static(Text("CONTENT", style="muted"), classes="field-content-label")
+        yield ContentArea(id=f"{self.field_name}-content", classes="field-content")
         yield Static(id=f"{self.field_name}-status", classes="field-status")
 
     def on_mount(self) -> None:

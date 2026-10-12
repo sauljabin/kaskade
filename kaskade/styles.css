@@ -489,14 +489,21 @@ CommandPalette.-narrow > #--container {
     background: transparent;
 }
 
+.field-content-label {
+    height: 1;
+    margin-top: 1;
+}
+
 TextArea.field-content {
     height: 1fr;
-    border: solid $secondary 50%;
-    background: transparent;
+    border: none;
+    padding: 1 2;
+    background: $panel-darken-1;
 }
 
 TextArea.field-content:focus {
-    border: $secondary;
+    border: none;
+    background: $panel;
 }
 
 .field-status {
