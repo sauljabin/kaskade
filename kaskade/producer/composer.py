@@ -7,7 +7,7 @@ from rich.text import Text
 from textual import on, work
 from textual.app import ComposeResult
 from textual.binding import Binding, BindingType
-from textual.containers import Container, Horizontal
+from textual.containers import Container, Grid, Horizontal
 from textual.message import Message
 from textual.widgets import Checkbox, DataTable, Select, Static, TabbedContent, TabPane, TextArea
 
@@ -27,7 +27,6 @@ from kaskade.widgets import KaskadeScrollableContainer, MetadataCell, StretchyDa
 
 PRODUCE_SHORTCUT = "ctrl+s,ctrl+shift+s,f2"
 SUMMARY_SHORTCUT = "f3"
-SUMMARY_MIN_TERMINAL_WIDTH = 100
 NEXT_DRAFT_SHORTCUT = "ctrl+pagedown"
 PREVIOUS_DRAFT_SHORTCUT = "ctrl+pageup"
 FIELDS = ("key", "value")
@@ -127,15 +126,11 @@ class FieldEditor(Container):
         try:
             data = self.serialize()
         except SerializationError as ex:
-            status.update(Text(str(ex), style="error"))
-            status.set_class(True, "-invalid")
+            status.update(str(ex))
+            status.set_classes("field-status -invalid")
             return
-        status.set_class(False, "-invalid")
-        status.update(
-            Text("Null", style=NULL)
-            if data is None
-            else Text(f"Valid · {byte_size(data)}", style="success")
-        )
+        status.set_classes("field-status -null" if data is None else "field-status")
+        status.update("Null" if data is None else f"Valid · {byte_size(data)}")
 
     @on(Select.Changed)
     @on(Checkbox.Changed)
@@ -311,28 +306,32 @@ class RecordComposer(Container):
         self.is_producing = False
 
     def compose(self) -> ComposeResult:
-        with Horizontal(id="composer-body"):
-            with TabbedContent(id="composer-tabs"):
-                with TabPane("Headers [0]", id="headers-tab"):
-                    yield HeadersPane()
-                for field_name, serialization in (
-                    ("key", self.settings.key_serialization),
-                    ("value", self.settings.value_serialization),
-                ):
-                    with TabPane(field_name.title(), id=f"{field_name}-tab"):
-                        yield FieldEditor(field_name, serialization, self.serializers)
-            with KaskadeScrollableContainer(id="record-summary", can_focus=False):
-                yield Static(id="summary-status")
+        with TabbedContent(id="composer-tabs"):
+            with TabPane("Headers [0]", id="headers-tab"):
+                yield HeadersPane()
+            for field_name, serialization in (
+                ("key", self.settings.key_serialization),
+                ("value", self.settings.value_serialization),
+            ):
+                with TabPane(field_name.title(), id=f"{field_name}-tab"):
+                    yield FieldEditor(field_name, serialization, self.serializers)
+        summary = KaskadeScrollableContainer(id="record-summary", can_focus=False)
+        summary.border_title = f"[{PRIMARY}]Summary[/]"
+        with summary:
+            with Grid(id="summary-metadata", classes="summary-grid"):
                 yield MetadataCell("Topic", self.settings.topic, id="summary-topic")
-                for name in ("partition", "headers", *FIELDS):
-                    yield MetadataCell(name.title(), "", id=f"summary-{name}")
+                yield MetadataCell("Partition", "", id="summary-partition")
+                yield MetadataCell("Headers", "", id="summary-headers")
+            for field_name in FIELDS:
+                yield Static(Text(field_name.upper(), style="muted"), classes="summary-label")
+                with Grid(classes="summary-grid summary-field"):
+                    yield MetadataCell("Serializer", "", id=f"summary-{field_name}-serializer")
+                    yield MetadataCell("Size", "", id=f"summary-{field_name}-size")
+            yield Static(id="summary-status")
 
     def on_mount(self) -> None:
         if self.drafts:
             self.call_after_refresh(self.load_draft, 0)
-        self.query_one("#record-summary").display = (
-            self.app.size.width >= SUMMARY_MIN_TERMINAL_WIDTH
-        )
         self._update_frame()
         self.update_summary()
 
@@ -393,11 +392,7 @@ class RecordComposer(Container):
         ]
         status = self.query_one("#summary-status", Static)
         status.set_class(bool(invalid), "-invalid")
-        status.update(
-            Text(f"Invalid {' and '.join(invalid)}", style="error")
-            if invalid
-            else Text("Ready to produce", style="success")
-        )
+        status.update(f"Invalid {' and '.join(invalid)}" if invalid else "Ready to produce")
 
     def _summary_cell(self, name: str) -> MetadataCell:
         return self.query_one(f"#summary-{name}", MetadataCell)
@@ -407,14 +402,15 @@ class RecordComposer(Container):
         editor = self.editor(field_name)
         serializer = editor.serialization.name
         if editor.serialization == Serialization.BYTES:
-            serializer += f" {editor.encoding.name}"
+            serializer += f" · {editor.encoding.name}"
+        self._summary_cell(f"{field_name}-serializer").update_value(serializer)
+        size = self._summary_cell(f"{field_name}-size")
         try:
             data = editor.serialize()
         except SerializationError:
-            self._summary_cell(field_name).update_value(f"{serializer} · invalid")
+            size.update_value("Invalid")
             return False
-        outcome = "null" if data is None else byte_size(data)
-        self._summary_cell(field_name).update_value(f"{serializer} · {outcome}")
+        size.update_value("Null" if data is None else byte_size(data))
         return True
 
     def action_toggle_summary(self) -> None:

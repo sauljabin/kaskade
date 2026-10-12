@@ -872,7 +872,7 @@ kaskade producer -b my-kafka:9092 -t orders -k string -v json --partition 2
 ```
 
 The composer has three tabs, **Headers**, **Key**, and **Value**, and a
-**Summary** panel on the right.
+floating **Summary** panel.
 
 - **Headers** keep their order. Duplicate names, empty values, and null values
   are allowed. Header values are UTF-8 strings or null.
@@ -881,8 +881,8 @@ The composer has three tabs, **Headers**, **Key**, and **Value**, and a
   string is valid Kafka data, while a null value can act as a tombstone on
   compacted topics.
 - **Summary** shows whether the record is ready, plus the topic, partition,
-  header count, serializers, and serialized sizes. Press `F3` to hide or show
-  it; it starts hidden on terminals narrower than 100 columns.
+  header count, serializers, and serialized sizes. It starts hidden; press `F3`
+  to show it over the editor and again to hide it.
 
 Press `Ctrl+S` to produce. Kaskade validates and serializes the Key and Value,
 then waits for the broker. It reports success only after the broker acknowledges

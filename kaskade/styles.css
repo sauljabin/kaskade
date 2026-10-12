@@ -467,8 +467,7 @@ CommandPalette.-narrow > #--container {
 }
 
 #composer-tabs {
-    width: 1fr;
-    height: 100%;
+    height: 1fr;
 }
 
 .field-editor,
@@ -510,6 +509,15 @@ TextArea.field-content:focus {
 .field-status {
     height: auto;
     padding: 0 1;
+    color: $text-success;
+}
+
+.field-status.-invalid {
+    color: $text-error;
+}
+
+.field-status.-null {
+    color: $text-warning;
 }
 
 #headers-empty {
@@ -518,35 +526,61 @@ TextArea.field-content:focus {
     color: $text-muted;
 }
 
-#composer-body {
-    height: 1fr;
+#record-composer {
+    layers: base summary;
 }
 
 #record-summary {
-    width: 32;
-    height: 100%;
-    padding: 0 0 0 1;
+    layer: summary;
+    dock: right;
+    display: none;
+    width: 64;
+    max-width: 100%;
+    height: auto;
+    max-height: 100%;
+    border: $secondary;
+    background: $background;
+    padding: 0 1;
 }
 
-#record-summary > MetadataCell {
+#record-summary .summary-grid {
     width: 100%;
     height: 4;
-    margin: 0;
+    grid-size: 3 1;
+    grid-columns: 2fr 1fr 1fr;
+    grid-gutter: 0;
+}
+
+#record-summary .summary-field {
+    grid-size: 2 1;
+    grid-columns: 2fr 1fr;
+}
+
+#record-summary MetadataCell {
+    width: 100%;
+    height: 100%;
     border: solid $secondary 50%;
     padding: 0;
+}
+
+.summary-label {
+    height: 1;
+    margin-top: 1;
 }
 
 #summary-status {
     width: 100%;
     height: auto;
-    margin: 0;
+    margin-top: 1;
     border: solid $success 50%;
     padding: 0;
+    color: $text-success;
 }
 
 #summary-status.-invalid {
     border: solid $error;
     background: $error 15%;
+    color: $text-error;
 }
 
 .header-form {
