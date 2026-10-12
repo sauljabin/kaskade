@@ -294,7 +294,8 @@ action, Kaskade uses the same key.
 | Change record chunk size | `#` |
 | Previous or next record in Record Details | `N`/`p` or `n` |
 | Save Create Topic or Edit Topic | `Ctrl+S`, `Ctrl+Shift+S`, or `F2` |
-| Produce the composed record | `Ctrl+S` |
+| Produce the composed record | `Ctrl+S`, `Ctrl+Shift+S`, or `F2` |
+| Show or hide the producer Summary | `F3` |
 | Next or previous source record | `Ctrl+PageDown` or `Ctrl+PageUp` |
 | Add, edit, or delete a header | `n`, `e`/`Enter`, or `Ctrl+D` |
 
@@ -870,7 +871,8 @@ kaskade producer -b my-kafka:9092 -t orders
 kaskade producer -b my-kafka:9092 -t orders -k string -v json --partition 2
 ```
 
-The composer has four tabs: **Headers**, **Key**, **Value**, and **Preview**.
+The composer has three tabs, **Headers**, **Key**, and **Value**, and a
+**Summary** panel on the right.
 
 - **Headers** keep their order. Duplicate names, empty values, and null values
   are allowed. Header values are UTF-8 strings or null.
@@ -878,8 +880,9 @@ The composer has four tabs: **Headers**, **Key**, **Value**, and **Preview**.
   editor, and inline validation. Empty content and null are different: an empty
   string is valid Kafka data, while a null value can act as a tombstone on
   compacted topics.
-- **Preview** shows the topic, partition, headers, serializers, and serialized
-  sizes before you produce.
+- **Summary** shows whether the record is ready, plus the topic, partition,
+  header count, serializers, and serialized sizes. Press `F3` to hide or show
+  it; it starts hidden on terminals narrower than 100 columns.
 
 Press `Ctrl+S` to produce. Kaskade validates and serializes the Key and Value,
 then waits for the broker. It reports success only after the broker acknowledges

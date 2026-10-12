@@ -83,7 +83,8 @@ keymap:
   kaskade.records.show-all: escape
 
   # Producer
-  kaskade.compose.produce: ctrl+s
+  kaskade.compose.produce: ctrl+s,ctrl+shift+s,f2
+  kaskade.compose.summary: f3
   kaskade.compose.next: ctrl+pagedown
   kaskade.compose.previous: ctrl+pageup
   kaskade.headers.add: n,ctrl+n

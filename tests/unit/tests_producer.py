@@ -140,7 +140,9 @@ class TestComposeAndProduce(ProducerTestCase):
             self.assertIs(app.focused, app.query_one("#value-content", TextArea))
             status = app.query_one("#value-status", Static).render()
             self.assertIn("Expected a 32-bit integer", str(status))
-            self.assertIn("Value: Expected", str(app.query_one("#record-preview", Static).render()))
+            summary = app.query_one("#summary-status", Static)
+            self.assertIn("Invalid Value", str(summary.render()))
+            self.assertTrue(summary.has_class("-invalid"))
 
     async def test_success_reports_the_acknowledgement_and_keeps_the_draft(self):
         app = producer_app(partition=2)
@@ -228,6 +230,40 @@ class TestComposeAndProduce(ProducerTestCase):
         async with app.run_test() as pilot:
             await pilot.pause()
             self.assertFalse(self.composer(app).check_action("next_draft", ()))
+
+    async def test_summary_reports_sizes_and_toggles(self):
+        app = producer_app(partition=2)
+        async with app.run_test(size=(120, 30)) as pilot:
+            app.query_one("#key-content", TextArea).load_text("order-1")
+            app.query_one("#value-null", Checkbox).value = True
+            await pilot.pause()
+            summary = app.query_one("#record-summary")
+
+            self.assertTrue(summary.display)
+            self.assertIn("2", str(app.query_one("#summary-partition", Static).render()))
+            self.assertIn("STRING · 7 bytes", str(app.query_one("#summary-key", Static).render()))
+            self.assertIn("STRING · null", str(app.query_one("#summary-value", Static).render()))
+            self.assertIn(
+                "Ready to produce", str(app.query_one("#summary-status", Static).render())
+            )
+
+            await pilot.press("f3")
+            await pilot.pause()
+            self.assertFalse(summary.display)
+
+    async def test_summary_starts_hidden_on_narrow_terminals(self):
+        app = producer_app()
+        async with app.run_test(size=(90, 24)) as pilot:
+            await pilot.pause()
+            self.assertFalse(app.query_one("#record-summary").display)
+
+    async def test_produce_has_zellij_safe_aliases(self):
+        app = producer_app()
+        async with app.run_test() as pilot:
+            await pilot.press("f2")
+            await pilot.pause()
+
+            self.service.produce.assert_called_once()
 
     async def test_shutdown_closes_the_producer(self):
         app = producer_app()

@@ -1544,7 +1544,7 @@ class TestProducerLayout(unittest.IsolatedAsyncioTestCase):
                 app.query_one("#value-content").focus()
                 await pilot.pause()
                 footer_keys = [key.description for key in app.query("FooterKey")]
-                self.assertEqual(["Produce", "Quit", "Help"], footer_keys[:3])
+                self.assertEqual(["Produce", "Summary", "Quit", "Help"], footer_keys[:4])
 
                 await pilot.press("f1")
                 await pilot.pause()

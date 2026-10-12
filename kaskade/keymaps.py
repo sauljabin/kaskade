@@ -33,6 +33,7 @@ KNOWN_BINDING_IDS = (
             "kaskade.compose.next",
             "kaskade.compose.previous",
             "kaskade.compose.produce",
+            "kaskade.compose.summary",
             "kaskade.create-topic.close",
             "kaskade.create-topic.save",
             "kaskade.delete-topic.cancel",

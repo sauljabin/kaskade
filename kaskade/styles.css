@@ -467,7 +467,8 @@ CommandPalette.-narrow > #--container {
 }
 
 #composer-tabs {
-    height: 1fr;
+    width: 1fr;
+    height: 100%;
 }
 
 .field-editor,
@@ -517,9 +518,35 @@ TextArea.field-content:focus {
     color: $text-muted;
 }
 
-#preview-scroll {
+#composer-body {
+    height: 1fr;
+}
+
+#record-summary {
+    width: 32;
     height: 100%;
-    padding: 0 1;
+    padding: 0 0 0 1;
+}
+
+#record-summary > MetadataCell {
+    width: 100%;
+    height: 4;
+    margin: 0;
+    border: solid $secondary 50%;
+    padding: 0;
+}
+
+#summary-status {
+    width: 100%;
+    height: auto;
+    margin: 0;
+    border: solid $success 50%;
+    padding: 0;
+}
+
+#summary-status.-invalid {
+    border: solid $error;
+    background: $error 15%;
 }
 
 .header-form {

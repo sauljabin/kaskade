@@ -145,8 +145,9 @@ kaskade producer -b localhost:9092 -t qa-producer -v json
 2. In **Key**, type `order-1`. In **Value**, type `{"status": ` and check the
    status line: it reports invalid JSON. Press `Ctrl+S`; nothing is produced and
    the Value editor keeps focus.
-3. Finish the value: `{"status": "paid"}`. **Preview** shows the topic,
-   automatic partition, headers, serializers, and byte sizes.
+3. Finish the value: `{"status": "paid"}`. The **Summary** panel on the right
+   shows `Ready to produce`, the topic, automatic partition, header count,
+   serializers, and byte sizes. Press `F3` to hide and show it.
 4. Press `Ctrl+S`. The subtitle shows `Producing…`, then
    `Delivered · Partition … · Offset … · …`. The draft stays.
 5. Check **Null** on the Value and produce a tombstone.

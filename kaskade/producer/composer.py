@@ -1,4 +1,4 @@
-"""The record composer: Headers, Key, Value, and Preview tabs."""
+"""The record composer: Headers, Key, and Value tabs and a Summary panel."""
 
 from dataclasses import replace
 from typing import ClassVar
@@ -23,9 +23,11 @@ from kaskade.producer_service import (
 )
 from kaskade.serializers import Serialization, SerializationError, SerializerPool
 from kaskade.ui import notify_error
-from kaskade.widgets import KaskadeScrollableContainer, StretchyDataTable
+from kaskade.widgets import KaskadeScrollableContainer, MetadataCell, StretchyDataTable
 
-PRODUCE_SHORTCUT = "ctrl+s"
+PRODUCE_SHORTCUT = "ctrl+s,ctrl+shift+s,f2"
+SUMMARY_SHORTCUT = "f3"
+SUMMARY_MIN_TERMINAL_WIDTH = 100
 NEXT_DRAFT_SHORTCUT = "ctrl+pagedown"
 PREVIOUS_DRAFT_SHORTCUT = "ctrl+pageup"
 FIELDS = ("key", "value")
@@ -252,7 +254,7 @@ class HeadersPane(Container):
 
 
 class RecordComposer(Container):
-    """Compose, preview, and produce one record at a time."""
+    """Compose, summarize, and produce one record at a time."""
 
     BINDING_GROUP_TITLE = "Compose Record"
     BINDINGS: ClassVar[list[BindingType]] = [
@@ -260,6 +262,7 @@ class RecordComposer(Container):
             PRODUCE_SHORTCUT,
             "produce",
             "Produce",
+            key_display="ctrl+s",
             priority=True,
             tooltip="Validate, serialize, and produce the record, then wait for the broker.",
             id="kaskade.compose.produce",
@@ -282,6 +285,14 @@ class RecordComposer(Container):
             tooltip="Load the previous record from the source file.",
             id="kaskade.compose.previous",
         ),
+        Binding(
+            SUMMARY_SHORTCUT,
+            "toggle_summary",
+            "Summary",
+            priority=True,
+            tooltip="Show or hide the record summary panel.",
+            id="kaskade.compose.summary",
+        ),
     ]
 
     def __init__(
@@ -300,26 +311,30 @@ class RecordComposer(Container):
         self.is_producing = False
 
     def compose(self) -> ComposeResult:
-        with TabbedContent(id="composer-tabs"):
-            with TabPane("Headers [0]", id="headers-tab"):
-                yield HeadersPane()
-            for field_name, serialization in (
-                ("key", self.settings.key_serialization),
-                ("value", self.settings.value_serialization),
-            ):
-                with TabPane(field_name.title(), id=f"{field_name}-tab"):
-                    yield FieldEditor(field_name, serialization, self.serializers)
-            with (
-                TabPane("Preview", id="preview-tab"),
-                KaskadeScrollableContainer(id="preview-scroll"),
-            ):
-                yield Static(id="record-preview")
+        with Horizontal(id="composer-body"):
+            with TabbedContent(id="composer-tabs"):
+                with TabPane("Headers [0]", id="headers-tab"):
+                    yield HeadersPane()
+                for field_name, serialization in (
+                    ("key", self.settings.key_serialization),
+                    ("value", self.settings.value_serialization),
+                ):
+                    with TabPane(field_name.title(), id=f"{field_name}-tab"):
+                        yield FieldEditor(field_name, serialization, self.serializers)
+            with KaskadeScrollableContainer(id="record-summary", can_focus=False):
+                yield Static(id="summary-status")
+                yield MetadataCell("Topic", self.settings.topic, id="summary-topic")
+                for name in ("partition", "headers", *FIELDS):
+                    yield MetadataCell(name.title(), "", id=f"summary-{name}")
 
     def on_mount(self) -> None:
         if self.drafts:
             self.call_after_refresh(self.load_draft, 0)
+        self.query_one("#record-summary").display = (
+            self.app.size.width >= SUMMARY_MIN_TERMINAL_WIDTH
+        )
         self._update_frame()
-        self.update_preview()
+        self.update_summary()
 
     async def on_unmount(self) -> None:
         await self.service.aclose()
@@ -345,7 +360,7 @@ class RecordComposer(Container):
         self.editor("key").load(draft.key)
         self.editor("value").load(draft.value)
         self._update_frame()
-        self.update_preview()
+        self.update_summary()
 
     def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
         if action in {"next_draft", "previous_draft"}:
@@ -365,59 +380,46 @@ class RecordComposer(Container):
     def draft_changed(self) -> None:
         headers = self.query_one(HeadersPane).headers
         self.query_one(TabbedContent).get_tab("headers-tab").label = f"Headers [{len(headers)}]"
-        self.update_preview()
+        self.update_summary()
 
-    def update_preview(self) -> None:
-        preview = Text()
+    def update_summary(self) -> None:
         partition = self.settings.partition
-        self._preview_row(preview, "Topic", Text(self.settings.topic))
-        self._preview_row(
-            preview, "Partition", Text("Automatic" if partition is None else str(partition))
+        self._summary_cell("partition").update_value(
+            "Automatic" if partition is None else str(partition)
         )
-        headers = self.query_one(HeadersPane).headers
-        self._preview_row(preview, "Headers", Text(str(len(headers))))
-        for name, value in headers:
-            preview.append(f"  {name}: ")
-            preview.append_text(Text("null", style=NULL) if value is None else Text(value))
-            preview.append("\n")
-        failures = [
-            failure
-            for field_name in FIELDS
-            if (failure := self._preview_field(field_name, preview)) is not None
+        self._summary_cell("headers").update_value(str(len(self.query_one(HeadersPane).headers)))
+        invalid = [
+            field_name.title() for field_name in FIELDS if not self._summarize_field(field_name)
         ]
-        status = (
-            Text("; ".join(failures), style="error")
-            if failures
+        status = self.query_one("#summary-status", Static)
+        status.set_class(bool(invalid), "-invalid")
+        status.update(
+            Text(f"Invalid {' and '.join(invalid)}", style="error")
+            if invalid
             else Text("Ready to produce", style="success")
         )
-        self._preview_row(preview, "Status", status)
-        self.query_one("#record-preview", Static).update(preview)
 
-    @staticmethod
-    def _preview_row(preview: Text, label: str, value: Text) -> None:
-        preview.append(f"{label:<11}", style="secondary")
-        preview.append_text(value)
-        preview.append("\n")
+    def _summary_cell(self, name: str) -> MetadataCell:
+        return self.query_one(f"#summary-{name}", MetadataCell)
 
-    def _preview_field(self, field_name: str, preview: Text) -> str | None:
+    def _summarize_field(self, field_name: str) -> bool:
+        """Show the field's serializer and size; return whether it serializes."""
         editor = self.editor(field_name)
         serializer = editor.serialization.name
         if editor.serialization == Serialization.BYTES:
-            serializer += f" · {editor.encoding.name}"
+            serializer += f" {editor.encoding.name}"
         try:
             data = editor.serialize()
-        except SerializationError as ex:
-            self._preview_row(preview, field_name.title(), Text(f"{serializer} · invalid"))
-            return f"{field_name.title()}: {ex}"
-        if data is None:
-            self._preview_row(
-                preview, field_name.title(), Text(f"{serializer} · ").append("null", style=NULL)
-            )
-            return None
-        self._preview_row(preview, field_name.title(), Text(f"{serializer} · {byte_size(data)}"))
-        preview.append_text(Text(editor.content.text, style="muted"))
-        preview.append("\n")
-        return None
+        except SerializationError:
+            self._summary_cell(field_name).update_value(f"{serializer} · invalid")
+            return False
+        outcome = "null" if data is None else byte_size(data)
+        self._summary_cell(field_name).update_value(f"{serializer} · {outcome}")
+        return True
+
+    def action_toggle_summary(self) -> None:
+        summary = self.query_one("#record-summary")
+        summary.display = not summary.display
 
     def outgoing_record(self) -> OutgoingRecord | None:
         """Serialize the draft, or reveal the first invalid field and return None."""
