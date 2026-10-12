@@ -527,19 +527,14 @@ TextArea.field-content:focus {
 }
 
 #record-composer {
-    layers: base summary;
+    height: 100%;
 }
 
 #record-summary {
-    layer: summary;
-    dock: right;
-    display: none;
-    width: 64;
-    max-width: 100%;
-    height: auto;
-    max-height: 100%;
-    border: $secondary;
-    background: $background;
+    width: 50;
+    height: 100%;
+    margin-left: 1;
+    border: solid $secondary 50%;
     padding: 0 1;
 }
 

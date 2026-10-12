@@ -27,6 +27,7 @@ from kaskade.widgets import KaskadeScrollableContainer, MetadataCell, StretchyDa
 
 PRODUCE_SHORTCUT = "ctrl+s,ctrl+shift+s,f2"
 SUMMARY_SHORTCUT = "f3"
+SUMMARY_MIN_TERMINAL_WIDTH = 80
 NEXT_DRAFT_SHORTCUT = "ctrl+pagedown"
 PREVIOUS_DRAFT_SHORTCUT = "ctrl+pageup"
 FIELDS = ("key", "value")
@@ -248,7 +249,7 @@ class HeadersPane(Container):
         self._refresh_table(cursor_row=row)
 
 
-class RecordComposer(Container):
+class RecordComposer(Horizontal):
     """Compose, summarize, and produce one record at a time."""
 
     BINDING_GROUP_TITLE = "Compose Record"
@@ -296,7 +297,7 @@ class RecordComposer(Container):
         service: ProducerService,
         drafts: tuple[RecordDraft, ...] = (),
     ) -> None:
-        super().__init__(id="record-composer", classes="kaskade-table")
+        super().__init__(id="record-composer")
         self.settings = settings
         self.service = service
         self.drafts = drafts
@@ -306,7 +307,10 @@ class RecordComposer(Container):
         self.is_producing = False
 
     def compose(self) -> ComposeResult:
-        with TabbedContent(id="composer-tabs"):
+        with (
+            Container(id="composer-frame", classes="kaskade-table"),
+            TabbedContent(id="composer-tabs"),
+        ):
             with TabPane("Headers [0]", id="headers-tab"):
                 yield HeadersPane()
             for field_name, serialization in (
@@ -330,6 +334,9 @@ class RecordComposer(Container):
             yield Static(id="summary-status")
 
     def on_mount(self) -> None:
+        self.query_one("#record-summary").display = (
+            self.app.size.width >= SUMMARY_MIN_TERMINAL_WIDTH
+        )
         if self.drafts:
             self.call_after_refresh(self.load_draft, 0)
         self._update_frame()
@@ -342,8 +349,13 @@ class RecordComposer(Container):
         title = rf"[{PRIMARY}]Compose Record[/] \[[{PRIMARY}]{self.settings.topic}[/]]"
         if len(self.drafts) > 1:
             title += rf"\[[{PRIMARY}]Record {self.draft_index + 1}/{len(self.drafts)}[/]]"
-        self.border_title = title
-        self.border_subtitle = self.status.markup
+        self.frame.border_title = title
+        self.frame.border_subtitle = self.status.markup
+
+    @property
+    def frame(self) -> Container:
+        """The bordered frame around the tabs; the Summary sits beside it."""
+        return self.query_one("#composer-frame", Container)
 
     def set_status(self, status: Text) -> None:
         self.status = status

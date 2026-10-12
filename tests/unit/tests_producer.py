@@ -159,7 +159,7 @@ class TestComposeAndProduce(ProducerTestCase):
             self.assertEqual(b'{"status":"paid"}', record.value)
             self.assertEqual(2, record.partition)
             composer = self.composer(app)
-            self.assertIn("Delivered · Partition 2 · Offset 8429", composer.border_subtitle)
+            self.assertIn("Delivered · Partition 2 · Offset 8429", composer.frame.border_subtitle)
             self.assertEqual("order-1", app.query_one("#key-content", TextArea).text)
             self.assertTrue(composer.check_action("produce", ()))
 
@@ -176,7 +176,7 @@ class TestComposeAndProduce(ProducerTestCase):
                 await pilot.pause()
 
             composer = self.composer(app)
-            self.assertIn("Authorization Error", composer.border_subtitle)
+            self.assertIn("Authorization Error", composer.frame.border_subtitle)
             self.assertEqual("payload", app.query_one("#value-content", TextArea).text)
             self.assertTrue(composer.check_action("produce", ()))
             self.assertNotIn("payload", "\n".join(logs.output))
@@ -195,7 +195,7 @@ class TestComposeAndProduce(ProducerTestCase):
             await pilot.pause()
             composer = self.composer(app)
             self.assertIsNone(composer.check_action("produce", ()))
-            self.assertIn("Producing", composer.border_subtitle)
+            self.assertIn("Producing", composer.frame.border_subtitle)
 
             await pilot.press("ctrl+s")
             await pilot.pause()
@@ -214,13 +214,13 @@ class TestComposeAndProduce(ProducerTestCase):
         async with app.run_test() as pilot:
             await pilot.pause()
             composer = self.composer(app)
-            self.assertIn("Record 1/2", composer.border_title)
+            self.assertIn("Record 1/2", composer.frame.border_title)
             self.assertEqual("first", app.query_one("#key-content", TextArea).text)
 
             await pilot.press("ctrl+pagedown")
             await pilot.pause()
 
-            self.assertIn("Record 2/2", composer.border_title)
+            self.assertIn("Record 2/2", composer.frame.border_title)
             self.assertTrue(app.query_one("#key-null", Checkbox).value)
             self.assertEqual('{\n  "n": 2\n}', app.query_one("#value-content", TextArea).text)
             self.service.produce.assert_not_called()
@@ -231,22 +231,17 @@ class TestComposeAndProduce(ProducerTestCase):
             await pilot.pause()
             self.assertFalse(self.composer(app).check_action("next_draft", ()))
 
-    async def test_summary_floats_hidden_until_toggled(self):
+    async def test_summary_sits_beside_the_frame_and_toggles(self):
         app = producer_app(partition=2)
         async with app.run_test(size=(120, 30)) as pilot:
             app.query_one("#key-content", TextArea).load_text("order-1")
             app.query_one("#value-null", Checkbox).value = True
             await pilot.pause()
             summary = app.query_one("#record-summary")
-            tabs = app.query_one("#composer-tabs")
-            tabs_width = tabs.region.width
-
-            self.assertFalse(summary.display)
-            await pilot.press("f3")
-            await pilot.pause()
+            frame = self.composer(app).frame
 
             self.assertTrue(summary.display)
-            self.assertEqual(tabs_width, tabs.region.width)
+            self.assertLessEqual(frame.region.right, summary.region.x)
 
             def cell(name: str) -> str:
                 return str(app.query_one(f"#summary-{name}", Static).render())
@@ -260,6 +255,13 @@ class TestComposeAndProduce(ProducerTestCase):
             await pilot.press("f3")
             await pilot.pause()
             self.assertFalse(summary.display)
+            self.assertEqual(120 - 2, frame.region.width)
+
+    async def test_summary_starts_hidden_on_narrow_terminals(self):
+        app = producer_app()
+        async with app.run_test(size=(70, 24)) as pilot:
+            await pilot.pause()
+            self.assertFalse(app.query_one("#record-summary").display)
 
     async def test_produce_has_zellij_safe_aliases(self):
         app = producer_app()

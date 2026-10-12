@@ -1499,7 +1499,7 @@ class TestProducerLayout(unittest.IsolatedAsyncioTestCase):
                         self.assertEqual(
                             app.current_theme.background, app.screen.styles.background.hex
                         )
-                        self.assertIn("orders", composer.border_title)
+                        self.assertIn("orders", composer.frame.border_title)
                         self.assertLessEqual(composer.region.right, size[0])
                         self.assertIn("<svg", app.export_screenshot())
 

@@ -287,9 +287,9 @@ class TestE2E(unittest.IsolatedAsyncioTestCase):
     async def wait_for_subtitle(self, composer: RecordComposer, text: str) -> None:
         loop = asyncio.get_running_loop()
         deadline = loop.time() + 30
-        while text not in str(composer.border_subtitle):
+        while text not in str(composer.frame.border_subtitle):
             if loop.time() >= deadline:
-                self.fail(f"Expected {text!r}, found {composer.border_subtitle!r}")
+                self.fail(f"Expected {text!r}, found {composer.frame.border_subtitle!r}")
             await asyncio.sleep(0.1)
 
     async def test_producer_delivers_composed_records(self):
