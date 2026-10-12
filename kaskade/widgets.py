@@ -36,30 +36,45 @@ def labelled_value(label: str, value: str) -> Text:
 
 
 class MetadataCell(Static):
-    """A labelled value that reveals its label when space truncates it."""
+    """A labelled value whose truncated parts are revealed in a tooltip.
 
-    def __init__(self, label: str, value: str, **kwargs: Any) -> None:
+    With ``ellipsize_value``, a one-line value is ellipsized instead of wrapping.
+    """
+
+    def __init__(
+        self, label: str, value: str, *, ellipsize_value: bool = False, **kwargs: Any
+    ) -> None:
         self._metadata_label = label
         self._metadata_value = value
+        self._ellipsize_value = ellipsize_value
         super().__init__(labelled_value(label, value), **kwargs)
 
     def _content_for_width(self, width: int) -> Text:
         label = Text()
         label.append(self._metadata_label.upper(), style="muted")
+        value = Text(self._metadata_value)
         if width:
             label.truncate(width, overflow="ellipsis")
+            if self._ellipsize_value:
+                value.truncate(width, overflow="ellipsis")
         label.append("\n")
-        label.append(self._metadata_value)
+        label.append_text(value)
         return label
+
+    def _truncated_parts(self, width: int) -> list[str]:
+        if not width:
+            return []
+        parts = []
+        if cell_len(self._metadata_label.upper()) > width:
+            parts.append(self._metadata_label)
+        if self._ellipsize_value and cell_len(self._metadata_value) > width:
+            parts.append(self._metadata_value)
+        return parts
 
     def _refresh_content(self) -> None:
         width = self.content_region.width
         self.update(self._content_for_width(width), layout=False)
-        self.tooltip = (
-            self._metadata_label
-            if width and cell_len(self._metadata_label.upper()) > width
-            else None
-        )
+        self.tooltip = "\n".join(self._truncated_parts(width)) or None
 
     def on_resize(self, _event: events.Resize) -> None:
         self._refresh_content()

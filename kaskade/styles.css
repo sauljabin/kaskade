@@ -93,7 +93,7 @@ HelpScreen {
 
 HelpScreen > #help-dialog {
     border: $secondary;
-    width: 72;
+    width: 100;
     max-width: 90%;
     height: 80%;
     background: $background;
@@ -489,9 +489,20 @@ CommandPalette.-narrow > #--container {
     margin-right: 1;
 }
 
+.field-options > Select > SelectCurrent,
+.field-options > Checkbox {
+    border: solid $secondary 50%;
+    background: transparent;
+    background-tint: transparent;
+}
+
+.field-options > Select:focus > SelectCurrent,
+.field-options > Checkbox:focus {
+    border: $secondary;
+}
+
 .field-options > Checkbox {
     width: auto;
-    background: transparent;
 }
 
 .field-content-label {

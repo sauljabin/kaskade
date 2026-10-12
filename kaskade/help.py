@@ -13,7 +13,7 @@ from textual.widgets import Footer, Static
 from kaskade import APP_NAME, APP_VERSION
 from kaskade.colors import PRIMARY, SECONDARY
 from kaskade.keymaps import NAVIGATION_BINDING_IDS
-from kaskade.widgets import StretchyDataTable
+from kaskade.widgets import TruncatedTooltipDataTable
 
 ScreenResult = TypeVar("ScreenResult")
 KASKADE_URL = "https://github.com/sauljabin/kaskade"
@@ -166,13 +166,13 @@ class HelpScreen(ModalScreen[None]):
                 f'[link="{KASKADE_ISSUES_URL}"]{KASKADE_ISSUES_URL}[/link]',
                 id="help-about",
             )
-            table: StretchyDataTable[str] = StretchyDataTable(
+            table: TruncatedTooltipDataTable[str] = TruncatedTooltipDataTable(
                 id="help-table",
                 cursor_type="row",
             )
-            table.add_column("Context", width=12, stretch=1)
-            table.add_column("Key", width=14, stretch=1)
-            table.add_column("Action", width=20, stretch=3)
+            table.add_column("Context", width=14, stretch=1, key="context")
+            table.add_column("Key", width=20, stretch=2, key="key")
+            table.add_column("Action", width=20, stretch=2, key="action")
             for binding in self.help_bindings:
                 table.add_row(
                     binding.context,

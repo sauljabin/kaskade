@@ -196,7 +196,11 @@ entries.
   tooltips and CLI diagnostics remain sentences.
 - Centered modals have one outer border, semantic theme backgrounds and colors,
   constrained width, and a compact Footer. The command palette and forms use
-  width `72` capped at `90%`; smaller selectors may be narrower.
+  width `72` capped at `90%`; smaller selectors may be narrower. Help keeps one
+  size in every context: width `100` capped at `90%`, height `80%`.
+- Truncated text is ellipsized and revealed in a tooltip: table cells through
+  `TruncatedTooltipDataTable`, and metadata box labels and one-line values
+  through `MetadataCell`.
 - Below 80 columns, use Textual's `-narrow` breakpoint: modals and the palette
   fill available width, and Help fills the screen.
 - For tabbed modals, border and title the outer `TabbedContent`; inner tables

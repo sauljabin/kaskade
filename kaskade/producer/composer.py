@@ -258,7 +258,6 @@ class RecordComposer(Horizontal):
             PRODUCE_SHORTCUT,
             "produce",
             "Produce",
-            key_display="ctrl+s",
             priority=True,
             tooltip="Validate, serialize, and produce the record, then wait for the broker.",
             id="kaskade.compose.produce",
@@ -323,14 +322,23 @@ class RecordComposer(Horizontal):
         summary.border_title = f"[{PRIMARY}]Summary[/]"
         with summary:
             with Grid(id="summary-metadata", classes="summary-grid"):
-                yield MetadataCell("Topic", self.settings.topic, id="summary-topic")
-                yield MetadataCell("Partition", "", id="summary-partition")
-                yield MetadataCell("Headers", "", id="summary-headers")
+                yield MetadataCell(
+                    "Topic", self.settings.topic, ellipsize_value=True, id="summary-topic"
+                )
+                yield MetadataCell("Partition", "", ellipsize_value=True, id="summary-partition")
+                yield MetadataCell("Headers", "", ellipsize_value=True, id="summary-headers")
             for field_name in FIELDS:
                 yield Static(Text(field_name.upper(), style="muted"), classes="summary-label")
                 with Grid(classes="summary-grid summary-field"):
-                    yield MetadataCell("Serializer", "", id=f"summary-{field_name}-serializer")
-                    yield MetadataCell("Size", "", id=f"summary-{field_name}-size")
+                    yield MetadataCell(
+                        "Serializer",
+                        "",
+                        ellipsize_value=True,
+                        id=f"summary-{field_name}-serializer",
+                    )
+                    yield MetadataCell(
+                        "Size", "", ellipsize_value=True, id=f"summary-{field_name}-size"
+                    )
             yield Static(id="summary-status")
 
     def on_mount(self) -> None:

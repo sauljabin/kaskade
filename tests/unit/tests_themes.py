@@ -588,7 +588,7 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(help_screen.size.width, help_dialog.region.width)
                 await pilot.resize_terminal(120, 30)
                 await pilot.pause()
-                self.assertEqual(72, help_dialog.region.width)
+                self.assertEqual(100, help_dialog.region.width)
                 await pilot.resize_terminal(70, 18)
                 await pilot.pause()
                 self.assertEqual(help_screen.size.width, help_dialog.region.width)
@@ -1549,5 +1549,23 @@ class TestProducerLayout(unittest.IsolatedAsyncioTestCase):
                 await pilot.press("f1")
                 await pilot.pause()
                 help_table = app.screen.query_one("#help-table", DataTable)
-                actions = [help_table.get_row_at(row)[2] for row in range(help_table.row_count)]
-                self.assertIn("Produce", actions)
+                rows = [help_table.get_row_at(row) for row in range(help_table.row_count)]
+                keys = next(keys for _, keys, action in rows if action == "Produce")
+                self.assertEqual(3, len(keys.split(" / ")))
+                key_column = help_table.columns[
+                    help_table.coordinate_to_cell_key((0, 1)).column_key
+                ]
+                self.assertGreaterEqual(key_column.width, len(keys))
+                self.assertEqual(100, app.screen.query_one("#help-dialog").region.width)
+
+    async def test_summary_values_ellipsize_with_a_tooltip(self):
+        topic = "a-very-long-topic-name-for-the-summary-box"
+        with patch("kaskade.producer.app.ProducerService") as service:
+            configure_producer_service(service.return_value)
+            app = KaskadeProducer(ProducerSettings(topic, {BOOTSTRAP_SERVERS: "kafka1:9092"}))
+            async with app.run_test(size=(120, 30)) as pilot:
+                await pilot.pause()
+                cell = app.query_one("#summary-topic", Static)
+
+                self.assertTrue(str(cell.render()).endswith("…"))
+                self.assertEqual(topic, cell.tooltip)
