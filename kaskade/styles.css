@@ -470,6 +470,10 @@ CommandPalette.-narrow > #--container {
     height: 1fr;
 }
 
+#composer-frame {
+    padding: 0 1;
+}
+
 .field-editor,
 #headers-pane {
     height: 100%;
