@@ -149,6 +149,14 @@ class TopicFormScreen(HelpableModalScreen[FormResult]):
                 )
         yield Footer(compact=True)
 
+    def on_mount(self) -> None:
+        """Start the cleanup policy cursor on the configured policy, not the first one."""
+        radio_set = self.query_one("#cleanup", RadioSet)
+        buttons = list(radio_set.query(CleanupPolicyButton))
+        pressed = [index for index, button in enumerate(buttons) if button.value]
+        for _ in range(pressed[0] if pressed else 0):
+            radio_set.action_next_button()
+
     def form_title(self) -> str:
         return f"[{PRIMARY}]{self.BINDING_GROUP_TITLE}[/]"
 

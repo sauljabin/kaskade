@@ -362,6 +362,24 @@ class TestUpdateTopic(unittest.IsolatedAsyncioTestCase):
 
                         self.assertEqual("compact", results[0].cleanup_policy)
 
+    async def test_cleanup_cursor_starts_on_the_configured_policy(self) -> None:
+        for policy, selected in (("compact", "compact"), ("delete", "delete"), ("", "delete")):
+            with (
+                self.subTest(policy=policy),
+                patch("kaskade.admin.app.TopicService") as topic_service,
+            ):
+                configure_admin_service(topic_service.return_value, {})
+                app = KaskadeAdmin({})
+                async with app.run_test() as pilot:
+                    app.push_screen(edit_topic_screen(cleanup_policy=policy))
+                    await pilot.pause()
+
+                    buttons = list(app.screen.query("#cleanup RadioButton").results(RadioButton))
+                    highlighted = [
+                        str(button.label) for button in buttons if button.has_class("-selected")
+                    ]
+                    self.assertEqual([selected], highlighted)
+
     async def test_preserves_unsupported_cleanup_policy_when_unchanged(self) -> None:
         app = KaskadeAdmin({})
         results: list[UpdateTopicCommand | None] = []
