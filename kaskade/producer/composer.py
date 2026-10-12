@@ -28,24 +28,35 @@ from kaskade.widgets import KaskadeScrollableContainer, MetadataCell
 PRODUCE_SHORTCUT = "ctrl+s,ctrl+shift+s,f2"
 SUMMARY_SHORTCUT = "f3"
 SUMMARY_MIN_TERMINAL_WIDTH = 80
-NEXT_DRAFT_SHORTCUT = "ctrl+pagedown"
-PREVIOUS_DRAFT_SHORTCUT = "ctrl+pageup"
+NEXT_DRAFT_SHORTCUT = "ctrl+pagedown,alt+pagedown"
+PREVIOUS_DRAFT_SHORTCUT = "ctrl+pageup,alt+pageup"
 FIELDS = ("key", "value")
 HeaderEntry = tuple[str, str | None]
 UNNAMED_HEADER = "Header names can't be empty"
 
 
-class ContentArea(TextArea, inherit_bindings=False):
-    """A text editor without Textual's ctrl+c copy alias, which belongs to Quit."""
-
-    BINDINGS: ClassVar[list[BindingType]] = [
+def without_ctrl_c_copy(bindings: list[BindingType]) -> list[BindingType]:
+    """Keep a widget's copy binding on super+c only; ctrl+c belongs to Quit."""
+    return [
         (
             replace(binding, key="super+c")
             if isinstance(binding, Binding) and binding.action == "copy"
             else binding
         )
-        for binding in TextArea.BINDINGS
+        for binding in bindings
     ]
+
+
+class ContentArea(TextArea, inherit_bindings=False):
+    """A text editor without Textual's ctrl+c copy alias."""
+
+    BINDINGS: ClassVar[list[BindingType]] = without_ctrl_c_copy(TextArea.BINDINGS)
+
+
+class HeaderInput(Input, inherit_bindings=False):
+    """A header field without Textual's ctrl+c copy alias."""
+
+    BINDINGS: ClassVar[list[BindingType]] = without_ctrl_c_copy(Input.BINDINGS)
 
 
 def byte_size(data: bytes) -> str:
@@ -150,8 +161,10 @@ class HeaderRow(Horizontal):
 
     def compose(self) -> ComposeResult:
         name, value = self.header
-        yield Input(name, placeholder="Name", compact=True, classes="header-name")
-        value_input = Input(value or "", placeholder="Value", compact=True, classes="header-value")
+        yield HeaderInput(name, placeholder="Name", compact=True, classes="header-name column-name")
+        value_input = HeaderInput(
+            value or "", placeholder="Value", compact=True, classes="header-value column-value"
+        )
         value_input.disabled = value is None
         yield value_input
         yield Checkbox(
@@ -159,7 +172,7 @@ class HeaderRow(Horizontal):
             value is None,
             compact=True,
             tooltip="Send this header with a null value.",
-            classes="header-null",
+            classes="header-null column-null",
         )
 
     @property
@@ -205,7 +218,7 @@ class HeadersPane(Container):
     def compose(self) -> ComposeResult:
         with Horizontal(classes="header-row header-labels"):
             for label in ("NAME", "VALUE", "NULL"):
-                yield Static(Text(label, style="muted"), classes=f"header-{label.lower()}")
+                yield Static(Text(label, style="muted"), classes=f"column-{label.lower()}")
         with KaskadeScrollableContainer(id="header-rows", can_focus=False):
             yield HeaderRow()
 

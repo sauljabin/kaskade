@@ -587,17 +587,17 @@ TextArea.field-content:focus {
     margin-bottom: 1;
 }
 
-.header-row > .header-name {
+.header-row > .column-name {
     width: 1fr;
     margin-right: 1;
 }
 
-.header-row > .header-value {
+.header-row > .column-value {
     width: 2fr;
     margin-right: 1;
 }
 
-.header-row > .header-null {
+.header-row > .column-null {
     width: 6;
 }
 

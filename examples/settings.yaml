@@ -85,8 +85,8 @@ keymap:
   # Producer
   kaskade.compose.produce: ctrl+s,ctrl+shift+s,f2
   kaskade.compose.summary: f3
-  kaskade.compose.next: ctrl+pagedown
-  kaskade.compose.previous: ctrl+pageup
+  kaskade.compose.next: ctrl+pagedown,alt+pagedown
+  kaskade.compose.previous: ctrl+pageup,alt+pageup
   kaskade.headers.delete: ctrl+d
 
   # Dialogs and editors

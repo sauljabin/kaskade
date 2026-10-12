@@ -296,7 +296,7 @@ action, Kaskade uses the same key.
 | Save Create Topic or Edit Topic | `Ctrl+S`, `Ctrl+Shift+S`, or `F2` |
 | Produce the composed record | `Ctrl+S`, `Ctrl+Shift+S`, or `F2` |
 | Show or hide the producer Summary | `F3` |
-| Next or previous source record | `Ctrl+PageDown` or `Ctrl+PageUp` |
+| Next or previous source record | `Ctrl+PageDown`/`Alt+PageDown` or `Ctrl+PageUp`/`Alt+PageUp` |
 | Delete the focused producer header | `Ctrl+D` |
 
 Help lists every contextual shortcut alias. Navigate with the standard keys and
@@ -306,7 +306,12 @@ Plain-character application shortcuts do not intercept typing in filter and
 editor fields.
 
 Terminals without distinct shifted-control key encoding may treat
-`Ctrl+Shift+S` as `Ctrl+S`; both bindings save. Enter keeps its normal submission
+`Ctrl+Shift+S` as `Ctrl+S`; both bindings save.
+
+Zellij uses `Ctrl+S` and `Ctrl+P` in its default keymap. Inside Zellij, use
+`F2` to save or produce, and `:` to open Commands when no text field has focus,
+or lock Zellij with `Ctrl+G` first. tmux only reserves its `Ctrl+B` prefix,
+which Kaskade doesn't use. Enter keeps its normal submission
 or selection behavior within form controls.
 
 #### Custom keymap
@@ -930,7 +935,8 @@ Avro, Protobuf, and Schema Registry serializers aren't supported yet.
 
 A missing `key` or `value`, or `"content": null`, is null. With several records,
 the title shows the position, such as `Record 3/20`; move between records with
-`Ctrl+PageDown` and `Ctrl+PageUp`. Each record is still produced only when you
+`Ctrl+PageDown` and `Ctrl+PageUp`, or `Alt+PageDown` and `Alt+PageUp` where the
+terminal uses the `Ctrl` keys to switch tabs. Each record is still produced only when you
 press `Ctrl+S`. Invalid documents are reported with their line number, and the
 file is never modified.
 

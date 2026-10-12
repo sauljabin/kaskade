@@ -1517,6 +1517,15 @@ class TestProducerLayout(unittest.IsolatedAsyncioTestCase):
                 footer_keys = [key.description for key in app.query("FooterKey")]
                 self.assertEqual(["Produce", "Summary", "Quit", "Help"], footer_keys[:4])
 
+                app.query_one("#composer-tabs", TabbedContent).active = "headers-tab"
+                await pilot.pause()
+                app.query_one(".header-name").focus()
+                await pilot.pause()
+                footer_keys = [key.description for key in app.query("FooterKey")]
+                self.assertEqual(
+                    ["Delete Header", "Produce", "Summary", "Quit", "Help"], footer_keys[:5]
+                )
+
                 await pilot.press("f1")
                 await pilot.pause()
                 help_table = app.screen.query_one("#help-table", DataTable)
