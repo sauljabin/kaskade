@@ -602,7 +602,13 @@ TextArea.field-content:focus {
 }
 
 .header-row > Input {
+    padding: 0 1;
     background: $panel-darken-1;
+}
+
+.header-labels > .column-name,
+.header-labels > .column-value {
+    padding: 0 1;
 }
 
 .header-row > Input:focus {
