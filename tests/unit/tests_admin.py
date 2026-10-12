@@ -29,7 +29,7 @@ from kaskade.admin import (
     KaskadeAdmin,
     ListTopics,
 )
-from kaskade.admin.topics import TopicDataTable
+from kaskade.admin.topics import DETAILS_LOADING_DELAY, TopicDataTable
 from kaskade.commands import CreateTopicCommand, UpdateTopicCommand
 from kaskade.configs import (
     CLEANUP_POLICY_CONFIG,
@@ -713,6 +713,59 @@ class TestDescribeTopic(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(configurations, app.screen.configurations)
                 service.describe_configs.assert_called_once_with("orders")
                 self.assertFalse(app.query_one("#topics-table", DataTable).loading)
+
+    async def test_fast_edit_opens_without_flashing_the_table_loading(self) -> None:
+        topic = Topic(name="orders")
+        service = MagicMock()
+        configure_admin_service(service, {topic.name: topic})
+        service.get_configs.return_value = {}
+
+        with patch("kaskade.admin.app.TopicService", return_value=service):
+            app = KaskadeAdmin({})
+            async with app.run_test() as pilot:
+                await app.workers.wait_for_complete()
+                await pilot.pause()
+                table = app.query_one("#topics-table", DataTable)
+                loading_states: list[bool] = []
+                app.watch(table, "loading", loading_states.append, init=False)
+
+                await pilot.press("e")
+                await app.workers.wait_for_complete()
+                await pilot.pause()
+
+                self.assertIsInstance(app.screen, EditTopicScreen)
+                self.assertNotIn(True, loading_states)
+
+    async def test_slow_details_show_the_table_loading(self) -> None:
+        topic = Topic(name="orders")
+        service = MagicMock()
+        configure_admin_service(service, {topic.name: topic})
+        release = asyncio.Event()
+        loop = asyncio.get_running_loop()
+
+        def slow_describe_configs(_: str) -> dict[str, str]:
+            asyncio.run_coroutine_threadsafe(release.wait(), loop).result()
+            return {}
+
+        service.describe_configs.side_effect = slow_describe_configs
+
+        with patch("kaskade.admin.app.TopicService", return_value=service):
+            app = KaskadeAdmin({})
+            async with app.run_test() as pilot:
+                await app.workers.wait_for_complete()
+                await pilot.pause()
+                table = app.query_one("#topics-table", DataTable)
+
+                await pilot.press("d")
+                await pilot.pause(DETAILS_LOADING_DELAY + 0.2)
+                self.assertTrue(table.loading)
+
+                release.set()
+                await app.workers.wait_for_complete()
+                await pilot.pause()
+
+                self.assertIsInstance(app.screen, DescribeTopicScreen)
+                self.assertFalse(table.loading)
 
     async def test_reports_configuration_failure_without_opening_topic_details(self) -> None:
         topic = Topic(name="orders")

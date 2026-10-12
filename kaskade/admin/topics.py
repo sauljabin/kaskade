@@ -44,6 +44,8 @@ from kaskade.widgets import TableFrame, TruncatedTooltipDataTable
 T = TypeVar("T")
 
 REFRESH_TABLE_DELAY = 1
+DETAILS_LOADING_DELAY = 0.3
+"""Seconds a topic-details request may take before the table shows loading."""
 FILTER_TOPICS_SHORTCUT = "/,ctrl+f"
 ALL_TOPICS_SHORTCUT = BACK_SHORTCUT
 DESCRIBE_TOPIC_SHORTCUT = "d,enter"
@@ -438,14 +440,19 @@ class ListTopics(Container):
         self.app.notify(message, title=title, severity="information")
 
     async def _load_topic_details(self, load: Callable[[str], T], topic: Topic) -> T | None:
-        """Load topic details while the table shows loading, or report the Kafka error."""
-        self.start_loading_table()
+        """Load topic details, or report the Kafka error.
+
+        The table shows loading only when the request is slow, so a fast load opens
+        its screen without the table flickering.
+        """
+        loading = self.set_timer(DETAILS_LOADING_DELAY, self.start_loading_table)
         try:
             return await run_blocking(load, topic.name)
         except KafkaException as ex:
             notify_error(self.app, "Kafka Error", ex)
             return None
         finally:
+            loading.stop()
             self.finish_loading_table()
 
     def _finish_mutation(self, refresh_after: bool) -> None:
