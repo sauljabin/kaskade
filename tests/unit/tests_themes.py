@@ -1503,6 +1503,20 @@ class TestProducerLayout(unittest.IsolatedAsyncioTestCase):
                         self.assertLessEqual(composer.region.right, size[0])
                         self.assertIn("<svg", app.export_screenshot())
 
+    async def test_header_editor_is_centered_like_other_modals(self):
+        with patch("kaskade.producer.app.ProducerService") as service:
+            configure_producer_service(service.return_value)
+            app = self.producer()
+            async with app.run_test(size=(120, 30)) as pilot:
+                app.query_one("#headers-table", DataTable).focus()
+                await pilot.press("n")
+                await pilot.pause()
+
+                form = app.screen.query_one(".header-form").region
+                self.assertEqual(72, form.width)
+                self.assertLessEqual(abs(form.x - (120 - form.right)), 1)
+                self.assertLessEqual(abs(form.y - (30 - form.bottom)), 1)
+
     async def test_header_editor_fills_narrow_terminals(self):
         with patch("kaskade.producer.app.ProducerService") as service:
             configure_producer_service(service.return_value)

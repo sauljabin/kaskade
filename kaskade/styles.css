@@ -82,7 +82,8 @@ EditTopicScreen,
 FilterRecordScreen,
 ChunkSizeScreen,
 TopicScreen,
-DescribeTopicScreen {
+DescribeTopicScreen,
+HeaderScreen {
     align: center middle;
 }
 
