@@ -191,6 +191,15 @@ CollapsibleTitle:focus {
     text-style: $block-cursor-text-style;
 }
 
+.topic-form Collapsible {
+    padding: 0;
+}
+
+.topic-form Collapsible > Contents {
+    padding: 1 1 0 1;
+    background: $panel-darken-1;
+}
+
 ChunkSizeScreen > OptionList {
     border: $secondary;
     width: 40;
