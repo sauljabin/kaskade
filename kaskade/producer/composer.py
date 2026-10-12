@@ -10,11 +10,10 @@ from textual.binding import Binding, BindingType
 from textual.containers import Container, Grid, Horizontal
 from textual.markup import escape
 from textual.message import Message
-from textual.widgets import Checkbox, DataTable, Select, Static, TabbedContent, TabPane, TextArea
+from textual.widgets import Checkbox, Input, Select, Static, TabbedContent, TabPane, TextArea
 
-from kaskade.colors import NULL, PRIMARY
+from kaskade.colors import PRIMARY
 from kaskade.deserializers import BytesEncoding
-from kaskade.producer.screens import HeaderEntry, HeaderScreen
 from kaskade.producer.source import DraftField, RecordDraft
 from kaskade.producer_service import (
     DeliveryError,
@@ -24,7 +23,7 @@ from kaskade.producer_service import (
 )
 from kaskade.serializers import Serialization, SerializationError, SerializerPool
 from kaskade.ui import notify_error
-from kaskade.widgets import KaskadeScrollableContainer, MetadataCell, StretchyDataTable
+from kaskade.widgets import KaskadeScrollableContainer, MetadataCell
 
 PRODUCE_SHORTCUT = "ctrl+s,ctrl+shift+s,f2"
 SUMMARY_SHORTCUT = "f3"
@@ -32,6 +31,8 @@ SUMMARY_MIN_TERMINAL_WIDTH = 80
 NEXT_DRAFT_SHORTCUT = "ctrl+pagedown"
 PREVIOUS_DRAFT_SHORTCUT = "ctrl+pageup"
 FIELDS = ("key", "value")
+HeaderEntry = tuple[str, str | None]
+UNNAMED_HEADER = "Header names can't be empty"
 
 
 class ContentArea(TextArea, inherit_bindings=False):
@@ -140,33 +141,57 @@ class FieldEditor(Container):
         self.post_message(self.Changed())
 
 
+class HeaderRow(Horizontal):
+    """One editable header: a name, a UTF-8 value, and a null control."""
+
+    def __init__(self, header: HeaderEntry = ("", "")) -> None:
+        super().__init__(classes="header-row")
+        self.header = header
+
+    def compose(self) -> ComposeResult:
+        name, value = self.header
+        yield Input(name, placeholder="Name", compact=True, classes="header-name")
+        value_input = Input(value or "", placeholder="Value", compact=True, classes="header-value")
+        value_input.disabled = value is None
+        yield value_input
+        yield Checkbox(
+            "",
+            value is None,
+            compact=True,
+            tooltip="Send this header with a null value.",
+            classes="header-null",
+        )
+
+    @property
+    def name_input(self) -> Input:
+        return self.query_one(".header-name", Input)
+
+    @property
+    def entry(self) -> HeaderEntry:
+        value: str | None = self.query_one(".header-value", Input).value
+        if self.query_one(".header-null", Checkbox).value:
+            value = None
+        return self.name_input.value, value
+
+    @property
+    def is_blank(self) -> bool:
+        return self.entry == ("", "")
+
+
 class HeadersPane(Container):
-    """Ordered headers; duplicate names, empty strings, and null values are kept."""
+    """Postman-style headers: typing in the last, empty row adds another.
+
+    Order, duplicate names, empty strings, and null values are kept.
+    """
 
     BINDING_GROUP_TITLE = "Headers"
     BINDINGS: ClassVar[list[BindingType]] = [
         Binding(
-            "n,ctrl+n",
-            "add_header",
-            "Add Header",
-            tooltip="Add a header after the existing headers.",
-            id="kaskade.headers.add",
-        ),
-        Binding(
-            "e,enter",
-            "edit_header",
-            "Edit Header",
-            key_display="e",
-            priority=True,
-            tooltip="Edit the selected header.",
-            id="kaskade.headers.edit",
-        ),
-        Binding(
-            "ctrl+d,delete",
+            "ctrl+d",
             "delete_header",
             "Delete Header",
-            key_display="ctrl+d",
-            tooltip="Remove the selected header.",
+            priority=True,
+            tooltip="Remove the header that has focus.",
             id="kaskade.headers.delete",
         ),
     ]
@@ -176,69 +201,68 @@ class HeadersPane(Container):
 
     def __init__(self) -> None:
         super().__init__(id="headers-pane")
-        self.headers: list[HeaderEntry] = []
 
     def compose(self) -> ComposeResult:
-        table: StretchyDataTable[str | Text] = StretchyDataTable(
-            id="headers-table", cursor_type="row", classes="details-table"
+        with Horizontal(classes="header-row header-labels"):
+            for label in ("NAME", "VALUE", "NULL"):
+                yield Static(Text(label, style="muted"), classes=f"header-{label.lower()}")
+        with KaskadeScrollableContainer(id="header-rows", can_focus=False):
+            yield HeaderRow()
+
+    @property
+    def rows(self) -> list[HeaderRow]:
+        return list(self.query(HeaderRow))
+
+    @property
+    def headers(self) -> list[HeaderEntry]:
+        return [row.entry for row in self.rows if not row.is_blank]
+
+    def unnamed_row(self) -> HeaderRow | None:
+        """Return the first header that has a value or null but no name."""
+        return next(
+            (row for row in self.rows if not row.is_blank and not row.name_input.value), None
         )
-        table.add_column("Name", stretch=1)
-        table.add_column("Value", stretch=2)
-        yield table
-        yield Static("No headers. Press n to add one.", id="headers-empty")
 
-    def on_mount(self) -> None:
-        self._refresh_table()
-
-    def load(self, headers: tuple[HeaderEntry, ...]) -> None:
-        self.headers = list(headers)
-        self._refresh_table()
-
-    def _refresh_table(self, cursor_row: int | None = None) -> None:
-        table = self.query_one("#headers-table", DataTable)
-        table.clear()
-        for name, value in self.headers:
-            table.add_row(name, Text("null", style=NULL) if value is None else value)
-        self.query_one("#headers-empty", Static).display = not self.headers
-        if cursor_row is not None and self.headers:
-            table.move_cursor(row=min(cursor_row, len(self.headers) - 1))
+    async def load(self, headers: tuple[HeaderEntry, ...]) -> None:
+        container = self.query_one("#header-rows")
+        await container.remove_children()
+        await container.mount_all([*(HeaderRow(header) for header in headers), HeaderRow()])
         self.post_message(self.Changed())
 
-    def _selected_row(self) -> int | None:
-        table = self.query_one("#headers-table", DataTable)
-        return table.cursor_row if self.headers else None
+    @on(Input.Changed)
+    @on(Checkbox.Changed)
+    async def header_changed(self, event: Input.Changed | Checkbox.Changed) -> None:
+        event.stop()
+        if isinstance(event, Checkbox.Changed):
+            row = next(
+                ancestor for ancestor in event.checkbox.ancestors if isinstance(ancestor, HeaderRow)
+            )
+            row.query_one(".header-value", Input).disabled = event.value
+        if not self.rows[-1].is_blank:
+            await self.query_one("#header-rows").mount(HeaderRow())
+        self.post_message(self.Changed())
 
-    def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
-        if action in {"edit_header", "delete_header"}:
-            return None if not self.headers else True
-        return True
-
-    def action_add_header(self) -> None:
-        def add(header: HeaderEntry | None) -> None:
-            if header is not None:
-                self.headers.append(header)
-                self._refresh_table(cursor_row=len(self.headers) - 1)
-
-        self.app.push_screen(HeaderScreen(), add)
-
-    def action_edit_header(self) -> None:
-        row = self._selected_row()
+    async def action_delete_header(self) -> None:
+        focused = self.screen.focused
+        row = next(
+            (
+                node
+                for node in (focused.ancestors_with_self if focused else [])
+                if isinstance(node, HeaderRow)
+            ),
+            None,
+        )
         if row is None:
             return
-
-        def edit(header: HeaderEntry | None) -> None:
-            if header is not None:
-                self.headers[row] = header
-                self._refresh_table(cursor_row=row)
-
-        self.app.push_screen(HeaderScreen(self.headers[row]), edit)
-
-    def action_delete_header(self) -> None:
-        row = self._selected_row()
-        if row is None:
-            return
-        del self.headers[row]
-        self._refresh_table(cursor_row=row)
+        rows = self.rows
+        if row is rows[-1]:
+            await row.remove()
+            await self.query_one("#header-rows").mount(HeaderRow())
+        else:
+            following = rows[rows.index(row) + 1]
+            await row.remove()
+            following.name_input.focus()
+        self.post_message(self.Changed())
 
 
 class RecordComposer(Horizontal):
@@ -302,14 +326,14 @@ class RecordComposer(Horizontal):
             Container(id="composer-frame", classes="kaskade-table"),
             TabbedContent(id="composer-tabs"),
         ):
-            with TabPane("Headers [0]", id="headers-tab"):
-                yield HeadersPane()
             for field_name, serialization in (
                 ("key", self.settings.key_serialization),
                 ("value", self.settings.value_serialization),
             ):
                 with TabPane(field_name.title(), id=f"{field_name}-tab"):
                     yield FieldEditor(field_name, serialization, self.serializers)
+            with TabPane("Headers [0]", id="headers-tab"):
+                yield HeadersPane()
         summary = KaskadeScrollableContainer(id="record-summary", can_focus=False)
         summary.border_title = f"[{PRIMARY}]Summary[/]"
         with summary:
@@ -356,6 +380,8 @@ class RecordComposer(Horizontal):
             message, invalid = self.editor(active_field).validation()
             field_status = f"{active_field.title()} {escape(message)}"
             parts.append(f"[$text-error]{field_status}[/]" if invalid else field_status)
+        elif self.query_one(HeadersPane).unnamed_row() is not None:
+            parts.append(f"[$text-error]{UNNAMED_HEADER}[/]")
         if self.delivery_status:
             parts.append(self.delivery_status)
         self.frame.border_subtitle = rf"\[[{PRIMARY}]{' · '.join(parts)}[/]]"
@@ -376,10 +402,10 @@ class RecordComposer(Horizontal):
     def editor(self, field_name: str) -> FieldEditor:
         return self.query_one(f"#{field_name}-editor", FieldEditor)
 
-    def load_draft(self, index: int) -> None:
+    async def load_draft(self, index: int) -> None:
         self.draft_index = index
         draft = self.drafts[index]
-        self.query_one(HeadersPane).load(draft.headers)
+        await self.query_one(HeadersPane).load(draft.headers)
         self.editor("key").load(draft.key)
         self.editor("value").load(draft.value)
         self._update_frame()
@@ -392,11 +418,11 @@ class RecordComposer(Horizontal):
             return None if self.is_producing else True
         return True
 
-    def action_next_draft(self) -> None:
-        self.load_draft((self.draft_index + 1) % len(self.drafts))
+    async def action_next_draft(self) -> None:
+        await self.load_draft((self.draft_index + 1) % len(self.drafts))
 
-    def action_previous_draft(self) -> None:
-        self.load_draft((self.draft_index - 1) % len(self.drafts))
+    async def action_previous_draft(self) -> None:
+        await self.load_draft((self.draft_index - 1) % len(self.drafts))
 
     @on(HeadersPane.Changed)
     @on(FieldEditor.Changed)
@@ -415,6 +441,8 @@ class RecordComposer(Horizontal):
         invalid = [
             field_name.title() for field_name in FIELDS if not self._summarize_field(field_name)
         ]
+        if self.query_one(HeadersPane).unnamed_row() is not None:
+            invalid.append("Headers")
         status = self.query_one("#summary-status", Static)
         status.set_class(bool(invalid), "-invalid")
         status.update(f"Invalid {' and '.join(invalid)}" if invalid else "Ready to produce")
@@ -444,6 +472,12 @@ class RecordComposer(Horizontal):
 
     def outgoing_record(self) -> OutgoingRecord | None:
         """Serialize the draft, or reveal the first invalid field and return None."""
+        unnamed = self.query_one(HeadersPane).unnamed_row()
+        if unnamed is not None:
+            self.query_one(TabbedContent).active = "headers-tab"
+            unnamed.name_input.focus()
+            self.notify(UNNAMED_HEADER, title="Invalid Header", severity="warning")
+            return None
         serialized: dict[str, bytes | None] = {}
         for field_name in FIELDS:
             editor = self.editor(field_name)

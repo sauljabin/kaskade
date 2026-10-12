@@ -82,8 +82,7 @@ EditTopicScreen,
 FilterRecordScreen,
 ChunkSizeScreen,
 TopicScreen,
-DescribeTopicScreen,
-HeaderScreen {
+DescribeTopicScreen {
     align: center middle;
 }
 
@@ -417,7 +416,6 @@ DescribeTopicScreen #topic-details-tabs {
 }
 
 Screen.-narrow > .topic-form,
-Screen.-narrow > .header-form,
 Screen.-narrow > .record-filter,
 Screen.-narrow > Input,
 Screen.-narrow > OptionList,
@@ -531,11 +529,6 @@ TextArea.field-content:focus {
     background: $panel;
 }
 
-#headers-empty {
-    height: auto;
-    padding: 0 1;
-    color: $text-muted;
-}
 
 #record-composer {
     height: 100%;
@@ -589,15 +582,37 @@ TextArea.field-content:focus {
     color: $text-error;
 }
 
-.header-form {
-    border: $secondary;
-    width: 72;
-    max-width: 90%;
-    height: auto;
-    background: $background;
-    padding: 0 1;
+.header-row {
+    height: 1;
+    margin-bottom: 1;
 }
 
-.header-form > Checkbox {
+.header-row > .header-name {
+    width: 1fr;
+    margin-right: 1;
+}
+
+.header-row > .header-value {
+    width: 2fr;
+    margin-right: 1;
+}
+
+.header-row > .header-null {
+    width: 6;
+}
+
+.header-row > Input {
+    background: $panel-darken-1;
+}
+
+.header-row > Input:focus {
+    background: $panel;
+}
+
+.header-row > Checkbox {
     background: transparent;
+}
+
+#header-rows {
+    height: 1fr;
 }

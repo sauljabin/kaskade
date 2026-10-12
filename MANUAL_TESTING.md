@@ -139,9 +139,10 @@ the broker acknowledges it.
 kaskade producer -b localhost:9092 -t qa-producer -v json
 ```
 
-1. Go to **Headers** (`Tab`, then arrows). Press `n` to add `trace` = `a`, a
-   second `trace` with **Null Value** checked, and `empty` with no value. Edit
-   one with `e` and delete one with `Ctrl+D`. The order stays as entered.
+1. Go to **Headers**. In the empty row, type `trace` = `a`; a new empty row
+   appears. Add a second `trace` with **Null** checked and `empty` with no
+   value. Remove one with `Ctrl+D`. The order stays as entered, and a value
+   without a name blocks `Ctrl+S`.
 2. In **Key**, type `order-1`. In **Value**, type `{"status": ` and check the
    frame's subtitle: it reports invalid JSON in red. Press `Ctrl+S`; nothing is
    produced and the Value editor keeps focus.

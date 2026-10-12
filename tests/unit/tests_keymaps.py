@@ -27,7 +27,7 @@ from kaskade.keymaps import (
     KNOWN_BINDING_IDS,
 )
 from kaskade.models import Topic
-from kaskade.producer import HeaderScreen, HeadersPane, RecordComposer
+from kaskade.producer import HeadersPane, RecordComposer
 from kaskade.settings import SETTINGS_ENV_VAR, default_settings_path, load_settings
 from kaskade.themes import DEFAULT_THEME
 from kaskade.timeouts import TimeoutConfig
@@ -63,7 +63,6 @@ class TestSettingsConfiguration(unittest.TestCase):
             ListRecords,
             RecordComposer,
             HeadersPane,
-            HeaderScreen,
             StretchyDataTable,
             KaskadeOptionList,
             KaskadeScrollableContainer,

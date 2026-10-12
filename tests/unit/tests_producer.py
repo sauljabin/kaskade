@@ -3,10 +3,11 @@ import unittest
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from textual.widgets import Checkbox, DataTable, Input, Select, Static, TabbedContent, TextArea
+from textual.widgets import Checkbox, Input, Select, Static, TabbedContent, TextArea
 
 from kaskade.configs import BOOTSTRAP_SERVERS
-from kaskade.producer import HeaderScreen, KaskadeProducer, RecordComposer, RecordDraft
+from kaskade.producer import KaskadeProducer, RecordComposer, RecordDraft
+from kaskade.producer.composer import HeaderRow
 from kaskade.producer.source import DraftField
 from kaskade.producer_service import (
     Delivery,
@@ -54,62 +55,68 @@ class ProducerTestCase(unittest.IsolatedAsyncioTestCase):
 
 
 class TestHeaders(ProducerTestCase):
-    async def add_header(self, pilot, app, name: str, value: str | None) -> None:
-        await pilot.press("n")
+    @staticmethod
+    def rows(app: KaskadeProducer) -> list[HeaderRow]:
+        return list(app.query(HeaderRow))
+
+    async def fill(self, pilot, app, name: str, value: str | None) -> None:
+        """Type into the trailing blank row, as a user would."""
+        row = self.rows(app)[-1]
+        row.query_one(".header-name", Input).value = name
         await pilot.pause()
-        screen = app.screen
-        self.assertIsInstance(screen, HeaderScreen)
-        screen.query_one("#header-name", Input).value = name
-        screen.query_one("#header-value", Input).value = value or ""
-        screen.query_one("#header-null", Checkbox).value = value is None
-        await pilot.press("ctrl+s")
+        row.query_one(".header-value", Input).value = value or ""
+        row.query_one(".header-null", Checkbox).value = value is None
         await pilot.pause()
 
-    async def test_headers_keep_order_duplicates_empty_and_null_values(self):
+    async def test_typing_in_the_last_row_adds_another(self):
         app = producer_app()
         async with app.run_test() as pilot:
-            app.query_one("#headers-table", DataTable).focus()
-            await self.add_header(pilot, app, "trace", "a")
-            await self.add_header(pilot, app, "trace", None)
-            await self.add_header(pilot, app, "empty", "")
+            app.query_one(TabbedContent).active = "headers-tab"
+            await pilot.pause()
+            self.assertEqual(1, len(self.rows(app)))
+
+            await self.fill(pilot, app, "trace", "a")
+            await self.fill(pilot, app, "trace", None)
+            await self.fill(pilot, app, "empty", "")
             await pilot.press("ctrl+s")
             await pilot.pause()
 
+            self.assertEqual(4, len(self.rows(app)))
+            self.assertTrue(self.rows(app)[-1].is_blank)
             self.assertEqual(
                 (("trace", "a"), ("trace", None), ("empty", "")),
                 self.produced(self.service).headers,
             )
             tab = app.query_one(TabbedContent).get_tab("headers-tab")
             self.assertEqual("Headers [3]", str(tab.label))
+            self.assertTrue(self.rows(app)[1].query_one(".header-value", Input).disabled)
 
-    async def test_edit_and_delete_the_selected_header(self):
+    async def test_delete_removes_the_focused_header(self):
         app = producer_app(drafts=(RecordDraft(headers=(("a", "1"), ("b", "2"))),))
         async with app.run_test() as pilot:
             await pilot.pause()
-            table = app.query_one("#headers-table", DataTable)
-            table.focus()
-            await pilot.press("e")
+            app.query_one(TabbedContent).active = "headers-tab"
             await pilot.pause()
-            app.screen.query_one("#header-value", Input).value = "changed"
-            await pilot.press("ctrl+s")
-            await pilot.pause()
-            await pilot.press("down", "ctrl+d")
+            self.rows(app)[0].name_input.focus()
+            await pilot.press("ctrl+d")
             await pilot.pause()
 
-            self.assertEqual(
-                [("a", "changed")], self.composer(app).query_one("#headers-pane").headers
-            )
+            self.assertEqual([("b", "2")], app.query_one("#headers-pane").headers)
+            self.assertIs(app.focused, self.rows(app)[0].name_input)
 
-    async def test_empty_header_name_is_rejected(self):
+    async def test_a_header_without_a_name_blocks_production(self):
         app = producer_app()
         async with app.run_test() as pilot:
-            app.query_one("#headers-table", DataTable).focus()
-            await pilot.press("n")
+            app.query_one(TabbedContent).active = "headers-tab"
             await pilot.pause()
+            await self.fill(pilot, app, "", "orphan")
             await pilot.press("ctrl+s")
             await pilot.pause()
 
-            self.assertIsInstance(app.screen, HeaderScreen)
+            self.service.produce.assert_not_called()
+            self.assertIs(app.focused, self.rows(app)[0].name_input)
+            subtitle = str(self.composer(app).frame.border_subtitle)
+            self.assertIn("Header names can't be empty", subtitle)
 
 
 class TestComposeAndProduce(ProducerTestCase):

@@ -56,7 +56,7 @@ from kaskade.help import (
     HelpScreen,
 )
 from kaskade.models import Header, Partition, Record, Topic, TopicConfiguration
-from kaskade.producer import HeaderScreen, HeadersPane, KaskadeProducer, RecordComposer
+from kaskade.producer import HeadersPane, KaskadeProducer, RecordComposer
 from kaskade.producer_service import ProducerSettings
 from kaskade.settings import AppSettings, load_settings
 from kaskade.themes import (
@@ -155,7 +155,6 @@ class TestThemes(unittest.TestCase):
             ListRecords,
             RecordComposer,
             HeadersPane,
-            HeaderScreen,
             StretchyDataTable,
             KaskadeOptionList,
             KaskadeScrollableContainer,
@@ -187,7 +186,6 @@ class TestThemes(unittest.TestCase):
             FilterRecordScreen: ["Apply Filters", "Back", "Help"],
             ChunkSizeScreen: ["Select", "Back", "Help"],
             TopicScreen: ["Back", "Help"],
-            HeaderScreen: ["Save Header", "Back", "Help"],
             HelpScreen: ["Back"],
         }
 
@@ -1502,33 +1500,6 @@ class TestProducerLayout(unittest.IsolatedAsyncioTestCase):
                         self.assertIn("orders", composer.frame.border_title)
                         self.assertLessEqual(composer.region.right, size[0])
                         self.assertIn("<svg", app.export_screenshot())
-
-    async def test_header_editor_is_centered_like_other_modals(self):
-        with patch("kaskade.producer.app.ProducerService") as service:
-            configure_producer_service(service.return_value)
-            app = self.producer()
-            async with app.run_test(size=(120, 30)) as pilot:
-                app.query_one("#headers-table", DataTable).focus()
-                await pilot.press("n")
-                await pilot.pause()
-
-                form = app.screen.query_one(".header-form").region
-                self.assertEqual(72, form.width)
-                self.assertLessEqual(abs(form.x - (120 - form.right)), 1)
-                self.assertLessEqual(abs(form.y - (30 - form.bottom)), 1)
-
-    async def test_header_editor_fills_narrow_terminals(self):
-        with patch("kaskade.producer.app.ProducerService") as service:
-            configure_producer_service(service.return_value)
-            app = self.producer()
-            async with app.run_test(size=(60, 24)) as pilot:
-                app.query_one("#headers-table", DataTable).focus()
-                await pilot.press("n")
-                await pilot.pause()
-
-                self.assertIsInstance(app.screen, HeaderScreen)
-                self.assertTrue(app.screen.has_class("-narrow"))
-                self.assertEqual(60, app.screen.query_one(".header-form").outer_size.width)
 
     async def test_producer_footer_and_help_show_the_compose_commands(self):
         with patch("kaskade.producer.app.ProducerService") as service:

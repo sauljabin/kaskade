@@ -297,7 +297,7 @@ action, Kaskade uses the same key.
 | Produce the composed record | `Ctrl+S`, `Ctrl+Shift+S`, or `F2` |
 | Show or hide the producer Summary | `F3` |
 | Next or previous source record | `Ctrl+PageDown` or `Ctrl+PageUp` |
-| Add, edit, or delete a header | `n`, `e`/`Enter`, or `Ctrl+D` |
+| Delete the focused producer header | `Ctrl+D` |
 
 Help lists every contextual shortcut alias. Navigate with the standard keys and
 close with `Esc`, `q`, `?`, or `F1`. The Commands palette links to the same Help.
@@ -871,17 +871,18 @@ kaskade producer -b my-kafka:9092 -t orders
 kaskade producer -b my-kafka:9092 -t orders -k string -v json --partition 2
 ```
 
-The composer has three tabs, **Headers**, **Key**, and **Value**, and a
+The composer has three tabs, **Key**, **Value**, and **Headers**, and a
 **Summary** panel beside them.
 
-- **Headers** keep their order. Duplicate names, empty values, and null values
-  are allowed. Header values are UTF-8 strings or null.
 - **Key** and **Value** each have a serializer, a **Null** control, and a
   content editor. The frame's subtitle shows whether the open field is valid
   and its size, such as `Value Valid · 16 bytes`. Empty content and null are
-  different: an empty
-  string is valid Kafka data, while a null value can act as a tombstone on
-  compacted topics.
+  different: an empty string is valid Kafka data, while a null value can act
+  as a tombstone on compacted topics.
+- **Headers** is an editable table of names and values. There is always an
+  empty row at the bottom; typing in it adds a header. Check **Null** to send a
+  null value, and press `Ctrl+D` to remove the focused header. Order, duplicate
+  names, and empty values are kept; every header needs a name.
 - **Summary** shows whether the record is ready, plus the topic, partition,
   header count, serializers, and serialized sizes. Press `F3` to hide or show
   it; it starts hidden on terminals narrower than 80 columns.
