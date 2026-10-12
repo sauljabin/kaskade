@@ -104,6 +104,24 @@ class TestHeaders(ProducerTestCase):
             self.assertEqual([("b", "2")], app.query_one("#headers-pane").headers)
             self.assertIs(app.focused, self.rows(app)[0].name_input)
 
+    async def test_many_headers_scroll_and_keep_columns_aligned(self):
+        headers = tuple((f"header-{index}", f"value-{index}") for index in range(12))
+        app = producer_app(drafts=(RecordDraft(headers=headers),))
+        async with app.run_test(size=(120, 30)) as pilot:
+            await pilot.pause()
+            app.query_one(TabbedContent).active = "headers-tab"
+            await pilot.pause()
+            container = app.query_one("#header-rows")
+            label = app.query_one(".header-labels > .column-null")
+
+            self.assertGreater(container.max_scroll_y, 0)
+            self.assertTrue(container.show_vertical_scrollbar)
+            self.assertEqual(label.region.x, self.rows(app)[0].query_one(".column-null").region.x)
+
+            self.rows(app)[-1].name_input.focus()
+            await pilot.pause()
+            self.assertEqual(container.max_scroll_y, container.scroll_y)
+
     async def test_a_header_without_a_name_blocks_production(self):
         app = producer_app()
         async with app.run_test() as pilot:

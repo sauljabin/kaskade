@@ -583,8 +583,13 @@ TextArea.field-content:focus {
 }
 
 .header-row {
-    height: 1;
+    height: 3;
     margin-bottom: 1;
+}
+
+.header-labels {
+    height: 1;
+    padding-right: 2;
 }
 
 .header-row > .column-name {
@@ -602,7 +607,8 @@ TextArea.field-content:focus {
 }
 
 .header-row > Input {
-    padding: 0 1;
+    height: 3;
+    padding: 1 1;
     background: $panel-darken-1;
 }
 
@@ -616,9 +622,12 @@ TextArea.field-content:focus {
 }
 
 .header-row > Checkbox {
+    margin-top: 1;
     background: transparent;
 }
 
 #header-rows {
     height: 1fr;
+    scrollbar-gutter: stable;
+    scrollbar-size-vertical: 2;
 }
