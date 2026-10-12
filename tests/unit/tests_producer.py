@@ -134,7 +134,14 @@ class TestHeaders(ProducerTestCase):
             self.service.produce.assert_not_called()
             self.assertIs(app.focused, self.rows(app)[0].name_input)
             subtitle = str(self.composer(app).frame.border_subtitle)
-            self.assertIn("Header names can't be empty", subtitle)
+            self.assertIn("Header 1 needs a name", subtitle)
+            unnamed = self.rows(app)[0]
+            self.assertTrue(unnamed.has_class("-invalid"))
+            self.assertEqual("Name required", unnamed.name_input.placeholder)
+
+            unnamed.name_input.value = "trace"
+            await pilot.pause()
+            self.assertFalse(unnamed.has_class("-invalid"))
 
 
 class TestComposeAndProduce(ProducerTestCase):
@@ -165,9 +172,15 @@ class TestComposeAndProduce(ProducerTestCase):
             self.assertIs(app.focused, app.query_one("#value-content", TextArea))
             subtitle = str(self.composer(app).frame.border_subtitle)
             self.assertIn("Value Expected a 32-bit integer", subtitle)
+            editor = app.query_one("#value-editor")
+            self.assertTrue(editor.has_class("-invalid"))
             summary = app.query_one("#summary-status", Static)
             self.assertIn("Invalid Value", str(summary.render()))
             self.assertTrue(summary.has_class("-invalid"))
+
+            app.query_one("#value-content", TextArea).load_text("12")
+            await pilot.pause()
+            self.assertFalse(editor.has_class("-invalid"))
 
     async def test_success_reports_the_acknowledgement_and_keeps_the_draft(self):
         app = producer_app(partition=2)

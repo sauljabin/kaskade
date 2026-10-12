@@ -32,7 +32,6 @@ NEXT_DRAFT_SHORTCUT = "ctrl+pagedown,alt+pagedown"
 PREVIOUS_DRAFT_SHORTCUT = "ctrl+pageup,alt+pageup"
 FIELDS = ("key", "value")
 HeaderEntry = tuple[str, str | None]
-UNNAMED_HEADER = "Header names can't be empty"
 
 
 def without_ctrl_c_copy(bindings: list[BindingType]) -> list[BindingType]:
@@ -123,6 +122,7 @@ class FieldEditor(Container):
         serializer = self.serializers.get(self.serialization, self.encoding)
         text = "" if draft_field.is_null else serializer.draft_text(draft_field.content)
         self.content.load_text(text)
+        self.mark_validity()
 
     def serialize(self) -> bytes | None:
         """Return the content bytes, None for null, or raise SerializationError."""
@@ -149,7 +149,12 @@ class FieldEditor(Container):
             )
         if isinstance(event, Checkbox.Changed):
             self.content.disabled = event.value
+        self.mark_validity()
         self.post_message(self.Changed())
+
+    def mark_validity(self) -> None:
+        """Tint the content editor while its content doesn't serialize."""
+        self.set_class(self.validation()[1], "-invalid")
 
 
 class HeaderRow(Horizontal):
@@ -189,6 +194,11 @@ class HeaderRow(Horizontal):
     @property
     def is_blank(self) -> bool:
         return self.entry == ("", "")
+
+    @property
+    def is_unnamed(self) -> bool:
+        """A header with a value or null but no name, which Kafka can't identify."""
+        return not self.is_blank and not self.name_input.value
 
 
 class HeadersPane(Container):
@@ -232,15 +242,25 @@ class HeadersPane(Container):
 
     def unnamed_row(self) -> HeaderRow | None:
         """Return the first header that has a value or null but no name."""
-        return next(
-            (row for row in self.rows if not row.is_blank and not row.name_input.value), None
-        )
+        return next((row for row in self.rows if row.is_unnamed), None)
+
+    def unnamed_message(self) -> str | None:
+        """Name the first header that needs a name, counting from 1."""
+        row = self.unnamed_row()
+        return None if row is None else f"Header {self.rows.index(row) + 1} needs a name"
+
+    def _changed(self) -> None:
+        """Highlight unnamed headers, then tell the composer the headers changed."""
+        for row in self.rows:
+            row.set_class(row.is_unnamed, "-invalid")
+            row.name_input.placeholder = "Name required" if row.is_unnamed else "Name"
+        self.post_message(self.Changed())
 
     async def load(self, headers: tuple[HeaderEntry, ...]) -> None:
         container = self.query_one("#header-rows")
         await container.remove_children()
         await container.mount_all([*(HeaderRow(header) for header in headers), HeaderRow()])
-        self.post_message(self.Changed())
+        self._changed()
 
     @on(Input.Changed)
     @on(Checkbox.Changed)
@@ -253,7 +273,7 @@ class HeadersPane(Container):
             row.query_one(".header-value", Input).disabled = event.value
         if not self.rows[-1].is_blank:
             await self.query_one("#header-rows").mount(HeaderRow())
-        self.post_message(self.Changed())
+        self._changed()
 
     async def action_delete_header(self) -> None:
         focused = self.screen.focused
@@ -275,7 +295,7 @@ class HeadersPane(Container):
             following = rows[rows.index(row) + 1]
             await row.remove()
             following.name_input.focus()
-        self.post_message(self.Changed())
+        self._changed()
 
 
 class RecordComposer(Horizontal):
@@ -393,8 +413,8 @@ class RecordComposer(Horizontal):
             message, invalid = self.editor(active_field).validation()
             field_status = f"{active_field.title()} {escape(message)}"
             parts.append(f"[$text-error]{field_status}[/]" if invalid else field_status)
-        elif self.query_one(HeadersPane).unnamed_row() is not None:
-            parts.append(f"[$text-error]{UNNAMED_HEADER}[/]")
+        elif (unnamed := self.query_one(HeadersPane).unnamed_message()) is not None:
+            parts.append(f"[$text-error]{unnamed}[/]")
         if self.delivery_status:
             parts.append(self.delivery_status)
         self.frame.border_subtitle = rf"\[[{PRIMARY}]{' · '.join(parts)}[/]]"
@@ -485,11 +505,12 @@ class RecordComposer(Horizontal):
 
     def outgoing_record(self) -> OutgoingRecord | None:
         """Serialize the draft, or reveal the first invalid field and return None."""
-        unnamed = self.query_one(HeadersPane).unnamed_row()
+        headers = self.query_one(HeadersPane)
+        unnamed = headers.unnamed_row()
         if unnamed is not None:
             self.query_one(TabbedContent).active = "headers-tab"
             unnamed.name_input.focus()
-            self.notify(UNNAMED_HEADER, title="Invalid Header", severity="warning")
+            self.notify(str(headers.unnamed_message()), title="Invalid Header", severity="warning")
             return None
         serialized: dict[str, bytes | None] = {}
         for field_name in FIELDS:

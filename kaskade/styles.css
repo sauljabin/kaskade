@@ -524,6 +524,14 @@ TextArea.field-content {
     background: $panel-darken-1;
 }
 
+.field-editor.-invalid > TextArea.field-content {
+    background: $error 15%;
+}
+
+.field-editor.-invalid > TextArea.field-content:focus {
+    background: $error 25%;
+}
+
 TextArea.field-content:focus {
     border: none;
     background: $panel;
@@ -619,6 +627,14 @@ TextArea.field-content:focus {
 
 .header-row > Input:focus {
     background: $panel;
+}
+
+.header-row.-invalid > .header-name {
+    background: $error 25%;
+}
+
+.header-row.-invalid > .header-name:focus {
+    background: $error 35%;
 }
 
 .header-row > Checkbox {
