@@ -522,20 +522,6 @@ TextArea.field-content:focus {
     background: $panel;
 }
 
-.field-status {
-    height: auto;
-    padding: 0 1;
-    color: $text-success;
-}
-
-.field-status.-invalid {
-    color: $text-error;
-}
-
-.field-status.-null {
-    color: $text-warning;
-}
-
 #headers-empty {
     height: auto;
     padding: 0 1;

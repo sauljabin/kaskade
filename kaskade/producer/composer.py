@@ -8,6 +8,7 @@ from textual import on, work
 from textual.app import ComposeResult
 from textual.binding import Binding, BindingType
 from textual.containers import Container, Grid, Horizontal
+from textual.markup import escape
 from textual.message import Message
 from textual.widgets import Checkbox, DataTable, Select, Static, TabbedContent, TabPane, TextArea
 
@@ -86,10 +87,6 @@ class FieldEditor(Container):
             yield Checkbox("Null", False, id=f"{self.field_name}-null", classes="field-null")
         yield Static(Text("CONTENT", style="muted"), classes="field-content-label")
         yield ContentArea(id=f"{self.field_name}-content", classes="field-content")
-        yield Static(id=f"{self.field_name}-status", classes="field-status")
-
-    def on_mount(self) -> None:
-        self.update_status()
 
     @property
     def serialization(self) -> Serialization:
@@ -114,7 +111,6 @@ class FieldEditor(Container):
         serializer = self.serializers.get(self.serialization, self.encoding)
         text = "" if draft_field.is_null else serializer.draft_text(draft_field.content)
         self.content.load_text(text)
-        self.update_status()
 
     def serialize(self) -> bytes | None:
         """Return the content bytes, None for null, or raise SerializationError."""
@@ -122,16 +118,13 @@ class FieldEditor(Container):
             return None
         return self.serializers.get(self.serialization, self.encoding).serialize(self.content.text)
 
-    def update_status(self) -> None:
-        status = self.query_one(f"#{self.field_name}-status", Static)
+    def validation(self) -> tuple[str, bool]:
+        """Return a short validation message and whether the content is invalid."""
         try:
             data = self.serialize()
         except SerializationError as ex:
-            status.update(str(ex))
-            status.set_classes("field-status -invalid")
-            return
-        status.set_classes("field-status -null" if data is None else "field-status")
-        status.update("Null" if data is None else f"Valid · {byte_size(data)}")
+            return str(ex), True
+        return ("Null" if data is None else f"Valid · {byte_size(data)}"), False
 
     @on(Select.Changed)
     @on(Checkbox.Changed)
@@ -144,7 +137,6 @@ class FieldEditor(Container):
             )
         if isinstance(event, Checkbox.Changed):
             self.content.disabled = event.value
-        self.update_status()
         self.post_message(self.Changed())
 
 
@@ -302,7 +294,7 @@ class RecordComposer(Horizontal):
         self.drafts = drafts
         self.draft_index = 0
         self.serializers = SerializerPool()
-        self.status = Text("Producer Mode")
+        self.delivery_status = ""
         self.is_producing = False
 
     def compose(self) -> ComposeResult:
@@ -358,15 +350,27 @@ class RecordComposer(Horizontal):
         if len(self.drafts) > 1:
             title += rf"\[[{PRIMARY}]Record {self.draft_index + 1}/{len(self.drafts)}[/]]"
         self.frame.border_title = title
-        self.frame.border_subtitle = self.status.markup
+        parts = ["Producer Mode"]
+        active_field = self.query_one(TabbedContent).active.removesuffix("-tab")
+        if active_field in FIELDS:
+            message, invalid = self.editor(active_field).validation()
+            field_status = f"{active_field.title()} {escape(message)}"
+            parts.append(f"[$text-error]{field_status}[/]" if invalid else field_status)
+        if self.delivery_status:
+            parts.append(self.delivery_status)
+        self.frame.border_subtitle = rf"\[[{PRIMARY}]{' · '.join(parts)}[/]]"
 
     @property
     def frame(self) -> Container:
         """The bordered frame around the tabs; the Summary sits beside it."""
         return self.query_one("#composer-frame", Container)
 
-    def set_status(self, status: Text) -> None:
-        self.status = status
+    def set_delivery_status(self, status: str, *, failed: bool = False) -> None:
+        self.delivery_status = f"[$text-error]{escape(status)}[/]" if failed else escape(status)
+        self._update_frame()
+
+    @on(TabbedContent.TabActivated)
+    def tab_activated(self) -> None:
         self._update_frame()
 
     def editor(self, field_name: str) -> FieldEditor:
@@ -400,6 +404,7 @@ class RecordComposer(Horizontal):
         headers = self.query_one(HeadersPane).headers
         self.query_one(TabbedContent).get_tab("headers-tab").label = f"Headers [{len(headers)}]"
         self.update_summary()
+        self._update_frame()
 
     def update_summary(self) -> None:
         partition = self.settings.partition
@@ -447,7 +452,6 @@ class RecordComposer(Horizontal):
             except SerializationError as ex:
                 self.query_one(TabbedContent).active = f"{field_name}-tab"
                 editor.content.focus()
-                editor.update_status()
                 self.notify(
                     f"{field_name.title()}: {ex}", title="Serialization Error", severity="warning"
                 )
@@ -467,7 +471,7 @@ class RecordComposer(Horizontal):
             return
         self.is_producing = True
         self.refresh_bindings()
-        self.set_status(Text("Producing…"))
+        self.set_delivery_status("Producing…")
         self.produce(record)
 
     @work(group="producer-delivery")
@@ -475,10 +479,10 @@ class RecordComposer(Horizontal):
         try:
             delivery = await self.service.produce(record)
         except DeliveryError as ex:
-            self.set_status(Text(ex.failure.title(), style="error"))
+            self.set_delivery_status(ex.failure.title(), failed=True)
             notify_error(self.app, ex.failure.title(), ex)
         else:
-            self.set_status(Text(delivery.summary(), style="success"))
+            self.set_delivery_status(delivery.summary())
             self.notify(delivery.summary(), title="Record Delivered")
         finally:
             self.is_producing = False
