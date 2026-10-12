@@ -876,8 +876,10 @@ The composer has three tabs, **Headers**, **Key**, and **Value**, and a
 
 - **Headers** keep their order. Duplicate names, empty values, and null values
   are allowed. Header values are UTF-8 strings or null.
-- **Key** and **Value** each have a serializer, a **Null** control, a content
-  editor, and inline validation. Empty content and null are different: an empty
+- **Key** and **Value** each have a serializer, a **Null** control, and a
+  content editor. The frame's subtitle shows whether the open field is valid
+  and its size, such as `Value Valid · 16 bytes`. Empty content and null are
+  different: an empty
   string is valid Kafka data, while a null value can act as a tombstone on
   compacted topics.
 - **Summary** shows whether the record is ready, plus the topic, partition,

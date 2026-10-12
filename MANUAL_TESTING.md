@@ -143,8 +143,8 @@ kaskade producer -b localhost:9092 -t qa-producer -v json
    second `trace` with **Null Value** checked, and `empty` with no value. Edit
    one with `e` and delete one with `Ctrl+D`. The order stays as entered.
 2. In **Key**, type `order-1`. In **Value**, type `{"status": ` and check the
-   status line: it reports invalid JSON. Press `Ctrl+S`; nothing is produced and
-   the Value editor keeps focus.
+   frame's subtitle: it reports invalid JSON in red. Press `Ctrl+S`; nothing is
+   produced and the Value editor keeps focus.
 3. Finish the value: `{"status": "paid"}`. The **Summary** panel beside the
    composer shows `Ready to produce`, the topic, automatic partition, header
    count, serializers, and byte sizes. Press `F3` to hide and show it.
