@@ -953,6 +953,10 @@ Choose the Key and Value serializers with `-k` and `-v`; both default to
 
 Avro, Protobuf, and Schema Registry serializers aren't supported yet.
 
+When the content is JSON, the editor highlights it in the consumer's colors:
+for `json`, `boolean`, the number serializers, and `bytes` with `byte-array`.
+`string` and the other `bytes` encodings stay plain text.
+
 ### Load a draft from a file
 
 `--source` loads a record draft from a JSON file into the composer instead of

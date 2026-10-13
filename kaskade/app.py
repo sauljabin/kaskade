@@ -198,6 +198,11 @@ class KaskadeApp(App, inherit_bindings=False):
         if self._rich_theme_pushed:
             self.console.pop_theme()
 
+        self.console.push_theme(RichTheme(self.semantic_styles()))
+        self._rich_theme_pushed = True
+
+    def semantic_styles(self) -> dict[str, str]:
+        """Rich style definitions for the active theme, by semantic name."""
         theme = self.current_theme
         # Omitted colors follow Textual's own fallbacks.
         primary = _rich_color(theme.primary)
@@ -205,7 +210,7 @@ class KaskadeApp(App, inherit_bindings=False):
         warning = _rich_color(theme.warning or theme.primary)
         error = _rich_color(theme.error) if theme.error else secondary
         success = _rich_color(theme.success) if theme.success else secondary
-        styles = {
+        return {
             "primary": primary,
             "secondary": secondary,
             "warning": warning,
@@ -223,5 +228,3 @@ class KaskadeApp(App, inherit_bindings=False):
             "json.bool_false": error,
             "json.null": warning,
         }
-        self.console.push_theme(RichTheme(styles))
-        self._rich_theme_pushed = True
