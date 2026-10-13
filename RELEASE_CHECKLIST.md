@@ -75,9 +75,9 @@ requires explicit approval of the prepared draft.
   represented or linked, unless it is demonstrably obsolete.
 - [ ] Review CLI, configuration, consumer-record schema, and TUI compatibility.
   Confirm `MIGRATION.md` has an actionable step for every breaking change.
-- [ ] Run the documented [sandbox smoke tests](DEVELOPMENT.md#manual-tests),
-  including admin, consumer, deserialization, and Registry behavior. Follow
-  the agent instructions for theme and responsive-layout verification.
+- [ ] Run the [manual smoke tests](MANUAL_TESTING.md) for admin, consumer, and
+  producer, and record each section's result. Follow the agent instructions for
+  theme and responsive-layout verification.
 
 ## Minor Release — Focused Feature Review
 

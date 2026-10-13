@@ -37,3 +37,8 @@ def configure_admin_service(service: MagicMock, topics: dict[str, Topic]) -> Non
     service.load_groups = AsyncMock(return_value=GroupSnapshot())
     service.apply_groups.return_value = EnrichmentResult()
     service.describe_configs.return_value = ()
+
+
+def configure_producer_service(service: MagicMock) -> None:
+    service.produce = AsyncMock()
+    service.aclose = AsyncMock()

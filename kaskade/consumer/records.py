@@ -19,7 +19,6 @@ from kaskade.consumer.details import (
     EXPORT_SHORTCUT,
     NEXT_SHORTCUT,
     TopicScreen,
-    format_payload_size,
     record_payload_size,
 )
 from kaskade.consumer.screens import (
@@ -36,7 +35,7 @@ from kaskade.deserializers import (
 )
 from kaskade.models import DeserializationOutcome, Record
 from kaskade.record_export import deliver_record, record_json
-from kaskade.ui import copy_text, notify_error
+from kaskade.ui import copy_text, format_size, notify_error
 from kaskade.unicodes import WARNING_SIGN
 from kaskade.widgets import StretchyDataTable, TableFrame
 
@@ -343,7 +342,7 @@ class ListRecords(Container):
         return [
             cls._content_cell(record.key_outcome()),
             cls._content_cell(record.value_outcome()),
-            format_payload_size(record_payload_size(record)),
+            format_size(record_payload_size(record)),
             record.timestamp_str(),
             str(record.partition),
             str(record.offset),

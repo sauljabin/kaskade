@@ -1,7 +1,7 @@
 # Usage
 
-How to connect Kaskade to Kafka, read and decode records, and set it up the way
-you like.
+How to connect Kaskade to Kafka, read, decode, and produce records, and set it
+up the way you like.
 
 ## Contents
 
@@ -31,6 +31,11 @@ you like.
   - [Amazon MSK with IAM authentication](#amazon-msk-with-iam-authentication)
   - [Kafka ACLs](#kafka-acls)
   - [Confluent Cloud](#confluent-cloud)
+- [Producer](#producer)
+  - [Compose and produce](#compose-and-produce)
+  - [Serializers](#serializers)
+  - [Load a draft from a file](#load-a-draft-from-a-file)
+  - [Producer configuration](#producer-configuration)
 - [Format-specific consumers](#format-specific-consumers)
   - [JSON consumer](#json-consumer)
   - [Avro consumer](#avro-consumer)
@@ -213,6 +218,11 @@ consumer:
     idle: 2.5
     assignment: 15
     request: 10
+
+producer:
+  timeouts:
+    delivery: 30
+    flush: 5
 ```
 
 Values support decimals and must be greater than zero; missing or invalid values
@@ -238,6 +248,8 @@ kaskade admin -b my-kafka:9092 \
 | `consumer.timeouts.request` | `consumer.request` | consumer | 10 | Consumer topic metadata and watermark requests |
 | `admin.timeouts.read` | `admin.read` | admin | 10 | Topic metadata, offsets, configurations, and consumer groups |
 | `admin.timeouts.write` | `admin.write` | admin | 60 | Create, edit, delete, and partition-change operations |
+| `producer.timeouts.delivery` | `producer.delivery` | producer | 45 | Wait for the broker acknowledgement of one record; keep it above the client's 30-second wait for a missing topic |
+| `producer.timeouts.flush` | `producer.flush` | producer | 5 | Flush queued records when Kaskade closes |
 
 Precedence, from lowest to highest, is the defaults, `settings.yaml`, then
 `--timeout`. Native `confluent-kafka` properties such as `socket.timeout.ms`,
@@ -282,6 +294,9 @@ action, Kaskade uses the same key.
 | Change record chunk size | `#` |
 | Previous or next record in Record Details | `N`/`p` or `n` |
 | Save Create Topic or Edit Topic | `Ctrl+S`, `Ctrl+Shift+S`, or `F2` |
+| Produce the composed record | `Ctrl+S`, `Ctrl+Shift+S`, or `F2` |
+| Show or hide the producer Summary | `F3` |
+| Delete the focused producer header | `Ctrl+D` |
 
 Help lists every contextual shortcut alias. Navigate with the standard keys and
 close with `Esc`, `q`, `?`, or `F1`. The Commands palette links to the same Help.
@@ -290,7 +305,12 @@ Plain-character application shortcuts do not intercept typing in filter and
 editor fields.
 
 Terminals without distinct shifted-control key encoding may treat
-`Ctrl+Shift+S` as `Ctrl+S`; both bindings save. Enter keeps its normal submission
+`Ctrl+Shift+S` as `Ctrl+S`; both bindings save.
+
+Zellij uses `Ctrl+S` and `Ctrl+P` in its default keymap. Inside Zellij, use
+`F2` to save or produce, and `:` to open Commands when no text field has focus,
+or lock Zellij with `Ctrl+G` first. tmux only reserves its `Ctrl+B` prefix,
+which Kaskade doesn't use. Enter keeps its normal submission
 or selection behavior within form controls.
 
 #### Custom keymap
@@ -357,11 +377,13 @@ omitted from the Footer.
 The Consumer records table shows the same total raw message size in its Size
 column.
 
-Key, value, and the selected header show compact deserializer, schema, and
-original payload-size diagnostics above their complete content. Explicit BYTES
-encoding appears beside the deserializer. Payload size appears in KB below 1 MB
-and in MB at or above that threshold. Deserialization failures use a highlighted
-error panel that identifies the BYTES fallback encoding.
+Key and value show compact deserializer, schema, and original payload-size
+diagnostics above their complete content. Explicit BYTES encoding appears beside
+the deserializer. The selected header shows its name and size, and All Headers
+shows every header together; a header's size counts its name and value, as Total
+Size does. Sizes appear in bytes below 1 KB, in KB below 1 MB, and in MB from
+there, with 1 KB = 1,000 bytes. Deserialization failures use a highlighted error
+panel that identifies the BYTES fallback encoding.
 
 Selecting screen text is separate: use `Cmd+C` on macOS or `Ctrl+Shift+C` on
 Linux. `Ctrl+C` always quits Kaskade, even while text is selected.
@@ -753,6 +775,10 @@ For SASL/SCRAM and mTLS connections, grant the Kafka principal these operations:
 | Admin (read only) | `Describe`, `DescribeConfigs` | `Describe` on groups to display |
 | Admin (full access) | `Describe`, `DescribeConfigs`, `Create`, `Alter`, `Delete`, `AlterConfigs` | `Describe` on groups to display |
 | Consumer | `Read`, `Describe` on topics to consume | `Read`, `Describe` on the configured `group.id` or `kaskade-` prefix |
+| Producer | `Write`, `Describe` on the topic; `Create` only for broker auto-creation | None |
+
+`Write` implies `Describe`. With `--idempotence true`, brokers older than Kafka 3.0
+also need cluster `IdempotentWrite`.
 
 Admin shows only the consumer groups the principal can describe. A principal
 with cluster `Describe` lists every group; Kaskade skips the ones it cannot
@@ -810,6 +836,19 @@ kafka-acls.sh \
     --resource-pattern-type prefixed
 ```
 
+Producer access to one topic:
+
+```bash
+kafka-acls.sh \
+    --bootstrap-server "${BOOTSTRAP_SERVERS}" \
+    --command-config admin-client.properties \
+    --add \
+    --allow-principal "User:<principal>" \
+    --operation Write \
+    --operation Describe \
+    --topic '<topic-name>'
+```
+
 Narrow `--topic '*'` with literal topic names or prefixed resource patterns when
 appropriate. See AWS's
 [Apache Kafka ACL documentation](https://docs.aws.amazon.com/msk/latest/developerguide/msk-acls.html),
@@ -842,6 +881,111 @@ kaskade consumer -b ${BOOTSTRAP_SERVERS} -t my-avro-topic \
 
 See the
 [Kafka client quick start for Confluent Cloud](https://docs.confluent.io/cloud/current/client-apps/config-client.html).
+
+## Producer
+
+### Compose and produce
+
+`kaskade producer` composes and produces one record at a time to the topic given
+with `-t`:
+
+```bash
+kaskade producer -b my-kafka:9092 -t orders
+kaskade producer -b my-kafka:9092 -t orders -k string -v json --partition 2
+```
+
+The composer has three tabs, **Key**, **Value**, and **Headers**, and a
+**Summary** panel beside them.
+
+- **Key** and **Value** each have a serializer, a **Null** control, and a
+  content editor. The frame's subtitle shows the open field's size, such as
+  `Value: 16 bytes`, or what makes it invalid. Empty content and null are
+  different: an empty string is valid Kafka data, while a null value can act
+  as a tombstone on compacted topics.
+- **Headers** is an editable table of names and values. There is always an
+  empty row at the bottom; typing in it adds a header. Check **Null** to send a
+  null value, and press `Ctrl+D` to remove the focused header. Order, duplicate
+  names, and empty values are kept; every header needs a name.
+- **Summary** shows whether the record is ready, plus the topic, partition,
+  serializers, serialized sizes, the header count and size, and the client's
+  acks, idempotence, and compression. Total Size adds the Key, Value, and
+  headers, as the consumer's Total Size does. Sizes appear in bytes, KB, or MB.
+  Press `F3` to hide or show it; it starts hidden on terminals narrower than 80
+  columns.
+
+A record must fit two limits: the client's `message.max.bytes`, 1,000,000 bytes
+by default, and the topic's `max.message.bytes`, which the cluster sets. Kaskade
+can't read the topic limit without extra permissions, so it doesn't check it in
+advance; a record over either limit fails with `Record Too Large`, naming which
+one.
+
+Press `Ctrl+S` to produce. Kaskade validates and serializes the Key and Value,
+then waits for the broker. It reports success only after the broker acknowledges
+the record, with its partition, offset, and timestamp:
+
+```text
+Delivered · Partition 2 · Offset 8429 · 14:20:05.120
+```
+
+Produce is disabled while a delivery is in progress. The draft stays after both
+success and failure, so you can change it and produce again. Failures say
+whether serialization, authorization, a timeout, or the broker caused them.
+Kaskade never logs record content.
+
+When Kaskade closes, it flushes queued records for up to `producer.flush`
+seconds; see [Operation timeouts](#operation-timeouts).
+
+### Serializers
+
+Choose the Key and Value serializers with `-k` and `-v`; both default to
+`string`. You can also change them in the Key and Value tabs.
+
+| Serializer | Content |
+| --- | --- |
+| `string` | UTF-8 text |
+| `bytes` | Text in the selected encoding: `base64`, `hex`, `byte-array` (a JSON array of 0–255), or `escaped` |
+| `boolean` | `true` or `false` |
+| `integer`, `long` | Big-endian 32-bit or 64-bit signed integers |
+| `float`, `double` | Big-endian 32-bit or 64-bit IEEE 754 numbers |
+| `json` | Any JSON document, sent compact |
+
+Avro, Protobuf, and Schema Registry serializers aren't supported yet.
+
+### Load a draft from a file
+
+`--source` loads a record draft from a JSON file into the composer instead of
+starting empty:
+
+```json
+{"headers": [{"key": "trace", "value": "abc"}, {"key": "trace", "value": null}], "key": {"content": "order-42"}, "value": {"content": {"status": "paid"}}}
+```
+
+A missing `key` or `value`, or `"content": null`, is null. The draft is
+produced only when you press `Ctrl+S`, and the file is never modified.
+
+### Producer configuration
+
+Producer uses the same `--config-file`, `-b`, `--kafka`, `--aws`, `--timeout`,
+and `--theme` options as the other commands. These options set common producer
+properties:
+
+| Option | Kafka property | Default when unset |
+| --- | --- | --- |
+| `--acks all\|-1\|0\|1` | `acks` | `all` |
+| `--compression none\|gzip\|snappy\|lz4\|zstd` | `compression.type` | `none` |
+| `--idempotence true\|false` | `enable.idempotence` | `false` |
+
+The defaults are `confluent-kafka`'s. Unlike Kafka's Java client, it doesn't
+enable idempotence by default.
+
+The same properties can live in the `[kafka]` section of `--config-file`.
+Precedence, from lowest to highest: `--config-file`, `--kafka`, the options
+above, `-b`, then AWS IAM settings. An option you don't pass never replaces a
+configured or default value.
+
+`confluent-kafka` checks that the settings are compatible. For example,
+`--idempotence true --acks 1` fails before the composer opens with a message that
+`acks` must be `all`.
 
 ## Format-specific consumers
 

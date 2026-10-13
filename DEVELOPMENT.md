@@ -8,12 +8,11 @@
 - [Website](#website)
 - [Build Artifacts](#build-artifacts)
 - [Release](#release)
-- [Manual Tests](#manual-tests)
+- [Sandbox](#sandbox)
   - [Start the local sandbox](#start-the-local-sandbox)
   - [Populate test topics](#populate-test-topics)
   - [Inspect registry APIs with HTTPie](#inspect-registry-apis-with-httpie)
   - [Populate a remote Amazon MSK cluster](#populate-a-remote-amazon-msk-cluster)
-  - [Run application smoke tests](#run-application-smoke-tests)
   - [Stop the local sandbox](#stop-the-local-sandbox)
 
 ## Setup
@@ -240,20 +239,13 @@ Fix the external configuration if necessary and rerun only the failed GitHub
 Actions jobs. PyPI artifacts are immutable; if an incorrect artifact was already
 published, create a new patch version instead of reusing the tag.
 
-## Manual Tests
+## Sandbox
 
 The standalone `sandbox` package owns its Compose environment, population tools,
 and inline Avro, JSON Schema, and Protobuf model definitions. Those fixtures stay
 separate from the automated tests, while `sandbox/.env` provides their shared
-container image versions.
-
-Use this sequence for a complete manual test:
-
-1. Start the local services.
-2. Populate all topics or a selected subset.
-3. Inspect registry data when testing schema-backed topics.
-4. Run the Admin and Consumer smoke tests.
-5. Stop the services and remove their volumes.
+container image versions. The release smoke tests in
+[MANUAL_TESTING.md](MANUAL_TESTING.md) run against it.
 
 ### Start the local sandbox
 
@@ -403,136 +395,9 @@ kafka-acls.sh \
     --topic '*'
 ```
 
-### Run application smoke tests
-
-Confirm both command interfaces render successfully:
-
-```bash
-uv run kaskade admin --help
-uv run kaskade consumer --help
-```
-
-Open the Admin application and verify the populated topics and their metadata:
-
-```bash
-uv run kaskade admin -b localhost:9092
-```
-
-#### Primitive and JSON consumers
-
-Start with raw bytes:
-
-```bash
-uv run kaskade consumer -b localhost:9092 --earliest -t string
-```
-
-Every record in the `null` topic has a null key, value, and `sandbox-null`
-header:
-
-```bash
-uv run kaskade consumer -b localhost:9092 --earliest -k string -v string -t null
-```
-
-Test every primitive deserializer:
-
-```bash
-uv run kaskade consumer -b localhost:9092 --earliest -k string -v string -t string
-uv run kaskade consumer -b localhost:9092 --earliest -k string -v integer -t integer
-uv run kaskade consumer -b localhost:9092 --earliest -k string -v long -t long
-uv run kaskade consumer -b localhost:9092 --earliest -k string -v float -t float
-uv run kaskade consumer -b localhost:9092 --earliest -k string -v double -t double
-uv run kaskade consumer -b localhost:9092 --earliest -k string -v boolean -t boolean
-```
-
-Test raw and Confluent-framed payloads with the local JSON deserializer:
-
-```bash
-uv run kaskade consumer -b localhost:9092 --earliest -k string -v json -t json
-uv run kaskade consumer -b localhost:9092 --earliest -k string -v json -t json-schema \
-        --json framing=confluent
-```
-
-Populate and consume the oversized layout fixture to inspect wrapping and
-scrolling for a long topic name, JSON key and value, and header key and value:
-
-```bash
-uv run python -m sandbox \
-        --topic consumer-layout-with-an-intentionally-long-topic-name-for-large-record-testing
-uv run kaskade consumer -b localhost:9092 --earliest -k json -v json \
-        -t consumer-layout-with-an-intentionally-long-topic-name-for-large-record-testing
-```
-
-Test an Apicurio-produced payload without querying the registry:
-
-```bash
-uv run kaskade consumer -b localhost:9092 --earliest -k string -v json \
-        -t json-schema-apicurio --json framing=apicurio
-```
-
-#### Schema Registry consumers
-
-Test a JSON Schema payload through Confluent Schema Registry:
-
-```bash
-uv run kaskade consumer -b localhost:9092 --earliest -t json-schema \
-        -k string -v registry \
-        --registry url=http://localhost:8081
-```
-
-Test independent key and value deserialization fallbacks:
-
-```bash
-uv run kaskade consumer -b localhost:9092 --earliest -t errors \
-        -k registry -v registry \
-        --fallback encoding=hex \
-        --registry url=http://localhost:8081
-```
-
-The `errors` topic cycles through a malformed key, malformed value, both fields
-malformed, an invalid UTF-8 header, and a fully valid record. Malformed fields
-contain randomized bytes, and `sandbox-error-case` identifies each case.
-
-Test an Avro payload through Confluent Schema Registry:
-
-```bash
-uv run kaskade consumer -b localhost:9092 --earliest -t avro-schema \
-        -k string -v registry \
-        --registry url=http://localhost:8081
-```
-
-Test a Protobuf payload through Confluent Schema Registry without a local
-descriptor:
-
-```bash
-uv run kaskade consumer -b localhost:9092 --earliest -t protobuf-schema \
-        -k string -v registry \
-        --registry url=http://localhost:8081
-```
-
-Test the native Apicurio Avro payload:
-
-```bash
-uv run kaskade consumer -b localhost:9092 --earliest -t avro-schema-apicurio \
-        -k string -v registry \
-        --registry provider=apicurio \
-        --registry apicurio.registry.url=http://localhost:8082/apis/registry/v3
-```
-
-Use `json-schema-apicurio` or `protobuf-schema-apicurio` to exercise the other
-native formats with the same registry configuration. Apicurio's ccompat endpoint
-remains available through the default Confluent provider and `--registry url=...`.
-
-#### Local-schema consumers
-
-Sandbox schemas and models are defined inline, so the repository does not carry
-local Avro schema or Protobuf descriptor files. To exercise the local `avro` or
-`protobuf` deserializers, provide your own `.avsc` or descriptor-set file using
-the commands documented in `USAGE.md`.
-
 ### Stop the local sandbox
 
-Remove the containers, networks, and persisted test data when manual testing is
-complete:
+Remove the containers, networks, and persisted test data when you're done:
 
 ```bash
 docker compose --project-directory sandbox down -v

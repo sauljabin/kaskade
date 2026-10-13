@@ -92,7 +92,7 @@ HelpScreen {
 
 HelpScreen > #help-dialog {
     border: $secondary;
-    width: 72;
+    width: 100;
     max-width: 90%;
     height: 80%;
     background: $background;
@@ -314,8 +314,8 @@ TopicScreen .record-diagnostics {
 }
 
 TopicScreen .record-diagnostics.-header {
-    grid-size: 2 1;
-    grid-columns: 3fr 1fr;
+    grid-size: 3 1;
+    grid-columns: 2fr 1fr 1fr;
 }
 
 TopicScreen .record-diagnostic {
@@ -328,12 +328,14 @@ TopicScreen .record-diagnostic {
 }
 
 TopicScreen .record-header-name,
+TopicScreen .record-headers-size,
 TopicScreen .record-diagnostics.-header .record-deserializer,
 TopicScreen .record-diagnostics.-header .record-schema {
     display: none;
 }
 
-TopicScreen .record-diagnostics.-header .record-header-name {
+TopicScreen .record-diagnostics.-header .record-header-name,
+TopicScreen .record-diagnostics.-header .record-headers-size {
     display: block;
 }
 
@@ -449,7 +451,7 @@ TopicScreen.-narrow .record-diagnostics {
 }
 
 TopicScreen.-narrow .record-diagnostics.-header {
-    grid-size: 1 2;
+    grid-size: 1 3;
 }
 
 DescribeTopicScreen.-narrow #topic-metadata {
@@ -475,4 +477,203 @@ HelpScreen.-narrow > #help-dialog {
 CommandPalette.-narrow > #--container {
     width: 100%;
     max-width: 100%;
+}
+
+#composer-tabs,
+#composer-tabs > ContentSwitcher,
+#composer-tabs TabPane {
+    width: 100%;
+    height: 100%;
+    background: transparent;
+    padding: 0;
+}
+
+#composer-tabs {
+    height: 1fr;
+}
+
+#composer-frame {
+    padding: 0 1;
+}
+
+.field-editor,
+#headers-pane {
+    height: 100%;
+    padding: 0 1;
+}
+
+.field-options {
+    height: auto;
+}
+
+.field-options > Select {
+    width: 22;
+    margin-right: 1;
+}
+
+.field-options > Select > SelectCurrent,
+.field-options > Checkbox {
+    border: solid $secondary 50%;
+    background: transparent;
+    background-tint: transparent;
+}
+
+.field-options > Select:focus > SelectCurrent,
+.field-options > Checkbox:focus {
+    border: $secondary;
+}
+
+.field-options > Checkbox {
+    width: auto;
+}
+
+.field-content-label {
+    height: 1;
+    margin-top: 1;
+}
+
+TextArea.field-content {
+    height: 1fr;
+    border: none;
+    padding: 1 2;
+    background: $panel-darken-1;
+}
+
+.field-editor.-invalid > TextArea.field-content {
+    background: $error 15%;
+}
+
+.field-editor.-invalid > TextArea.field-content:focus {
+    background: $error 25%;
+}
+
+TextArea.field-content:focus {
+    border: none;
+    background: $panel;
+}
+
+
+#record-composer {
+    height: 100%;
+}
+
+#record-summary {
+    width: 50;
+    height: 100%;
+    margin-left: 1;
+    border: solid $secondary 50%;
+    padding: 0 1;
+}
+
+#record-summary .summary-grid {
+    width: 100%;
+    height: 4;
+    grid-size: 3 1;
+    grid-columns: 2fr 1fr 1fr;
+    grid-gutter: 0;
+}
+
+#record-summary #summary-metadata {
+    height: 8;
+    grid-size: 2 2;
+    grid-columns: 1fr 1fr;
+}
+
+#record-summary #summary-topic {
+    column-span: 2;
+}
+
+#record-summary .summary-settings {
+    grid-size: 3 1;
+    grid-columns: 1fr 1fr 1fr;
+}
+
+#record-summary .summary-field {
+    grid-size: 2 1;
+    grid-columns: 2fr 1fr;
+}
+
+#record-summary MetadataCell {
+    width: 100%;
+    height: 100%;
+    border: solid $secondary 50%;
+    padding: 0;
+}
+
+.summary-label {
+    height: 1;
+    margin-top: 1;
+}
+
+#summary-status {
+    width: 100%;
+    height: auto;
+    margin-top: 1;
+    border: solid $success 50%;
+    padding: 0;
+    color: $text-success;
+}
+
+#summary-status.-invalid {
+    border: solid $error;
+    background: $error 15%;
+    color: $text-error;
+}
+
+.header-row {
+    height: 3;
+    margin-bottom: 1;
+}
+
+.header-labels {
+    height: 1;
+    padding-right: 2;
+}
+
+.header-row > .column-name {
+    width: 1fr;
+    margin-right: 1;
+}
+
+.header-row > .column-value {
+    width: 2fr;
+    margin-right: 1;
+}
+
+.header-row > .column-null {
+    width: 6;
+}
+
+.header-row > Input {
+    height: 3;
+    padding: 1 1;
+    background: $panel-darken-1;
+}
+
+.header-labels > .column-name,
+.header-labels > .column-value {
+    padding: 0 1;
+}
+
+.header-row > Input:focus {
+    background: $panel;
+}
+
+.header-row.-invalid > .header-name {
+    background: $error 25%;
+}
+
+.header-row.-invalid > .header-name:focus {
+    background: $error 35%;
+}
+
+.header-row > Checkbox {
+    margin-top: 1;
+    background: transparent;
+}
+
+#header-rows {
+    height: 1fr;
+    scrollbar-gutter: stable;
+    scrollbar-size-vertical: 2;
 }
