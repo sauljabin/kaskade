@@ -92,6 +92,9 @@
   `producer.delivery` deadline bounds the wait. Allow one delivery at a time,
   keep the draft after success and failure, and flush within `producer.flush`
   on shutdown. Never log Key, Value, or Header content.
+- Editors highlight JSON input with a tree-sitter query whose captures are Rich's
+  `json.*` style names, colored from `KaskadeApp.semantic_styles()`, so the
+  producer matches the consumer in every theme.
 - The `--source` JSON draft uses the headless producer document shape (#117): ordered
   `headers` of `key`/`value`, and `key`/`value` objects with `content`. Never
   produce a draft without an explicit `Ctrl+S`.

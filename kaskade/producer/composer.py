@@ -1,7 +1,7 @@
 """The record composer: Headers, Key, and Value tabs and a Summary panel."""
 
 from dataclasses import replace
-from typing import ClassVar
+from typing import Any, ClassVar
 
 from rich.table import Table
 from rich.text import Text
@@ -16,6 +16,13 @@ from textual.widgets import Checkbox, Input, Select, Static, TabbedContent, TabP
 from kaskade.colors import PRIMARY
 from kaskade.configs import ACKS, COMPRESSION_TYPE, ENABLE_IDEMPOTENCE
 from kaskade.deserializers import BytesEncoding
+from kaskade.producer.highlighting import (
+    JSON_HIGHLIGHT_QUERY,
+    JSON_LANGUAGE,
+    highlights_json,
+    json_language,
+    json_theme,
+)
 from kaskade.producer.source import DraftField, RecordDraft
 from kaskade.producer_service import (
     DeliveryError,
@@ -69,9 +76,25 @@ def without_ctrl_c_copy(bindings: list[BindingType]) -> list[BindingType]:
 
 
 class ContentArea(TextArea, inherit_bindings=False):
-    """A text editor without Textual's ctrl+c copy alias."""
+    """A text editor without Textual's ctrl+c copy alias, with optional JSON highlighting."""
 
     BINDINGS: ClassVar[list[BindingType]] = without_ctrl_c_copy(TextArea.BINDINGS)
+
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        self.register_language(JSON_LANGUAGE, json_language(), JSON_HIGHLIGHT_QUERY)
+
+    def on_mount(self) -> None:
+        self.refresh_json_theme()
+        self.app.theme_changed_signal.subscribe(self, lambda _: self.refresh_json_theme())
+
+    def refresh_json_theme(self) -> None:
+        theme = json_theme(self.app)
+        self.register_theme(theme)
+        self.theme = theme.name
+
+    def highlight_json(self, enabled: bool) -> None:
+        self.language = JSON_LANGUAGE if enabled else None
 
 
 class HeaderInput(Input, inherit_bindings=False):
@@ -132,8 +155,11 @@ class FieldEditor(Container):
         return self.query_one(f"#{self.field_name}-null", Checkbox).value
 
     @property
-    def content(self) -> TextArea:
-        return self.query_one(f"#{self.field_name}-content", TextArea)
+    def content(self) -> ContentArea:
+        return self.query_one(f"#{self.field_name}-content", ContentArea)
+
+    def on_mount(self) -> None:
+        self.content.highlight_json(highlights_json(self.serialization, self.encoding))
 
     def load(self, draft_field: DraftField) -> None:
         self.query_one(f"#{self.field_name}-null", Checkbox).value = draft_field.is_null
@@ -165,6 +191,7 @@ class FieldEditor(Container):
             self.query_one(f"#{self.field_name}-encoding", Select).display = (
                 self.serialization == Serialization.BYTES
             )
+            self.content.highlight_json(highlights_json(self.serialization, self.encoding))
         if isinstance(event, Checkbox.Changed):
             self.content.disabled = event.value
         self.mark_validity()
