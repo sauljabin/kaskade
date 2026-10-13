@@ -909,8 +909,9 @@ The composer has three tabs, **Key**, **Value**, and **Headers**, and a
 - **Summary** shows whether the record is ready, plus the topic, partition,
   serializers, serialized sizes, and the header count and size. Total Size adds
   the Key, Value, and headers, as the consumer's Total Size does; compare it
-  with `max.request.size`. Sizes appear in bytes, KB, or MB. Press `F3` to hide
-  or show it; it starts hidden on terminals narrower than 80 columns.
+  with the producer's `message.max.bytes`, 1,000,000 bytes by default. Sizes
+  appear in bytes, KB, or MB. Press `F3` to hide or show it; it starts hidden
+  on terminals narrower than 80 columns.
 
 Press `Ctrl+S` to produce. Kaskade validates and serializes the Key and Value,
 then waits for the broker. It reports success only after the broker acknowledges
@@ -962,11 +963,14 @@ Producer uses the same `--config-file`, `-b`, `--kafka`, `--aws`, `--timeout`,
 and `--theme` options as the other commands. These options set common producer
 properties:
 
-| Option | Kafka property |
-| --- | --- |
-| `--acks all\|-1\|0\|1` | `acks` |
-| `--compression none\|gzip\|snappy\|lz4\|zstd` | `compression.type` |
-| `--idempotence true\|false` | `enable.idempotence` |
+| Option | Kafka property | Default when unset |
+| --- | --- | --- |
+| `--acks all\|-1\|0\|1` | `acks` | `all` |
+| `--compression none\|gzip\|snappy\|lz4\|zstd` | `compression.type` | `none` |
+| `--idempotence true\|false` | `enable.idempotence` | `false` |
+
+The defaults are `confluent-kafka`'s. Unlike Kafka's Java client, it doesn't
+enable idempotence by default.
 
 The same properties can live in the `[kafka]` section of `--config-file`.
 Precedence, from lowest to highest: `--config-file`, `--kafka`, the options
