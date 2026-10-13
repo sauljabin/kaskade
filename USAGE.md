@@ -34,7 +34,7 @@ up the way you like.
 - [Producer](#producer)
   - [Compose and produce](#compose-and-produce)
   - [Serializers](#serializers)
-  - [Load drafts from a file](#load-drafts-from-a-file)
+  - [Load a draft from a file](#load-a-draft-from-a-file)
   - [Producer configuration](#producer-configuration)
 - [Format-specific consumers](#format-specific-consumers)
   - [JSON consumer](#json-consumer)
@@ -296,7 +296,6 @@ action, Kaskade uses the same key.
 | Save Create Topic or Edit Topic | `Ctrl+S`, `Ctrl+Shift+S`, or `F2` |
 | Produce the composed record | `Ctrl+S`, `Ctrl+Shift+S`, or `F2` |
 | Show or hide the producer Summary | `F3` |
-| Next or previous source record | `Ctrl+PageDown`/`Alt+PageDown` or `Ctrl+PageUp`/`Alt+PageUp` |
 | Delete the focused producer header | `Ctrl+D` |
 
 Help lists every contextual shortcut alias. Navigate with the standard keys and
@@ -924,21 +923,17 @@ Choose the Key and Value serializers with `-k` and `-v`; both default to
 
 Avro, Protobuf, and Schema Registry serializers aren't supported yet.
 
-### Load drafts from a file
+### Load a draft from a file
 
-`--source` loads record drafts into the composer instead of starting empty. A
-`.json` file holds one record, and a `.jsonl` file holds one record per line:
+`--source` loads a record draft from a JSON file into the composer instead of
+starting empty:
 
 ```json
 {"headers": [{"key": "trace", "value": "abc"}, {"key": "trace", "value": null}], "key": {"content": "order-42"}, "value": {"content": {"status": "paid"}}}
 ```
 
-A missing `key` or `value`, or `"content": null`, is null. With several records,
-the title shows the position, such as `Record 3/20`; move between records with
-`Ctrl+PageDown` and `Ctrl+PageUp`, or `Alt+PageDown` and `Alt+PageUp` where the
-terminal uses the `Ctrl` keys to switch tabs. Each record is still produced only when you
-press `Ctrl+S`. Invalid documents are reported with their line number, and the
-file is never modified.
+A missing `key` or `value`, or `"content": null`, is null. The draft is
+produced only when you press `Ctrl+S`, and the file is never modified.
 
 ### Producer configuration
 

@@ -28,8 +28,6 @@ from kaskade.widgets import KaskadeScrollableContainer, MetadataCell
 PRODUCE_SHORTCUT = "ctrl+s,ctrl+shift+s,f2"
 SUMMARY_SHORTCUT = "f3"
 SUMMARY_MIN_TERMINAL_WIDTH = 80
-NEXT_DRAFT_SHORTCUT = "ctrl+pagedown,alt+pagedown"
-PREVIOUS_DRAFT_SHORTCUT = "ctrl+pageup,alt+pageup"
 FIELDS = ("key", "value")
 HeaderEntry = tuple[str, str | None]
 
@@ -312,24 +310,6 @@ class RecordComposer(Horizontal):
             id="kaskade.compose.produce",
         ),
         Binding(
-            NEXT_DRAFT_SHORTCUT,
-            "next_draft",
-            "Next Record",
-            key_display="ctrl+pgdn",
-            priority=True,
-            tooltip="Load the next record from the source file.",
-            id="kaskade.compose.next",
-        ),
-        Binding(
-            PREVIOUS_DRAFT_SHORTCUT,
-            "previous_draft",
-            "Previous Record",
-            key_display="ctrl+pgup",
-            priority=True,
-            tooltip="Load the previous record from the source file.",
-            id="kaskade.compose.previous",
-        ),
-        Binding(
             SUMMARY_SHORTCUT,
             "toggle_summary",
             "Summary",
@@ -343,13 +323,12 @@ class RecordComposer(Horizontal):
         self,
         settings: ProducerSettings,
         service: ProducerService,
-        drafts: tuple[RecordDraft, ...] = (),
+        draft: RecordDraft | None = None,
     ) -> None:
         super().__init__(id="record-composer")
         self.settings = settings
         self.service = service
-        self.drafts = drafts
-        self.draft_index = 0
+        self.draft = draft
         self.serializers = SerializerPool()
         self.delivery_status = ""
         self.is_producing = False
@@ -394,8 +373,8 @@ class RecordComposer(Horizontal):
         self.query_one("#record-summary").display = (
             self.app.size.width >= SUMMARY_MIN_TERMINAL_WIDTH
         )
-        if self.drafts:
-            self.call_after_refresh(self.load_draft, 0)
+        if self.draft is not None:
+            self.call_after_refresh(self.load_draft, self.draft)
         self._update_frame()
         self.update_summary()
 
@@ -403,10 +382,9 @@ class RecordComposer(Horizontal):
         await self.service.aclose()
 
     def _update_frame(self) -> None:
-        title = rf"[{PRIMARY}]Compose Record[/] \[[{PRIMARY}]{self.settings.topic}[/]]"
-        if len(self.drafts) > 1:
-            title += rf"\[[{PRIMARY}]Record {self.draft_index + 1}/{len(self.drafts)}[/]]"
-        self.frame.border_title = title
+        self.frame.border_title = (
+            rf"[{PRIMARY}]Compose Record[/] \[[{PRIMARY}]{self.settings.topic}[/]]"
+        )
         parts = ["Producer Mode"]
         active_field = self.query_one(TabbedContent).active.removesuffix("-tab")
         if active_field in FIELDS:
@@ -435,9 +413,7 @@ class RecordComposer(Horizontal):
     def editor(self, field_name: str) -> FieldEditor:
         return self.query_one(f"#{field_name}-editor", FieldEditor)
 
-    async def load_draft(self, index: int) -> None:
-        self.draft_index = index
-        draft = self.drafts[index]
+    async def load_draft(self, draft: RecordDraft) -> None:
         await self.query_one(HeadersPane).load(draft.headers)
         self.editor("key").load(draft.key)
         self.editor("value").load(draft.value)
@@ -445,17 +421,9 @@ class RecordComposer(Horizontal):
         self.update_summary()
 
     def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
-        if action in {"next_draft", "previous_draft"}:
-            return len(self.drafts) > 1
         if action == "produce":
             return None if self.is_producing else True
         return True
-
-    async def action_next_draft(self) -> None:
-        await self.load_draft((self.draft_index + 1) % len(self.drafts))
-
-    async def action_previous_draft(self) -> None:
-        await self.load_draft((self.draft_index - 1) % len(self.drafts))
 
     @on(HeadersPane.Changed)
     @on(FieldEditor.Changed)

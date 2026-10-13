@@ -19,16 +19,16 @@ class KaskadeProducer(KaskadeApp):
         self,
         producer_settings: ProducerSettings,
         *,
-        drafts: tuple[RecordDraft, ...] = (),
+        draft: RecordDraft | None = None,
         settings: AppSettings | None = None,
     ) -> None:
         super().__init__(settings=settings)
         self.producer_settings = producer_settings
-        self.drafts = drafts
+        self.draft = draft
         self.producer = ProducerService(producer_settings)
         self.producer.start()
 
     def compose(self) -> ComposeResult:
         yield KaskadeHeader(self.producer_settings.kafka_config, profile=kantrip_profile())
-        yield RecordComposer(self.producer_settings, self.producer, self.drafts)
+        yield RecordComposer(self.producer_settings, self.producer, self.draft)
         yield Footer(compact=True)

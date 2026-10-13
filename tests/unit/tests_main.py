@@ -2312,7 +2312,7 @@ class TestProducerCli(unittest.TestCase):
         self.assertEqual(Serialization.STRING, settings.key_serialization)
         self.assertEqual(Serialization.STRING, settings.value_serialization)
         self.assertIsNone(settings.partition)
-        self.assertEqual((), self.producer.call_args.kwargs["drafts"])
+        self.assertIsNone(self.producer.call_args.kwargs["draft"])
 
     def test_dedicated_options_override_kafka_which_overrides_the_file(self):
         config_path = write_config_ini(
@@ -2414,23 +2414,23 @@ class TestProducerCli(unittest.TestCase):
         self.assertEqual(2, rejected.exit_code)
         self.assertIn("consumer.poll applies only to consumer.", rejected.output)
 
-    def test_loads_source_drafts(self):
-        source = Path(self.temp_directory.name) / "drafts.jsonl"
-        source.write_text('{"key": {"content": "1"}}\n{}\n', encoding="utf-8")
+    def test_loads_the_source_draft(self):
+        source = Path(self.temp_directory.name) / "record.json"
+        source.write_text('{"key": {"content": "1"}}', encoding="utf-8")
 
         result = self.invoke("-b", EXPECTED_SERVER, "--source", str(source))
 
         self.assertEqual(0, result.exit_code, result.output)
-        self.assertEqual(2, len(self.producer.call_args.kwargs["drafts"]))
+        self.assertEqual("1", self.producer.call_args.kwargs["draft"].key.content)
 
     def test_reports_invalid_source_documents(self):
-        source = Path(self.temp_directory.name) / "drafts.jsonl"
-        source.write_text("{}\n[]\n", encoding="utf-8")
+        source = Path(self.temp_directory.name) / "record.json"
+        source.write_text("[]", encoding="utf-8")
 
         result = self.invoke("-b", EXPECTED_SERVER, "--source", str(source))
 
         self.assertEqual(2, result.exit_code)
-        self.assertIn("Invalid value for '--source': Line 2:", result.output)
+        self.assertIn("Invalid value for '--source': a record document must be", result.output)
         self.producer.assert_not_called()
 
     def test_reports_invalid_producer_configuration(self):

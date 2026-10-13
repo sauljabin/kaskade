@@ -38,7 +38,7 @@ from kaskade.consumer_service import ConsumerSettings, PartitionSelectionError
 from kaskade.deserializers import Deserialization
 from kaskade.logs import configure_logging
 from kaskade.models import PartitionOffset, PartitionSelection
-from kaskade.producer import KaskadeProducer, SourceError, load_drafts
+from kaskade.producer import KaskadeProducer, SourceError, load_draft
 from kaskade.producer_service import ProducerSettings
 from kaskade.serializers import Serialization
 from kaskade.settings import (
@@ -561,7 +561,7 @@ def consumer(
         "source",
         type=cloup.Path(exists=True, dir_okay=False),
         metavar="path",
-        help="Load record drafts from a .json file (one record) or a .jsonl file (one per line).",
+        help="Load a record draft from a JSON file.",
     ),
     cloup.option(
         "--partition",
@@ -629,7 +629,7 @@ def producer(
     \b
     Examples:
       kaskade producer -b localhost:9092 -t my-topic
-      kaskade producer -b localhost:9092 -t my-topic -v json --source drafts.jsonl
+      kaskade producer -b localhost:9092 -t my-topic -v json --source record.json
       kaskade producer --config-file client.ini -t my-topic --acks all --compression zstd
     """
 
@@ -642,7 +642,7 @@ def producer(
     )
     app_settings = resolve_app_settings(PRODUCER_TIMEOUT_PROPERTIES, timeout_config, theme=theme)
     try:
-        drafts = load_drafts(source) if source is not None else ()
+        draft = load_draft(source) if source is not None else None
     except SourceError as ex:
         raise BadParameter(message=str(ex), param_hint="'--source'") from ex
 
@@ -655,7 +655,7 @@ def producer(
         timeouts=app_settings.timeouts,
     )
     try:
-        kaskade_app = KaskadeProducer(producer_settings, drafts=drafts, settings=app_settings)
+        kaskade_app = KaskadeProducer(producer_settings, draft=draft, settings=app_settings)
     except KafkaException as ex:
         raise ClickException(error_message(ex)) from ex
     kaskade_app.run()

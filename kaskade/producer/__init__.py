@@ -2,7 +2,7 @@
 
 from kaskade.producer.app import KaskadeProducer
 from kaskade.producer.composer import FieldEditor, HeadersPane, RecordComposer
-from kaskade.producer.source import RecordDraft, SourceError, load_drafts
+from kaskade.producer.source import RecordDraft, SourceError, load_draft
 
 __all__ = [
     "FieldEditor",
@@ -11,5 +11,5 @@ __all__ = [
     "RecordComposer",
     "RecordDraft",
     "SourceError",
-    "load_drafts",
+    "load_draft",
 ]

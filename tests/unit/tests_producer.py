@@ -24,7 +24,7 @@ DELIVERY = Delivery(2, 8429, datetime(2026, 10, 8, 14, 20, 5, 120000, tzinfo=tim
 
 def producer_app(
     *,
-    drafts: tuple[RecordDraft, ...] = (),
+    draft: RecordDraft | None = None,
     value_serialization: Serialization = Serialization.STRING,
     partition: int | None = None,
 ) -> KaskadeProducer:
@@ -34,7 +34,7 @@ def producer_app(
         value_serialization=value_serialization,
         partition=partition,
     )
-    return KaskadeProducer(settings, drafts=drafts)
+    return KaskadeProducer(settings, draft=draft)
 
 
 class ProducerTestCase(unittest.IsolatedAsyncioTestCase):
@@ -92,7 +92,7 @@ class TestHeaders(ProducerTestCase):
             self.assertTrue(self.rows(app)[1].query_one(".header-value", Input).disabled)
 
     async def test_delete_removes_the_focused_header(self):
-        app = producer_app(drafts=(RecordDraft(headers=(("a", "1"), ("b", "2"))),))
+        app = producer_app(draft=RecordDraft(headers=(("a", "1"), ("b", "2"))))
         async with app.run_test() as pilot:
             await pilot.pause()
             app.query_one(TabbedContent).active = "headers-tab"
@@ -106,7 +106,7 @@ class TestHeaders(ProducerTestCase):
 
     async def test_many_headers_scroll_and_keep_columns_aligned(self):
         headers = tuple((f"header-{index}", f"value-{index}") for index in range(12))
-        app = producer_app(drafts=(RecordDraft(headers=headers),))
+        app = producer_app(draft=RecordDraft(headers=headers))
         async with app.run_test(size=(120, 30)) as pilot:
             await pilot.pause()
             app.query_one(TabbedContent).active = "headers-tab"
@@ -243,31 +243,17 @@ class TestComposeAndProduce(ProducerTestCase):
             self.assertEqual(1, self.service.produce.call_count)
             self.assertTrue(composer.check_action("produce", ()))
 
-    async def test_source_drafts_load_and_navigate(self):
-        drafts = (
-            RecordDraft(key=DraftField("first", is_null=False)),
-            RecordDraft(value=DraftField({"n": 2}, is_null=False)),
+    async def test_source_draft_loads_without_producing(self):
+        draft = RecordDraft(
+            key=DraftField("first", is_null=False), value=DraftField({"n": 2}, is_null=False)
         )
-        app = producer_app(drafts=drafts, value_serialization=Serialization.JSON)
+        app = producer_app(draft=draft, value_serialization=Serialization.JSON)
         async with app.run_test() as pilot:
             await pilot.pause()
-            composer = self.composer(app)
-            self.assertIn("Record 1/2", composer.frame.border_title)
+
             self.assertEqual("first", app.query_one("#key-content", TextArea).text)
-
-            await pilot.press("ctrl+pagedown")
-            await pilot.pause()
-
-            self.assertIn("Record 2/2", composer.frame.border_title)
-            self.assertTrue(app.query_one("#key-null", Checkbox).value)
             self.assertEqual('{\n  "n": 2\n}', app.query_one("#value-content", TextArea).text)
             self.service.produce.assert_not_called()
-
-    async def test_draft_navigation_is_hidden_without_several_drafts(self):
-        app = producer_app()
-        async with app.run_test() as pilot:
-            await pilot.pause()
-            self.assertFalse(self.composer(app).check_action("next_draft", ()))
 
     async def test_summary_sits_beside_the_frame_and_toggles(self):
         app = producer_app(partition=2)

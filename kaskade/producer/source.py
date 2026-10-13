@@ -1,12 +1,10 @@
-"""Record drafts loaded from a --source JSON or JSONL file."""
+"""The record draft loaded from a --source JSON file."""
 
 import json
-from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-SOURCE_SUFFIXES = (".json", ".jsonl")
 DOCUMENT_FIELDS = frozenset({"headers", "key", "value"})
 HEADER_FIELDS = frozenset({"key", "value"})
 FIELD_PROPERTIES = frozenset({"content"})
@@ -31,38 +29,17 @@ class RecordDraft:
     value: DraftField = DraftField()
 
 
-def load_drafts(path: str | Path) -> tuple[RecordDraft, ...]:
-    """Read every document in order; the file is never modified."""
-    source = Path(path)
-    if source.suffix not in SOURCE_SUFFIXES:
-        raise SourceError(f"Source files must end in {' or '.join(SOURCE_SUFFIXES)}")
+def load_draft(path: str | Path) -> RecordDraft:
+    """Read one record document; the file is never modified."""
     try:
-        text = source.read_text(encoding="utf-8")
+        text = Path(path).read_text(encoding="utf-8")
     except (OSError, UnicodeDecodeError) as ex:
         raise SourceError(f"Unable to read the source file: {ex}") from ex
-
-    lines = _documents(text) if source.suffix == ".jsonl" else [(1, text)]
-    drafts = tuple(_draft(line, document) for line, document in lines)
-    if not drafts:
-        raise SourceError("The source file contains no records")
-    return drafts
-
-
-def _documents(text: str) -> Iterator[tuple[int, str]]:
-    for line_number, line in enumerate(text.splitlines(), start=1):
-        if line.strip():
-            yield line_number, line
-
-
-def _draft(line: int, text: str) -> RecordDraft:
     try:
         document = json.loads(text)
     except json.JSONDecodeError as ex:
-        raise SourceError(f"Line {line + ex.lineno - 1}: invalid JSON: {ex.msg}") from ex
-    try:
-        return _parse_document(document)
-    except SourceError as ex:
-        raise SourceError(f"Line {line}: {ex}") from ex
+        raise SourceError(f"Invalid JSON at line {ex.lineno}: {ex.msg}") from ex
+    return _parse_document(document)
 
 
 def _parse_document(document: Any) -> RecordDraft:

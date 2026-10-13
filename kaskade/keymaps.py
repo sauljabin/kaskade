@@ -30,8 +30,6 @@ KNOWN_BINDING_IDS = (
             "kaskade.help.close",
             "kaskade.chunk-size.close",
             "kaskade.chunk-size.select",
-            "kaskade.compose.next",
-            "kaskade.compose.previous",
             "kaskade.compose.produce",
             "kaskade.compose.summary",
             "kaskade.create-topic.close",

@@ -28,7 +28,7 @@ from testcontainers.community.kafka import KafkaContainer
 from testcontainers.core.container import DockerContainer
 from testcontainers.core.network import Network
 from testcontainers.core.wait_strategies import HttpWaitStrategy
-from textual.widgets import DataTable
+from textual.widgets import Checkbox, DataTable, TextArea
 
 from kaskade.admin import KaskadeAdmin
 from kaskade.configs import (
@@ -296,26 +296,24 @@ class TestE2E(unittest.IsolatedAsyncioTestCase):
         with kafka_container() as kafka:
             config = {BOOTSTRAP_SERVERS: kafka.get_bootstrap_server()}
             create_topic(config, partitions=2)
-            drafts = (
-                RecordDraft(
-                    headers=(("trace", "a"), ("trace", None), ("empty", "")),
-                    key=DraftField("order-1", is_null=False),
-                    value=DraftField({"status": "paid"}, is_null=False),
-                ),
-                RecordDraft(value=DraftField({}, is_null=False)),
+            draft = RecordDraft(
+                headers=(("trace", "a"), ("trace", None), ("empty", "")),
+                key=DraftField("order-1", is_null=False),
+                value=DraftField({"status": "paid"}, is_null=False),
             )
             producer_app = KaskadeProducer(
                 ProducerSettings(
                     MY_TOPIC, config, value_serialization=Serialization.JSON, partition=1
                 ),
-                drafts=drafts,
+                draft=draft,
             )
             async with producer_app.run_test() as pilot:
                 composer = producer_app.query_one(RecordComposer)
                 await pilot.pause()
                 await pilot.press("ctrl+s")
                 await self.wait_for_subtitle(composer, "Delivered · Partition 1 · Offset 0")
-                await pilot.press("ctrl+pagedown")
+                producer_app.query_one("#key-null", Checkbox).value = True
+                producer_app.query_one("#value-content", TextArea).load_text("{}")
                 await pilot.pause()
                 await pilot.press("ctrl+s")
                 await self.wait_for_subtitle(composer, "Delivered · Partition 1 · Offset 1")

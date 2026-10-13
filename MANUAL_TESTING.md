@@ -163,20 +163,18 @@ kaskade producer -b localhost:9092 -t qa-producer -v json
    Both records are there with the headers in order, and the second value is
    null.
 
-Source files:
+Source file:
 
 ```bash
-printf '%s\n' \
-    '{"key": {"content": "a"}, "value": {"content": {"n": 1}}}' \
-    '{"headers": [{"key": "h", "value": null}], "value": {"content": {"n": 2}}}' \
-    > "$QA/drafts.jsonl"
-kaskade producer -b localhost:9092 -t qa-producer -v json --source "$QA/drafts.jsonl"
-printf '%s\n' '{}' '[]' > "$QA/bad.jsonl"
-kaskade producer -b localhost:9092 -t qa-producer --source "$QA/bad.jsonl"
+printf '%s' '{"headers": [{"key": "h", "value": null}], "key": {"content": "a"},
+    "value": {"content": {"n": 1}}}' > "$QA/record.json"
+kaskade producer -b localhost:9092 -t qa-producer -v json --source "$QA/record.json"
+printf '%s' '[]' > "$QA/bad.json"
+kaskade producer -b localhost:9092 -t qa-producer --source "$QA/bad.json"
 ```
 
-Expect the title to show `Record 1/2`, `Ctrl+PageDown` and `Ctrl+PageUp` to move
-between records without producing, and the bad file to fail with `Line 2`.
+Expect the draft to fill the Headers, Key, and Value tabs without producing, and
+the bad file to fail with `a record document must be a JSON object`.
 
 Failures:
 
