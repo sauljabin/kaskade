@@ -9,7 +9,8 @@ from textual.app import ComposeResult
 from textual.binding import Binding, BindingType
 from textual.containers import Container, Horizontal, ScrollableContainer
 from textual.coordinate import Coordinate
-from textual.geometry import Size
+from textual.geometry import Region, Size
+from textual.strip import Strip
 from textual.widgets import DataTable, OptionList, Static
 
 # The only private Textual import; see StretchyDataTable._compute_row_renderables.
@@ -265,6 +266,7 @@ class StretchyDataTable(DataTable[CellType]):
         super().__init__(**kwargs)
         self._column_minimums: dict[ColumnKey, int] = {}
         self._column_stretches: dict[ColumnKey, int] = {}
+        self._stretched_width: int | None = None
 
     def _compute_row_renderables(self, row_index: int) -> RowRenderables:
         """Ellipsize every row cell that does not set its own overflow.
@@ -305,14 +307,22 @@ class StretchyDataTable(DataTable[CellType]):
         column.auto_width = False
         self._column_minimums[column_key] = column.width
         self._column_stretches[column_key] = stretch
-
-        if self.is_mounted:
-            self.call_after_refresh(self.restretch)
-
+        self._stretched_width = None
         return column_key
 
     def on_resize(self, _event: events.Resize) -> None:
         self.restretch()
+
+    def render_lines(self, crop: Region) -> list[Strip]:
+        """Stretch the columns before painting a width they weren't stretched for.
+
+        Textual paints a resized widget before it delivers the Resize event, so
+        stretching only in ``on_resize`` paints one frame of minimum-width
+        columns first: a visible blink when a table opens or its tab appears.
+        """
+        if self._stretched_width != self.scrollable_content_region.width:
+            self.restretch()
+        return super().render_lines(crop)
 
     def _row_label_width(self) -> int:
         labels = [row.label for row in self.rows.values() if row.label is not None]
@@ -326,6 +336,7 @@ class StretchyDataTable(DataTable[CellType]):
         if not columns:
             return
 
+        self._stretched_width = self.scrollable_content_region.width
         row_label_width = self._row_label_width()
         available_width = max(0, self.scrollable_content_region.width - row_label_width)
         padding_width = 2 * self.cell_padding * len(columns)
