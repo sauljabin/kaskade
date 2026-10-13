@@ -32,6 +32,26 @@ class TestMetadataCell(unittest.IsolatedAsyncioTestCase):
             cell.update_value("updated value")
             self.assertEqual("DESERIA…\nupdated value", cell.render().plain)
 
+    async def test_ellipsizes_the_value_on_request_and_exposes_it_in_the_tooltip(self):
+        class MetadataApp(KaskadeApp):
+            CSS_PATH = Path(__file__).parents[2] / "kaskade/styles.css"
+            CSS = "MetadataCell { width: 8; height: 4; }"
+
+            def compose(self) -> ComposeResult:
+                yield MetadataCell("Header", "correlation-id", ellipsize_value=True)
+
+        app = MetadataApp()
+        async with app.run_test(size=(20, 8)) as pilot:
+            cell = app.query_one(MetadataCell)
+            await pilot.pause()
+
+            self.assertEqual("HEADER\ncorrela…", cell.render().plain)
+            self.assertEqual("correlation-id", cell.tooltip)
+
+            cell.update_value("source")
+            self.assertEqual("HEADER\nsource", cell.render().plain)
+            self.assertIsNone(cell.tooltip)
+
 
 class StretchyTableApp(App):
     CSS = "StretchyDataTable { border: solid red; height: 100%; }"
