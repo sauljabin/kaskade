@@ -773,6 +773,10 @@ For SASL/SCRAM and mTLS connections, grant the Kafka principal these operations:
 | Admin (read only) | `Describe`, `DescribeConfigs` | `Describe` on groups to display |
 | Admin (full access) | `Describe`, `DescribeConfigs`, `Create`, `Alter`, `Delete`, `AlterConfigs` | `Describe` on groups to display |
 | Consumer | `Read`, `Describe` on topics to consume | `Read`, `Describe` on the configured `group.id` or `kaskade-` prefix |
+| Producer | `Write`, `Describe` on the topic; `Create` only for broker auto-creation | None |
+
+`Write` implies `Describe`. With `--idempotence`, brokers older than Kafka 3.0
+also need cluster `IdempotentWrite`.
 
 Admin shows only the consumer groups the principal can describe. A principal
 with cluster `Describe` lists every group; Kaskade skips the ones it cannot
@@ -828,6 +832,19 @@ kafka-acls.sh \
     --operation Describe \
     --group kaskade- \
     --resource-pattern-type prefixed
+```
+
+Producer access to one topic:
+
+```bash
+kafka-acls.sh \
+    --bootstrap-server "${BOOTSTRAP_SERVERS}" \
+    --command-config admin-client.properties \
+    --add \
+    --allow-principal "User:<principal>" \
+    --operation Write \
+    --operation Describe \
+    --topic '<topic-name>'
 ```
 
 Narrow `--topic '*'` with literal topic names or prefixed resource patterns when
