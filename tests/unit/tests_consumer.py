@@ -846,7 +846,7 @@ class TestRecordDetailsTabs(unittest.IsolatedAsyncioTestCase):
             await pilot.pause()
             header_details = details.query_one("#record-header-details", RecordFieldDetails)
             self.assertEqual(
-                ["HEADER\nsource", "SIZE\n1 byte"],
+                ["HEADER\nsource", "SIZE\n7 bytes", "ALL HEADERS\n23 bytes"],
                 displayed_diagnostics(header_details),
             )
             error = header_details.query_one(".record-error", Static)
@@ -868,7 +868,7 @@ class TestRecordDetailsTabs(unittest.IsolatedAsyncioTestCase):
             await pilot.pause()
             self.assertFalse(header_details.query_one(".record-error", Static).display)
             self.assertEqual(
-                ["HEADER\nsource", "SIZE\n10 bytes"],
+                ["HEADER\nsource", "SIZE\n16 bytes", "ALL HEADERS\n23 bytes"],
                 displayed_diagnostics(header_details),
             )
             self.assertEqual(
@@ -957,9 +957,10 @@ class TestRecordDetailsTabs(unittest.IsolatedAsyncioTestCase):
             header_details = details.query_one("#record-header-details", RecordFieldDetails)
             name_cell = header_details.query_one(".record-header-name", MetadataCell)
             size_cell = header_details.query_one(".record-size", MetadataCell)
+            all_headers_cell = header_details.query_one(".record-headers-size", MetadataCell)
 
             self.assertEqual(
-                [name_cell, size_cell],
+                [name_cell, size_cell, all_headers_cell],
                 [cell for cell in header_details.query(".record-diagnostic") if cell.display],
             )
             self.assertEqual(name_cell.region.y, size_cell.region.y)
@@ -971,7 +972,13 @@ class TestRecordDetailsTabs(unittest.IsolatedAsyncioTestCase):
             self.assertTrue(value.endswith("…"))
             self.assertTrue(name.startswith(value[:-1]))
             self.assertEqual(name, name_cell.tooltip)
-            self.assertEqual("SIZE\n10 bytes", size_cell.render().plain)
+            self.assertEqual(
+                f"SIZE\n{len(name) + len('storefront')} bytes", size_cell.render().plain
+            )
+            self.assertEqual(
+                f"ALL HEADERS\n{len(name) + len('storefront')} bytes",
+                all_headers_cell.render().plain,
+            )
             self.assertEqual(
                 "CONTENT",
                 header_details.query_one(".record-content-label", Static).render().plain,

@@ -29,12 +29,17 @@ EXPORT_SHORTCUT = "ctrl+e"
 COPY_RECORD_SHORTCUT = "y"
 
 
-def record_payload_size(record: Record) -> int:
-    size = sum(len(payload) for payload in (record.key, record.value) if payload is not None)
-    return size + sum(
+def headers_payload_size(record: Record) -> int:
+    """Bytes of every header name, in UTF-8, and value."""
+    return sum(
         len(header.key.encode("utf-8")) + (len(header.value) if header.value is not None else 0)
         for header in record.headers
     )
+
+
+def record_payload_size(record: Record) -> int:
+    size = sum(len(payload) for payload in (record.key, record.value) if payload is not None)
+    return size + headers_payload_size(record)
 
 
 class HeaderDataTable(TruncatedTooltipDataTable[str | Text]):
@@ -52,12 +57,20 @@ class RecordFieldDetails(Container):
         *,
         payload_size: int | None,
         field_name: str | None = None,
+        headers_size: int | None = None,
         **kwargs: Any,
     ) -> None:
         super().__init__(**kwargs)
         self.outcome = outcome
         self.payload_size = payload_size
         self.field_name = field_name
+        self.headers_size = headers_size
+
+    def field_size(self) -> int | None:
+        """A header counts its UTF-8 name and value, like All Headers and Total Size."""
+        if self.field_name is None:
+            return self.payload_size
+        return len(self.field_name.encode("utf-8")) + (self.payload_size or 0)
 
     def _content_label(self) -> Text:
         if self.payload_size is None:
@@ -129,8 +142,13 @@ class RecordFieldDetails(Container):
                 )
                 yield MetadataCell(
                     "Size",
-                    format_size(self.payload_size),
+                    format_size(self.field_size()),
                     classes="record-diagnostic record-size",
+                )
+                yield MetadataCell(
+                    "All Headers",
+                    format_size(self.headers_size),
+                    classes="record-diagnostic record-headers-size",
                 )
 
             error = Static(self._error(), classes="record-error")
@@ -154,15 +172,20 @@ class RecordFieldDetails(Container):
         *,
         payload_size: int | None,
         field_name: str | None = None,
+        headers_size: int | None = None,
     ) -> None:
         self.outcome = outcome
         self.payload_size = payload_size
         self.field_name = field_name
+        self.headers_size = headers_size
         self.query_one(".record-diagnostics", Grid).set_class(field_name is not None, "-header")
         self.query_one(".record-header-name", MetadataCell).update_value(field_name or "")
         self.query_one(".record-deserializer", MetadataCell).update_value(self._deserializer())
         self.query_one(".record-schema", MetadataCell).update_value(self._schema())
-        self.query_one(".record-size", MetadataCell).update_value(format_size(self.payload_size))
+        self.query_one(".record-size", MetadataCell).update_value(format_size(self.field_size()))
+        self.query_one(".record-headers-size", MetadataCell).update_value(
+            format_size(self.headers_size)
+        )
         error = self.query_one(".record-error", Static)
         error.display = outcome.error is not None
         error.update(self._error())
@@ -343,6 +366,7 @@ class TopicScreen(HelpableModalScreen[Record]):
                                 else None
                             ),
                             field_name=header.key if header is not None else None,
+                            headers_size=headers_payload_size(self.record),
                             id="record-header-details",
                         )
                 with (
@@ -413,6 +437,7 @@ class TopicScreen(HelpableModalScreen[Record]):
                 header.value_outcome(),
                 payload_size=len(header.value) if header.value is not None else None,
                 field_name=header.key,
+                headers_size=headers_payload_size(self.record),
             )
 
     def on_data_table_row_highlighted(self, event: DataTable.RowHighlighted) -> None:
@@ -427,6 +452,7 @@ class TopicScreen(HelpableModalScreen[Record]):
             header.value_outcome(),
             payload_size=len(header.value) if header.value is not None else None,
             field_name=header.key,
+            headers_size=headers_payload_size(self.record),
         )
         self.query_one(
             "#record-header-details .record-content-scroll", KaskadeScrollableContainer

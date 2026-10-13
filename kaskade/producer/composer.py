@@ -371,11 +371,12 @@ class RecordComposer(Horizontal):
         summary = KaskadeScrollableContainer(id="record-summary", can_focus=False)
         summary.border_title = f"[{PRIMARY}]Summary[/]"
         with summary:
-            with Grid(id="summary-metadata", classes="summary-grid summary-field"):
+            with Grid(id="summary-metadata", classes="summary-grid"):
                 yield MetadataCell(
                     "Topic", self.settings.topic, ellipsize_value=True, id="summary-topic"
                 )
                 yield MetadataCell("Partition", "", ellipsize_value=True, id="summary-partition")
+                yield MetadataCell("Total Size", "", ellipsize_value=True, id="summary-total-size")
             for field_name in FIELDS:
                 yield Static(Text(field_name.upper(), style="muted"), classes="summary-label")
                 with Grid(classes="summary-grid summary-field"):
@@ -470,12 +471,15 @@ class RecordComposer(Horizontal):
         headers = self.query_one(HeadersPane)
         self._summary_cell("headers-count").update_value(str(len(headers.headers)))
         self._summary_cell("headers-size").update_value(format_size(headers.byte_size))
+        sizes = {field_name: self._summarize_field(field_name) for field_name in FIELDS}
         problems: list[Problem] = [
             (field_name.title(), error)
-            for field_name in FIELDS
-            if (error := self._summarize_field(field_name)) is not None
+            for field_name, (_, error) in sizes.items()
+            if error is not None
         ]
-        if (unnamed := self.query_one(HeadersPane).unnamed_problem()) is not None:
+        total = sum(size for size, _ in sizes.values()) + headers.byte_size
+        self._summary_cell("total-size").update_value("Invalid" if problems else format_size(total))
+        if (unnamed := headers.unnamed_problem()) is not None:
             problems.append(unnamed)
         status = self.query_one("#summary-status", Static)
         status.set_class(bool(problems), "-invalid")
@@ -484,8 +488,8 @@ class RecordComposer(Horizontal):
     def _summary_cell(self, name: str) -> MetadataCell:
         return self.query_one(f"#summary-{name}", MetadataCell)
 
-    def _summarize_field(self, field_name: str) -> str | None:
-        """Show the field's serializer and size; return why it doesn't serialize."""
+    def _summarize_field(self, field_name: str) -> tuple[int, str | None]:
+        """Show the field's serializer and size; return its byte count and any error."""
         editor = self.editor(field_name)
         serializer = editor.serialization.name
         if editor.serialization == Serialization.BYTES:
@@ -496,9 +500,9 @@ class RecordComposer(Horizontal):
             data = editor.serialize()
         except SerializationError as ex:
             size.update_value("Invalid")
-            return str(ex)
+            return 0, str(ex)
         size.update_value("Null" if data is None else format_size(len(data)))
-        return None
+        return (0 if data is None else len(data)), None
 
     def action_toggle_summary(self) -> None:
         summary = self.query_one("#record-summary")

@@ -377,11 +377,13 @@ omitted from the Footer.
 The Consumer records table shows the same total raw message size in its Size
 column.
 
-Key, value, and the selected header show compact deserializer, schema, and
-original payload-size diagnostics above their complete content. Explicit BYTES
-encoding appears beside the deserializer. Payload size appears in bytes below
-1 KB, in KB below 1 MB, and in MB from there, with 1 KB = 1,000 bytes. Deserialization failures use a highlighted
-error panel that identifies the BYTES fallback encoding.
+Key and value show compact deserializer, schema, and original payload-size
+diagnostics above their complete content. Explicit BYTES encoding appears beside
+the deserializer. The selected header shows its name and size, and All Headers
+shows every header together; a header's size counts its name and value, as Total
+Size does. Sizes appear in bytes below 1 KB, in KB below 1 MB, and in MB from
+there, with 1 KB = 1,000 bytes. Deserialization failures use a highlighted error
+panel that identifies the BYTES fallback encoding.
 
 Selecting screen text is separate: use `Cmd+C` on macOS or `Ctrl+Shift+C` on
 Linux. `Ctrl+C` always quits Kaskade, even while text is selected.
@@ -905,9 +907,10 @@ The composer has three tabs, **Key**, **Value**, and **Headers**, and a
   null value, and press `Ctrl+D` to remove the focused header. Order, duplicate
   names, and empty values are kept; every header needs a name.
 - **Summary** shows whether the record is ready, plus the topic, partition,
-  serializers, serialized sizes, and the header count and size. Sizes appear
-  in bytes, KB, or MB. Press `F3` to hide or show
-  it; it starts hidden on terminals narrower than 80 columns.
+  serializers, serialized sizes, and the header count and size. Total Size adds
+  the Key, Value, and headers, as the consumer's Total Size does; compare it
+  with `max.request.size`. Sizes appear in bytes, KB, or MB. Press `F3` to hide
+  or show it; it starts hidden on terminals narrower than 80 columns.
 
 Press `Ctrl+S` to produce. Kaskade validates and serializes the Key and Value,
 then waits for the broker. It reports success only after the broker acknowledges

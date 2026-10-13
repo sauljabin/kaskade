@@ -1215,7 +1215,7 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 self.assertLess(header_list.region.x, header_details.region.x)
                 header_diagnostics = header_details.query_one(".record-diagnostics", Grid)
                 self.assertEqual(1, header_diagnostics.styles.grid_size_columns)
-                self.assertEqual(2, header_diagnostics.styles.grid_size_rows)
+                self.assertEqual(3, header_diagnostics.styles.grid_size_rows)
                 await pilot.press("tab")
                 self.assertIs(header_list, app.screen.focused)
                 await pilot.press("tab")
@@ -1543,7 +1543,7 @@ class TestProducerLayout(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(100, app.screen.query_one("#help-dialog").region.width)
 
     async def test_summary_values_ellipsize_with_a_tooltip(self):
-        topic = "a-very-long-topic-name-for-the-summary-box"
+        topic = "a-very-long-topic-name-that-overflows-the-full-width-summary-box"
         with patch("kaskade.producer.app.ProducerService") as service:
             configure_producer_service(service.return_value)
             app = KaskadeProducer(ProducerSettings(topic, {BOOTSTRAP_SERVERS: "kafka1:9092"}))

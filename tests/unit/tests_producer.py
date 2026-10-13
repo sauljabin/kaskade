@@ -105,6 +105,8 @@ class TestHeaders(ProducerTestCase):
 
             self.assertIn("3", cell("count"))
             self.assertIn("16 bytes", cell("size"))
+            total = str(app.query_one("#summary-total-size", Static).render())
+            self.assertIn("16 bytes", total)
             subtitle = self.composer(app).frame.border_subtitle
             self.assertIn("Headers: 16 bytes", subtitle)
 
@@ -195,6 +197,8 @@ class TestComposeAndProduce(ProducerTestCase):
             self.assertTrue(editor.has_class("-invalid"))
             summary = app.query_one("#summary-status", Static)
             self.assertIn("Expected a 32-bit integer", self.status_text(app))
+            total = str(app.query_one("#summary-total-size", Static).render())
+            self.assertIn("Invalid", total)
             self.assertTrue(summary.has_class("-invalid"))
 
             app.query_one("#value-content", TextArea).load_text("12")
@@ -295,6 +299,7 @@ class TestComposeAndProduce(ProducerTestCase):
             self.assertIn("STRING", cell("key-serializer"))
             self.assertIn("7 bytes", cell("key-size"))
             self.assertIn("Null", cell("value-size"))
+            self.assertIn("7 bytes", cell("total-size"))
             self.assertIn("Ready to produce", cell("status"))
 
             await pilot.press("f3")
