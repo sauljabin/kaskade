@@ -23,7 +23,7 @@ from kaskade.producer_service import (
     ProducerSettings,
 )
 from kaskade.serializers import Serialization, SerializationError, SerializerPool
-from kaskade.ui import notify_error
+from kaskade.ui import format_size, notify_error
 from kaskade.widgets import KaskadeScrollableContainer, MetadataCell
 
 PRODUCE_SHORTCUT = "ctrl+s,ctrl+shift+s,f2"
@@ -72,10 +72,6 @@ class HeaderInput(Input, inherit_bindings=False):
     """A header field without Textual's ctrl+c copy alias."""
 
     BINDINGS: ClassVar[list[BindingType]] = without_ctrl_c_copy(Input.BINDINGS)
-
-
-def byte_size(data: bytes) -> str:
-    return f"{len(data)} byte{'' if len(data) == 1 else 's'}"
 
 
 class FieldEditor(Container):
@@ -152,7 +148,7 @@ class FieldEditor(Container):
             data = self.serialize()
         except SerializationError as ex:
             return str(ex), True
-        return ("Null" if data is None else byte_size(data)), False
+        return ("Null" if data is None else format_size(len(data))), False
 
     @on(Select.Changed)
     @on(Checkbox.Changed)
@@ -255,6 +251,14 @@ class HeadersPane(Container):
     @property
     def headers(self) -> list[HeaderEntry]:
         return [row.entry for row in self.rows if not row.is_blank]
+
+    @property
+    def byte_size(self) -> int:
+        """Bytes the headers add to the record: UTF-8 names and values."""
+        return sum(
+            len(name.encode("utf-8")) + (0 if value is None else len(value.encode("utf-8")))
+            for name, value in self.headers
+        )
 
     def unnamed_row(self) -> HeaderRow | None:
         """Return the first header that has a value or null but no name."""
@@ -367,12 +371,11 @@ class RecordComposer(Horizontal):
         summary = KaskadeScrollableContainer(id="record-summary", can_focus=False)
         summary.border_title = f"[{PRIMARY}]Summary[/]"
         with summary:
-            with Grid(id="summary-metadata", classes="summary-grid"):
+            with Grid(id="summary-metadata", classes="summary-grid summary-field"):
                 yield MetadataCell(
                     "Topic", self.settings.topic, ellipsize_value=True, id="summary-topic"
                 )
                 yield MetadataCell("Partition", "", ellipsize_value=True, id="summary-partition")
-                yield MetadataCell("Headers", "", ellipsize_value=True, id="summary-headers")
             for field_name in FIELDS:
                 yield Static(Text(field_name.upper(), style="muted"), classes="summary-label")
                 with Grid(classes="summary-grid summary-field"):
@@ -385,6 +388,10 @@ class RecordComposer(Horizontal):
                     yield MetadataCell(
                         "Size", "", ellipsize_value=True, id=f"summary-{field_name}-size"
                     )
+            yield Static(Text("HEADERS", style="muted"), classes="summary-label")
+            with Grid(classes="summary-grid summary-field"):
+                yield MetadataCell("Count", "", ellipsize_value=True, id="summary-headers-count")
+                yield MetadataCell("Size", "", ellipsize_value=True, id="summary-headers-size")
             yield Static(id="summary-status")
 
     def on_mount(self) -> None:
@@ -411,6 +418,10 @@ class RecordComposer(Horizontal):
             parts.append(f"[$text-error]{field_status}[/]" if invalid else field_status)
         elif (unnamed := self.query_one(HeadersPane).unnamed_problem()) is not None:
             parts.append(f"[$text-error]{escape(problem_text(unnamed))}[/]")
+        else:
+            parts.append(
+                problem_text(("Headers", format_size(self.query_one(HeadersPane).byte_size)))
+            )
         if self.delivery_status:
             parts.append(self.delivery_status)
         self.frame.border_subtitle = rf"\[[{PRIMARY}]{' · '.join(parts)}[/]]"
@@ -456,7 +467,9 @@ class RecordComposer(Horizontal):
         self._summary_cell("partition").update_value(
             "Automatic" if partition is None else str(partition)
         )
-        self._summary_cell("headers").update_value(str(len(self.query_one(HeadersPane).headers)))
+        headers = self.query_one(HeadersPane)
+        self._summary_cell("headers-count").update_value(str(len(headers.headers)))
+        self._summary_cell("headers-size").update_value(format_size(headers.byte_size))
         problems: list[Problem] = [
             (field_name.title(), error)
             for field_name in FIELDS
@@ -484,7 +497,7 @@ class RecordComposer(Horizontal):
         except SerializationError as ex:
             size.update_value("Invalid")
             return str(ex)
-        size.update_value("Null" if data is None else byte_size(data))
+        size.update_value("Null" if data is None else format_size(len(data)))
         return None
 
     def action_toggle_summary(self) -> None:

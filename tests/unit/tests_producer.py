@@ -100,6 +100,14 @@ class TestHeaders(ProducerTestCase):
             self.assertEqual("Headers [3]", str(tab.label))
             self.assertTrue(self.rows(app)[1].query_one(".header-value", Input).disabled)
 
+            def cell(name: str) -> str:
+                return str(app.query_one(f"#summary-headers-{name}", Static).render())
+
+            self.assertIn("3", cell("count"))
+            self.assertIn("16 bytes", cell("size"))
+            subtitle = self.composer(app).frame.border_subtitle
+            self.assertIn("Headers: 16 bytes", subtitle)
+
     async def test_delete_removes_the_focused_header(self):
         app = producer_app(draft=RecordDraft(headers=(("a", "1"), ("b", "2"))))
         async with app.run_test() as pilot:

@@ -25,7 +25,6 @@ from kaskade.configs import CONFLUENT
 from kaskade.consumer import HeaderDataTable, KaskadeConsumer, ListRecords, TopicScreen
 from kaskade.consumer.details import (
     RecordFieldDetails,
-    format_payload_size,
     record_payload_size,
 )
 from kaskade.consumer.records import RecordDataTable
@@ -50,20 +49,22 @@ from kaskade.record_export import (
     record_json,
     record_json_renderable,
 )
+from kaskade.ui import format_size
 from kaskade.unicodes import WARNING_SIGN
 from kaskade.widgets import KaskadeScrollableContainer, TableFrame
 from tests import configure_consumer_service
 
 
 class TestPayloadSizeFormatting(unittest.TestCase):
-    def test_formats_kilobytes_and_megabytes(self) -> None:
-        self.assertEqual("—", format_payload_size(None))
-        self.assertEqual("0.00 KB", format_payload_size(0))
-        self.assertEqual("0.001 KB", format_payload_size(1))
-        self.assertEqual("1.00 KB", format_payload_size(1_000))
-        self.assertEqual("1000.00 KB", format_payload_size(999_999))
-        self.assertEqual("1.00 MB", format_payload_size(1_000_000))
-        self.assertEqual("2.50 MB", format_payload_size(2_500_000))
+    def test_formats_bytes_kilobytes_and_megabytes(self) -> None:
+        self.assertEqual("—", format_size(None))
+        self.assertEqual("0 bytes", format_size(0))
+        self.assertEqual("1 byte", format_size(1))
+        self.assertEqual("999 bytes", format_size(999))
+        self.assertEqual("1.00 KB", format_size(1_000))
+        self.assertEqual("999.99 KB", format_size(999_994))
+        self.assertEqual("1.00 MB", format_size(999_995))
+        self.assertEqual("2.50 MB", format_size(2_500_000))
 
     def test_totals_raw_record_payloads_and_header_names(self) -> None:
         record = Record(
@@ -818,7 +819,7 @@ class TestRecordDetailsTabs(unittest.IsolatedAsyncioTestCase):
             self.assertFalse(headers.show_header)
             self.assertEqual(1, headers.ordered_columns[0].width)
             self.assertEqual(
-                "TOTAL SIZE\n0.03 KB",
+                "TOTAL SIZE\n31 bytes",
                 details.query_one("#record-total-size", Static).render().plain,
             )
             total_size_content = details.query_one("#record-total-size", Static).content
@@ -841,7 +842,7 @@ class TestRecordDetailsTabs(unittest.IsolatedAsyncioTestCase):
             await pilot.pause()
             header_details = details.query_one("#record-header-details", RecordFieldDetails)
             self.assertEqual(
-                "HEADER\nsource · 0.001 KB",
+                "HEADER\nsource · 1 byte",
                 header_details.query_one(".record-field-name", Static).render().plain,
             )
             self.assertFalse(header_details.query_one(".record-diagnostics", Grid).display)
@@ -868,7 +869,7 @@ class TestRecordDetailsTabs(unittest.IsolatedAsyncioTestCase):
             await pilot.pause()
             self.assertFalse(header_details.query_one(".record-error", Static).display)
             self.assertEqual(
-                "HEADER\nsource · 0.01 KB",
+                "HEADER\nsource · 10 bytes",
                 header_details.query_one(".record-field-name", Static).render().plain,
             )
             self.assertEqual(
@@ -889,7 +890,7 @@ class TestRecordDetailsTabs(unittest.IsolatedAsyncioTestCase):
                 key_details.query_one(".record-deserializer", Static).render().plain,
             )
             self.assertEqual(
-                "SIZE\n0.001 KB",
+                "SIZE\n1 byte",
                 key_details.query_one(".record-size", Static).render().plain,
             )
             self.assertFalse(key_details.query_one(".record-error", Static).display)
@@ -918,7 +919,7 @@ class TestRecordDetailsTabs(unittest.IsolatedAsyncioTestCase):
                 value_details.query_one(".record-schema", Static).render().plain,
             )
             self.assertEqual(
-                "SIZE\n0.007 KB",
+                "SIZE\n7 bytes",
                 value_details.query_one(".record-size", Static).render().plain,
             )
             self.assertIn(
@@ -1016,7 +1017,7 @@ class TestRecordDetailsNavigation(unittest.IsolatedAsyncioTestCase):
                 details.query_one("#record-offset", Static).render().plain,
             )
             self.assertEqual(
-                "TOTAL SIZE\n0.01 KB",
+                "TOTAL SIZE\n12 bytes",
                 details.query_one("#record-total-size", Static).render().plain,
             )
             self.assertEqual(
@@ -1033,7 +1034,7 @@ class TestRecordDetailsNavigation(unittest.IsolatedAsyncioTestCase):
             self.assertIs(consumed_records[1], details.record)
             self.assertEqual(1, table.cursor_row)
             self.assertEqual(
-                "TOTAL SIZE\n0.00 KB",
+                "TOTAL SIZE\n0 bytes",
                 details.query_one("#record-total-size", Static).render().plain,
             )
             self.assertFalse(header_list.display)
@@ -1157,7 +1158,7 @@ class TestConsumptionCoordination(unittest.IsolatedAsyncioTestCase):
             )
             self.assertEqual(WARNING_STYLE, row[0].style)
             self.assertEqual("paid", row[1])
-            self.assertEqual("0.005 KB", row[2])
+            self.assertEqual("5 bytes", row[2])
 
             table.hover_coordinate = Coordinate(0, 0)
             await pilot.pause()
@@ -1201,7 +1202,7 @@ class TestConsumptionCoordination(unittest.IsolatedAsyncioTestCase):
                 self.assertIsInstance(cell, Text)
                 self.assertEqual("null", cell.plain)
                 self.assertEqual(NULL_STYLE, cell.style)
-            self.assertEqual("0.00 KB", row[2])
+            self.assertEqual("0 bytes", row[2])
 
             table.hover_coordinate = Coordinate(0, 0)
             await pilot.pause()

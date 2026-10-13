@@ -16,7 +16,7 @@ from kaskade.deserializers import DESERIALIZATION_EXCEPTIONS, Deserialization
 from kaskade.help import HelpableModalScreen, modal_bindings
 from kaskade.models import DeserializationOutcome, Record
 from kaskade.record_export import deliver_record, readable_json, record_json_renderable
-from kaskade.ui import copy_text, notify_error
+from kaskade.ui import copy_text, format_size, notify_error
 from kaskade.widgets import (
     KaskadeScrollableContainer,
     MetadataCell,
@@ -28,18 +28,6 @@ NEXT_SHORTCUT = "n"
 PREVIOUS_SHORTCUT = "N,p"
 EXPORT_SHORTCUT = "ctrl+e"
 COPY_RECORD_SHORTCUT = "y"
-KILOBYTE = 1_000
-MEGABYTE = 1_000_000
-
-
-def format_payload_size(size: int | None) -> str:
-    if size is None:
-        return "—"
-    if size >= MEGABYTE:
-        return f"{size / MEGABYTE:.2f} MB"
-    kilobytes = size / KILOBYTE
-    precision = 3 if 0 < kilobytes < 0.01 else 2
-    return f"{kilobytes:.{precision}f} KB"
 
 
 def record_payload_size(record: Record) -> int:
@@ -74,7 +62,7 @@ class RecordFieldDetails(Container):
 
     def _header_summary(self) -> Text:
         summary = labelled_value("Header", self.field_name or "")
-        summary.append(f" · {format_payload_size(self.payload_size)}", style="muted")
+        summary.append(f" · {format_size(self.payload_size)}", style="muted")
         return summary
 
     def _content_label(self) -> Text:
@@ -147,7 +135,7 @@ class RecordFieldDetails(Container):
                 )
                 yield MetadataCell(
                     "Size",
-                    format_payload_size(self.payload_size),
+                    format_size(self.payload_size),
                     classes="record-diagnostic record-size",
                 )
 
@@ -183,9 +171,7 @@ class RecordFieldDetails(Container):
         self.query_one(".record-diagnostics", Grid).display = field_name is None
         self.query_one(".record-deserializer", MetadataCell).update_value(self._deserializer())
         self.query_one(".record-schema", MetadataCell).update_value(self._schema())
-        self.query_one(".record-size", MetadataCell).update_value(
-            format_payload_size(self.payload_size)
-        )
+        self.query_one(".record-size", MetadataCell).update_value(format_size(self.payload_size))
         error = self.query_one(".record-error", Static)
         error.display = outcome.error is not None
         error.update(self._error())
@@ -277,7 +263,7 @@ class TopicScreen(HelpableModalScreen[Record]):
             (
                 "record-total-size",
                 "Total Size",
-                format_payload_size(record_payload_size(self.record)),
+                format_size(record_payload_size(self.record)),
             ),
             ("record-partition", "Partition", str(self.record.partition)),
             ("record-offset", "Offset", str(self.record.offset)),

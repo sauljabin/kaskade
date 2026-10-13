@@ -379,8 +379,8 @@ column.
 
 Key, value, and the selected header show compact deserializer, schema, and
 original payload-size diagnostics above their complete content. Explicit BYTES
-encoding appears beside the deserializer. Payload size appears in KB below 1 MB
-and in MB at or above that threshold. Deserialization failures use a highlighted
+encoding appears beside the deserializer. Payload size appears in bytes below
+1 KB, in KB below 1 MB, and in MB from there, with 1 KB = 1,000 bytes. Deserialization failures use a highlighted
 error panel that identifies the BYTES fallback encoding.
 
 Selecting screen text is separate: use `Cmd+C` on macOS or `Ctrl+Shift+C` on
@@ -905,7 +905,8 @@ The composer has three tabs, **Key**, **Value**, and **Headers**, and a
   null value, and press `Ctrl+D` to remove the focused header. Order, duplicate
   names, and empty values are kept; every header needs a name.
 - **Summary** shows whether the record is ready, plus the topic, partition,
-  header count, serializers, and serialized sizes. Press `F3` to hide or show
+  serializers, serialized sizes, and the header count and size. Sizes appear
+  in bytes, KB, or MB. Press `F3` to hide or show
   it; it starts hidden on terminals narrower than 80 columns.
 
 Press `Ctrl+S` to produce. Kaskade validates and serializes the Key and Value,
