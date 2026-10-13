@@ -135,6 +135,8 @@ class TestHeaders(ProducerTestCase):
             self.assertIs(app.focused, self.rows(app)[0].name_input)
             subtitle = str(self.composer(app).frame.border_subtitle)
             self.assertIn("Header 1 needs a name", subtitle)
+            summary = str(app.query_one("#summary-status", Static).render())
+            self.assertIn("Header 1 needs a name", summary)
             unnamed = self.rows(app)[0]
             self.assertTrue(unnamed.has_class("-invalid"))
             self.assertEqual("Name required", unnamed.name_input.placeholder)
@@ -175,7 +177,7 @@ class TestComposeAndProduce(ProducerTestCase):
             editor = app.query_one("#value-editor")
             self.assertTrue(editor.has_class("-invalid"))
             summary = app.query_one("#summary-status", Static)
-            self.assertIn("Invalid Value", str(summary.render()))
+            self.assertIn("Value: Expected a 32-bit integer", str(summary.render()))
             self.assertTrue(summary.has_class("-invalid"))
 
             app.query_one("#value-content", TextArea).load_text("12")

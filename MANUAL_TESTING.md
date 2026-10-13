@@ -146,8 +146,9 @@ kaskade producer -b localhost:9092 -t qa-producer -v json
    value. Remove one with `Ctrl+D`. The order stays as entered, and a value
    without a name blocks `Ctrl+S`.
 2. In **Key**, type `order-1`. In **Value**, type `{"status": ` and check the
-   frame's subtitle: it reports invalid JSON in red. Press `Ctrl+S`; nothing is
-   produced and the Value editor keeps focus.
+   frame's subtitle: it reports invalid JSON in red, and the **Summary** lists
+   the same problem as `Value: …`. Press `Ctrl+S`; nothing is produced and the
+   Value editor keeps focus.
 3. Finish the value: `{"status": "paid"}`. The **Summary** panel beside the
    composer shows `Ready to produce`, the topic, automatic partition, header
    count, serializers, and byte sizes. Press `F3` to hide and show it.

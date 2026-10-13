@@ -439,20 +439,22 @@ class RecordComposer(Horizontal):
             "Automatic" if partition is None else str(partition)
         )
         self._summary_cell("headers").update_value(str(len(self.query_one(HeadersPane).headers)))
-        invalid = [
-            field_name.title() for field_name in FIELDS if not self._summarize_field(field_name)
+        problems = [
+            f"{field_name.title()}: {error}"
+            for field_name in FIELDS
+            if (error := self._summarize_field(field_name)) is not None
         ]
-        if self.query_one(HeadersPane).unnamed_row() is not None:
-            invalid.append("Headers")
+        if (unnamed := self.query_one(HeadersPane).unnamed_message()) is not None:
+            problems.append(unnamed)
         status = self.query_one("#summary-status", Static)
-        status.set_class(bool(invalid), "-invalid")
-        status.update(f"Invalid {' and '.join(invalid)}" if invalid else "Ready to produce")
+        status.set_class(bool(problems), "-invalid")
+        status.update(Text("\n".join(problems)) if problems else "Ready to produce")
 
     def _summary_cell(self, name: str) -> MetadataCell:
         return self.query_one(f"#summary-{name}", MetadataCell)
 
-    def _summarize_field(self, field_name: str) -> bool:
-        """Show the field's serializer and size; return whether it serializes."""
+    def _summarize_field(self, field_name: str) -> str | None:
+        """Show the field's serializer and size; return why it doesn't serialize."""
         editor = self.editor(field_name)
         serializer = editor.serialization.name
         if editor.serialization == Serialization.BYTES:
@@ -461,11 +463,11 @@ class RecordComposer(Horizontal):
         size = self._summary_cell(f"{field_name}-size")
         try:
             data = editor.serialize()
-        except SerializationError:
+        except SerializationError as ex:
             size.update_value("Invalid")
-            return False
+            return str(ex)
         size.update_value("Null" if data is None else byte_size(data))
-        return True
+        return None
 
     def action_toggle_summary(self) -> None:
         summary = self.query_one("#record-summary")
