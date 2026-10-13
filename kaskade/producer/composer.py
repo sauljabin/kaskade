@@ -28,7 +28,6 @@ from kaskade.widgets import KaskadeScrollableContainer, MetadataCell
 PRODUCE_SHORTCUT = "ctrl+s,ctrl+shift+s,f2"
 SUMMARY_SHORTCUT = "f3"
 SUMMARY_MIN_TERMINAL_WIDTH = 80
-TOPIC_MISSING_STATUS = "Topic not found; the broker may create it"
 FIELDS = ("key", "value")
 HeaderEntry = tuple[str, str | None]
 
@@ -332,7 +331,6 @@ class RecordComposer(Horizontal):
         self.draft = draft
         self.serializers = SerializerPool()
         self.delivery_status = ""
-        self.topic_missing = False
         self.is_producing = False
 
     def compose(self) -> ComposeResult:
@@ -379,14 +377,6 @@ class RecordComposer(Horizontal):
             self.call_after_refresh(self.load_draft, self.draft)
         self._update_frame()
         self.update_summary()
-        self.check_topic()
-
-    @work(group="producer-topic")
-    async def check_topic(self) -> None:
-        if await self.service.topic_exists() is False:
-            self.topic_missing = True
-            self._update_frame()
-            self.update_summary()
 
     async def on_unmount(self) -> None:
         await self.service.aclose()
@@ -403,8 +393,6 @@ class RecordComposer(Horizontal):
             parts.append(f"[$text-error]{field_status}[/]" if invalid else field_status)
         elif (unnamed := self.query_one(HeadersPane).unnamed_message()) is not None:
             parts.append(f"[$text-error]{unnamed}[/]")
-        if self.topic_missing:
-            parts.append(f"[$text-warning]{TOPIC_MISSING_STATUS}[/]")
         if self.delivery_status:
             parts.append(self.delivery_status)
         self.frame.border_subtitle = rf"\[[{PRIMARY}]{' · '.join(parts)}[/]]"
@@ -458,13 +446,7 @@ class RecordComposer(Horizontal):
             invalid.append("Headers")
         status = self.query_one("#summary-status", Static)
         status.set_class(bool(invalid), "-invalid")
-        status.set_class(not invalid and self.topic_missing, "-warning")
-        if invalid:
-            status.update(f"Invalid {' and '.join(invalid)}")
-        elif self.topic_missing:
-            status.update(TOPIC_MISSING_STATUS)
-        else:
-            status.update("Ready to produce")
+        status.update(f"Invalid {' and '.join(invalid)}" if invalid else "Ready to produce")
 
     def _summary_cell(self, name: str) -> MetadataCell:
         return self.query_one(f"#summary-{name}", MetadataCell)
@@ -536,8 +518,6 @@ class RecordComposer(Horizontal):
             self.set_delivery_status(ex.failure.title(), failed=True)
             notify_error(self.app, ex.failure.title(), ex)
         else:
-            self.topic_missing = False
-            self.update_summary()
             self.set_delivery_status(delivery.summary())
             self.notify(delivery.summary(), title="Record Delivered")
         finally:

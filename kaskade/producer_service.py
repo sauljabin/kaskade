@@ -132,24 +132,6 @@ class ProducerService:
     def is_delivering(self) -> bool:
         return self._delivering.locked()
 
-    async def topic_exists(self) -> bool | None:
-        """Whether the topic exists, or None when the cluster can't be asked.
-
-        Listing every topic never asks the broker to create one, unlike a
-        metadata request for this topic.
-        """
-        return await run_blocking(self._topic_exists)
-
-    def _topic_exists(self) -> bool | None:
-        self.start()
-        assert self._producer is not None
-        try:
-            metadata = self._producer.list_topics(timeout=self.timeouts.producer_delivery)
-        except KafkaException as ex:
-            logger.warning("Unable to check whether the topic exists: %s", ex)
-            return None
-        return self.settings.topic in metadata.topics
-
     async def produce(self, record: OutgoingRecord) -> Delivery:
         """Queue one record and return only after the broker acknowledges it."""
         if not self._delivering.acquire(blocking=False):

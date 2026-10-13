@@ -187,9 +187,8 @@ kaskade producer -b localhost:9092 -t qa-missing --kafka allow.auto.create.topic
 1. The first command fails before the TUI opens, saying `acks` must be `all`.
 2. In the second, `Ctrl+S` shows `Delivery Error`. The draft stays and you can
    press `Ctrl+S` again.
-3. In the third, the subtitle and Summary warn `Topic not found` on start. After
-   about 30 seconds, `Ctrl+S` shows `Topic Not Found`, never `Delivery Timeout`,
-   and the topic is not created.
+3. In the third, `Ctrl+S` shows `Topic Not Found` after about 30 seconds, never
+   `Delivery Timeout`, and the topic is not created.
 4. Run `docker compose --project-directory sandbox stop kafka`, then produce
    with `--timeout producer.delivery=5`. After about 5 seconds the subtitle
    shows `Delivery Timeout`. `Ctrl+C` exits within a few seconds. Start the

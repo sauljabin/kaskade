@@ -41,5 +41,4 @@ def configure_admin_service(service: MagicMock, topics: dict[str, Topic]) -> Non
 
 def configure_producer_service(service: MagicMock) -> None:
     service.produce = AsyncMock()
-    service.topic_exists = AsyncMock(return_value=True)
     service.aclose = AsyncMock()

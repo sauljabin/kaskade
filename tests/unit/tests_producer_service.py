@@ -3,7 +3,7 @@ import threading
 import unittest
 from unittest.mock import MagicMock, patch
 
-from confluent_kafka import TIMESTAMP_CREATE_TIME, KafkaError, KafkaException
+from confluent_kafka import TIMESTAMP_CREATE_TIME, KafkaError
 
 from kaskade import logger
 from kaskade.producer_service import (
@@ -93,18 +93,6 @@ class TestProducerService(unittest.IsolatedAsyncioTestCase):
                     await self.service.produce(RECORD)
                 self.assertEqual(failure, raised.exception.failure)
                 self.assertFalse(self.service.is_delivering)
-
-    async def test_checks_the_topic_by_listing_every_topic(self):
-        self.producer.list_topics.return_value.topics = {"orders": MagicMock()}
-        self.assertTrue(await self.service.topic_exists())
-        self.producer.list_topics.assert_called_once_with(timeout=0.3)
-
-        self.producer.list_topics.return_value.topics = {}
-        self.assertFalse(await self.service.topic_exists())
-
-        self.producer.list_topics.side_effect = KafkaException(KafkaError(KafkaError._TRANSPORT))
-        with self.assertLogs("kaskade", level="WARNING"):
-            self.assertIsNone(await self.service.topic_exists())
 
     async def test_times_out_without_an_acknowledgement(self):
         self.producer.poll.return_value = 0
