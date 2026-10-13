@@ -1159,6 +1159,7 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                     all(
                         cell.content_region.height == 2
                         for cell in diagnostics.query(".record-diagnostic")
+                        if cell.display
                     )
                 )
                 content = app.screen.query_one("#record-key-details .record-content", Static)
@@ -1207,6 +1208,9 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual("long-header-key", header_list.tooltip)
                 self.assertEqual(header_list.region.y, header_details.region.y)
                 self.assertLess(header_list.region.x, header_details.region.x)
+                header_diagnostics = header_details.query_one(".record-diagnostics", Grid)
+                self.assertEqual(1, header_diagnostics.styles.grid_size_columns)
+                self.assertEqual(2, header_diagnostics.styles.grid_size_rows)
                 await pilot.press("tab")
                 self.assertIs(header_list, app.screen.focused)
                 await pilot.press("tab")
