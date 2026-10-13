@@ -896,8 +896,8 @@ The composer has three tabs, **Key**, **Value**, and **Headers**, and a
 **Summary** panel beside them.
 
 - **Key** and **Value** each have a serializer, a **Null** control, and a
-  content editor. The frame's subtitle shows whether the open field is valid
-  and its size, such as `Value: Valid · 16 bytes`. Empty content and null are
+  content editor. The frame's subtitle shows the open field's size, such as
+  `Value: 16 bytes`, or what makes it invalid. Empty content and null are
   different: an empty string is valid Kafka data, while a null value can act
   as a tombstone on compacted topics.
 - **Headers** is an editable table of names and values. There is always an

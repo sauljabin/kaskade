@@ -209,6 +209,8 @@ class TestComposeAndProduce(ProducerTestCase):
             self.assertEqual(2, record.partition)
             composer = self.composer(app)
             self.assertIn("Delivered · Partition 2 · Offset 8429", composer.frame.border_subtitle)
+            self.assertIn("Key: 7 bytes", composer.frame.border_subtitle)
+            self.assertNotIn("Valid", composer.frame.border_subtitle)
             self.assertEqual("order-1", app.query_one("#key-content", TextArea).text)
             self.assertTrue(composer.check_action("produce", ()))
 

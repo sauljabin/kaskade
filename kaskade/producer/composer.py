@@ -152,7 +152,7 @@ class FieldEditor(Container):
             data = self.serialize()
         except SerializationError as ex:
             return str(ex), True
-        return ("Null" if data is None else f"Valid · {byte_size(data)}"), False
+        return ("Null" if data is None else byte_size(data)), False
 
     @on(Select.Changed)
     @on(Checkbox.Changed)
