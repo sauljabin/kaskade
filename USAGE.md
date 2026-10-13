@@ -369,10 +369,12 @@ key, value, ordered headers, and complete record JSON (Export) into tabs while
 keeping the total raw payload size, partition, offset, and timestamp visible.
 The Headers tab shows zero-based indices in a compact table and reveals a full
 header name in a tooltip when the name is truncated.
-The topic remains in the border title. In that modal, `y` copies the active
-tab's headers array, key object, value object, or complete record object. Copy
-is also available in Topic Details, contextual Help, and Commands, but is
-omitted from the Footer.
+The topic remains in the border title. In that modal, `y` copies only the
+content of the key, the value, or the selected header: strings, including BYTES
+fallback text, as plain text, and other content as readable JSON. Null content
+copies nothing. On the Export tab, `y` copies the complete record JSON. Copy is
+also available in Topic Details, contextual Help, and Commands, but is omitted
+from the Footer.
 
 The Consumer records table shows the same total raw message size in its Size
 column.

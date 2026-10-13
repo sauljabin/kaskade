@@ -15,7 +15,12 @@ from kaskade.consumer.screens import BACK_SHORTCUT
 from kaskade.deserializers import DESERIALIZATION_EXCEPTIONS, Deserialization
 from kaskade.help import HelpableModalScreen, modal_bindings
 from kaskade.models import DeserializationOutcome, Record
-from kaskade.record_export import deliver_record, readable_json, record_json_renderable
+from kaskade.record_export import (
+    deliver_record,
+    readable_content,
+    readable_json,
+    record_json_renderable,
+)
 from kaskade.ui import copy_text, format_size, notify_error
 from kaskade.widgets import (
     KaskadeScrollableContainer,
@@ -208,7 +213,7 @@ class TopicScreen(HelpableModalScreen[Record]):
             "copy_record",
             "Copy Record",
             show=False,
-            tooltip="Copy the active record detail as JSON to the clipboard.",
+            tooltip="Copy the active tab's content or the complete record JSON to the clipboard.",
             id="kaskade.records.copy",
         ),
         Binding(
@@ -477,12 +482,31 @@ class TopicScreen(HelpableModalScreen[Record]):
         except DESERIALIZATION_EXCEPTIONS as ex:
             notify_error(self.app, "Deserialization Error", ex)
 
+    def _active_content(self, active: str) -> tuple[str, str | None]:
+        """Return the active field's toast subject and text, or None without content."""
+        if active == "headers":
+            if not self.record.headers:
+                return "record headers", None
+            index = self.query_one("#record-headers-list", HeaderDataTable).cursor_row
+            payload = self.record.headers[index].value
+            content = self.data["headers"][index]["value"]
+            subject = "header value"
+        else:
+            payload = self.record.key if active == "key" else self.record.value
+            content = self.data[active]["content"]
+            subject = f"record {active}"
+        return subject, None if payload is None else readable_content(content)
+
     def action_copy_record(self) -> None:
         try:
             active = self.query_one(TabbedContent).active
-            if active in {"headers", "key", "value"}:
-                copy_text(self.app, readable_json(self.data[active]), f"record {active}")
-            else:
+            if active == "json":
                 copy_text(self.app, readable_json(self.data), "record JSON")
+                return
+            subject, text = self._active_content(active)
+            if text is None:
+                self.app.notify(f"No {subject} to copy", title="Nothing Copied")
+            else:
+                copy_text(self.app, text, subject)
         except DESERIALIZATION_EXCEPTIONS as ex:
             notify_error(self.app, "Deserialization Error", ex)

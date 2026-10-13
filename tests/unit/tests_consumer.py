@@ -545,27 +545,116 @@ class TestRecordCopyActions(unittest.IsolatedAsyncioTestCase):
             await pilot.pause()
             self.assertIsInstance(app.screen, TopicScreen)
             tabs = app.screen.query_one(TabbedContent)
-            record_data = record.dict()
+            headers = app.screen.query_one("#record-headers-list", HeaderDataTable)
             expected_copies = (
-                ("key", record_data["key"], "record key"),
-                ("value", record_data["value"], "record value"),
-                ("headers", record_data["headers"], "record headers"),
-                ("json", record_data, "record JSON"),
+                ("key", 0, "order-1048", "record key"),
+                ("value", 0, readable_json(record.dict()["value"]["content"]), "record value"),
+                ("headers", 0, "storefront", "header value"),
+                ("headers", 1, "mobile", "header value"),
+                ("json", 0, expected_json, "record JSON"),
             )
-            for active, data, description in expected_copies:
-                with self.subTest(active=active):
+            for active, header_row, text, description in expected_copies:
+                with self.subTest(active=active, header_row=header_row):
                     tabs.active = active
+                    headers.move_cursor(row=header_row)
                     await pilot.pause()
                     app.copy_to_clipboard("")
                     app.notify.reset_mock()
 
                     await pilot.press("y")
 
-                    self.assertEqual(readable_json(data), app.clipboard)
+                    self.assertEqual(text, app.clipboard)
                     app.notify.assert_called_once_with(
                         f"Copied {description} to clipboard",
                         title="Copied",
                     )
+
+    async def test_details_copy_strings_as_text_and_other_content_as_json(self) -> None:
+        failing = MagicMock()
+        failing.deserialize.side_effect = DeserializationError("malformed")
+        cases = (
+            ("string", b"order-1048", StringDeserializer(), "order-1048"),
+            (
+                "JSON object",
+                b'{"status": "paid", "items": [1, 2]}',
+                JsonDeserializer(),
+                readable_json({"status": "paid", "items": [1, 2]}),
+            ),
+            ("JSON number", b"7", JsonDeserializer(), "7"),
+            ("JSON null", b"null", JsonDeserializer(), "null"),
+            ("BYTES fallback", b"\xff", failing, "/w=="),
+        )
+        records = tuple(
+            Record(
+                topic="orders",
+                offset=index,
+                key=payload,
+                value=payload,
+                key_deserializer=deserializer,
+                value_deserializer=deserializer,
+                headers=[Header("source", payload, deserializer)],
+            )
+            for index, (_, payload, deserializer, _) in enumerate(cases)
+        )
+        app = KaskadeApp()
+        app.notify = MagicMock()
+        async with app.run_test(size=(120, 40)) as pilot:
+            details = TopicScreen(records[0], records=records)
+            await app.push_screen(details)
+            for index, (name, _, _, expected) in enumerate(cases):
+                if index:
+                    details.action_next_record()
+                for tab_id, subject in (
+                    ("key", "record key"),
+                    ("value", "record value"),
+                    ("headers", "header value"),
+                ):
+                    with self.subTest(content=name, tab=tab_id):
+                        details.query_one(TabbedContent).active = tab_id
+                        await pilot.pause()
+                        app.copy_to_clipboard("")
+                        app.notify.reset_mock()
+
+                        details.action_copy_record()
+
+                        self.assertEqual(expected, app.clipboard)
+                        app.notify.assert_called_once_with(
+                            f"Copied {subject} to clipboard", title="Copied"
+                        )
+
+    async def test_details_copy_nothing_without_content(self) -> None:
+        records = (
+            Record(
+                topic="orders",
+                offset=0,
+                headers=[Header("trace", None, StringDeserializer())],
+            ),
+            Record(topic="orders", offset=1),
+        )
+        cases = (
+            (0, "key", "No record key to copy"),
+            (0, "value", "No record value to copy"),
+            (0, "headers", "No header value to copy"),
+            (1, "headers", "No record headers to copy"),
+        )
+        app = KaskadeApp()
+        app.notify = MagicMock()
+        async with app.run_test(size=(120, 40)) as pilot:
+            details = TopicScreen(records[0], records=records)
+            await app.push_screen(details)
+            for index, tab_id, message in cases:
+                with self.subTest(record=index, tab=tab_id):
+                    if index != details.record_index:
+                        details.action_next_record()
+                    details.query_one(TabbedContent).active = tab_id
+                    await pilot.pause()
+                    app.copy_to_clipboard("unchanged")
+                    app.notify.reset_mock()
+
+                    details.action_copy_record()
+
+                    self.assertEqual("unchanged", app.clipboard)
+                    app.notify.assert_called_once_with(message, title="Nothing Copied")
 
     @patch("kaskade.consumer.app.ConsumerService")
     async def test_copy_is_disabled_without_a_record(self, consumer_service: MagicMock) -> None:
