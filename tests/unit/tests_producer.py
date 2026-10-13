@@ -119,7 +119,7 @@ class TestHeaders(ProducerTestCase):
             self.assertEqual(label.region.x, self.rows(app)[0].query_one(".column-null").region.x)
 
             self.rows(app)[-1].name_input.focus()
-            await pilot.pause()
+            await pilot.wait_for_scheduled_animations()
             self.assertEqual(container.max_scroll_y, container.scroll_y)
 
     async def test_a_header_without_a_name_blocks_production(self):
