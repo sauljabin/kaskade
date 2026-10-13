@@ -775,7 +775,7 @@ For SASL/SCRAM and mTLS connections, grant the Kafka principal these operations:
 | Consumer | `Read`, `Describe` on topics to consume | `Read`, `Describe` on the configured `group.id` or `kaskade-` prefix |
 | Producer | `Write`, `Describe` on the topic; `Create` only for broker auto-creation | None |
 
-`Write` implies `Describe`. With `--idempotence`, brokers older than Kafka 3.0
+`Write` implies `Describe`. With `--idempotence true`, brokers older than Kafka 3.0
 also need cluster `IdempotentWrite`.
 
 Admin shows only the consumer groups the principal can describe. A principal
@@ -962,7 +962,7 @@ properties:
 | --- | --- |
 | `--acks all\|-1\|0\|1` | `acks` |
 | `--compression none\|gzip\|snappy\|lz4\|zstd` | `compression.type` |
-| `--idempotence` / `--no-idempotence` | `enable.idempotence` |
+| `--idempotence true\|false` | `enable.idempotence` |
 
 The same properties can live in the `[kafka]` section of `--config-file`.
 Precedence, from lowest to highest: `--config-file`, `--kafka`, the options
@@ -970,7 +970,7 @@ above, `-b`, then AWS IAM settings. An option you don't pass never replaces a
 configured or default value.
 
 `confluent-kafka` checks that the settings are compatible. For example,
-`--idempotence --acks 1` fails before the composer opens with a message that
+`--idempotence true --acks 1` fails before the composer opens with a message that
 `acks` must be `all`.
 
 ## Format-specific consumers

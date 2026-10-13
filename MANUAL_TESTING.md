@@ -180,7 +180,7 @@ the bad file to fail with `a record document must be a JSON object`.
 Failures:
 
 ```bash
-kaskade producer -b localhost:9092 -t qa-producer --idempotence --acks 1
+kaskade producer -b localhost:9092 -t qa-producer --idempotence true --acks 1
 kaskade producer -b localhost:9092 -t qa-producer --partition 99
 kaskade producer -b localhost:9092 -t qa-missing --kafka allow.auto.create.topics=false
 ```

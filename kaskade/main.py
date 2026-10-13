@@ -29,6 +29,7 @@ from kaskade.configs import (
     EARLIEST,
     ENABLE_IDEMPOTENCE,
     FALLBACK_CONFIGS,
+    IDEMPOTENCE_CHOICES,
     JSON_DESERIALIZER_CONFIGS,
     PROTOBUF_DESERIALIZER_CONFIGS,
     REGISTRY_PROVIDERS,
@@ -234,7 +235,7 @@ def string_to_serializer_type(ctx: Any, param: Any, value: str) -> Serialization
 
 
 def producer_kafka_config(
-    acks: str | None, compression: str | None, idempotence: bool | None
+    acks: str | None, compression: str | None, idempotence: str | None
 ) -> dict[str, str]:
     """Kafka properties for the dedicated producer options that were supplied."""
     config: dict[str, str] = {}
@@ -243,7 +244,7 @@ def producer_kafka_config(
     if compression is not None:
         config[COMPRESSION_TYPE] = compression
     if idempotence is not None:
-        config[ENABLE_IDEMPOTENCE] = str(idempotence).lower()
+        config[ENABLE_IDEMPOTENCE] = idempotence
     return config
 
 
@@ -601,8 +602,8 @@ def consumer(
         help=f"Compression codec; sets {COMPRESSION_TYPE}.",
     ),
     cloup.option(
-        "--idempotence/--no-idempotence",
-        default=None,
+        "--idempotence",
+        type=cloup.Choice(IDEMPOTENCE_CHOICES),
         help=f"Enable or disable the idempotent producer; sets {ENABLE_IDEMPOTENCE}.",
     ),
 )
@@ -620,7 +621,7 @@ def producer(
     value_serialization: Serialization,
     acks: str | None,
     compression: str | None,
-    idempotence: bool | None,
+    idempotence: str | None,
     theme: str | None,
 ) -> None:
     """

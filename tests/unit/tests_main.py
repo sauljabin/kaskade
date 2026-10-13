@@ -2336,6 +2336,7 @@ class TestProducerCli(unittest.TestCase):
             "--acks",
             "all",
             "--idempotence",
+            "true",
             "-b",
             EXPECTED_SERVER,
             "-k",
@@ -2364,7 +2365,7 @@ class TestProducerCli(unittest.TestCase):
 
     def test_dedicated_options_map_to_kafka_properties(self):
         result = self.invoke(
-            "-b", EXPECTED_SERVER, "--acks", "-1", "--compression", "zstd", "--no-idempotence"
+            "-b", EXPECTED_SERVER, "--acks", "-1", "--compression", "zstd", "--idempotence", "false"
         )
 
         self.assertEqual(0, result.exit_code, result.output)
@@ -2383,7 +2384,7 @@ class TestProducerCli(unittest.TestCase):
 
         self.assertEqual(0, result.exit_code)
         self.assertIn("Properties: producer.delivery, producer.flush.", result.output)
-        self.assertIn("--idempotence / --no-idempotence", result.output)
+        self.assertIn("--idempotence [true|false]", result.output)
 
     def test_producer_timeouts_come_from_settings_and_the_option(self):
         settings_path = Path(self.temp_directory.name) / "settings.yaml"
@@ -2442,7 +2443,7 @@ class TestProducerCli(unittest.TestCase):
             )
         )
 
-        result = self.invoke("-b", EXPECTED_SERVER, "--idempotence", "--acks", "1")
+        result = self.invoke("-b", EXPECTED_SERVER, "--idempotence", "true", "--acks", "1")
 
         self.assertEqual(1, result.exit_code)
         self.assertIn(
