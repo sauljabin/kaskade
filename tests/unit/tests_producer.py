@@ -4,11 +4,14 @@ from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from rich.console import Console
+from rich.style import Style
 from textual.widgets import Checkbox, Input, Select, Static, TabbedContent, TextArea
 
 from kaskade.configs import BOOTSTRAP_SERVERS
+from kaskade.deserializers import BytesEncoding
 from kaskade.producer import KaskadeProducer, RecordComposer, RecordDraft
 from kaskade.producer.composer import HeaderRow
+from kaskade.producer.highlighting import highlights_json
 from kaskade.producer.source import DraftField
 from kaskade.producer_service import (
     Delivery,
@@ -330,6 +333,71 @@ class TestComposeAndProduce(ProducerTestCase):
             await pilot.pause()
 
         self.service.aclose.assert_awaited_once()
+
+
+class TestJsonHighlighting(ProducerTestCase):
+    def test_highlights_every_serializer_whose_input_is_json(self):
+        cases = {
+            (Serialization.JSON, BytesEncoding.BASE64): True,
+            (Serialization.BOOLEAN, BytesEncoding.BASE64): True,
+            (Serialization.INTEGER, BytesEncoding.BASE64): True,
+            (Serialization.LONG, BytesEncoding.BASE64): True,
+            (Serialization.FLOAT, BytesEncoding.BASE64): True,
+            (Serialization.DOUBLE, BytesEncoding.BASE64): True,
+            (Serialization.BYTES, BytesEncoding.BYTE_ARRAY): True,
+            (Serialization.STRING, BytesEncoding.BASE64): False,
+            (Serialization.BYTES, BytesEncoding.BASE64): False,
+            (Serialization.BYTES, BytesEncoding.HEX): False,
+            (Serialization.BYTES, BytesEncoding.ESCAPED): False,
+        }
+        self.assertEqual(set(Serialization), {serialization for serialization, _ in cases})
+        for (serialization, encoding), expected in cases.items():
+            with self.subTest(serialization=serialization, encoding=encoding):
+                self.assertEqual(expected, highlights_json(serialization, encoding))
+
+    async def test_switches_with_the_serializer_and_bytes_encoding(self):
+        app = producer_app(value_serialization=Serialization.JSON)
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            key = app.query_one("#key-content", TextArea)
+            value = app.query_one("#value-content", TextArea)
+            self.assertIsNone(key.language)
+            self.assertEqual("json", value.language)
+
+            app.query_one("#value-serializer", Select).value = "bytes"
+            await pilot.pause()
+            self.assertIsNone(value.language)
+
+            app.query_one("#value-encoding", Select).value = "byte-array"
+            await pilot.pause()
+            self.assertEqual("json", value.language)
+
+    async def test_colors_follow_the_theme(self):
+        app = producer_app(value_serialization=Serialization.JSON)
+        async with app.run_test() as pilot:
+            await pilot.pause()
+            value = app.query_one("#value-content", TextArea)
+
+            app.query_one(TabbedContent).active = "value-tab"
+            value.load_text('{"id": 1}')
+            for theme in ("eva01-berserk", "textual-light", "ansi-dark"):
+                app.theme = theme
+                await pilot.pause()
+                with self.subTest(theme=theme):
+                    self.assertEqual(f"kaskade-json-{theme}", value.theme)
+                    expected = Style.parse(app.semantic_styles()["json.key"])
+                    key_style = self.drawn_style(value, '"id"')
+                    self.assertEqual(expected.color, key_style.color)
+                    self.assertTrue(key_style.bold)
+
+    @staticmethod
+    def drawn_style(editor: TextArea, text: str) -> Style:
+        """The style the editor draws a piece of text with."""
+        for y in range(editor.size.height):
+            for segment in editor.render_line(y):
+                if segment.text == text:
+                    return segment.style
+        raise AssertionError(f"{text!r} is not drawn")
 
 
 if __name__ == "__main__":
