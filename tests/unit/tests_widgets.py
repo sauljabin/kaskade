@@ -4,7 +4,7 @@ from pathlib import Path
 
 from rich.text import Text
 from textual.app import App, ComposeResult
-from textual.widgets import DataTable, OptionList
+from textual.widgets import DataTable, OptionList, TabbedContent, TabPane
 
 from kaskade.app import KaskadeApp
 from kaskade.widgets import KaskadeOptionList, MetadataCell, StretchyDataTable
@@ -52,7 +52,64 @@ class StretchyTableApp(App):
         yield table
 
 
+class PaintedWidthsTable(StretchyDataTable[str]):
+    """Record the column widths of every painted frame."""
+
+    def __init__(self, **kwargs) -> None:
+        super().__init__(**kwargs)
+        self.painted_widths: list[tuple[int, ...]] = []
+
+    def render_line(self, y: int):
+        widths = tuple(column.width for column in self.ordered_columns)
+        if not self.painted_widths or self.painted_widths[-1] != widths:
+            self.painted_widths.append(widths)
+        return super().render_line(y)
+
+
+def painted_widths_table(table_id: str) -> PaintedWidthsTable:
+    table = PaintedWidthsTable(id=table_id)
+    table.add_column("Name", stretch=1)
+    table.add_column("Partitions")
+    table.add_row("orders", "3")
+    return table
+
+
+class TabbedTablesApp(App):
+    def compose(self) -> ComposeResult:
+        with TabbedContent():
+            with TabPane("First"):
+                yield painted_widths_table("first")
+            with TabPane("Second", id="second-tab"):
+                yield painted_widths_table("second")
+
+
 class TestStretchyDataTable(unittest.IsolatedAsyncioTestCase):
+    async def test_paints_stretched_columns_from_the_first_frame(self):
+        app = TabbedTablesApp()
+        async with app.run_test(size=(100, 20)) as pilot:
+            await pilot.pause()
+            app.query_one(TabbedContent).active = "second-tab"
+            await pilot.pause()
+            await pilot.resize_terminal(80, 20)
+            await pilot.pause()
+
+            first = app.query_one("#first", PaintedWidthsTable)
+            second = app.query_one("#second", PaintedWidthsTable)
+            self.assertEqual([(84, 10)], first.painted_widths)
+            self.assertEqual([(84, 10), (64, 10)], second.painted_widths)
+
+    async def test_stretches_a_column_added_after_mounting_before_painting_it(self):
+        app = TabbedTablesApp()
+        async with app.run_test(size=(100, 20)) as pilot:
+            await pilot.pause()
+            table = app.query_one("#first", PaintedWidthsTable)
+            table.add_column("Replicas", stretch=1)
+            await pilot.pause()
+
+            self.assertEqual(2, len(table.painted_widths))
+            self.assertEqual(3, len(table.painted_widths[-1]))
+            self.assertGreater(table.painted_widths[-1][2], len("Replicas"))
+
     async def test_renders_ellipsis_when_row_text_exceeds_column_width(self):
         class TruncatedCellApp(App):
             def compose(self) -> ComposeResult:
