@@ -51,7 +51,7 @@ from kaskade.record_export import (
 )
 from kaskade.ui import format_size
 from kaskade.unicodes import WARNING_SIGN
-from kaskade.widgets import KaskadeScrollableContainer, TableFrame
+from kaskade.widgets import KaskadeScrollableContainer, MetadataCell, TableFrame
 from tests import configure_consumer_service
 
 
@@ -610,6 +610,10 @@ class TestRecordCopyActions(unittest.IsolatedAsyncioTestCase):
             )
 
 
+def displayed_diagnostics(field: RecordFieldDetails) -> list[str]:
+    return [cell.render().plain for cell in field.query(".record-diagnostic") if cell.display]
+
+
 class TestRecordDetailsTabs(unittest.IsolatedAsyncioTestCase):
     async def test_distinguishes_absent_payloads_from_null_strings_and_empty_strings(self) -> None:
         cases = (
@@ -842,14 +846,9 @@ class TestRecordDetailsTabs(unittest.IsolatedAsyncioTestCase):
             await pilot.pause()
             header_details = details.query_one("#record-header-details", RecordFieldDetails)
             self.assertEqual(
-                "HEADER\nsource · 1 byte",
-                header_details.query_one(".record-field-name", Static).render().plain,
+                ["HEADER\nsource", "SIZE\n1 byte"],
+                displayed_diagnostics(header_details),
             )
-            self.assertFalse(header_details.query_one(".record-diagnostics", Grid).display)
-            header_summary = header_details.query_one(".record-field-name", Static)
-            self.assertEqual("", header_summary.styles.border_top[0])
-            self.assertIsInstance(header_summary.content, Text)
-            self.assertEqual("muted", header_summary.content.spans[-1].style)
             error = header_details.query_one(".record-error", Static)
             self.assertTrue(error.display)
             self.assertIn("ERROR\ninvalid UTF-8\nFallback: BYTES · HEX", error.render().plain)
@@ -869,8 +868,8 @@ class TestRecordDetailsTabs(unittest.IsolatedAsyncioTestCase):
             await pilot.pause()
             self.assertFalse(header_details.query_one(".record-error", Static).display)
             self.assertEqual(
-                "HEADER\nsource · 10 bytes",
-                header_details.query_one(".record-field-name", Static).render().plain,
+                ["HEADER\nsource", "SIZE\n10 bytes"],
+                displayed_diagnostics(header_details),
             )
             self.assertEqual(
                 "CONTENT",
@@ -910,7 +909,11 @@ class TestRecordDetailsTabs(unittest.IsolatedAsyncioTestCase):
                 "DESERIALIZER\nREGISTRY · JSON",
                 value_details.query_one(".record-deserializer", Static).render().plain,
             )
-            diagnostics = list(value_details.query(".record-diagnostic"))
+            diagnostics = [
+                diagnostic
+                for diagnostic in value_details.query(".record-diagnostic")
+                if diagnostic.display
+            ]
             self.assertEqual(3, len(diagnostics))
             diagnostic_heights = {diagnostic.region.height for diagnostic in diagnostics}
             self.assertEqual(1, len(diagnostic_heights))
@@ -933,6 +936,49 @@ class TestRecordDetailsTabs(unittest.IsolatedAsyncioTestCase):
                 record_json(record).rstrip("\n"),
                 details.query_one(".record-json", Static).content.text.plain,
             )
+
+    async def test_shows_header_name_and_size_in_their_own_boxes(self) -> None:
+        name = "x-correlation-header-with-a-name-longer-than-its-box"
+        record = Record(
+            topic="orders",
+            partition=0,
+            offset=0,
+            timestamp=None,
+            headers=[Header(name, b"storefront", StringDeserializer())],
+            key=b"key",
+            value=b"value",
+        )
+        app = KaskadeApp()
+        async with app.run_test(size=(100, 30)) as pilot:
+            details = TopicScreen(record)
+            await app.push_screen(details)
+            details.query_one(TabbedContent).active = "headers"
+            await pilot.pause()
+            header_details = details.query_one("#record-header-details", RecordFieldDetails)
+            name_cell = header_details.query_one(".record-header-name", MetadataCell)
+            size_cell = header_details.query_one(".record-size", MetadataCell)
+
+            self.assertEqual(
+                [name_cell, size_cell],
+                [cell for cell in header_details.query(".record-diagnostic") if cell.display],
+            )
+            self.assertEqual(name_cell.region.y, size_cell.region.y)
+            self.assertLessEqual(name_cell.region.right, size_cell.region.x)
+            self.assertEqual("solid", name_cell.styles.border_top[0])
+            self.assertEqual("solid", size_cell.styles.border_top[0])
+            label, value = name_cell.render().plain.split("\n")
+            self.assertEqual("HEADER", label)
+            self.assertTrue(value.endswith("…"))
+            self.assertTrue(name.startswith(value[:-1]))
+            self.assertEqual(name, name_cell.tooltip)
+            self.assertEqual("SIZE\n10 bytes", size_cell.render().plain)
+            self.assertEqual(
+                "CONTENT",
+                header_details.query_one(".record-content-label", Static).render().plain,
+            )
+
+            key_details = details.query_one("#record-key-details", RecordFieldDetails)
+            self.assertFalse(key_details.query_one(".record-header-name").display)
 
 
 class TestRecordDetailsNavigation(unittest.IsolatedAsyncioTestCase):

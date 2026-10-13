@@ -21,7 +21,6 @@ from kaskade.widgets import (
     KaskadeScrollableContainer,
     MetadataCell,
     TruncatedTooltipDataTable,
-    labelled_value,
 )
 
 NEXT_SHORTCUT = "n"
@@ -59,11 +58,6 @@ class RecordFieldDetails(Container):
         self.outcome = outcome
         self.payload_size = payload_size
         self.field_name = field_name
-
-    def _header_summary(self) -> Text:
-        summary = labelled_value("Header", self.field_name or "")
-        summary.append(f" · {format_size(self.payload_size)}", style="muted")
-        return summary
 
     def _content_label(self) -> Text:
         if self.payload_size is None:
@@ -114,15 +108,15 @@ class RecordFieldDetails(Container):
 
     def compose(self) -> ComposeResult:
         with KaskadeScrollableContainer(classes="record-field-metadata", can_focus=False):
-            field_name = Static(classes="record-field-name")
-            field_name.display = self.field_name is not None
-            if self.field_name is not None:
-                field_name.update(self._header_summary())
-            yield field_name
-
             diagnostics = Grid(classes="record-diagnostics")
-            diagnostics.display = self.field_name is None
+            diagnostics.set_class(self.field_name is not None, "-header")
             with diagnostics:
+                yield MetadataCell(
+                    "Header",
+                    self.field_name or "",
+                    ellipsize_value=True,
+                    classes="record-diagnostic record-header-name",
+                )
                 yield MetadataCell(
                     "Deserializer",
                     self._deserializer(),
@@ -164,11 +158,8 @@ class RecordFieldDetails(Container):
         self.outcome = outcome
         self.payload_size = payload_size
         self.field_name = field_name
-        name = self.query_one(".record-field-name", Static)
-        name.display = field_name is not None
-        if field_name is not None:
-            name.update(self._header_summary())
-        self.query_one(".record-diagnostics", Grid).display = field_name is None
+        self.query_one(".record-diagnostics", Grid).set_class(field_name is not None, "-header")
+        self.query_one(".record-header-name", MetadataCell).update_value(field_name or "")
         self.query_one(".record-deserializer", MetadataCell).update_value(self._deserializer())
         self.query_one(".record-schema", MetadataCell).update_value(self._schema())
         self.query_one(".record-size", MetadataCell).update_value(format_size(self.payload_size))
