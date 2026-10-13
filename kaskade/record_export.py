@@ -13,6 +13,11 @@ def readable_json(data: object) -> str:
     return json.dumps(data, indent=2, ensure_ascii=False, default=str)
 
 
+def readable_content(content: object) -> str:
+    """Return string content as plain text and any other content as readable JSON."""
+    return content if isinstance(content, str) else readable_json(content)
+
+
 def record_json(record: Record) -> str:
     """Return a readable JSON representation of a consumed record."""
     return readable_json(record.dict()) + "\n"
