@@ -907,11 +907,17 @@ The composer has three tabs, **Key**, **Value**, and **Headers**, and a
   null value, and press `Ctrl+D` to remove the focused header. Order, duplicate
   names, and empty values are kept; every header needs a name.
 - **Summary** shows whether the record is ready, plus the topic, partition,
-  serializers, serialized sizes, and the header count and size. Total Size adds
-  the Key, Value, and headers, as the consumer's Total Size does; compare it
-  with the producer's `message.max.bytes`, 1,000,000 bytes by default. Sizes
-  appear in bytes, KB, or MB. Press `F3` to hide or show it; it starts hidden
-  on terminals narrower than 80 columns.
+  serializers, serialized sizes, the header count and size, and the client's
+  acks, idempotence, and compression. Total Size adds the Key, Value, and
+  headers, as the consumer's Total Size does. Sizes appear in bytes, KB, or MB.
+  Press `F3` to hide or show it; it starts hidden on terminals narrower than 80
+  columns.
+
+A record must fit two limits: the client's `message.max.bytes`, 1,000,000 bytes
+by default, and the topic's `max.message.bytes`, which the cluster sets. Kaskade
+can't read the topic limit without extra permissions, so it doesn't check it in
+advance; a record over either limit fails with `Record Too Large`, naming which
+one.
 
 Press `Ctrl+S` to produce. Kaskade validates and serializes the Key and Value,
 then waits for the broker. It reports success only after the broker acknowledges

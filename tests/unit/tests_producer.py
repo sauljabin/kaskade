@@ -300,6 +300,9 @@ class TestComposeAndProduce(ProducerTestCase):
             self.assertIn("7 bytes", cell("key-size"))
             self.assertIn("Null", cell("value-size"))
             self.assertIn("7 bytes", cell("total-size"))
+            self.assertIn("all", cell("acks"))
+            self.assertIn("false", cell("enable-idempotence"))
+            self.assertIn("none", cell("compression-type"))
             self.assertIn("Ready to produce", cell("status"))
 
             await pilot.press("f3")

@@ -3,7 +3,7 @@ import threading
 import unittest
 from unittest.mock import MagicMock, patch
 
-from confluent_kafka import TIMESTAMP_CREATE_TIME, KafkaError
+from confluent_kafka import TIMESTAMP_CREATE_TIME, KafkaError, KafkaException
 
 from kaskade import logger
 from kaskade.producer_service import (
@@ -84,6 +84,7 @@ class TestProducerService(unittest.IsolatedAsyncioTestCase):
             (KafkaError._MSG_TIMED_OUT, DeliveryFailure.TIMEOUT),
             (KafkaError.UNKNOWN_TOPIC_OR_PART, DeliveryFailure.TOPIC_NOT_FOUND),
             (KafkaError._UNKNOWN_TOPIC, DeliveryFailure.TOPIC_NOT_FOUND),
+            (KafkaError.MSG_SIZE_TOO_LARGE, DeliveryFailure.RECORD_TOO_LARGE),
             (KafkaError._UNKNOWN_PARTITION, DeliveryFailure.BROKER),
         )
         for code, failure in cases:
@@ -93,6 +94,24 @@ class TestProducerService(unittest.IsolatedAsyncioTestCase):
                     await self.service.produce(RECORD)
                 self.assertEqual(failure, raised.exception.failure)
                 self.assertFalse(self.service.is_delivering)
+
+    async def test_names_the_limit_a_record_exceeds(self):
+        self.producer.produce.side_effect = KafkaException(
+            KafkaError(KafkaError.MSG_SIZE_TOO_LARGE)
+        )
+        with self.assertRaises(DeliveryError) as client:
+            await self.service.produce(RECORD)
+
+        self.producer.produce.side_effect = None
+        self.deliver_on_poll(KafkaError(KafkaError.MSG_SIZE_TOO_LARGE), acknowledged())
+        with self.assertRaises(DeliveryError) as broker:
+            await self.service.produce(RECORD)
+
+        self.assertEqual(DeliveryFailure.RECORD_TOO_LARGE, client.exception.failure)
+        self.assertIn("producer's message.max.bytes", str(client.exception))
+        self.assertEqual(DeliveryFailure.RECORD_TOO_LARGE, broker.exception.failure)
+        self.assertIn("topic's max.message.bytes", str(broker.exception))
+        self.assertEqual("Record Too Large", broker.exception.failure.title())
 
     async def test_times_out_without_an_acknowledgement(self):
         self.producer.poll.return_value = 0
@@ -140,6 +159,24 @@ class TestProducerService(unittest.IsolatedAsyncioTestCase):
 
         with self.assertRaisesRegex(DeliveryError, "closed before the broker acknowledged"):
             await self.service.produce(RECORD)
+
+
+class TestClientSettings(unittest.TestCase):
+    def test_reports_configured_values_aliases_and_defaults(self):
+        def settings(config: dict[str, str]) -> ProducerSettings:
+            return ProducerSettings("orders", {"bootstrap.servers": "kafka:9092", **config})
+
+        defaults = settings({})
+        self.assertEqual("all", defaults.client_setting("acks"))
+        self.assertEqual("none", defaults.client_setting("compression.type"))
+        self.assertEqual("false", defaults.client_setting("enable.idempotence"))
+
+        configured = settings(
+            {"request.required.acks": "1", "compression.type": "ZSTD", "enable.idempotence": "true"}
+        )
+        self.assertEqual("1", configured.client_setting("acks"))
+        self.assertEqual("zstd", configured.client_setting("compression.type"))
+        self.assertEqual("true", configured.client_setting("enable.idempotence"))
 
 
 if __name__ == "__main__":

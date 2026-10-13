@@ -11,6 +11,7 @@ from confluent_kafka import TIMESTAMP_NOT_AVAILABLE, KafkaError, KafkaException,
 
 from kaskade import logger
 from kaskade.concurrency import run_blocking
+from kaskade.configs import PRODUCER_SETTING_ALIASES, PRODUCER_SETTING_DEFAULTS
 from kaskade.serializers import Serialization
 from kaskade.timeouts import TimeoutConfig
 
@@ -28,6 +29,17 @@ TOPIC_NOT_FOUND_ERROR_CODES = frozenset(
         KafkaError._UNKNOWN_TOPIC,
         KafkaError.UNKNOWN_TOPIC_OR_PART,
     }
+)
+RECORD_TOO_LARGE_ERROR_CODES = frozenset(
+    {
+        KafkaError.MSG_SIZE_TOO_LARGE,
+        KafkaError.RECORD_LIST_TOO_LARGE,
+    }
+)
+CLIENT_SIZE_LIMIT_MESSAGE = "The record exceeds the producer's message.max.bytes"
+BROKER_SIZE_LIMIT_MESSAGE = (
+    "The broker rejected the record: it exceeds the topic's max.message.bytes "
+    "or the broker's message.max.bytes"
 )
 TIMEOUT_ERROR_CODES = frozenset(
     {
@@ -48,6 +60,13 @@ class ProducerSettings:
     value_serialization: Serialization = Serialization.STRING
     partition: int | None = None
     timeouts: TimeoutConfig = field(default_factory=TimeoutConfig)
+
+    def client_setting(self, name: str) -> str:
+        """The value the client uses: configured, under any of its names, or the default."""
+        for key in (name, PRODUCER_SETTING_ALIASES.get(name)):
+            if key is not None and key in self.kafka_config:
+                return str(self.kafka_config[key]).lower()
+        return PRODUCER_SETTING_DEFAULTS[name]
 
 
 @dataclass(frozen=True)
@@ -76,6 +95,7 @@ class Delivery:
 class DeliveryFailure(Enum):
     AUTHORIZATION = auto()
     TOPIC_NOT_FOUND = auto()
+    RECORD_TOO_LARGE = auto()
     TIMEOUT = auto()
     BROKER = auto()
 
@@ -83,6 +103,7 @@ class DeliveryFailure(Enum):
         return {
             DeliveryFailure.AUTHORIZATION: "Authorization Error",
             DeliveryFailure.TOPIC_NOT_FOUND: "Topic Not Found",
+            DeliveryFailure.RECORD_TOO_LARGE: "Record Too Large",
             DeliveryFailure.TIMEOUT: "Delivery Timeout",
             DeliveryFailure.BROKER: "Delivery Error",
         }[self]
@@ -101,7 +122,10 @@ class DeliveryInProgressError(RuntimeError):
 
 
 def delivery_error(error: KafkaError) -> DeliveryError:
+    """Classify a failed delivery report; the broker sends these after accepting the record."""
     code = error.code()
+    if code in RECORD_TOO_LARGE_ERROR_CODES:
+        return DeliveryError(DeliveryFailure.RECORD_TOO_LARGE, BROKER_SIZE_LIMIT_MESSAGE)
     if code in AUTHORIZATION_ERROR_CODES:
         failure = DeliveryFailure.AUTHORIZATION
     elif code in TOPIC_NOT_FOUND_ERROR_CODES:
@@ -162,6 +186,10 @@ class ProducerService:
         except BufferError as ex:
             raise DeliveryError(DeliveryFailure.BROKER, "The local producer queue is full") from ex
         except KafkaException as ex:
+            if ex.args[0].code() in RECORD_TOO_LARGE_ERROR_CODES:
+                raise DeliveryError(
+                    DeliveryFailure.RECORD_TOO_LARGE, CLIENT_SIZE_LIMIT_MESSAGE
+                ) from ex
             raise delivery_error(ex.args[0]) from ex
 
         deadline = perf_counter() + self.timeouts.producer_delivery

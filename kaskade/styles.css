@@ -583,6 +583,11 @@ TextArea.field-content:focus {
     column-span: 2;
 }
 
+#record-summary .summary-settings {
+    grid-size: 3 1;
+    grid-columns: 1fr 1fr 1fr;
+}
+
 #record-summary .summary-field {
     grid-size: 2 1;
     grid-columns: 2fr 1fr;

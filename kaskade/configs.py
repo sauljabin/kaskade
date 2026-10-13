@@ -47,3 +47,7 @@ COMPRESSION_TYPE = "compression.type"
 COMPRESSION_TYPES = ("none", "gzip", "snappy", "lz4", "zstd")
 IDEMPOTENCE_CHOICES = ("true", "false")
 ENABLE_IDEMPOTENCE = "enable.idempotence"
+# confluent-kafka's defaults, which it can't report back; shown when nothing sets them.
+PRODUCER_SETTING_DEFAULTS = {ACKS: "all", COMPRESSION_TYPE: "none", ENABLE_IDEMPOTENCE: "false"}
+# librdkafka's older names for the same properties.
+PRODUCER_SETTING_ALIASES = {ACKS: "request.required.acks", COMPRESSION_TYPE: "compression.codec"}

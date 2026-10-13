@@ -14,6 +14,7 @@ from textual.message import Message
 from textual.widgets import Checkbox, Input, Select, Static, TabbedContent, TabPane, TextArea
 
 from kaskade.colors import PRIMARY
+from kaskade.configs import ACKS, COMPRESSION_TYPE, ENABLE_IDEMPOTENCE
 from kaskade.deserializers import BytesEncoding
 from kaskade.producer.source import DraftField, RecordDraft
 from kaskade.producer_service import (
@@ -30,6 +31,11 @@ PRODUCE_SHORTCUT = "ctrl+s,ctrl+shift+s,f2"
 SUMMARY_SHORTCUT = "f3"
 SUMMARY_MIN_TERMINAL_WIDTH = 80
 FIELDS = ("key", "value")
+CLIENT_SETTINGS = (
+    ("Acks", ACKS),
+    ("Idempotence", ENABLE_IDEMPOTENCE),
+    ("Compression", COMPRESSION_TYPE),
+)
 HeaderEntry = tuple[str, str | None]
 Problem = tuple[str, str]
 """A label, such as Key or Header 2, and what is wrong with it."""
@@ -393,6 +399,15 @@ class RecordComposer(Horizontal):
             with Grid(classes="summary-grid summary-field"):
                 yield MetadataCell("Count", "", ellipsize_value=True, id="summary-headers-count")
                 yield MetadataCell("Size", "", ellipsize_value=True, id="summary-headers-size")
+            yield Static(Text("PRODUCER", style="muted"), classes="summary-label")
+            with Grid(classes="summary-grid summary-settings"):
+                for label, name in CLIENT_SETTINGS:
+                    yield MetadataCell(
+                        label,
+                        self.settings.client_setting(name),
+                        ellipsize_value=True,
+                        id=f"summary-{name.replace('.', '-')}",
+                    )
             yield Static(id="summary-status")
 
     def on_mount(self) -> None:
