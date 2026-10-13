@@ -10,11 +10,13 @@ failure, add the command and its sanitized output.
 
 ## 0. Setup
 
-Install the candidate in isolation, so your own Kaskade stays untouched:
+Install the candidate in isolation, so your own Kaskade stays untouched. Use the
+newest Python that Kaskade supports (see `requires-python` in `pyproject.toml`);
+a newer one may lack `confluent-kafka` wheels and fail to build it:
 
 ```bash
 uv build --clear
-pipx install --suffix=-qa dist/kaskade-*.whl
+pipx install --python "$(uv python find 3.14)" --suffix=-qa dist/kaskade-*.whl
 alias kaskade=kaskade-qa
 ```
 
