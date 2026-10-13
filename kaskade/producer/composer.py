@@ -3,6 +3,7 @@
 from dataclasses import replace
 from typing import ClassVar
 
+from rich.table import Table
 from rich.text import Text
 from textual import on, work
 from textual.app import ComposeResult
@@ -30,6 +31,23 @@ SUMMARY_SHORTCUT = "f3"
 SUMMARY_MIN_TERMINAL_WIDTH = 80
 FIELDS = ("key", "value")
 HeaderEntry = tuple[str, str | None]
+Problem = tuple[str, str]
+"""A label, such as Key or Header 2, and what is wrong with it."""
+
+
+def problem_text(problem: Problem) -> str:
+    label, message = problem
+    return f"{label}: {message}"
+
+
+def problem_table(problems: list[Problem]) -> Table:
+    """Align bold labels in one column so each problem is easy to find."""
+    table = Table.grid(padding=(0, 2))
+    table.add_column(style="bold", no_wrap=True)
+    table.add_column()
+    for label, message in problems:
+        table.add_row(label, message)
+    return table
 
 
 def without_ctrl_c_copy(bindings: list[BindingType]) -> list[BindingType]:
@@ -242,10 +260,10 @@ class HeadersPane(Container):
         """Return the first header that has a value or null but no name."""
         return next((row for row in self.rows if row.is_unnamed), None)
 
-    def unnamed_message(self) -> str | None:
-        """Name the first header that needs a name, counting from 1."""
+    def unnamed_problem(self) -> Problem | None:
+        """Point at the first header that needs a name, counting from 1."""
         row = self.unnamed_row()
-        return None if row is None else f"Header {self.rows.index(row) + 1} needs a name"
+        return None if row is None else (f"Header {self.rows.index(row) + 1}", "Needs a name")
 
     def _changed(self) -> None:
         """Highlight unnamed headers, then tell the composer the headers changed."""
@@ -389,10 +407,10 @@ class RecordComposer(Horizontal):
         active_field = self.query_one(TabbedContent).active.removesuffix("-tab")
         if active_field in FIELDS:
             message, invalid = self.editor(active_field).validation()
-            field_status = f"{active_field.title()} {escape(message)}"
+            field_status = escape(problem_text((active_field.title(), message)))
             parts.append(f"[$text-error]{field_status}[/]" if invalid else field_status)
-        elif (unnamed := self.query_one(HeadersPane).unnamed_message()) is not None:
-            parts.append(f"[$text-error]{unnamed}[/]")
+        elif (unnamed := self.query_one(HeadersPane).unnamed_problem()) is not None:
+            parts.append(f"[$text-error]{escape(problem_text(unnamed))}[/]")
         if self.delivery_status:
             parts.append(self.delivery_status)
         self.frame.border_subtitle = rf"\[[{PRIMARY}]{' · '.join(parts)}[/]]"
@@ -439,16 +457,16 @@ class RecordComposer(Horizontal):
             "Automatic" if partition is None else str(partition)
         )
         self._summary_cell("headers").update_value(str(len(self.query_one(HeadersPane).headers)))
-        problems = [
-            f"{field_name.title()}: {error}"
+        problems: list[Problem] = [
+            (field_name.title(), error)
             for field_name in FIELDS
             if (error := self._summarize_field(field_name)) is not None
         ]
-        if (unnamed := self.query_one(HeadersPane).unnamed_message()) is not None:
+        if (unnamed := self.query_one(HeadersPane).unnamed_problem()) is not None:
             problems.append(unnamed)
         status = self.query_one("#summary-status", Static)
         status.set_class(bool(problems), "-invalid")
-        status.update(Text("\n".join(problems)) if problems else "Ready to produce")
+        status.update(problem_table(problems) if problems else "Ready to produce")
 
     def _summary_cell(self, name: str) -> MetadataCell:
         return self.query_one(f"#summary-{name}", MetadataCell)
@@ -477,10 +495,11 @@ class RecordComposer(Horizontal):
         """Serialize the draft, or reveal the first invalid field and return None."""
         headers = self.query_one(HeadersPane)
         unnamed = headers.unnamed_row()
-        if unnamed is not None:
+        problem = headers.unnamed_problem()
+        if unnamed is not None and problem is not None:
             self.query_one(TabbedContent).active = "headers-tab"
             unnamed.name_input.focus()
-            self.notify(str(headers.unnamed_message()), title="Invalid Header", severity="warning")
+            self.notify(problem_text(problem), title="Invalid Header", severity="warning")
             return None
         serialized: dict[str, bytes | None] = {}
         for field_name in FIELDS:
@@ -491,7 +510,9 @@ class RecordComposer(Horizontal):
                 self.query_one(TabbedContent).active = f"{field_name}-tab"
                 editor.content.focus()
                 self.notify(
-                    f"{field_name.title()}: {ex}", title="Serialization Error", severity="warning"
+                    problem_text((field_name.title(), str(ex))),
+                    title="Serialization Error",
+                    severity="warning",
                 )
                 return None
         return OutgoingRecord(

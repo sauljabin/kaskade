@@ -3,6 +3,7 @@ import unittest
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
+from rich.console import Console
 from textual.widgets import Checkbox, Input, Select, Static, TabbedContent, TextArea
 
 from kaskade.configs import BOOTSTRAP_SERVERS
@@ -48,6 +49,14 @@ class ProducerTestCase(unittest.IsolatedAsyncioTestCase):
     @staticmethod
     def composer(app: KaskadeProducer) -> RecordComposer:
         return app.query_one(RecordComposer)
+
+    @staticmethod
+    def status_text(app: KaskadeProducer) -> str:
+        """The Summary status as plain text, however it is laid out."""
+        console = Console(width=80, color_system=None)
+        with console.capture() as capture:
+            console.print(app.query_one("#summary-status", Static).content)
+        return capture.get()
 
     @staticmethod
     def produced(service: MagicMock) -> OutgoingRecord:
@@ -134,9 +143,9 @@ class TestHeaders(ProducerTestCase):
             self.service.produce.assert_not_called()
             self.assertIs(app.focused, self.rows(app)[0].name_input)
             subtitle = str(self.composer(app).frame.border_subtitle)
-            self.assertIn("Header 1 needs a name", subtitle)
-            summary = str(app.query_one("#summary-status", Static).render())
-            self.assertIn("Header 1 needs a name", summary)
+            self.assertIn("Header 1: Needs a name", subtitle)
+            self.assertIn("Header 1", self.status_text(app))
+            self.assertIn("Needs a name", self.status_text(app))
             unnamed = self.rows(app)[0]
             self.assertTrue(unnamed.has_class("-invalid"))
             self.assertEqual("Name required", unnamed.name_input.placeholder)
@@ -173,11 +182,11 @@ class TestComposeAndProduce(ProducerTestCase):
             self.assertEqual("value-tab", app.query_one(TabbedContent).active)
             self.assertIs(app.focused, app.query_one("#value-content", TextArea))
             subtitle = str(self.composer(app).frame.border_subtitle)
-            self.assertIn("Value Expected a 32-bit integer", subtitle)
+            self.assertIn("Value: Expected a 32-bit integer", subtitle)
             editor = app.query_one("#value-editor")
             self.assertTrue(editor.has_class("-invalid"))
             summary = app.query_one("#summary-status", Static)
-            self.assertIn("Value: Expected a 32-bit integer", str(summary.render()))
+            self.assertIn("Expected a 32-bit integer", self.status_text(app))
             self.assertTrue(summary.has_class("-invalid"))
 
             app.query_one("#value-content", TextArea).load_text("12")

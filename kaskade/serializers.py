@@ -69,8 +69,9 @@ class JsonSerializer(Serializer):
         try:
             content = json.loads(text)
         except json.JSONDecodeError as ex:
+            reason = ex.msg[:1].lower() + ex.msg[1:]
             raise SerializationError(
-                f"Invalid JSON: {ex.msg} (line {ex.lineno}, column {ex.colno})"
+                f"Invalid JSON, {reason} at line {ex.lineno}, column {ex.colno}"
             ) from ex
         return json.dumps(content, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
 
