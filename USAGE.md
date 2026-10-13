@@ -248,7 +248,7 @@ kaskade admin -b my-kafka:9092 \
 | `consumer.timeouts.request` | `consumer.request` | consumer | 10 | Consumer topic metadata and watermark requests |
 | `admin.timeouts.read` | `admin.read` | admin | 10 | Topic metadata, offsets, configurations, and consumer groups |
 | `admin.timeouts.write` | `admin.write` | admin | 60 | Create, edit, delete, and partition-change operations |
-| `producer.timeouts.delivery` | `producer.delivery` | producer | 30 | Wait for the broker acknowledgement of one record |
+| `producer.timeouts.delivery` | `producer.delivery` | producer | 45 | Wait for the broker acknowledgement of one record; keep it above the client's 30-second wait for a missing topic |
 | `producer.timeouts.flush` | `producer.flush` | producer | 5 | Flush queued records when Kaskade closes |
 
 Precedence, from lowest to highest, is the defaults, `settings.yaml`, then

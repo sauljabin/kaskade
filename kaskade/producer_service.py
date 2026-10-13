@@ -23,6 +23,12 @@ AUTHORIZATION_ERROR_CODES = frozenset(
         KafkaError.TRANSACTIONAL_ID_AUTHORIZATION_FAILED,
     }
 )
+TOPIC_NOT_FOUND_ERROR_CODES = frozenset(
+    {
+        KafkaError._UNKNOWN_TOPIC,
+        KafkaError.UNKNOWN_TOPIC_OR_PART,
+    }
+)
 TIMEOUT_ERROR_CODES = frozenset(
     {
         KafkaError._MSG_TIMED_OUT,
@@ -69,12 +75,14 @@ class Delivery:
 
 class DeliveryFailure(Enum):
     AUTHORIZATION = auto()
+    TOPIC_NOT_FOUND = auto()
     TIMEOUT = auto()
     BROKER = auto()
 
     def title(self) -> str:
         return {
             DeliveryFailure.AUTHORIZATION: "Authorization Error",
+            DeliveryFailure.TOPIC_NOT_FOUND: "Topic Not Found",
             DeliveryFailure.TIMEOUT: "Delivery Timeout",
             DeliveryFailure.BROKER: "Delivery Error",
         }[self]
@@ -96,6 +104,8 @@ def delivery_error(error: KafkaError) -> DeliveryError:
     code = error.code()
     if code in AUTHORIZATION_ERROR_CODES:
         failure = DeliveryFailure.AUTHORIZATION
+    elif code in TOPIC_NOT_FOUND_ERROR_CODES:
+        failure = DeliveryFailure.TOPIC_NOT_FOUND
     elif code in TIMEOUT_ERROR_CODES:
         failure = DeliveryFailure.TIMEOUT
     else:
@@ -121,6 +131,24 @@ class ProducerService:
     @property
     def is_delivering(self) -> bool:
         return self._delivering.locked()
+
+    async def topic_exists(self) -> bool | None:
+        """Whether the topic exists, or None when the cluster can't be asked.
+
+        Listing every topic never asks the broker to create one, unlike a
+        metadata request for this topic.
+        """
+        return await run_blocking(self._topic_exists)
+
+    def _topic_exists(self) -> bool | None:
+        self.start()
+        assert self._producer is not None
+        try:
+            metadata = self._producer.list_topics(timeout=self.timeouts.producer_delivery)
+        except KafkaException as ex:
+            logger.warning("Unable to check whether the topic exists: %s", ex)
+            return None
+        return self.settings.topic in metadata.topics
 
     async def produce(self, record: OutgoingRecord) -> Delivery:
         """Queue one record and return only after the broker acknowledges it."""

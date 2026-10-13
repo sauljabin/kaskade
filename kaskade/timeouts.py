@@ -47,7 +47,7 @@ class TimeoutConfig:
     consumer_request: float = 10.0
     admin_read: float = 10.0
     admin_write: float = 60.0
-    producer_delivery: float = 30.0
+    producer_delivery: float = 45.0
     producer_flush: float = 5.0
 
     @classmethod

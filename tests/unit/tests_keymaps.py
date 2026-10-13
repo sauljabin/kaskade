@@ -188,7 +188,7 @@ class TestSettingsConfiguration(unittest.TestCase):
                 "admin:\n  timeouts:\n    read: 20\n    write: 90\n"
                 "consumer:\n  timeouts:\n    poll: 0.25\n    idle: 3\n"
                 "    assignment: 30\n    request: 12.5\n"
-                "producer:\n  timeouts:\n    delivery: 45\n    flush: 2.5\n",
+                "producer:\n  timeouts:\n    delivery: 50\n    flush: 2.5\n",
                 encoding="utf-8",
             )
 
@@ -202,7 +202,7 @@ class TestSettingsConfiguration(unittest.TestCase):
                 consumer_idle=3.0,
                 consumer_assignment=30.0,
                 consumer_request=12.5,
-                producer_delivery=45.0,
+                producer_delivery=50.0,
                 producer_flush=2.5,
             ),
             settings.timeouts,

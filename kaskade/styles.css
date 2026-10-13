@@ -584,6 +584,11 @@ TextArea.field-content:focus {
     color: $text-success;
 }
 
+#summary-status.-warning {
+    border: solid $warning;
+    color: $text-warning;
+}
+
 #summary-status.-invalid {
     border: solid $error;
     background: $error 15%;

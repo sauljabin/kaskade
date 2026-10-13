@@ -219,6 +219,26 @@ class TestComposeAndProduce(ProducerTestCase):
             self.assertTrue(composer.check_action("produce", ()))
             self.assertNotIn("payload", "\n".join(logs.output))
 
+    async def test_a_missing_topic_warns_until_a_delivery_succeeds(self):
+        self.service.topic_exists.return_value = False
+        app = producer_app()
+        async with app.run_test(size=(120, 30)) as pilot:
+            await pilot.pause()
+            composer = self.composer(app)
+            summary = app.query_one("#summary-status", Static)
+            self.assertIn(
+                "Topic not found; the broker may create it", composer.frame.border_subtitle
+            )
+            self.assertIn("Topic not found", str(summary.render()))
+            self.assertTrue(summary.has_class("-warning"))
+
+            await pilot.press("ctrl+s")
+            await pilot.pause()
+
+            self.assertNotIn("Topic not found", composer.frame.border_subtitle)
+            self.assertIn("Ready to produce", str(summary.render()))
+            self.assertFalse(summary.has_class("-warning"))
+
     async def test_produce_is_disabled_while_a_delivery_is_in_progress(self):
         release = asyncio.Event()
 
