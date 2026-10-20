@@ -1,10 +1,8 @@
-"""Protobuf helpers shared by the Registry and local deserializers."""
+"""Protobuf decoding shared by the Registry and local deserializers."""
 
 from typing import Any
 
 from google.protobuf.descriptor_pb2 import DescriptorProto, FileDescriptorProto
-from google.protobuf.descriptor_pool import Default as DefaultDescriptorPool
-from google.protobuf.descriptor_pool import DescriptorPool
 from google.protobuf.json_format import MessageToDict
 from google.protobuf.message import Message
 
@@ -26,59 +24,6 @@ def parse_message(message_class: type[Message], payload: bytes) -> dict[str, Any
     message = message_class()
     message.ParseFromString(payload)
     return message_to_dict(message)
-
-
-def descriptor_pool(
-    root: FileDescriptorProto, descriptors: dict[str, FileDescriptorProto]
-) -> DescriptorPool:
-    """Build a pool from `root` and its dependencies.
-
-    Dependencies missing from `descriptors` come from the well-known types bundled
-    with protobuf.
-    """
-    pool = DescriptorPool()
-    _add_descriptor(root, descriptors, pool, set(), set())
-    return pool
-
-
-def _add_descriptor(
-    descriptor: FileDescriptorProto,
-    descriptors: dict[str, FileDescriptorProto],
-    pool: DescriptorPool,
-    added: set[str],
-    visiting: set[str],
-) -> None:
-    if descriptor.name in added:
-        return
-    if descriptor.name in visiting:
-        raise DeserializationError("Cyclic Protobuf schema reference")
-
-    visiting.add(descriptor.name)
-    for dependency in descriptor.dependency:
-        referenced = descriptors.get(dependency)
-        if referenced is not None:
-            _add_descriptor(referenced, descriptors, pool, added, visiting)
-        else:
-            _add_default_descriptor(dependency, pool, added)
-    try:
-        pool.Add(descriptor)
-    except (TypeError, ValueError) as ex:
-        raise DeserializationError(f"Invalid Protobuf descriptor: {descriptor.name}") from ex
-    visiting.remove(descriptor.name)
-    added.add(descriptor.name)
-
-
-def _add_default_descriptor(name: str, pool: DescriptorPool, added: set[str]) -> None:
-    if name in added:
-        return
-    try:
-        descriptor = DefaultDescriptorPool().FindFileByName(name)
-    except KeyError as ex:
-        raise DeserializationError(f"Protobuf schema reference not found: {name}") from ex
-    for dependency in descriptor.dependencies:
-        _add_default_descriptor(dependency.name, pool, added)
-    pool.AddSerializedFile(descriptor.serialized_pb)
-    added.add(name)
 
 
 def _read_varint(data: bytes, offset: int, label: str = "varint") -> tuple[int, int]:

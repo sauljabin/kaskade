@@ -506,25 +506,15 @@ CommandPalette.-narrow > #--container {
     height: auto;
 }
 
-.field-options > Select {
-    width: 22;
-    margin-right: 1;
-}
-
-.field-options > Select > SelectCurrent,
 .field-options > Checkbox {
+    width: auto;
     border: solid $secondary 50%;
     background: transparent;
     background-tint: transparent;
 }
 
-.field-options > Select:focus > SelectCurrent,
 .field-options > Checkbox:focus {
     border: $secondary;
-}
-
-.field-options > Checkbox {
-    width: auto;
 }
 
 .field-content-label {

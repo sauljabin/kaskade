@@ -43,6 +43,7 @@ from kaskade.apicurio import (
     ApicurioConfig,
     ApicurioReference,
     ApicurioRegistryError,
+    ApicurioVersion,
 )
 from kaskade.configs import APICURIO, APICURIO_OPTION
 from kaskade.deserializers import (
@@ -563,6 +564,34 @@ class TestApicurioClient(unittest.TestCase):
             "/ids/globalIds/27/references",
             client_class.return_value.request.call_args_list[1].args[1],
         )
+
+    @patch("kaskade.apicurio.httpx.Client")
+    def test_reads_version_metadata_by_group_artifact_and_version(
+        self, client_class: MagicMock
+    ) -> None:
+        response = MagicMock(status_code=200)
+        response.json.return_value = {
+            "groupId": "payments",
+            "artifactId": "orders value",
+            "version": "3",
+            "globalId": 41,
+            "contentId": 17,
+        }
+        client_class.return_value.request.return_value = response
+        client = ApicurioClient(parsed_apicurio_config())
+
+        version = client.get_version("payments", "orders value", "branch=latest")
+        client.get_version("payments", "orders value", "branch=latest")
+
+        self.assertEqual(ApicurioVersion("payments", "orders value", "3", 41, 17), version)
+        client_class.return_value.request.assert_called_once()
+        self.assertEqual(
+            "/groups/payments/artifacts/orders%20value/versions/branch%3Dlatest",
+            client_class.return_value.request.call_args.args[1],
+        )
+        response.json.return_value = {"version": "3"}
+        with self.assertRaisesRegex(ApicurioRegistryError, "Invalid Apicurio version metadata"):
+            client.get_version("payments", "orders", "3")
 
     @patch("kaskade.apicurio.httpx.Client")
     def test_cache_is_bounded(self, client_class: MagicMock) -> None:

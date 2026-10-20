@@ -12,15 +12,17 @@ from kaskade.admin import KaskadeAdmin
 from kaskade.cli.application import resolve_app_settings
 from kaskade.cli.connection import load_config_file, resolve_connection
 from kaskade.cli.properties import join_bootstrap_servers, tuple_properties_to_dict
-from kaskade.cli.validation import normalize_deserializer_options
+from kaskade.cli.validation import normalize_deserializer_options, normalize_serializer_options
 from kaskade.configs import (
     ACKS,
     ACKS_CHOICES,
     APICURIO_OPTION,
     AUTO_OFFSET_RESET,
+    AUTO_REGISTER_SCHEMAS,
     AVRO_DESERIALIZER_CONFIGS,
+    AVRO_SERIALIZER_CONFIGS,
     AWS_CONFIGS,
-    BYTES_DESERIALIZER_CONFIGS,
+    BYTES_CONFIGS,
     BYTES_ENCODINGS,
     COMPRESSION_TYPE,
     COMPRESSION_TYPES,
@@ -31,8 +33,13 @@ from kaskade.configs import (
     FALLBACK_CONFIGS,
     IDEMPOTENCE_CHOICES,
     JSON_DESERIALIZER_CONFIGS,
+    JSON_SERIALIZER_CONFIGS,
     PROTOBUF_DESERIALIZER_CONFIGS,
+    PROTOBUF_MESSAGE,
+    PROTOBUF_SERIALIZER_CONFIGS,
     REGISTRY_PROVIDERS,
+    USE_LATEST_VERSION,
+    USE_SCHEMA_ID,
 )
 from kaskade.consumer import KaskadeConsumer
 from kaskade.consumer_service import ConsumerSettings, PartitionSelectionError
@@ -97,14 +104,14 @@ PROTOBUF_CONFIG_HELP = (
     "the global value."
 )
 JSON_CONFIG_HELP = (
-    "JSON deserializer property. Repeatable. "
-    f"Properties: {', '.join(JSON_DESERIALIZER_CONFIGS)}. Framing: "
+    "JSON deserializer property. Repeatable. key and value take a JSON Schema file that "
+    f"validates each record. Properties: {', '.join(JSON_DESERIALIZER_CONFIGS)}. Framing: "
     f"{', '.join(DESERIALIZER_FRAMINGS)} (case-insensitive); scoped framing overrides "
     "the global value."
 )
 BYTES_CONFIG_HELP = (
     "Byte presentation property for keys and values using the BYTES deserializer. "
-    f"Repeatable. Properties: {', '.join(BYTES_DESERIALIZER_CONFIGS)}. Encodings: "
+    f"Repeatable. Properties: {', '.join(BYTES_CONFIGS)}. Encodings: "
     f"{', '.join(BYTES_ENCODINGS)}; scoped encodings override the global value."
 )
 FALLBACK_CONFIG_HELP = (
@@ -117,6 +124,32 @@ REGISTRY_CONFIG_HELP = (
     f"--config-file. provider choices: {', '.join(REGISTRY_PROVIDERS)} (case-insensitive); "
     f"defaults to {CONFLUENT_OPTION}. Use provider={APICURIO_OPTION} with supported official "
     "Apicurio deserializer properties."
+)
+SERIALIZER_JSON_HELP = (
+    "JSON Schema file that validates the key or value before it is produced. Repeatable. "
+    f"Properties: {', '.join(JSON_SERIALIZER_CONFIGS)}."
+)
+SERIALIZER_AVRO_HELP = (
+    "Avro schema file for the key or value; required when its serializer is avro. "
+    f"Repeatable. Properties: {', '.join(AVRO_SERIALIZER_CONFIGS)}."
+)
+SERIALIZER_PROTOBUF_HELP = (
+    "Protobuf descriptor set and message names; required when a serializer is protobuf. "
+    f"Repeatable. Properties: {', '.join(PROTOBUF_SERIALIZER_CONFIGS)}."
+)
+SERIALIZER_BYTES_HELP = (
+    "Input encoding for keys and values using the bytes serializer. Repeatable. "
+    f"Properties: {', '.join(BYTES_CONFIGS)}. Encodings: {', '.join(BYTES_ENCODINGS)}; "
+    "scoped encodings override the global value."
+)
+SERIALIZER_REGISTRY_HELP = (
+    "Registry provider, client, or schema selection property. Repeatable; overrides "
+    f"matching properties from --config-file. provider choices: {', '.join(REGISTRY_PROVIDERS)} "
+    f"(case-insensitive); defaults to {CONFLUENT_OPTION}. Schema selection, globally or "
+    f"scoped with key. or value.: {USE_SCHEMA_ID}, {USE_LATEST_VERSION}, "
+    "apicurio.registry.artifact.group-id, apicurio.registry.artifact.artifact-id, "
+    f"apicurio.registry.artifact.version, apicurio.registry.find-latest, {PROTOBUF_MESSAGE}. "
+    f"{AUTO_REGISTER_SCHEMAS} and apicurio.registry.auto-register must stay false."
 )
 CliDecoratorTarget = TypeVar("CliDecoratorTarget", bound=Callable[..., Any])
 
@@ -572,6 +605,24 @@ def consumer(
         help="Produce to this partition instead of letting the partitioner choose.",
     ),
     cloup.option(
+        "--acks",
+        type=cloup.Choice(ACKS_CHOICES),
+        help=f"Broker acknowledgements; sets {ACKS}.",
+    ),
+    cloup.option(
+        "--compression",
+        type=cloup.Choice(COMPRESSION_TYPES),
+        help=f"Compression codec; sets {COMPRESSION_TYPE}.",
+    ),
+    cloup.option(
+        "--idempotence",
+        type=cloup.Choice(IDEMPOTENCE_CHOICES),
+        help=f"Enable or disable the idempotent producer; sets {ENABLE_IDEMPOTENCE}.",
+    ),
+)
+@cloup.option_group(
+    "Serialization options",
+    cloup.option(
         "-k",
         "--key",
         "key_serialization",
@@ -591,20 +642,22 @@ def consumer(
         show_default=True,
         callback=string_to_serializer_type,
     ),
-    cloup.option(
-        "--acks",
-        type=cloup.Choice(ACKS_CHOICES),
-        help=f"Broker acknowledgements; sets {ACKS}.",
-    ),
-    cloup.option(
-        "--compression",
-        type=cloup.Choice(COMPRESSION_TYPES),
-        help=f"Compression codec; sets {COMPRESSION_TYPE}.",
-    ),
-    cloup.option(
-        "--idempotence",
-        type=cloup.Choice(IDEMPOTENCE_CHOICES),
-        help=f"Enable or disable the idempotent producer; sets {ENABLE_IDEMPOTENCE}.",
+    *(
+        cloup.option(
+            f"--{name}",
+            f"{name}_config",
+            help=help_text,
+            metavar="property=value",
+            multiple=True,
+            callback=tuple_properties_to_dict,
+        )
+        for name, help_text in (
+            ("bytes", SERIALIZER_BYTES_HELP),
+            ("json", SERIALIZER_JSON_HELP),
+            ("avro", SERIALIZER_AVRO_HELP),
+            ("protobuf", SERIALIZER_PROTOBUF_HELP),
+            ("registry", SERIALIZER_REGISTRY_HELP),
+        )
     ),
 )
 @consumer_application_options()
@@ -622,6 +675,11 @@ def producer(
     acks: str | None,
     compression: str | None,
     idempotence: str | None,
+    bytes_config: dict[str, str],
+    json_config: dict[str, str],
+    avro_config: dict[str, str],
+    protobuf_config: dict[str, str],
+    registry_config: dict[str, str],
     theme: str | None,
 ) -> None:
     """
@@ -631,6 +689,8 @@ def producer(
     Examples:
       kaskade producer -b localhost:9092 -t my-topic
       kaskade producer -b localhost:9092 -t my-topic -v json --source record.json
+      kaskade producer -b localhost:9092 -t my-topic -v avro --avro value=my-schema.avsc
+      kaskade producer -b localhost:9092 -t my-topic -v registry --registry url=http://localhost:8081
       kaskade producer --config-file client.ini -t my-topic --acks all --compression zstd
     """
 
@@ -640,6 +700,16 @@ def producer(
         bootstrap_servers,
         kafka_config | producer_kafka_config(acks, compression, idempotence),
         aws_config,
+        registry_config,
+    )
+    options = normalize_serializer_options(
+        key_serialization,
+        value_serialization,
+        registry_config=connection.registry_config,
+        protobuf_config=protobuf_config,
+        avro_config=avro_config,
+        json_config=json_config,
+        bytes_config=bytes_config,
     )
     app_settings = resolve_app_settings(PRODUCER_TIMEOUT_PROPERTIES, timeout_config, theme=theme)
     try:
@@ -652,12 +722,18 @@ def producer(
         kafka_config=connection.kafka_config,
         key_serialization=key_serialization,
         value_serialization=value_serialization,
+        registry_config=options.registry_config,
+        apicurio_config=options.apicurio_config,
+        protobuf_config=options.protobuf_config,
+        avro_config=options.avro_config,
+        json_config=options.json_config,
+        bytes_config=options.bytes_config,
         partition=partition,
         timeouts=app_settings.timeouts,
     )
     try:
         kaskade_app = KaskadeProducer(producer_settings, draft=draft, settings=app_settings)
-    except KafkaException as ex:
+    except (KafkaException, ValueError) as ex:
         raise ClickException(error_message(ex)) from ex
     kaskade_app.run()
 

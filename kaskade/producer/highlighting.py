@@ -10,8 +10,6 @@ from textual.widgets.text_area import TextAreaTheme
 from tree_sitter import Language
 
 from kaskade.app import KaskadeApp
-from kaskade.deserializers import BytesEncoding
-from kaskade.serializers import Serialization
 
 JSON_LANGUAGE = "json"
 # Captures use Rich's JSON style names, so the editor and the consumer share colors.
@@ -35,28 +33,11 @@ JSON_STYLE_NAMES = (
     "json.bool_false",
     "json.null",
 )
-JSON_INPUT_SERIALIZATIONS = frozenset(
-    {
-        Serialization.JSON,
-        Serialization.BOOLEAN,
-        Serialization.INTEGER,
-        Serialization.LONG,
-        Serialization.FLOAT,
-        Serialization.DOUBLE,
-    }
-)
 
 
 @cache
 def json_language() -> Language:
     return Language(tree_sitter_json.language())
-
-
-def highlights_json(serialization: Serialization, encoding: BytesEncoding) -> bool:
-    """Whether the editor input for this serializer is JSON."""
-    if serialization == Serialization.BYTES:
-        return encoding == BytesEncoding.BYTE_ARRAY
-    return serialization in JSON_INPUT_SERIALIZATIONS
 
 
 def json_theme(app: App) -> TextAreaTheme:

@@ -1,16 +1,11 @@
-from base64 import b64decode
-from binascii import Error as BinasciiError
 from typing import Any
 
-from confluent_kafka.schema_registry import Schema, SchemaRegistryClient
+from confluent_kafka.schema_registry import SchemaRegistryClient
 from confluent_kafka.schema_registry.avro import AvroDeserializer as ConfluentAvroDeserializer
 from confluent_kafka.schema_registry.json_schema import (
     JSONDeserializer as ConfluentJsonDeserializer,
 )
 from confluent_kafka.serialization import MessageField, SerializationContext
-from google.protobuf.descriptor_pb2 import FileDescriptorProto
-from google.protobuf.descriptor_pool import DescriptorPool
-from google.protobuf.message import DecodeError
 from google.protobuf.message_factory import GetMessageClass
 
 from kaskade import logger
@@ -25,12 +20,9 @@ from kaskade.deserializers.base import (
     _registry_header,
     _require_field,
 )
-from kaskade.deserializers.protobuf import (
-    descriptor_pool,
-    message_name,
-    parse_message,
-    parse_message_indexes,
-)
+from kaskade.deserializers.protobuf import message_name, parse_message, parse_message_indexes
+from kaskade.schemas.confluent import ConfluentSchemas
+from kaskade.schemas.protobuf import find_message
 
 
 class ConfluentRegistryDeserializer(Deserializer):
@@ -43,8 +35,7 @@ class ConfluentRegistryDeserializer(Deserializer):
         self.json_deserializer = ConfluentJsonDeserializer(
             None, schema_registry_client=self.registry_client
         )
-        self._writer_schema_cache: dict[int, Schema] = {}
-        self._protobuf_descriptor_cache: dict[int, tuple[FileDescriptorProto, DescriptorPool]] = {}
+        self.schemas = ConfluentSchemas(self.registry_client)
         self._schema_cache: dict[tuple[int, str, MessageField], RegistrySchema | None] = {}
 
     def close(self) -> None:
@@ -89,18 +80,7 @@ class ConfluentRegistryDeserializer(Deserializer):
                 "Confluent Schema Registry serializer"
             )
 
-        schema = self._writer_schema_cache.get(schema_id)
-        if schema is None:
-            schema = self.registry_client.get_schema(schema_id)
-            if schema.schema_type is not None and schema.schema_type.upper() == SchemaType.PROTOBUF:
-                # The client caches by schema ID without considering the requested
-                # format, so clear its cache before asking for the descriptor form.
-                self.registry_client.clear_caches()  # type: ignore[no-untyped-call]
-                schema = self.registry_client.get_schema(schema_id, fmt="serialized")
-            self._writer_schema_cache[schema_id] = schema
-        if schema.schema_type is None:
-            raise DeserializationError("Schema type not supported")
-        return topic, schema_id, schema.schema_type.upper()
+        return topic, schema_id, self.schemas.schema_type(schema_id)
 
     def _deserialize_content(
         self,
@@ -125,64 +105,11 @@ class ConfluentRegistryDeserializer(Deserializer):
                 raise DeserializationError("Schema type not supported")
 
     def _deserialize_protobuf(self, data: bytes, schema_id: int) -> Any:
-        descriptor, pool = self._protobuf_descriptors(schema_id)
+        descriptor, pool = self.schemas.protobuf_descriptors(schema_id)
         message_indexes, payload = parse_message_indexes(data[SCHEMA_REGISTRY_HEADER_SIZE:])
         name = message_name(descriptor, message_indexes)
-        try:
-            message_class = GetMessageClass(pool.FindMessageTypeByName(name))
-        except KeyError as ex:
-            raise DeserializationError(f"Protobuf message not found: {name}") from ex
+        message_class = GetMessageClass(find_message(pool, descriptor, name))
         return parse_message(message_class, payload)
-
-    def _protobuf_descriptors(self, schema_id: int) -> tuple[FileDescriptorProto, DescriptorPool]:
-        cached = self._protobuf_descriptor_cache.get(schema_id)
-        if cached is not None:
-            return cached
-
-        schema = self._writer_schema_cache[schema_id]
-        descriptors: dict[str, FileDescriptorProto] = {}
-        root = self._collect_protobuf_descriptors(schema, "default", descriptors)
-        result = (root, descriptor_pool(root, descriptors))
-        self._protobuf_descriptor_cache[schema_id] = result
-        return result
-
-    def _collect_protobuf_descriptors(
-        self,
-        schema: Schema,
-        name: str,
-        descriptors: dict[str, FileDescriptorProto],
-    ) -> FileDescriptorProto:
-        existing = descriptors.get(name)
-        if existing is not None:
-            return existing
-
-        schema_str = schema.schema_str
-        if not isinstance(schema_str, str):
-            raise DeserializationError("Protobuf schema is empty")
-        descriptor = self._parse_protobuf_descriptor(name, schema_str)
-        descriptors[name] = descriptor
-
-        for reference in schema.references or []:
-            if reference.name is None or reference.subject is None or reference.version is None:
-                raise DeserializationError("Protobuf schema reference is incomplete")
-            registered = self.registry_client.get_version(
-                reference.subject,
-                reference.version,
-                deleted=True,
-                fmt="serialized",
-            )
-            self._collect_protobuf_descriptors(registered.schema, reference.name, descriptors)
-        return descriptor
-
-    @staticmethod
-    def _parse_protobuf_descriptor(name: str, schema_str: str) -> FileDescriptorProto:
-        try:
-            serialized = b64decode(schema_str.encode("ascii"), validate=True)
-            descriptor = FileDescriptorProto.FromString(serialized)
-        except (BinasciiError, UnicodeEncodeError, DecodeError) as ex:
-            raise DeserializationError("Invalid serialized Protobuf schema") from ex
-        descriptor.name = name
-        return descriptor
 
     def _resolve_schema(
         self,

@@ -37,6 +37,14 @@ APICURIO_TLS_VERIFY_HOST = f"{APICURIO_PREFIX}tls.verify-host"
 APICURIO_TLS_CLIENT_CERTIFICATE = f"{APICURIO_PREFIX}tls.client-certificate"
 APICURIO_TLS_CLIENT_KEY = f"{APICURIO_PREFIX}tls.client-key"
 APICURIO_CACHE_CAPACITY = 1000
+# Serializer properties that choose the artifact; only the producer accepts them.
+APICURIO_AUTO_REGISTER = f"{APICURIO_PREFIX}auto-register"
+APICURIO_FIND_LATEST = f"{APICURIO_PREFIX}find-latest"
+APICURIO_ARTIFACT_GROUP_ID = f"{APICURIO_PREFIX}artifact.group-id"
+APICURIO_ARTIFACT_ID = f"{APICURIO_PREFIX}artifact.artifact-id"
+APICURIO_ARTIFACT_VERSION = f"{APICURIO_PREFIX}artifact.version"
+APICURIO_DEFAULT_GROUP = "default"
+APICURIO_LATEST_VERSION = "branch=latest"
 
 APICURIO_PROPERTIES = {
     APICURIO_URL,
@@ -307,6 +315,15 @@ class ApicurioArtifact:
     references: tuple[ApicurioReference, ...]
 
 
+@dataclass(frozen=True)
+class ApicurioVersion:
+    group: str
+    artifact: str
+    version: str
+    global_id: int
+    content_id: int
+
+
 class ApicurioClient:
     """Small synchronous client for the Apicurio Registry Core API v3."""
 
@@ -525,6 +542,37 @@ class ApicurioClient:
         if "$schema" in schema or "properties" in schema or "required" in schema:
             return SchemaType.JSON
         return ""
+
+    def get_version(self, group: str, artifact: str, version: str) -> ApicurioVersion:
+        """Read a version's metadata; `branch=latest` names the latest version."""
+        cache_key = ("version", group, artifact, version)
+        cached = self._cached(cache_key)
+        if cached is not None:
+            return cast(ApicurioVersion, cached)
+        path = "/".join(
+            (
+                "/groups",
+                quote(group, safe=""),
+                "artifacts",
+                quote(artifact, safe=""),
+                "versions",
+                quote(version, safe=""),
+            )
+        )
+        response = self._request("GET", path)
+        try:
+            body = response.json()
+            result = ApicurioVersion(
+                group=str(body.get("groupId") or group),
+                artifact=str(body.get("artifactId") or artifact),
+                version=str(body["version"]),
+                global_id=int(body["globalId"]),
+                content_id=int(body["contentId"]),
+            )
+        except (KeyError, TypeError, ValueError) as ex:
+            raise ApicurioRegistryError("Invalid Apicurio version metadata response") from ex
+        self._store(cache_key, result)
+        return result
 
     def get_referenced_artifact(
         self, reference: ApicurioReference, artifact_type: str

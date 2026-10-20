@@ -424,6 +424,40 @@ class TestDeserializer(unittest.TestCase):
 
         self.assertEqual(expected_value, result)
 
+    def test_json_schema_validation_fails_one_field_without_echoing_content(self):
+        schema_path = Path(self.temp_directory.name) / "order.json"
+        schema_path.write_text(
+            json.dumps({"type": "object", "properties": {"total": {"type": "integer"}}}),
+            encoding="utf-8",
+        )
+        deserializer = JsonDeserializer({"value": str(schema_path), "value.framing": "confluent"})
+        framed = b"\x00\x00\x00\x00\x01"
+        record = Record(
+            topic="orders",
+            key=b'{"total": "secret"}',
+            value=framed + b'{"total": "secret"}',
+            key_deserializer=deserializer,
+            value_deserializer=deserializer,
+            key_deserialization=Deserialization.JSON,
+            value_deserialization=Deserialization.JSON,
+        )
+
+        self.assertEqual(
+            {"total": 10},
+            deserializer.deserialize(framed + b'{"total": 10}', "orders", MessageField.VALUE),
+        )
+        self.assertEqual({"total": "secret"}, record.dict()["key"]["content"])
+        value = record.dict()["value"]
+        self.assertEqual(
+            {
+                "message": "JSON Schema validation failed: $.total expected type integer",
+                "fallback": "BYTES",
+                "encoding": "BASE64",
+            },
+            value["error"],
+        )
+        self.assertNotIn("secret", value["error"]["message"])
+
     def test_json_raw_framing_does_not_infer_confluent_header(self):
         payload = b"\x00\x00\x00\x00\x01{}"
 
