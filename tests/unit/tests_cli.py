@@ -251,8 +251,14 @@ class TestSerializerValidation(SchemaDirectory):
 
     def test_rejects_unsupported_schema_selection(self) -> None:
         cases = (
-            ({"url": "http://registry", "auto.register.schemas": "true"}, "isn't supported yet"),
-            ({"url": "http://registry", "use.latest.version": "false"}, "needs a local schema"),
+            (
+                {"url": "http://registry", "auto.register.schemas": "true"},
+                "needs exactly one schema file",
+            ),
+            (
+                {"url": "http://registry", "use.latest.version": "false"},
+                "needs auto.register.schemas=true",
+            ),
             (
                 {"url": "http://registry", "apicurio.registry.artifact.artifact-id": "orders"},
                 "requires provider=apicurio",

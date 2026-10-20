@@ -90,11 +90,17 @@
   repeat record content.
 - `-k` and `-v` alone choose each field's serializer; the composer has no
   serializer selector. Local `--json`, `--avro`, and `--protobuf` schemas never
-  write Registry framing. `registry` only looks up registered schemas the way
-  the official serializers choose them (Confluent `TopicNameStrategy`, Apicurio
-  `TopicIdStrategy`), runs lookups through `run_blocking`, and rejects enabled
-  auto-registration until #214. Composed Avro and Protobuf JSON is the shape
-  the consumer shows, so copied records round-trip.
+  write Registry framing. `registry` chooses schemas the way the official
+  serializers do (Confluent `TopicNameStrategy`, Apicurio `TopicIdStrategy`) and
+  runs lookups and registration through `run_blocking`. It registers only with
+  auto-registration enabled and one local schema file per field, references
+  first under their reference names; it encodes with the schema fetched back by
+  the returned ID. Composed Avro and Protobuf JSON is the shape the consumer
+  shows, so copied records round-trip.
+- `--protobuf` takes `descriptor=` or `source=`, never both, in both commands.
+  Sources compile once per process with the bundled `protoc`. Confluent
+  registers serialized descriptors; Apicurio registers `.proto` text, so it
+  needs `source=`.
 - Producer dedicated options (`--acks`, `--compression`, `--idempotence`) apply
   only when passed, above `--kafka` and below `-b`. Let `confluent-kafka` reject
   incompatible settings; never adjust them silently.

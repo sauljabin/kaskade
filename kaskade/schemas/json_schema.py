@@ -90,30 +90,51 @@ def _schema_problem(ex: Exception) -> str:
 
 
 def _read_json(path: Path) -> Any:
-    try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, UnicodeDecodeError) as ex:
-        raise SchemaError(f"Unable to read {path}: {ex}") from ex
-    except json.JSONDecodeError as ex:
-        raise SchemaError(f"Invalid JSON in {path} at line {ex.lineno}: {ex.msg}") from ex
+    return read_json_text(path)[1]
 
 
 def _collect_local_references(
     directory: Path, document: Any, base: str, resources: dict[str, Any]
 ) -> None:
     """Load each relative `$ref` document once, resolved like the validator resolves it."""
+    for uri in local_references(document, base):
+        if uri not in resources:
+            contents = _read_json(local_reference_path(directory, uri))
+            resources[uri] = contents
+            _collect_local_references(directory, contents, uri, resources)
+
+
+def local_references(document: Any, base: str) -> list[str]:
+    """The relative documents `document` references, resolved against `base`, in order.
+
+    Fragments are local, and absolute URIs may name an embedded `$id`; the validator
+    reports those it can't find without fetching them.
+    """
+    uris: list[str] = []
     for reference in _references(document):
         uri = urldefrag(urljoin(base, reference)).url
-        if not uri or uri in resources or urlsplit(uri).scheme:
-            # Fragments are local, and absolute URIs may name an embedded `$id`;
-            # the validator reports those it can't find without fetching them.
-            continue
-        relative = PurePosixPath(uri)
-        if relative.is_absolute() or ".." in relative.parts:
-            raise SchemaError(f"JSON Schema reference {uri} must stay next to the schema")
-        contents = _read_json(directory.joinpath(*relative.parts))
-        resources[uri] = contents
-        _collect_local_references(directory, contents, uri, resources)
+        if uri and uri not in uris and not urlsplit(uri).scheme:
+            uris.append(uri)
+    return uris
+
+
+def local_reference_path(directory: Path, uri: str) -> Path:
+    relative = PurePosixPath(uri)
+    if relative.is_absolute() or ".." in relative.parts:
+        raise SchemaError(f"JSON Schema reference {uri} must stay next to the schema")
+    return directory.joinpath(*relative.parts)
+
+
+def read_json_text(path: Path) -> tuple[str, Any]:
+    """Read a JSON file, returning its text and its parsed content."""
+    try:
+        text = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as ex:
+        raise SchemaError(f"Unable to read {path}: {ex}") from ex
+    try:
+        return text, json.loads(text)
+    except json.JSONDecodeError as ex:
+        raise SchemaError(f"Invalid JSON in {path} at line {ex.lineno}: {ex.msg}") from ex
 
 
 def _references(document: Any) -> Iterator[str]:

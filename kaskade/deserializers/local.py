@@ -128,10 +128,10 @@ class ProtobufDeserializer(Deserializer):
             raise DeserializationError(
                 f"Protobuf message name not provided for context {context.name}"
             )
-        if self.descriptor_path is None:
+        if self.descriptor_path is None and "source" not in self.config:
             raise DeserializationError("Descriptor not found")
         if self.descriptor_classes is None:
-            self.descriptor_classes = load_message_classes(self.descriptor_path)
+            self.descriptor_classes = load_message_classes(self.config)
         message_class = self.descriptor_classes.get(class_name)
         if message_class is None:
             raise DeserializationError("Deserialization class not found")

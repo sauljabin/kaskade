@@ -175,21 +175,23 @@ class FieldEditor(Container):
 
 
 class HeaderRow(Horizontal):
-    """One editable header: a name, a UTF-8 value, and a null control."""
+    """One editable header: a name, a UTF-8 value, and a null control.
+
+    The inputs exist from construction, so the entry is readable even while a
+    worker refreshes the Summary before the row finishes mounting.
+    """
 
     def __init__(self, header: HeaderEntry = ("", "")) -> None:
         super().__init__(classes="header-row")
-        self.header = header
-
-    def compose(self) -> ComposeResult:
-        name, value = self.header
-        yield HeaderInput(name, placeholder="Name", compact=True, classes="header-name column-name")
-        value_input = HeaderInput(
+        name, value = header
+        self.name_input: Input = HeaderInput(
+            name, placeholder="Name", compact=True, classes="header-name column-name"
+        )
+        self.value_input: Input = HeaderInput(
             value or "", placeholder="Value", compact=True, classes="header-value column-value"
         )
-        value_input.disabled = value is None
-        yield value_input
-        yield Checkbox(
+        self.value_input.disabled = value is None
+        self.null_checkbox = Checkbox(
             "",
             value is None,
             compact=True,
@@ -197,14 +199,15 @@ class HeaderRow(Horizontal):
             classes="header-null column-null",
         )
 
-    @property
-    def name_input(self) -> Input:
-        return self.query_one(".header-name", Input)
+    def compose(self) -> ComposeResult:
+        yield self.name_input
+        yield self.value_input
+        yield self.null_checkbox
 
     @property
     def entry(self) -> HeaderEntry:
-        value: str | None = self.query_one(".header-value", Input).value
-        if self.query_one(".header-null", Checkbox).value:
+        value: str | None = self.value_input.value
+        if self.null_checkbox.value:
             value = None
         return self.name_input.value, value
 
@@ -295,7 +298,7 @@ class HeadersPane(Container):
             row = next(
                 ancestor for ancestor in event.checkbox.ancestors if isinstance(ancestor, HeaderRow)
             )
-            row.query_one(".header-value", Input).disabled = event.value
+            row.value_input.disabled = event.value
         if not self.rows[-1].is_blank:
             await self.query_one("#header-rows").mount(HeaderRow())
         self._changed()

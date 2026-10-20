@@ -7,6 +7,7 @@ from unittest.mock import ANY, patch
 
 from click.testing import CliRunner
 from confluent_kafka import KafkaError, KafkaException
+from google.protobuf.descriptor_pb2 import FileDescriptorProto, FileDescriptorSet
 
 from kaskade.authentication import (
     OAUTH_CALLBACK,
@@ -773,7 +774,11 @@ class TestConsumerCli(unittest.TestCase):
         self.mock_validate_aws_msk_credentials = aws_credentials_patcher.start()
         self.addCleanup(aws_credentials_patcher.stop)
         self.temp_descriptor_path = Path(self.temp_directory.name) / "descriptor"
-        self.temp_descriptor_path.touch()
+        descriptor = FileDescriptorProto(name="user.proto", syntax="proto3")
+        descriptor.message_type.add(name="User")
+        self.temp_descriptor_path.write_bytes(
+            FileDescriptorSet(file=[descriptor]).SerializeToString()
+        )
         self.temp_avro_path = Path(self.temp_directory.name) / "schema.avsc"
         self.temp_avro_path.touch()
 
@@ -2109,7 +2114,7 @@ class TestConsumerCli(unittest.TestCase):
 
         self.assertGreater(result.exit_code, 0)
         self.assertIn(
-            "Valid properties: ['descriptor', 'key', 'value', 'framing', "
+            "Valid properties: ['descriptor', 'source', 'key', 'value', 'framing', "
             "'key.framing', 'value.framing'].",
             result.output,
         )
@@ -2236,7 +2241,7 @@ class TestConsumerCli(unittest.TestCase):
         expected_descriptor_value = str(self.temp_descriptor_path)
 
         expected_value_name = "value"
-        expected_value = "my-value"
+        expected_value = "User"
 
         result = self.runner.invoke(
             cli,
@@ -2487,7 +2492,7 @@ class TestProducerCli(unittest.TestCase):
         )
         self.assertIsNone(self.producer_settings().apicurio_config)
 
-    def test_rejects_schema_registration_before_the_tui_opens(self):
+    def test_registration_without_a_schema_file_fails_before_the_tui_opens(self):
         result = self.invoke(
             "-b",
             EXPECTED_SERVER,
@@ -2500,7 +2505,11 @@ class TestProducerCli(unittest.TestCase):
         )
 
         self.assertEqual(2, result.exit_code)
-        self.assertIn("Invalid value for '--registry': auto.register.schemas=true", result.output)
+        self.assertIn(
+            "Invalid value for '--registry': Registering the value schema needs exactly one "
+            "schema file",
+            result.output,
+        )
         self.producer.assert_not_called()
 
     def test_help_groups_the_serialization_options(self):

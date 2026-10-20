@@ -209,6 +209,15 @@ def _parse_proxy(config: dict[str, str]) -> str | None:
     return f"http://{credentials}{config[APICURIO_PROXY_HOST]}:{proxy_port}"
 
 
+def _problem_detail(response: httpx.Response) -> str:
+    """The reason in an Apicurio problem response, such as a compatibility rule violation."""
+    try:
+        detail = response.json().get("detail")
+    except (AttributeError, ValueError):
+        return ""
+    return f"; {detail}" if isinstance(detail, str) and detail else ""
+
+
 @dataclass(frozen=True)
 class ApicurioTls:
     """TLS settings from which each client builds its own SSL contexts."""
@@ -474,7 +483,8 @@ class ApicurioClient:
             try:
                 response.raise_for_status()
             except httpx.HTTPError as ex:
-                raise ApicurioRegistryError(f"Apicurio request failed: {ex}") from ex
+                detail = _problem_detail(response)
+                raise ApicurioRegistryError(f"Apicurio request failed: {ex}{detail}") from ex
             return response
         raise ApicurioRegistryError("Apicurio request failed")
 
@@ -573,6 +583,57 @@ class ApicurioClient:
             raise ApicurioRegistryError("Invalid Apicurio version metadata response") from ex
         self._store(cache_key, result)
         return result
+
+    def create_version(
+        self,
+        group: str,
+        artifact: str,
+        artifact_type: str,
+        content: str,
+        references: tuple[ApicurioReference, ...] = (),
+    ) -> ApicurioVersion:
+        """Register content, reusing the version that already has the same content."""
+        content_type = (
+            "application/x-protobuf"
+            if artifact_type == SchemaType.PROTOBUF
+            else ("application/json")
+        )
+        body = {
+            "artifactId": artifact,
+            "artifactType": artifact_type,
+            "firstVersion": {
+                "content": {
+                    "content": content,
+                    "contentType": content_type,
+                    "references": [
+                        {
+                            "groupId": reference.group,
+                            "artifactId": reference.artifact,
+                            "version": reference.version,
+                            "name": reference.name,
+                        }
+                        for reference in references
+                    ],
+                }
+            },
+        }
+        response = self._request(
+            "POST",
+            f"/groups/{quote(group, safe='')}/artifacts",
+            params={"ifExists": "FIND_OR_CREATE_VERSION"},
+            json=body,
+        )
+        try:
+            version = response.json()["version"]
+            return ApicurioVersion(
+                group=str(version.get("groupId") or group),
+                artifact=str(version.get("artifactId") or artifact),
+                version=str(version["version"]),
+                global_id=int(version["globalId"]),
+                content_id=int(version["contentId"]),
+            )
+        except (KeyError, TypeError, ValueError, AttributeError) as ex:
+            raise ApicurioRegistryError("Invalid Apicurio registration response") from ex
 
     def get_referenced_artifact(
         self, reference: ApicurioReference, artifact_type: str

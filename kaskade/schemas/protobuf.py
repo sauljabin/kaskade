@@ -1,6 +1,8 @@
 """Protobuf descriptors from descriptor sets, Registry descriptors, or `.proto` sources."""
 
 import tempfile
+from collections.abc import Mapping
+from functools import cache
 from pathlib import Path
 
 import grpc_tools  # type: ignore[import-untyped]
@@ -80,12 +82,11 @@ def compile_sources(sources: dict[str, str]) -> tuple[FileDescriptorProto, Descr
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(content, encoding="utf-8")
         descriptor_path = root / "schema.desc"
-        bundled_protos = Path(grpc_tools.__file__).parent / "_proto"
         result = protoc.main(
             [
                 "grpc_tools.protoc",
                 f"-I{root}",
-                f"-I{bundled_protos}",
+                f"-I{_bundled_protos()}",
                 f"--descriptor_set_out={descriptor_path}",
                 "--include_imports",
                 ROOT_PROTO,
@@ -127,12 +128,67 @@ def first_message(pool: DescriptorPool, root: FileDescriptorProto) -> Descriptor
     return find_message(pool, root, root.message_type[0].name)
 
 
-def load_message_classes(path: str) -> dict[str, type[Message]]:
-    """Read a descriptor set and return its message classes by full name."""
+BUILTIN_PREFIX = "google/protobuf/"
+
+
+def is_builtin(name: str) -> bool:
+    """Well-known types bundled with protobuf, which are never registered."""
+    return name.startswith(BUILTIN_PREFIX)
+
+
+def _bundled_protos() -> Path:
+    return Path(grpc_tools.__file__).parent / "_proto"
+
+
+def compile_proto_file(path: str | Path) -> FileDescriptorSet:
+    """Compile a `.proto` file; its imports resolve from its directory or bundled types."""
+    source = Path(path).expanduser().resolve()
+    if not source.is_file():
+        raise SchemaError(f"Unable to read {path}")
+    return FileDescriptorSet.FromString(_compiled(str(source)))
+
+
+@cache
+def _compiled(source: str) -> bytes:
+    """Compile each source once per process, so protoc never runs again inside the TUI."""
+    path = Path(source)
+    with tempfile.TemporaryDirectory() as directory:
+        descriptor_path = Path(directory) / "schema.desc"
+        result = protoc.main(
+            [
+                "grpc_tools.protoc",
+                f"-I{path.parent}",
+                f"-I{_bundled_protos()}",
+                f"--descriptor_set_out={descriptor_path}",
+                "--include_imports",
+                path.name,
+            ]
+        )
+        if result != 0:
+            raise SchemaError(f"Invalid Protobuf schema in {source}")
+        return descriptor_path.read_bytes()
+
+
+def load_descriptor_set(path: str | Path) -> FileDescriptorSet:
     try:
-        descriptor_set = FileDescriptorSet.FromString(file_to_bytes(path))
-        return GetMessages(descriptor_set.file)
+        return FileDescriptorSet.FromString(file_to_bytes(str(Path(path).expanduser())))
     except OSError as ex:
         raise SchemaError(f"Unable to read {path}: {ex}") from ex
     except (DecodeError, TypeError, ValueError) as ex:
         raise SchemaError(f"Invalid Protobuf descriptor set in {path}") from ex
+
+
+def protobuf_descriptor_set(config: Mapping[str, str]) -> FileDescriptorSet:
+    """The descriptor set from `descriptor=`, or compiled from `source=`."""
+    if "source" in config:
+        return compile_proto_file(config["source"])
+    return load_descriptor_set(config["descriptor"])
+
+
+def load_message_classes(config: Mapping[str, str]) -> dict[str, type[Message]]:
+    """Message classes by full name, from a descriptor set or a `.proto` source."""
+    descriptor_set = protobuf_descriptor_set(config)
+    try:
+        return GetMessages(descriptor_set.file)
+    except (KeyError, TypeError, ValueError) as ex:
+        raise SchemaError("Invalid Protobuf descriptors") from ex
