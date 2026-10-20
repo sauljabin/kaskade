@@ -123,6 +123,14 @@ class TestHeaders(ProducerTestCase):
             subtitle = self.composer(app).frame.border_subtitle
             self.assertIn("Headers: 16 bytes", subtitle)
 
+    async def test_a_row_reads_its_entry_before_it_is_mounted(self):
+        # A Registry lookup can refresh the Summary while a draft's rows still mount.
+        app = producer_app()
+        async with app.run_test():
+            self.assertEqual(("trace", None), HeaderRow(("trace", None)).entry)
+            self.assertTrue(HeaderRow().is_blank)
+            self.assertTrue(HeaderRow(("", "orphan")).is_unnamed)
+
     async def test_delete_removes_the_focused_header(self):
         app = producer_app(draft=RecordDraft(headers=(("a", "1"), ("b", "2"))))
         async with app.run_test() as pilot:
