@@ -8,9 +8,7 @@ from confluent_kafka.schema_registry.protobuf import (
 from confluent_kafka.serialization import MessageField, SerializationContext
 from fastavro import schemaless_reader
 from fastavro.schema import load_schema
-from google.protobuf.descriptor_pb2 import FileDescriptorSet
 from google.protobuf.message import Message
-from google.protobuf.message_factory import GetMessages
 
 from kaskade.configs import (
     APICURIO_OPTION,
@@ -28,7 +26,8 @@ from kaskade.deserializers.base import (
     _scoped_property,
 )
 from kaskade.deserializers.protobuf import message_to_dict, parse_message, parse_type_ref
-from kaskade.files import file_to_bytes
+from kaskade.schemas.json_schema import load_json_schema, validation_error
+from kaskade.schemas.protobuf import load_message_classes
 
 
 def _payload(
@@ -50,13 +49,24 @@ def _payload(
 
 
 class JsonDeserializer(Deserializer):
+    """Parse JSON and, when the field has a local JSON Schema, validate it."""
+
     def __init__(self, json_config: dict[str, str] | None = None):
         self.config = json_config or {}
+        self._validators = {
+            field: load_json_schema(self.config[name])
+            for field, name in ((MessageField.KEY, "key"), (MessageField.VALUE, "value"))
+            if name in self.config
+        }
 
     def deserialize(
         self, data: bytes, topic: str | None = None, context: MessageField = MessageField.NONE
     ) -> Any:
-        return json.loads(_payload(data, self.config, context, "JSON"))
+        content = json.loads(_payload(data, self.config, context, "JSON"))
+        validator = self._validators.get(context)
+        if validator is not None and (error := validation_error(validator, content)) is not None:
+            raise DeserializationError(error)
+        return content
 
 
 class AvroDeserializer(Deserializer):
@@ -121,8 +131,7 @@ class ProtobufDeserializer(Deserializer):
         if self.descriptor_path is None:
             raise DeserializationError("Descriptor not found")
         if self.descriptor_classes is None:
-            descriptor = FileDescriptorSet.FromString(file_to_bytes(self.descriptor_path))
-            self.descriptor_classes = GetMessages(descriptor.file)
+            self.descriptor_classes = load_message_classes(self.descriptor_path)
         message_class = self.descriptor_classes.get(class_name)
         if message_class is None:
             raise DeserializationError("Deserialization class not found")

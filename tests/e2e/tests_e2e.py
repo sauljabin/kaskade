@@ -10,18 +10,19 @@ import httpx
 from confluent_kafka import Consumer, Producer
 from confluent_kafka.admin import AdminClient
 from confluent_kafka.cimpl import NewTopic
-from confluent_kafka.schema_registry import SchemaRegistryClient
-from confluent_kafka.schema_registry.avro import AvroSerializer
-from confluent_kafka.schema_registry.json_schema import JSONSerializer
-from confluent_kafka.schema_registry.protobuf import ProtobufSerializer
+from confluent_kafka.schema_registry import Schema, SchemaRegistryClient
+from confluent_kafka.schema_registry.avro import AvroDeserializer, AvroSerializer
+from confluent_kafka.schema_registry.json_schema import JSONDeserializer, JSONSerializer
+from confluent_kafka.schema_registry.protobuf import ProtobufDeserializer, ProtobufSerializer
 from confluent_kafka.serialization import MessageField, SerializationContext
-from fastavro import schemaless_writer
+from fastavro import parse_schema, schemaless_writer
 from google.protobuf.descriptor_pb2 import (
     FieldDescriptorProto,
     FileDescriptorProto,
     FileDescriptorSet,
 )
 from google.protobuf.descriptor_pool import DescriptorPool
+from google.protobuf.json_format import MessageToDict
 from google.protobuf.message import Message
 from google.protobuf.message_factory import GetMessageClass
 from testcontainers.community.kafka import KafkaContainer
@@ -31,6 +32,7 @@ from testcontainers.core.wait_strategies import HttpWaitStrategy
 from textual.widgets import Checkbox, DataTable, TextArea
 
 from kaskade.admin import KaskadeAdmin
+from kaskade.apicurio import ApicurioConfig
 from kaskade.configs import (
     APICURIO,
     APICURIO_OPTION,
@@ -326,6 +328,119 @@ class TestE2E(unittest.IsolatedAsyncioTestCase):
             self.assertEqual([("trace", b"a"), ("trace", None), ("empty", b"")], first.headers())
             self.assertIsNone(second.key())
             self.assertEqual(b"{}", second.value())
+
+    async def produce_user(self, topic: str, kafka_config: dict, **serializers) -> None:
+        """Produce MY_KEY and the user {"name": "Ada"} with Kaskade's value serializer."""
+        draft = RecordDraft(
+            key=DraftField(MY_KEY, is_null=False),
+            value=DraftField({"name": "Ada"}, is_null=False),
+        )
+        producer_app = KaskadeProducer(
+            ProducerSettings(topic, kafka_config, **serializers), draft=draft
+        )
+        async with producer_app.run_test() as pilot:
+            composer = producer_app.query_one(RecordComposer)
+            await producer_app.workers.wait_for_complete()
+            await pilot.pause()
+            await pilot.press("ctrl+s")
+            await self.wait_for_subtitle(composer, "Delivered")
+
+    async def test_producer_serializes_with_confluent_schema_registry(self):
+        with Network() as network:
+            kafka_container_instance = (
+                kafka_container().with_network(network).with_network_aliases("kafka")
+            )
+            with (
+                kafka_container_instance as kafka,
+                schema_registry_container(network) as registry,
+            ):
+                kafka_config = {BOOTSTRAP_SERVERS: kafka.get_bootstrap_server()}
+                registry_config = {"url": schema_registry_url(registry)}
+                with SchemaRegistryClient(registry_config) as registry_client:
+                    cases = (
+                        (
+                            JSON_TOPIC,
+                            JSON_SCHEMA,
+                            "JSON",
+                            JSONDeserializer(JSON_SCHEMA, schema_registry_client=registry_client),
+                        ),
+                        (AVRO_TOPIC, AVRO_SCHEMA, "AVRO", AvroDeserializer(registry_client)),
+                        (
+                            PROTOBUF_TOPIC,
+                            PROTOBUF_SCHEMA,
+                            "PROTOBUF",
+                            ProtobufDeserializer(ProtobufUser, {"use.deprecated.format": False}),
+                        ),
+                    )
+                    for topic, schema, schema_type, official in cases:
+                        with self.subTest(topic=topic):
+                            create_topic(kafka_config, topic)
+                            schema_id = registry_client.register_schema(
+                                f"{topic}-value", Schema(schema, schema_type)
+                            )
+                            await self.produce_user(
+                                topic,
+                                kafka_config,
+                                value_serialization=Serialization.REGISTRY,
+                                registry_config=registry_config,
+                            )
+
+                            (message,) = consume_all(kafka_config, topic, 1)
+                            self.assertEqual(struct.pack(">bI", 0, schema_id), message.value()[:5])
+                            decoded = official(
+                                message.value(), SerializationContext(topic, MessageField.VALUE)
+                            )
+                            if isinstance(decoded, Message):
+                                decoded = MessageToDict(decoded)
+                            self.assertEqual({"name": "Ada"}, decoded)
+                            await self.assert_consumed_user(
+                                topic,
+                                kafka_config,
+                                Deserialization.REGISTRY,
+                                registry_config=registry_config,
+                            )
+
+    async def test_producer_serializes_with_native_apicurio(self):
+        with kafka_container() as kafka, apicurio_container() as registry:
+            kafka_config = {BOOTSTRAP_SERVERS: kafka.get_bootstrap_server()}
+            registry_url = apicurio_url(registry)
+            registry_config = {"provider": APICURIO_OPTION, "apicurio.registry.url": registry_url}
+            avro_payload = BytesIO()
+            schemaless_writer(avro_payload, parse_schema(json.loads(AVRO_SCHEMA)), {"name": "Ada"})
+            cases = (
+                (JSON_TOPIC, "JSON", JSON_SCHEMA, b'{"name":"Ada"}'),
+                (AVRO_TOPIC, "AVRO", AVRO_SCHEMA, avro_payload.getvalue()),
+                (
+                    PROTOBUF_TOPIC,
+                    "PROTOBUF",
+                    PROTOBUF_SCHEMA,
+                    apicurio_type_ref("User") + ProtobufUser(name="Ada").SerializeToString(),
+                ),
+            )
+            for topic, artifact_type, schema, payload in cases:
+                with self.subTest(topic=topic):
+                    create_topic(kafka_config, topic)
+                    content_id = register_apicurio_schema(
+                        registry_url, f"{topic}-value", artifact_type, schema
+                    )
+                    await self.produce_user(
+                        topic,
+                        kafka_config,
+                        value_serialization=Serialization.REGISTRY,
+                        registry_config=registry_config,
+                        apicurio_config=ApicurioConfig.from_dict(registry_config),
+                    )
+
+                    (message,) = consume_all(kafka_config, topic, 1)
+                    # The sandbox frames Apicurio records the same way.
+                    self.assertEqual(apicurio_frame(content_id, payload), message.value())
+                    await self.assert_consumed_user(
+                        topic,
+                        kafka_config,
+                        Deserialization.REGISTRY,
+                        registry_config=registry_config,
+                        expected_registry_provider=APICURIO,
+                    )
 
     async def test_consumer(self):
         with kafka_container() as kafka:

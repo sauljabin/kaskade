@@ -4,12 +4,18 @@ from pathlib import Path
 from unittest.mock import patch
 
 from click import BadParameter, ClickException, MissingParameter
+from google.protobuf.descriptor_pb2 import FileDescriptorSet
 
 from kaskade.authentication import OAUTH_CALLBACK
 from kaskade.cli.connection import resolve_connection
-from kaskade.cli.validation import normalize_deserializer_options, uses
+from kaskade.cli.validation import (
+    normalize_deserializer_options,
+    normalize_serializer_options,
+    uses,
+)
 from kaskade.configs import BOOTSTRAP_SERVERS
 from kaskade.deserializers import Deserialization
+from kaskade.serializers import Serialization
 
 BYTES = Deserialization.BYTES
 STRING = Deserialization.STRING
@@ -32,6 +38,39 @@ def deserializer_options(
         )
     }
     return normalize_deserializer_options(key, value, **properties)
+
+
+def serializer_options(
+    key: Serialization = Serialization.STRING,
+    value: Serialization = Serialization.STRING,
+    **configs: dict[str, str],
+):
+    properties = {
+        name: configs.get(name, {})
+        for name in (
+            "registry_config",
+            "protobuf_config",
+            "avro_config",
+            "json_config",
+            "bytes_config",
+        )
+    }
+    return normalize_serializer_options(key, value, **properties)
+
+
+class SchemaDirectory(unittest.TestCase):
+    def setUp(self) -> None:
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        self.directory = Path(directory.name)
+
+    def write(self, name: str, content: str | bytes) -> str:
+        path = self.directory / name
+        if isinstance(content, bytes):
+            path.write_bytes(content)
+        else:
+            path.write_text(content, encoding="utf-8")
+        return str(path)
 
 
 class TestResolveConnection(unittest.TestCase):
@@ -143,6 +182,152 @@ class TestDeserializerValidation(unittest.TestCase):
             options = deserializer_options(value=AVRO, avro_config={"value": str(schema)})
 
         self.assertEqual({"value": str(schema)}, options.avro_config)
+
+
+class TestJsonSchemaValidation(SchemaDirectory):
+    def test_consumer_accepts_a_json_schema_per_field(self) -> None:
+        schema = self.write("user.json", '{"type": "object"}')
+
+        options = deserializer_options(
+            value=Deserialization.JSON, json_config={"value": schema, "framing": "RAW"}
+        )
+
+        self.assertEqual({"value": schema, "framing": "raw"}, options.json_config)
+
+    def test_a_schema_applies_only_to_a_json_field(self) -> None:
+        schema = self.write("user.json", '{"type": "object"}')
+
+        with self.assertRaisesRegex(BadParameter, "--json key requires '-k json'"):
+            deserializer_options(
+                key=STRING, value=Deserialization.JSON, json_config={"key": schema}
+            )
+        with self.assertRaisesRegex(BadParameter, "--json value requires '-v json'"):
+            serializer_options(key=Serialization.JSON, json_config={"value": schema})
+
+    def test_unusable_schemas_fail_as_json_errors(self) -> None:
+        cases = (
+            (self.write("broken.json", "{"), "Invalid JSON in"),
+            (self.write("invalid.json", '{"type": 5}'), "Invalid JSON Schema"),
+            (str(self.directory / "missing.json"), "should exist"),
+        )
+        for schema, message in cases:
+            for options, json_format in (
+                (deserializer_options, Deserialization.JSON),
+                (serializer_options, Serialization.JSON),
+            ):
+                with (
+                    self.subTest(schema=schema, json_format=json_format),
+                    self.assertRaisesRegex(BadParameter, message) as raised,
+                ):
+                    options(value=json_format, json_config={"value": schema})
+                self.assertIn("'--json value'", raised.exception.format_message())
+
+
+class TestSerializerValidation(SchemaDirectory):
+    def test_returns_normalized_copies_without_mutating_arguments(self) -> None:
+        registry_config = {
+            "provider": "APICURIO",
+            "apicurio.registry.url": "http://registry/apis/registry/v3",
+            "value.apicurio.registry.artifact.artifact-id": "orders",
+            "apicurio.registry.auto-register": "false",
+        }
+        bytes_config = {"key.encoding": "HEX"}
+
+        options = serializer_options(
+            key=Serialization.BYTES,
+            value=Serialization.REGISTRY,
+            registry_config=registry_config,
+            bytes_config=bytes_config,
+        )
+
+        self.assertEqual("apicurio", options.registry_config["provider"])
+        self.assertEqual(
+            "orders", options.registry_config["value.apicurio.registry.artifact.artifact-id"]
+        )
+        self.assertEqual("http://registry/apis/registry/v3", options.apicurio_config.url)
+        self.assertEqual({"key.encoding": "hex"}, options.bytes_config)
+        self.assertEqual("APICURIO", registry_config["provider"])
+        self.assertEqual({"key.encoding": "HEX"}, bytes_config)
+
+    def test_rejects_unsupported_schema_selection(self) -> None:
+        cases = (
+            ({"url": "http://registry", "auto.register.schemas": "true"}, "isn't supported yet"),
+            ({"url": "http://registry", "use.latest.version": "false"}, "needs a local schema"),
+            (
+                {"url": "http://registry", "apicurio.registry.artifact.artifact-id": "orders"},
+                "requires provider=apicurio",
+            ),
+        )
+        for registry_config, message in cases:
+            with (
+                self.subTest(registry_config),
+                self.assertRaisesRegex(BadParameter, message) as raised,
+            ):
+                serializer_options(value=Serialization.REGISTRY, registry_config=registry_config)
+            self.assertIn("--registry", raised.exception.format_message())
+
+    def test_scoped_selection_requires_that_field_to_use_the_registry(self) -> None:
+        with self.assertRaisesRegex(
+            BadParameter, "--registry key.use.schema.id requires '-k registry'"
+        ):
+            serializer_options(
+                value=Serialization.REGISTRY,
+                registry_config={"url": "http://registry", "key.use.schema.id": "3"},
+            )
+
+    def test_requires_the_schema_files_each_format_needs(self) -> None:
+        avro = self.write("user.avsc", '{"type": "record", "name": "User", "fields": []}')
+        cases = (
+            ({"value": Serialization.AVRO}, {}, MissingParameter, "--avro"),
+            (
+                {"value": Serialization.AVRO, "key": Serialization.AVRO},
+                {"avro_config": {"value": avro}},
+                MissingParameter,
+                "--avro key=",
+            ),
+            (
+                {"value": Serialization.AVRO},
+                {"avro_config": {"value": avro, "framing": "confluent"}},
+                BadParameter,
+                "Valid properties",
+            ),
+            (
+                {"value": Serialization.PROTOBUF},
+                {"protobuf_config": {"value": "User"}},
+                MissingParameter,
+                "--protobuf descriptor=",
+            ),
+            (
+                {"value": Serialization.REGISTRY},
+                {},
+                ClickException,
+                "Schema Registry configuration is required",
+            ),
+            (
+                {},
+                {"bytes_config": {"encoding": "hex"}},
+                MissingParameter,
+                "'-k bytes' and/or '-v bytes'",
+            ),
+        )
+        for formats, configs, error, message in cases:
+            with self.subTest(formats=formats, configs=configs), self.assertRaises(error) as raised:
+                serializer_options(**formats, **configs)
+            self.assertIn(message, raised.exception.format_message())
+
+    def test_loads_schema_files_before_the_tui_opens(self) -> None:
+        descriptor = self.write("user.desc", FileDescriptorSet().SerializeToString())
+        broken = self.write("broken.avsc", "{")
+
+        with self.assertRaisesRegex(BadParameter, "Invalid Avro schema") as raised:
+            serializer_options(value=Serialization.AVRO, avro_config={"value": broken})
+        self.assertIn("'--avro value'", raised.exception.format_message())
+        with self.assertRaisesRegex(BadParameter, "User isn't in") as raised:
+            serializer_options(
+                key=Serialization.PROTOBUF,
+                protobuf_config={"descriptor": descriptor, "key": "User"},
+            )
+        self.assertIn("'--protobuf key'", raised.exception.format_message())
 
 
 if __name__ == "__main__":

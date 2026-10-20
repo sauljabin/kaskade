@@ -30,7 +30,7 @@
   declarations. Help groups are `Configuration options`, `Kafka connection
   options`, `AWS options`, `Timeout options`, and `Application options`;
   consumer also separates `Consumption options` and `Deserialization options`,
-  and producer adds `Production options`.
+  and producer adds `Production options` and `Serialization options`.
 - `main.py` declares commands. Every command resolves Kafka, Registry, and AWS
   settings through `kaskade.cli.connection.resolve_connection`; validators in
   `kaskade.cli.validation` return normalized copies and never mutate their
@@ -83,8 +83,18 @@
 
 ## Producer
 
-- Producer serializers live in `kaskade/serializers.py` and stay independent of
-  the consumer deserializers. Serializer errors never repeat record content.
+- Producer serializers live in `kaskade/serializers/`. Encoding stays
+  independent of the consumer deserializers; both share local schema loading
+  and Registry schema lookups, with references, in `kaskade/schemas/`.
+  Serializer and JSON Schema validation errors name paths and rules and never
+  repeat record content.
+- `-k` and `-v` alone choose each field's serializer; the composer has no
+  serializer selector. Local `--json`, `--avro`, and `--protobuf` schemas never
+  write Registry framing. `registry` only looks up registered schemas the way
+  the official serializers choose them (Confluent `TopicNameStrategy`, Apicurio
+  `TopicIdStrategy`), runs lookups through `run_blocking`, and rejects enabled
+  auto-registration until #214. Composed Avro and Protobuf JSON is the shape
+  the consumer shows, so copied records round-trip.
 - Producer dedicated options (`--acks`, `--compression`, `--idempotence`) apply
   only when passed, above `--kafka` and below `-b`. Let `confluent-kafka` reject
   incompatible settings; never adjust them silently.

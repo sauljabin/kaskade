@@ -177,6 +177,35 @@ kaskade producer -b localhost:9092 -t qa-producer --source "$QA/bad.json"
 Expect the draft to fill the Headers, Key, and Value tabs without producing, and
 the bad file to fail with `a record document must be a JSON object`.
 
+Schemas. Each sandbox `*-schema` topic has a `User` schema with one `name`
+field. Produce `{"name": "Ada"}` to each topic, then read it back:
+
+```bash
+kaskade producer -b localhost:9092 -t avro-schema -v registry \
+    --registry url=http://localhost:8081
+kaskade producer -b localhost:9092 -t protobuf-schema -v registry \
+    --registry url=http://localhost:8081
+kaskade producer -b localhost:9092 -t json-schema-apicurio -v registry \
+    --registry provider=apicurio \
+    --registry apicurio.registry.url=http://localhost:8082/apis/registry/v3
+kaskade producer -b localhost:9092 -t protobuf-schema-apicurio -v registry \
+    --registry provider=apicurio \
+    --registry apicurio.registry.url=http://localhost:8082/apis/registry/v3
+kaskade consumer -b localhost:9092 --earliest -t avro-schema -k string -v registry \
+    --registry url=http://localhost:8081
+```
+
+1. The Summary shows the subject or artifact `<topic>-value`, its version, and
+   its schema ID. The editor highlights the JSON.
+2. Type `{"name": 7}` in **Value**: the subtitle reports the mismatch by path
+   and never shows `7`. Fix it and press `Ctrl+S`.
+3. In the consumer, the new record decodes like the sandbox's records, with
+   the same schema ID in Record Details. Copy its Value with `y`, paste it into
+   the producer, and produce it again.
+4. `-t qa-producer -v registry --registry url=http://localhost:8081` shows the
+   registry's `Subject 'qa-producer-value' not found` error, and
+   `--registry auto.register.schemas=true` fails before the TUI opens.
+
 Failures:
 
 ```bash

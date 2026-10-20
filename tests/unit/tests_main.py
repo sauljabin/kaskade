@@ -2434,6 +2434,105 @@ class TestProducerCli(unittest.TestCase):
         self.assertIn("Invalid value for '--source': a record document must be", result.output)
         self.producer.assert_not_called()
 
+    def test_serialization_options_reach_the_settings(self):
+        schema = Path(self.temp_directory.name) / "user.avsc"
+        schema.write_text('{"type": "record", "name": "User", "fields": []}', encoding="utf-8")
+
+        result = self.invoke(
+            "-b",
+            EXPECTED_SERVER,
+            "-k",
+            "bytes",
+            "--bytes",
+            "encoding=HEX",
+            "-v",
+            "avro",
+            "--avro",
+            f"value={schema}",
+        )
+
+        self.assertEqual(0, result.exit_code, result.output)
+        settings = self.producer_settings()
+        self.assertEqual(Serialization.BYTES, settings.key_serialization)
+        self.assertEqual(Serialization.AVRO, settings.value_serialization)
+        self.assertEqual({"encoding": "hex"}, settings.bytes_config)
+        self.assertEqual({"value": str(schema)}, settings.avro_config)
+
+    def test_registry_merges_the_file_and_the_schema_selection(self):
+        config_path = write_config_ini(
+            self.temp_directory.name,
+            kafka={BOOTSTRAP_SERVERS: CONFIGURED_SERVER},
+            registry={"url": "http://registry"},
+        )
+
+        result = self.invoke(
+            "--config-file",
+            config_path,
+            "-v",
+            "registry",
+            "--registry",
+            "value.use.schema.id=4",
+            "--registry",
+            "protobuf.message=shop.Order",
+        )
+
+        self.assertEqual(0, result.exit_code, result.output)
+        self.assertEqual(
+            {
+                "url": "http://registry",
+                "value.use.schema.id": "4",
+                "protobuf.message": "shop.Order",
+            },
+            self.producer_settings().registry_config,
+        )
+        self.assertIsNone(self.producer_settings().apicurio_config)
+
+    def test_rejects_schema_registration_before_the_tui_opens(self):
+        result = self.invoke(
+            "-b",
+            EXPECTED_SERVER,
+            "-v",
+            "registry",
+            "--registry",
+            "url=http://registry",
+            "--registry",
+            "auto.register.schemas=true",
+        )
+
+        self.assertEqual(2, result.exit_code)
+        self.assertIn("Invalid value for '--registry': auto.register.schemas=true", result.output)
+        self.producer.assert_not_called()
+
+    def test_help_groups_the_serialization_options(self):
+        result = self.runner.invoke(cli, ["producer", "--help"], terminal_width=200)
+
+        self.assertEqual(0, result.exit_code)
+        serialization = result.output.split("Serialization options:")[1]
+        for option in (
+            "-k, --key",
+            "-v, --value",
+            "--bytes",
+            "--json",
+            "--avro",
+            "--protobuf",
+            "--registry",
+        ):
+            self.assertIn(option, serialization)
+        self.assertIn(
+            "[string|bytes|boolean|integer|long|float|double|json|avro|protobuf|registry]",
+            result.output,
+        )
+
+    def test_reports_unusable_serializers(self):
+        self.producer.side_effect = ValueError("Missing required configuration property url")
+
+        result = self.invoke(
+            "-b", EXPECTED_SERVER, "-v", "registry", "--registry", "basic.auth.user.info=a:b"
+        )
+
+        self.assertEqual(1, result.exit_code)
+        self.assertIn("Error: Missing required configuration property url", result.output)
+
     def test_reports_invalid_producer_configuration(self):
         self.producer.side_effect = KafkaException(
             KafkaError(

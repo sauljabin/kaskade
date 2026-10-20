@@ -1,85 +1,53 @@
-"""Producer serializers that turn composer text into Kafka key and value bytes.
-
-They are independent of the consumer deserializers so Producer formats, such as
-future Registry serializers, can evolve on their own.
-"""
+"""Serializers for primitive values, plain JSON, and encoded bytes."""
 
 import base64
 import binascii
 import json
 import re
-from enum import Enum, auto
+from pathlib import Path
 from struct import Struct
 from typing import Any
 
 from kaskade.deserializers import BytesEncoding
+from kaskade.schemas.json_schema import validation_error
+from kaskade.serializers.base import (
+    JsonDocumentSerializer,
+    SerializationError,
+    Serializer,
+    compact_json,
+    parse_json,
+)
 
 ESCAPE_PATTERN = re.compile(r"\\(\\|x[0-9a-fA-F]{2})")
 
 
-class SerializationError(ValueError):
-    """Raised when composer text is not valid for the selected serializer.
-
-    Messages describe the problem without repeating the content.
-    """
-
-
-class Serialization(Enum):
-    STRING = auto()
-    BYTES = auto()
-    BOOLEAN = auto()
-    INTEGER = auto()
-    LONG = auto()
-    FLOAT = auto()
-    DOUBLE = auto()
-    JSON = auto()
-
-    def __str__(self) -> str:
-        return self.name.lower()
-
-    @classmethod
-    def str_list(cls) -> list[str]:
-        return [str(serialization) for serialization in cls]
-
-    @classmethod
-    def from_str(cls, value: str) -> "Serialization":
-        return cls[value.upper()]
-
-
-class Serializer:
-    def serialize(self, text: str) -> bytes:
-        raise NotImplementedError
-
-    def draft_text(self, content: Any) -> str:
-        """Return editor text for content loaded from a source document."""
-        if isinstance(content, str):
-            return content
-        return json.dumps(content, ensure_ascii=False)
-
-
 class StringSerializer(Serializer):
+    label = "STRING"
+
     def serialize(self, text: str) -> bytes:
         return text.encode("utf-8")
 
 
-class JsonSerializer(Serializer):
-    """Validate JSON and send it compact, keeping the key order."""
+class JsonSerializer(JsonDocumentSerializer):
+    """Validate JSON, against a local JSON Schema when given, and send it compact."""
+
+    def __init__(self, validator: Any = None, schema_path: str | None = None) -> None:
+        self._validator = validator
+        self.label = "JSON" if schema_path is None else f"JSON · {Path(schema_path).name}"
 
     def serialize(self, text: str) -> bytes:
-        try:
-            content = json.loads(text)
-        except json.JSONDecodeError as ex:
-            reason = ex.msg[:1].lower() + ex.msg[1:]
-            raise SerializationError(
-                f"Invalid JSON, {reason} at line {ex.lineno}, column {ex.colno}"
-            ) from ex
-        return json.dumps(content, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
-
-    def draft_text(self, content: Any) -> str:
-        return json.dumps(content, ensure_ascii=False, indent=2)
+        content = parse_json(text)
+        if self._validator is not None:
+            error = validation_error(self._validator, content)
+            if error is not None:
+                raise SerializationError(error)
+        return compact_json(content)
 
 
 class BooleanSerializer(Serializer):
+    label = "BOOLEAN"
+    edits_json = True
+
     def serialize(self, text: str) -> bytes:
         value = text.strip().lower()
         if value not in {"true", "false"}:
@@ -90,9 +58,12 @@ class BooleanSerializer(Serializer):
 class IntegerSerializer(Serializer):
     """A big-endian signed integer of a fixed size, matching the deserializers."""
 
-    def __init__(self, struct_format: str, label: str, bits: int) -> None:
+    edits_json = True
+
+    def __init__(self, struct_format: str, label: str, bits: int, name: str) -> None:
         self._struct = Struct(struct_format)
         self._label = label
+        self.label = name
         self._minimum = -(2 ** (bits - 1))
         self._maximum = 2 ** (bits - 1) - 1
 
@@ -111,9 +82,12 @@ class IntegerSerializer(Serializer):
 class FloatSerializer(Serializer):
     """A big-endian IEEE 754 number, matching the deserializers."""
 
-    def __init__(self, struct_format: str, label: str) -> None:
+    edits_json = True
+
+    def __init__(self, struct_format: str, label: str, name: str) -> None:
         self._struct = Struct(struct_format)
         self._label = label
+        self.label = name
 
     def serialize(self, text: str) -> bytes:
         try:
@@ -131,6 +105,8 @@ class BytesSerializer(Serializer):
 
     def __init__(self, encoding: BytesEncoding) -> None:
         self.encoding = encoding
+        self.label = f"BYTES · {encoding.name}"
+        self.edits_json = encoding == BytesEncoding.BYTE_ARRAY
 
     def serialize(self, text: str) -> bytes:
         match self.encoding:
@@ -190,26 +166,3 @@ class BytesSerializer(Serializer):
                 "Escaped bytes accept printable ASCII, \\\\, and \\xhh escapes"
             )
         return text.encode("ascii")
-
-
-class SerializerPool:
-    def __init__(self) -> None:
-        self._serializers: dict[Serialization, Serializer] = {
-            Serialization.STRING: StringSerializer(),
-            Serialization.BOOLEAN: BooleanSerializer(),
-            Serialization.INTEGER: IntegerSerializer(">i", "a 32-bit integer", 32),
-            Serialization.LONG: IntegerSerializer(">q", "a 64-bit integer", 64),
-            Serialization.FLOAT: FloatSerializer(">f", "a 32-bit float"),
-            Serialization.DOUBLE: FloatSerializer(">d", "a 64-bit float"),
-            Serialization.JSON: JsonSerializer(),
-        }
-        self._bytes_serializers = {
-            encoding: BytesSerializer(encoding) for encoding in BytesEncoding
-        }
-
-    def get(
-        self, serialization: Serialization, encoding: BytesEncoding = BytesEncoding.BASE64
-    ) -> Serializer:
-        if serialization == Serialization.BYTES:
-            return self._bytes_serializers[encoding]
-        return self._serializers[serialization]

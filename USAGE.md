@@ -34,6 +34,8 @@ up the way you like.
 - [Producer](#producer)
   - [Compose and produce](#compose-and-produce)
   - [Serializers](#serializers)
+  - [Produce with schema files](#produce-with-schema-files)
+  - [Produce with a Schema Registry](#produce-with-a-schema-registry)
   - [Load a draft from a file](#load-a-draft-from-a-file)
   - [Producer configuration](#producer-configuration)
 - [Format-specific consumers](#format-specific-consumers)
@@ -618,8 +620,9 @@ tokens are cached until their reported expiry and refreshed in the same running
 client; one `401` also forces one token refresh and retry.
 
 The native client additionally accepts retry, cache, and proxy properties.
-Serializer-only properties, including artifact selection and auto-registration
-settings, are rejected. JKS and PKCS12 stores, header-based IDs, custom ID
+The consumer rejects serializer-only properties, such as artifact selection and
+auto-registration; the producer accepts the ones in
+[Produce with a Schema Registry](#produce-with-a-schema-registry). JKS and PKCS12 stores, header-based IDs, custom ID
 handlers, and legacy eight-byte framing are not supported. See the
 [Apicurio Registry client configuration reference](https://www.apicur.io/registry/docs/apicurio-registry/3.3.x/getting-started/assembly-configuring-kafka-client-serdes.html).
 
@@ -899,8 +902,8 @@ kaskade producer -b my-kafka:9092 -t orders -k string -v json --partition 2
 The composer has three tabs, **Key**, **Value**, and **Headers**, and a
 **Summary** panel beside them.
 
-- **Key** and **Value** each have a serializer, a **Null** control, and a
-  content editor. The frame's subtitle shows the open field's size, such as
+- **Key** and **Value** each have a **Null** control and a content editor. The
+  frame's subtitle shows the open field's size, such as
   `Value: 16 bytes`, or what makes it invalid. Empty content and null are
   different: an empty string is valid Kafka data, while a null value can act
   as a tombstone on compacted topics.
@@ -910,7 +913,8 @@ The composer has three tabs, **Key**, **Value**, and **Headers**, and a
   names, and empty values are kept; every header needs a name.
 - **Summary** shows whether the record is ready, plus the topic, partition,
   serializers, serialized sizes, the header count and size, and the client's
-  acks, idempotence, and compression. Total Size adds the Key, Value, and
+  acks, idempotence, and compression. A `registry` field also shows its
+  subject or artifact, version, and schema ID. Total Size adds the Key, Value, and
   headers, as the consumer's Total Size does. Sizes appear in bytes, KB, or MB.
   Press `F3` to hide or show it; it starts hidden on terminals narrower than 80
   columns.
@@ -940,22 +944,119 @@ seconds; see [Operation timeouts](#operation-timeouts).
 ### Serializers
 
 Choose the Key and Value serializers with `-k` and `-v`; both default to
-`string`. You can also change them in the Key and Value tabs.
+`string`. They stay fixed while the producer runs.
 
 | Serializer | Content |
 | --- | --- |
 | `string` | UTF-8 text |
-| `bytes` | Text in the selected encoding: `base64`, `hex`, `byte-array` (a JSON array of 0–255), or `escaped` |
+| `bytes` | Text in the `--bytes` encoding: `base64` (default), `hex`, `byte-array` (a JSON array of 0–255), or `escaped` |
 | `boolean` | `true` or `false` |
 | `integer`, `long` | Big-endian 32-bit or 64-bit signed integers |
 | `float`, `double` | Big-endian 32-bit or 64-bit IEEE 754 numbers |
-| `json` | Any JSON document, sent compact |
+| `json` | Any JSON document, sent compact; `--json` adds a JSON Schema |
+| `avro` | JSON, encoded as Avro binary with an `--avro` schema file |
+| `protobuf` | JSON, encoded as a Protobuf message from a `--protobuf` descriptor set |
+| `registry` | JSON, encoded with the schema registered for the topic |
 
-Avro, Protobuf, and Schema Registry serializers aren't supported yet.
+`--bytes` accepts `encoding`, `key.encoding`, and `value.encoding`, like the
+consumer's [byte presentation](#configure-byte-presentation):
+
+```bash
+kaskade producer -b my-kafka:9092 -t orders -k bytes -v bytes --bytes key.encoding=hex
+```
+
+For `avro`, `protobuf`, and `registry`, compose the JSON the consumer shows for
+the same record. A Key or Value copied from the consumer produces the same
+bytes again, including Avro timestamps, dates, decimals, and nested bytes in
+the form the consumer displays them (`2026-10-08 14:20:05.120000+00:00`,
+`b'\x00'`).
 
 When the content is JSON, the editor highlights it in the consumer's colors:
-for `json`, `boolean`, the number serializers, and `bytes` with `byte-array`.
-`string` and the other `bytes` encodings stay plain text.
+for `json`, `avro`, `protobuf`, `registry`, `boolean`, the number serializers,
+and `bytes` with `byte-array`. `string` and the other `bytes` encodings stay
+plain text.
+
+Validation errors appear in the frame's subtitle and the Summary. They name
+the field path and the rule, such as `$.age fails minimum 0` or
+`Doesn't match the Avro schema at User.age: expected int`, and never repeat
+the content.
+
+### Produce with schema files
+
+Local schema files encode records without a registry. Kaskade reads them
+before the composer opens, so an unreadable or invalid file fails right away,
+naming the option.
+
+```bash
+kaskade producer -b my-kafka:9092 -t users -v json --json value=user.json
+kaskade producer -b my-kafka:9092 -t users -v avro --avro value=user.avsc
+kaskade producer -b my-kafka:9092 -t users -v protobuf \
+        --protobuf descriptor=my-descriptor.desc \
+        --protobuf value=mypackage.User
+```
+
+- `--json key=…` and `value=…` validate the JSON before it is produced. Each
+  `$ref` resolves against files next to the schema; remote URLs are never
+  fetched. Without a schema, `json` sends any valid JSON.
+- `--avro key=…` and `value=…` take `.avsc` files. They are required for each
+  field that uses `avro`.
+- `--protobuf descriptor=…` takes a descriptor set, built as in the
+  [Protobuf consumer](#protobuf-consumer), and `key=…` or `value=…` the full
+  message name.
+
+These serializers write the raw encoding without Confluent or Apicurio
+framing: the five-byte header needs a schema ID that only a registry can
+confirm. Use [`registry`](#produce-with-a-schema-registry) for framed records.
+
+### Produce with a Schema Registry
+
+`registry` looks up the schema registered for the topic, encodes the record
+with it, and writes the five-byte header with its ID. It uses the same
+`--registry` provider, `[registry]` section, authentication, and TLS settings
+as the [consumer](#schema-registry):
+
+```bash
+kaskade producer -b my-kafka:9092 -t users -v registry \
+        --registry url=http://my-schema-registry:8081
+kaskade producer -b my-kafka:9092 -t users -v registry \
+        --registry provider=apicurio \
+        --registry apicurio.registry.url=http://my-apicurio-registry:8080/apis/registry/v3
+```
+
+Kaskade chooses the schema the way the official serializers do:
+
+| Provider | Default schema | Choose another |
+| --- | --- | --- |
+| Confluent | Latest version of subject `<topic>-key` or `<topic>-value` | `use.schema.id=<id>` |
+| Apicurio | Latest version of artifact `<topic>-key` or `<topic>-value` in group `default` | `apicurio.registry.artifact.group-id`, `apicurio.registry.artifact.artifact-id`, `apicurio.registry.artifact.version` |
+
+Each selection property applies to both fields, or to one with a `key.` or
+`value.` prefix, such as `--registry value.use.schema.id=12`. Confluent's
+`use.latest.version=true` and Apicurio's `apicurio.registry.find-latest=true`
+are accepted; without a local schema to look up, `false` fails unless an
+Apicurio version is given.
+
+The framing follows the schema type:
+
+| Schema | After the header |
+| --- | --- |
+| JSON Schema | The validated JSON, compact |
+| Avro | Avro binary |
+| Protobuf, Confluent | Message indexes, then the Protobuf binary |
+| Protobuf, Apicurio | A message-type reference, then the Protobuf binary |
+
+Protobuf uses the first message in the schema. Choose another with
+`--registry protobuf.message=Order` or a nested name such as `Order.Line`.
+Imported schemas resolve from the registry.
+
+Kaskade only looks up schemas that are already registered.
+`auto.register.schemas=true` and `apicurio.registry.auto-register=true` fail
+before the composer opens.
+
+The lookup runs when the composer opens. Until it finishes, the field shows
+`Looking up the schema`. If it fails, for example because the subject doesn't
+exist, the field shows the registry's error, and `Ctrl+S` looks up the schema
+again before producing.
 
 ### Load a draft from a file
 
@@ -1031,6 +1132,21 @@ kaskade consumer -b my-kafka:9092 -t my-json-topic \
         -k string -v json \
         --json value.framing=apicurio
 ```
+
+Add a JSON Schema file to validate each record after framing is removed:
+
+```bash
+kaskade consumer -b my-kafka:9092 -t my-json-topic \
+        -k string -v json \
+        --json value=my-schema.json
+```
+
+A record that doesn't match is a
+[deserialization failure](#deserialization-failures) for that field only: it
+falls back to BYTES with `JSON Schema validation failed: …`, naming the path and
+rule but never the value. Each `$ref` resolves against files next to the
+schema, and remote URLs are never fetched. An unreadable or invalid schema
+fails before the TUI opens.
 
 ### Avro consumer
 

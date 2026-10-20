@@ -10,9 +10,10 @@ from typing import Any
 from confluent_kafka import TIMESTAMP_NOT_AVAILABLE, KafkaError, KafkaException, Producer
 
 from kaskade import logger
+from kaskade.apicurio import ApicurioConfig
 from kaskade.concurrency import run_blocking
 from kaskade.configs import PRODUCER_SETTING_ALIASES, PRODUCER_SETTING_DEFAULTS
-from kaskade.serializers import Serialization
+from kaskade.serializers import Serialization, SerializerPool
 from kaskade.timeouts import TimeoutConfig
 
 POLL_INTERVAL_SECONDS = 0.1
@@ -52,14 +53,31 @@ TIMEOUT_ERROR_CODES = frozenset(
 
 @dataclass(frozen=True)
 class ProducerSettings:
-    """The producer command's configuration."""
+    """The producer command's configuration; serializer properties are already validated."""
 
     topic: str
     kafka_config: dict[str, Any]
     key_serialization: Serialization = Serialization.STRING
     value_serialization: Serialization = Serialization.STRING
+    registry_config: dict[str, str] = field(default_factory=dict)
+    apicurio_config: ApicurioConfig | None = None
+    protobuf_config: dict[str, str] = field(default_factory=dict)
+    avro_config: dict[str, str] = field(default_factory=dict)
+    json_config: dict[str, str] = field(default_factory=dict)
+    bytes_config: dict[str, str] = field(default_factory=dict)
     partition: int | None = None
     timeouts: TimeoutConfig = field(default_factory=TimeoutConfig)
+
+    def serializer_pool(self) -> SerializerPool:
+        return SerializerPool(
+            self.topic,
+            registry_config=self.registry_config,
+            apicurio_config=self.apicurio_config,
+            protobuf_config=self.protobuf_config,
+            avro_config=self.avro_config,
+            json_config=self.json_config,
+            bytes_config=self.bytes_config,
+        )
 
     def client_setting(self, name: str) -> str:
         """The value the client uses: configured, under any of its names, or the default."""

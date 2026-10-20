@@ -11,15 +11,21 @@ from textual.binding import Binding, BindingType
 from textual.containers import Container, Grid, Horizontal
 from textual.markup import escape
 from textual.message import Message
-from textual.widgets import Checkbox, Input, Select, Static, TabbedContent, TabPane, TextArea
+from textual.widgets import Checkbox, Input, Static, TabbedContent, TabPane, TextArea
 
+from kaskade.apicurio import APICURIO_USE_ID
 from kaskade.colors import PRIMARY
-from kaskade.configs import ACKS, COMPRESSION_TYPE, ENABLE_IDEMPOTENCE
-from kaskade.deserializers import BytesEncoding
+from kaskade.concurrency import run_blocking
+from kaskade.configs import (
+    ACKS,
+    APICURIO_OPTION,
+    COMPRESSION_TYPE,
+    CONFLUENT_OPTION,
+    ENABLE_IDEMPOTENCE,
+)
 from kaskade.producer.highlighting import (
     JSON_HIGHLIGHT_QUERY,
     JSON_LANGUAGE,
-    highlights_json,
     json_language,
     json_theme,
 )
@@ -30,7 +36,7 @@ from kaskade.producer_service import (
     ProducerService,
     ProducerSettings,
 )
-from kaskade.serializers import Serialization, SerializationError, SerializerPool
+from kaskade.serializers import Serialization, SerializationError, Serializer, SerializerPool
 from kaskade.ui import format_size, notify_error
 from kaskade.widgets import KaskadeScrollableContainer, MetadataCell
 
@@ -104,51 +110,24 @@ class HeaderInput(Input, inherit_bindings=False):
 
 
 class FieldEditor(Container):
-    """Serializer, null control, content editor, and validation for the Key or Value."""
+    """Null control, content editor, and validation for the Key or Value.
+
+    The serializer comes from -k or -v and stays fixed while the producer runs.
+    """
 
     class Changed(Message):
-        """Posted whenever the serializer, null control, or content changes."""
+        """Posted whenever the null control or content changes."""
 
-    def __init__(
-        self, field_name: str, serialization: Serialization, serializers: SerializerPool
-    ) -> None:
+    def __init__(self, field_name: str, serializer: Serializer) -> None:
         super().__init__(id=f"{field_name}-editor", classes="field-editor")
         self.field_name = field_name
-        self.initial_serialization = serialization
-        self.serializers = serializers
+        self.serializer = serializer
 
     def compose(self) -> ComposeResult:
         with Horizontal(classes="field-options"):
-            serializer = Select(
-                [(name.upper(), name) for name in Serialization.str_list()],
-                value=str(self.initial_serialization),
-                allow_blank=False,
-                id=f"{self.field_name}-serializer",
-                classes="field-serializer",
-            )
-            yield serializer
-            encoding = Select(
-                [(str(encoding).upper(), str(encoding)) for encoding in BytesEncoding],
-                value=str(BytesEncoding.BASE64),
-                allow_blank=False,
-                id=f"{self.field_name}-encoding",
-                classes="field-encoding",
-            )
-            encoding.display = self.initial_serialization == Serialization.BYTES
-            yield encoding
             yield Checkbox("Null", False, id=f"{self.field_name}-null", classes="field-null")
         yield Static(Text("CONTENT", style="muted"), classes="field-content-label")
         yield ContentArea(id=f"{self.field_name}-content", classes="field-content")
-
-    @property
-    def serialization(self) -> Serialization:
-        value = self.query_one(f"#{self.field_name}-serializer", Select).value
-        return Serialization.from_str(str(value))
-
-    @property
-    def encoding(self) -> BytesEncoding:
-        value = self.query_one(f"#{self.field_name}-encoding", Select).value
-        return BytesEncoding.from_str(str(value))
 
     @property
     def is_null(self) -> bool:
@@ -159,12 +138,11 @@ class FieldEditor(Container):
         return self.query_one(f"#{self.field_name}-content", ContentArea)
 
     def on_mount(self) -> None:
-        self.content.highlight_json(highlights_json(self.serialization, self.encoding))
+        self.content.highlight_json(self.serializer.edits_json)
 
     def load(self, draft_field: DraftField) -> None:
         self.query_one(f"#{self.field_name}-null", Checkbox).value = draft_field.is_null
-        serializer = self.serializers.get(self.serialization, self.encoding)
-        text = "" if draft_field.is_null else serializer.draft_text(draft_field.content)
+        text = "" if draft_field.is_null else self.serializer.draft_text(draft_field.content)
         self.content.load_text(text)
         self.mark_validity()
 
@@ -172,7 +150,7 @@ class FieldEditor(Container):
         """Return the content bytes, None for null, or raise SerializationError."""
         if self.is_null:
             return None
-        return self.serializers.get(self.serialization, self.encoding).serialize(self.content.text)
+        return self.serializer.serialize(self.content.text)
 
     def validation(self) -> tuple[str, bool]:
         """Return a short validation message and whether the content is invalid."""
@@ -182,16 +160,10 @@ class FieldEditor(Container):
             return str(ex), True
         return ("Null" if data is None else format_size(len(data))), False
 
-    @on(Select.Changed)
     @on(Checkbox.Changed)
     @on(TextArea.Changed)
     def changed(self, event: Message) -> None:
         event.stop()
-        if isinstance(event, Select.Changed):
-            self.query_one(f"#{self.field_name}-encoding", Select).display = (
-                self.serialization == Serialization.BYTES
-            )
-            self.content.highlight_json(highlights_json(self.serialization, self.encoding))
         if isinstance(event, Checkbox.Changed):
             self.content.disabled = event.value
         self.mark_validity()
@@ -378,27 +350,28 @@ class RecordComposer(Horizontal):
         self,
         settings: ProducerSettings,
         service: ProducerService,
+        serializers: SerializerPool,
+        field_serializers: dict[str, Serializer],
         draft: RecordDraft | None = None,
     ) -> None:
         super().__init__(id="record-composer")
         self.settings = settings
         self.service = service
+        self.serializers = serializers
+        self.field_serializers = field_serializers
         self.draft = draft
-        self.serializers = SerializerPool()
         self.delivery_status = ""
         self.is_producing = False
+        self.is_resolving = False
 
     def compose(self) -> ComposeResult:
         with (
             Container(id="composer-frame", classes="kaskade-table"),
             TabbedContent(id="composer-tabs"),
         ):
-            for field_name, serialization in (
-                ("key", self.settings.key_serialization),
-                ("value", self.settings.value_serialization),
-            ):
+            for field_name in FIELDS:
                 with TabPane(field_name.title(), id=f"{field_name}-tab"):
-                    yield FieldEditor(field_name, serialization, self.serializers)
+                    yield FieldEditor(field_name, self.field_serializers[field_name])
             with TabPane("Headers [0]", id="headers-tab"):
                 yield HeadersPane()
         summary = KaskadeScrollableContainer(id="record-summary", can_focus=False)
@@ -422,6 +395,8 @@ class RecordComposer(Horizontal):
                     yield MetadataCell(
                         "Size", "", ellipsize_value=True, id=f"summary-{field_name}-size"
                     )
+                if self._serialization(field_name) == Serialization.REGISTRY:
+                    yield from self._compose_schema_cells(field_name)
             yield Static(Text("HEADERS", style="muted"), classes="summary-label")
             with Grid(classes="summary-grid summary-field"):
                 yield MetadataCell("Count", "", ellipsize_value=True, id="summary-headers-count")
@@ -437,6 +412,26 @@ class RecordComposer(Horizontal):
                     )
             yield Static(id="summary-status")
 
+    def _serialization(self, field_name: str) -> Serialization:
+        if field_name == "key":
+            return self.settings.key_serialization
+        return self.settings.value_serialization
+
+    def _compose_schema_cells(self, field_name: str) -> ComposeResult:
+        """The registered schema's name, version, and ID, as the provider calls them."""
+        provider = self.settings.registry_config.get("provider", CONFLUENT_OPTION).lower()
+        if provider == APICURIO_OPTION:
+            use_id = self.settings.registry_config.get(APICURIO_USE_ID, "contentId").lower()
+            labels = ("Artifact", "Global ID" if use_id == "globalid" else "Content ID")
+        else:
+            labels = ("Subject", "Schema ID")
+        name_label, id_label = labels
+        with Grid(classes="summary-grid summary-schema"):
+            for label, cell in ((name_label, "schema"), ("Version", "version"), (id_label, "id")):
+                yield MetadataCell(
+                    label, "", ellipsize_value=True, id=f"summary-{field_name}-schema-{cell}"
+                )
+
     def on_mount(self) -> None:
         self.query_one("#record-summary").display = (
             self.app.size.width >= SUMMARY_MIN_TERMINAL_WIDTH
@@ -445,9 +440,32 @@ class RecordComposer(Horizontal):
             self.call_after_refresh(self.load_draft, self.draft)
         self._update_frame()
         self.update_summary()
+        if self._needs_schema():
+            self.resolve_schemas()
 
     async def on_unmount(self) -> None:
         await self.service.aclose()
+        await run_blocking(self.serializers.close)
+
+    def _needs_schema(self) -> bool:
+        return any(serializer.needs_schema for serializer in self.field_serializers.values())
+
+    @work(group="schema-lookup", exclusive=True)
+    async def resolve_schemas(self, *, produce: bool = False) -> None:
+        """Look up Registry schemas off the event loop, then produce if asked to."""
+        self.is_resolving = True
+        try:
+            for field_name in FIELDS:
+                serializer = self.field_serializers[field_name]
+                if serializer.needs_schema:
+                    await run_blocking(serializer.resolve)
+                self.editor(field_name).mark_validity()
+        finally:
+            self.is_resolving = False
+        self.update_summary()
+        self._update_frame()
+        if produce:
+            self.produce_draft()
 
     def _update_frame(self) -> None:
         self.frame.border_title = (
@@ -533,10 +551,9 @@ class RecordComposer(Horizontal):
     def _summarize_field(self, field_name: str) -> tuple[int, str | None]:
         """Show the field's serializer and size; return its byte count and any error."""
         editor = self.editor(field_name)
-        serializer = editor.serialization.name
-        if editor.serialization == Serialization.BYTES:
-            serializer += f" · {editor.encoding.name}"
-        self._summary_cell(f"{field_name}-serializer").update_value(serializer)
+        self._summary_cell(f"{field_name}-serializer").update_value(editor.serializer.label)
+        if self._serialization(field_name) == Serialization.REGISTRY:
+            self._summarize_schema(field_name, editor.serializer)
         size = self._summary_cell(f"{field_name}-size")
         try:
             data = editor.serialize()
@@ -545,6 +562,14 @@ class RecordComposer(Horizontal):
             return 0, str(ex)
         size.update_value("Null" if data is None else format_size(len(data)))
         return (0 if data is None else len(data)), None
+
+    def _summarize_schema(self, field_name: str, serializer: Serializer) -> None:
+        schema = serializer.schema
+        values = (
+            ("…", "…", "…") if schema is None else (schema.name, schema.version, str(schema.id))
+        )
+        for cell, value in zip(("schema", "version", "id"), values, strict=True):
+            self._summary_cell(f"{field_name}-schema-{cell}").update_value(value)
 
     def action_toggle_summary(self) -> None:
         summary = self.query_one("#record-summary")
@@ -582,6 +607,15 @@ class RecordComposer(Horizontal):
         )
 
     def action_produce(self) -> None:
+        if self.is_producing:
+            return
+        if self._needs_schema() and not self.is_resolving:
+            # Retry a failed lookup, for example after the Registry comes back.
+            self.resolve_schemas(produce=True)
+            return
+        self.produce_draft()
+
+    def produce_draft(self) -> None:
         if self.is_producing:
             return
         record = self.outgoing_record()

@@ -1,5 +1,6 @@
 """The Kaskade producer application."""
 
+from confluent_kafka.serialization import MessageField
 from textual.app import ComposeResult
 from textual.widgets import Footer
 
@@ -27,8 +28,27 @@ class KaskadeProducer(KaskadeApp):
         self.draft = draft
         self.producer = ProducerService(producer_settings)
         self.producer.start()
+        # Build the serializers now, so unusable schema files or Registry settings
+        # fail before the TUI opens; Registry schemas are looked up once it runs.
+        self.serializers = producer_settings.serializer_pool()
+        try:
+            self.field_serializers = {
+                "key": self.serializers.get(producer_settings.key_serialization, MessageField.KEY),
+                "value": self.serializers.get(
+                    producer_settings.value_serialization, MessageField.VALUE
+                ),
+            }
+        except Exception:
+            self.serializers.close()
+            raise
 
     def compose(self) -> ComposeResult:
         yield KaskadeHeader(self.producer_settings.kafka_config, profile=kantrip_profile())
-        yield RecordComposer(self.producer_settings, self.producer, self.draft)
+        yield RecordComposer(
+            self.producer_settings,
+            self.producer,
+            self.serializers,
+            self.field_serializers,
+            self.draft,
+        )
         yield Footer(compact=True)

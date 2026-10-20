@@ -1,17 +1,20 @@
 import asyncio
+import json
+import struct
 import unittest
 from datetime import datetime, timezone
+from types import SimpleNamespace
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
+from confluent_kafka.schema_registry.error import SchemaRegistryError
 from rich.console import Console
 from rich.style import Style
 from textual.widgets import Checkbox, Input, Select, Static, TabbedContent, TextArea
 
 from kaskade.configs import BOOTSTRAP_SERVERS
-from kaskade.deserializers import BytesEncoding
 from kaskade.producer import KaskadeProducer, RecordComposer, RecordDraft
 from kaskade.producer.composer import HeaderRow
-from kaskade.producer.highlighting import highlights_json
 from kaskade.producer.source import DraftField
 from kaskade.producer_service import (
     Delivery,
@@ -23,6 +26,11 @@ from kaskade.producer_service import (
 from kaskade.serializers import Serialization
 from tests import configure_producer_service
 
+AVRO_USER_SCHEMA = {
+    "type": "record",
+    "name": "User",
+    "fields": [{"name": "name", "type": "string"}],
+}
 DELIVERY = Delivery(2, 8429, datetime(2026, 10, 8, 14, 20, 5, 120000, tzinfo=timezone.utc))
 
 
@@ -31,12 +39,14 @@ def producer_app(
     draft: RecordDraft | None = None,
     value_serialization: Serialization = Serialization.STRING,
     partition: int | None = None,
+    **options: Any,
 ) -> KaskadeProducer:
     settings = ProducerSettings(
         "orders",
         {BOOTSTRAP_SERVERS: "kafka:9092"},
         value_serialization=value_serialization,
         partition=partition,
+        **options,
     )
     return KaskadeProducer(settings, draft=draft)
 
@@ -169,6 +179,23 @@ class TestHeaders(ProducerTestCase):
 
 
 class TestComposeAndProduce(ProducerTestCase):
+    async def test_serializers_come_only_from_the_command_line(self):
+        app = producer_app(
+            value_serialization=Serialization.BYTES, bytes_config={"value.encoding": "hex"}
+        )
+        async with app.run_test() as pilot:
+            app.query_one("#value-content", TextArea).load_text("00ff")
+            await pilot.pause()
+            await pilot.press("ctrl+s")
+            await pilot.pause()
+
+            self.assertEqual([], list(app.query(Select)))
+            options = app.query_one("#value-editor .field-options")
+            self.assertEqual(["value-null"], [child.id for child in options.children])
+            self.assertEqual(b"\x00\xff", self.produced(self.service).value)
+            serializer = str(app.query_one("#summary-value-serializer", Static).render())
+            self.assertIn("BYTES · HEX", serializer)
+
     async def test_empty_content_is_distinct_from_null(self):
         app = producer_app()
         async with app.run_test() as pilot:
@@ -209,10 +236,9 @@ class TestComposeAndProduce(ProducerTestCase):
             self.assertFalse(editor.has_class("-invalid"))
 
     async def test_success_reports_the_acknowledgement_and_keeps_the_draft(self):
-        app = producer_app(partition=2)
+        app = producer_app(partition=2, value_serialization=Serialization.JSON)
         async with app.run_test() as pilot:
             app.query_one("#key-content", TextArea).load_text("order-1")
-            app.query_one("#value-serializer", Select).value = "json"
             app.query_one("#value-content", TextArea).load_text('{"status": "paid"}')
             await pilot.pause()
             await pilot.press("ctrl+s")
@@ -336,41 +362,21 @@ class TestComposeAndProduce(ProducerTestCase):
 
 
 class TestJsonHighlighting(ProducerTestCase):
-    def test_highlights_every_serializer_whose_input_is_json(self):
-        cases = {
-            (Serialization.JSON, BytesEncoding.BASE64): True,
-            (Serialization.BOOLEAN, BytesEncoding.BASE64): True,
-            (Serialization.INTEGER, BytesEncoding.BASE64): True,
-            (Serialization.LONG, BytesEncoding.BASE64): True,
-            (Serialization.FLOAT, BytesEncoding.BASE64): True,
-            (Serialization.DOUBLE, BytesEncoding.BASE64): True,
-            (Serialization.BYTES, BytesEncoding.BYTE_ARRAY): True,
-            (Serialization.STRING, BytesEncoding.BASE64): False,
-            (Serialization.BYTES, BytesEncoding.BASE64): False,
-            (Serialization.BYTES, BytesEncoding.HEX): False,
-            (Serialization.BYTES, BytesEncoding.ESCAPED): False,
-        }
-        self.assertEqual(set(Serialization), {serialization for serialization, _ in cases})
-        for (serialization, encoding), expected in cases.items():
-            with self.subTest(serialization=serialization, encoding=encoding):
-                self.assertEqual(expected, highlights_json(serialization, encoding))
-
-    async def test_switches_with_the_serializer_and_bytes_encoding(self):
+    async def test_highlights_only_serializers_whose_input_is_json(self):
         app = producer_app(value_serialization=Serialization.JSON)
         async with app.run_test() as pilot:
             await pilot.pause()
-            key = app.query_one("#key-content", TextArea)
-            value = app.query_one("#value-content", TextArea)
-            self.assertIsNone(key.language)
-            self.assertEqual("json", value.language)
 
-            app.query_one("#value-serializer", Select).value = "bytes"
-            await pilot.pause()
-            self.assertIsNone(value.language)
+            self.assertIsNone(app.query_one("#key-content", TextArea).language)
+            self.assertEqual("json", app.query_one("#value-content", TextArea).language)
 
-            app.query_one("#value-encoding", Select).value = "byte-array"
+        app = producer_app(
+            value_serialization=Serialization.BYTES, bytes_config={"encoding": "byte-array"}
+        )
+        async with app.run_test() as pilot:
             await pilot.pause()
-            self.assertEqual("json", value.language)
+
+            self.assertEqual("json", app.query_one("#value-content", TextArea).language)
 
     async def test_colors_follow_the_theme(self):
         app = producer_app(value_serialization=Serialization.JSON)
@@ -398,6 +404,84 @@ class TestJsonHighlighting(ProducerTestCase):
                 if segment.text == text:
                     return segment.style
         raise AssertionError(f"{text!r} is not drawn")
+
+
+class TestRegistryLookup(ProducerTestCase):
+    def setUp(self) -> None:
+        super().setUp()
+        patcher = patch("kaskade.serializers.registry.SchemaRegistryClient")
+        self.addCleanup(patcher.stop)
+        self.client = patcher.start().return_value
+        self.client.get_schema.return_value = SimpleNamespace(
+            schema_str=json.dumps(AVRO_USER_SCHEMA), schema_type="AVRO", references=[]
+        )
+
+    @staticmethod
+    def registry_app() -> KaskadeProducer:
+        return producer_app(
+            value_serialization=Serialization.REGISTRY,
+            registry_config={"url": "http://registry"},
+        )
+
+    @staticmethod
+    def cell(app: KaskadeProducer, name: str) -> str:
+        return str(app.query_one(f"#summary-value-{name}", Static).render())
+
+    async def test_looks_up_the_schema_and_shows_it_in_the_summary(self):
+        self.client.get_latest_version.return_value = SimpleNamespace(schema_id=7, version=3)
+        app = self.registry_app()
+        async with app.run_test(size=(120, 40)) as pilot:
+            await pilot.pause()
+            await app.workers.wait_for_complete()
+            await pilot.pause()
+            app.query_one("#value-content", TextArea).load_text('{"name": "Ada"}')
+            await pilot.pause()
+
+            self.assertIn("REGISTRY · AVRO", self.cell(app, "serializer"))
+            self.assertIn("orders-value", self.cell(app, "schema-schema"))
+            self.assertIn("3", self.cell(app, "schema-version"))
+            self.assertIn("7", self.cell(app, "schema-id"))
+            self.assertIn("SCHEMA ID", self.cell(app, "schema-id"))
+            self.assertEqual("json", app.query_one("#value-content", TextArea).language)
+            await pilot.press("ctrl+s")
+            await pilot.pause()
+
+            self.assertEqual(
+                struct.pack(">bI", 0, 7) + b"\x06Ada", self.produced(self.service).value
+            )
+        self.client.get_latest_version.assert_called_once_with("orders-value")
+        self.client.close.assert_called_once_with()
+
+    async def test_a_failed_lookup_blocks_production_and_retries_on_produce(self):
+        self.client.get_latest_version.side_effect = [
+            SchemaRegistryError(404, 40401, "Subject 'orders-value' not found."),
+            SchemaRegistryError(404, 40401, "Subject 'orders-value' not found."),
+            SimpleNamespace(schema_id=7, version=3),
+        ]
+        app = self.registry_app()
+        async with app.run_test(size=(120, 40)) as pilot:
+            with self.assertLogs("kaskade", level="WARNING"):
+                await pilot.pause()
+                await app.workers.wait_for_complete()
+                await pilot.pause()
+                app.query_one(TabbedContent).active = "value-tab"
+                app.query_one("#value-content", TextArea).load_text('{"name": "Ada"}')
+                await pilot.pause()
+                subtitle = str(self.composer(app).frame.border_subtitle)
+                self.assertIn("Subject 'orders-value' not found", subtitle)
+                self.assertIn("…", self.cell(app, "schema-schema"))
+
+                await pilot.press("ctrl+s")
+                await app.workers.wait_for_complete()
+                await pilot.pause()
+                self.service.produce.assert_not_called()
+
+            await pilot.press("ctrl+s")
+            await app.workers.wait_for_complete()
+            await pilot.pause()
+
+            self.service.produce.assert_called_once()
+            self.assertIn("orders-value", self.cell(app, "schema-schema"))
 
 
 if __name__ == "__main__":
