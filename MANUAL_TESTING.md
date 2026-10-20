@@ -204,7 +204,35 @@ kaskade consumer -b localhost:9092 --earliest -t avro-schema -k string -v regist
    the producer, and produce it again.
 4. `-t qa-producer -v registry --registry url=http://localhost:8081` shows the
    registry's `Subject 'qa-producer-value' not found` error, and
-   `--registry auto.register.schemas=true` fails before the TUI opens.
+   `--registry auto.register.schemas=true` without a schema file fails before
+   the TUI opens.
+
+Registration. Write a Protobuf user that imports an address, then register and
+produce it in both registries:
+
+```bash
+mkdir -p "$QA/proto/common"
+printf '%s\n' 'syntax = "proto3"; package qa; message Address { string city = 1; }' \
+    > "$QA/proto/common/address.proto"
+printf '%s\n' 'syntax = "proto3"; package qa; import "common/address.proto";' \
+    'message User { string name = 1; Address address = 2; }' > "$QA/proto/user.proto"
+kaskade producer -b localhost:9092 -t qa-registered -v registry \
+    --registry url=http://localhost:8081 --registry auto.register.schemas=true \
+    --protobuf source="$QA/proto/user.proto" --protobuf value=qa.User
+kaskade producer -b localhost:9092 -t qa-registered -v registry \
+    --registry provider=apicurio \
+    --registry apicurio.registry.url=http://localhost:8082/apis/registry/v3 \
+    --registry apicurio.registry.auto-register=true \
+    --protobuf source="$QA/proto/user.proto" --protobuf value=qa.User
+```
+
+1. The Summary shows `qa-registered-value`, version 1, and its ID. Produce
+   `{"name": "Ada", "address": {"city": "Quito"}}`.
+2. Quit and run each command again: the version stays 1.
+3. Both registries list `common/address.proto` as its own subject or artifact,
+   and the consumer reads the records back with `-v registry`.
+4. With `--protobuf descriptor=…` instead of `source=`, the Apicurio command
+   fails before the TUI opens, asking for `--protobuf source=`.
 
 Failures:
 

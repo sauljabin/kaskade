@@ -1,7 +1,7 @@
-"""Registry serializers that look up a registered schema and frame records with its ID.
+"""Registry serializers that look up or register a schema and frame records with its ID.
 
-Kaskade encodes the records itself, the same way for Confluent and Apicurio, and
-only looks up schemas: registering them is never done here.
+Kaskade encodes the records itself, the same way for Confluent and Apicurio. It
+registers a local schema only when auto-registration is enabled for the field.
 """
 
 from collections.abc import Callable, Mapping
@@ -11,7 +11,7 @@ from struct import Struct
 from typing import Any
 
 import httpx
-from confluent_kafka.schema_registry import SchemaRegistryClient
+from confluent_kafka.schema_registry import Schema, SchemaReference, SchemaRegistryClient
 from confluent_kafka.schema_registry.error import SchemaRegistryError
 from confluent_kafka.serialization import MessageField
 from google.protobuf.descriptor import Descriptor
@@ -30,12 +30,15 @@ from kaskade.apicurio import (
     APICURIO_LATEST_VERSION,
     ApicurioClient,
     ApicurioConfig,
+    ApicurioReference,
     ApicurioRegistryError,
+    ApicurioVersion,
 )
 from kaskade.configs import (
     APICURIO_OPTION,
     AUTO_REGISTER_SCHEMAS,
     CONFLUENT_OPTION,
+    NORMALIZE_SCHEMAS,
     PROTOBUF_MESSAGE,
     SCHEMA_REGISTRY_MAGIC_BYTE,
     USE_LATEST_VERSION,
@@ -47,6 +50,7 @@ from kaskade.schemas.apicurio import ApicurioSchemas
 from kaskade.schemas.confluent import ConfluentSchemas
 from kaskade.schemas.json_schema import validation_error
 from kaskade.schemas.protobuf import find_message, first_message
+from kaskade.schemas.registration import SchemaDocument
 from kaskade.serializers.avro import encode_avro
 from kaskade.serializers.base import (
     JsonDocumentSerializer,
@@ -64,7 +68,13 @@ from kaskade.serializers.protobuf import (
 REGISTRY_HEADER = Struct(">bI")
 FIELD_PREFIXES = ("key.", "value.")
 SELECTION_PROPERTIES = {
-    CONFLUENT_OPTION: (AUTO_REGISTER_SCHEMAS, USE_LATEST_VERSION, USE_SCHEMA_ID, PROTOBUF_MESSAGE),
+    CONFLUENT_OPTION: (
+        AUTO_REGISTER_SCHEMAS,
+        NORMALIZE_SCHEMAS,
+        USE_LATEST_VERSION,
+        USE_SCHEMA_ID,
+        PROTOBUF_MESSAGE,
+    ),
     APICURIO_OPTION: (
         APICURIO_AUTO_REGISTER,
         APICURIO_FIND_LATEST,
@@ -84,6 +94,7 @@ REGISTRY_EXCEPTIONS: tuple[type[Exception], ...] = (
     ValueError,
 )
 LOOKING_UP = "Looking up the schema"
+REGISTERING = "Registering the schema"
 NO_VERSION = "—"
 Encoder = Callable[[Any], bytes]
 
@@ -108,13 +119,15 @@ def split_registry_config(config: Mapping[str, str]) -> tuple[dict[str, str], di
 
 @dataclass(frozen=True)
 class SchemaSelection:
-    """How one field's registered schema is chosen, as the official serializers do."""
+    """How one field's schema is chosen or registered, as the official serializers do."""
 
     schema_id: int | None = None
     group: str = APICURIO_DEFAULT_GROUP
     artifact: str | None = None
     version: str | None = None
     protobuf_message: str | None = None
+    auto_register: bool = False
+    normalize: bool = False
 
     @classmethod
     def from_config(
@@ -137,34 +150,47 @@ class SchemaSelection:
 
     @classmethod
     def _confluent(cls, value: Callable[[str], str | None]) -> "SchemaSelection":
-        _refuse_registration(AUTO_REGISTER_SCHEMAS, value(AUTO_REGISTER_SCHEMAS))
-        if _boolean(USE_LATEST_VERSION, value(USE_LATEST_VERSION)) is False:
+        auto_register = bool(_boolean(AUTO_REGISTER_SCHEMAS, value(AUTO_REGISTER_SCHEMAS)))
+        use_latest = _boolean(USE_LATEST_VERSION, value(USE_LATEST_VERSION))
+        schema_id = _schema_id(value(USE_SCHEMA_ID))
+        if auto_register:
+            # The official serializers refuse these combinations too.
+            _refuse_with_registration(AUTO_REGISTER_SCHEMAS, USE_LATEST_VERSION, use_latest)
+            _refuse_with_registration(AUTO_REGISTER_SCHEMAS, USE_SCHEMA_ID, schema_id)
+        elif use_latest is False:
             raise ValueError(
-                f"{USE_LATEST_VERSION}=false needs a local schema; Kaskade uses the latest "
-                f"version or {USE_SCHEMA_ID}"
+                f"{USE_LATEST_VERSION}=false needs {AUTO_REGISTER_SCHEMAS}=true and a schema "
+                f"file; otherwise Kaskade uses the latest version or {USE_SCHEMA_ID}"
             )
         return cls(
-            schema_id=_schema_id(value(USE_SCHEMA_ID)),
+            schema_id=schema_id,
             protobuf_message=value(PROTOBUF_MESSAGE),
+            auto_register=auto_register,
+            normalize=bool(_boolean(NORMALIZE_SCHEMAS, value(NORMALIZE_SCHEMAS))),
         )
 
     @classmethod
     def _apicurio(cls, value: Callable[[str], str | None]) -> "SchemaSelection":
-        _refuse_registration(APICURIO_AUTO_REGISTER, value(APICURIO_AUTO_REGISTER))
+        auto_register = bool(_boolean(APICURIO_AUTO_REGISTER, value(APICURIO_AUTO_REGISTER)))
+        find_latest = _boolean(APICURIO_FIND_LATEST, value(APICURIO_FIND_LATEST))
         version = value(APICURIO_ARTIFACT_VERSION)
-        if _boolean(APICURIO_FIND_LATEST, value(APICURIO_FIND_LATEST)) is False and not version:
-            raise ValueError(
-                f"{APICURIO_FIND_LATEST}=false needs a local schema; set "
-                f"{APICURIO_ARTIFACT_VERSION} or let Kaskade use the latest version"
-            )
         for name in (APICURIO_ARTIFACT_GROUP_ID, APICURIO_ARTIFACT_ID, APICURIO_ARTIFACT_VERSION):
             if value(name) == "":
                 raise ValueError(f"{name} must not be empty")
+        if auto_register:
+            _refuse_with_registration(APICURIO_AUTO_REGISTER, APICURIO_FIND_LATEST, find_latest)
+            _refuse_with_registration(APICURIO_AUTO_REGISTER, APICURIO_ARTIFACT_VERSION, version)
+        elif find_latest is False and not version:
+            raise ValueError(
+                f"{APICURIO_FIND_LATEST}=false needs {APICURIO_ARTIFACT_VERSION}, or "
+                f"{APICURIO_AUTO_REGISTER}=true and a schema file"
+            )
         return cls(
             group=value(APICURIO_ARTIFACT_GROUP_ID) or APICURIO_DEFAULT_GROUP,
             artifact=value(APICURIO_ARTIFACT_ID),
             version=version,
             protobuf_message=value(PROTOBUF_MESSAGE),
+            auto_register=auto_register,
         )
 
 
@@ -176,11 +202,9 @@ def _boolean(name: str, value: str | None) -> bool | None:
     return value.lower() == "true"
 
 
-def _refuse_registration(name: str, value: str | None) -> None:
-    if _boolean(name, value):
-        raise ValueError(
-            f"{name}=true isn't supported yet; Kaskade only looks up registered schemas"
-        )
+def _refuse_with_registration(registration: str, name: str, value: object) -> None:
+    if value is not None and value is not False:
+        raise ValueError(f"{registration}=true can't be combined with {name}")
 
 
 def _schema_id(value: str | None) -> int | None:
@@ -227,18 +251,26 @@ def _subject(topic: str, field: MessageField) -> str:
 
 
 class ConfluentSchemaResolver:
-    """TopicNameStrategy subjects, encoded with the latest version or use.schema.id."""
+    """TopicNameStrategy subjects: registered, the latest version, or use.schema.id."""
 
     def __init__(self, registry_config: Mapping[str, str]) -> None:
         client_config = {key: value for key, value in registry_config.items() if key != "provider"}
         self.client = SchemaRegistryClient(client_config)
         self.schemas = ConfluentSchemas(self.client)
+        self._registered: dict[tuple[str, SchemaDocument], tuple[int, int]] = {}
 
     def resolve(
-        self, topic: str, field: MessageField, selection: SchemaSelection
+        self,
+        topic: str,
+        field: MessageField,
+        selection: SchemaSelection,
+        document: SchemaDocument | None = None,
     ) -> ResolvedSchema:
         subject = _subject(topic, field)
-        if selection.schema_id is None:
+        if document is not None:
+            schema_id, registered_version = self._register(subject, document, selection.normalize)
+            version = str(registered_version)
+        elif selection.schema_id is None:
             registered = self.client.get_latest_version(subject)
             if registered.schema_id is None:
                 raise SchemaError(f"Subject {subject} has no schema ID")
@@ -252,6 +284,34 @@ class ConfluentSchemaResolver:
             SchemaSummary(subject, version, schema_id, schema_type.value),
             partial(_framed, header, encode),
         )
+
+    def _register(self, subject: str, document: SchemaDocument, normalize: bool) -> tuple[int, int]:
+        """Register references first, then the schema; identical content keeps its version."""
+        cached = self._registered.get((subject, document))
+        if cached is not None:
+            return cached
+        references = [
+            SchemaReference(
+                reference.name,
+                reference.name,
+                self._register(reference.name, reference.document, normalize)[1],
+            )
+            for reference in document.references
+        ]
+        schema = Schema(document.content, document.type.value, references)
+        registered = self.client.register_schema_full_response(
+            subject, schema, normalize_schemas=normalize
+        )
+        version = registered.version
+        if version is None:
+            version = self.client.lookup_schema(
+                subject, schema, normalize_schemas=normalize
+            ).version
+        if registered.schema_id is None or version is None:
+            raise SchemaError(f"Schema Registry returned no ID or version for {subject}")
+        result = (registered.schema_id, version)
+        self._registered[(subject, document)] = result
+        return result
 
     def _version(self, schema_id: int, subject: str) -> str:
         for registration in self.client.get_schema_versions(schema_id):
@@ -279,14 +339,19 @@ class ConfluentSchemaResolver:
 
 
 class ApicurioSchemaResolver:
-    """TopicIdStrategy artifacts, encoded with the latest or a chosen version."""
+    """TopicIdStrategy artifacts: registered, the latest version, or a chosen one."""
 
     def __init__(self, config: ApicurioConfig) -> None:
         self.client = ApicurioClient(config)
         self.schemas = ApicurioSchemas(self.client)
+        self._registered: dict[tuple[str, str, SchemaDocument], ApicurioVersion] = {}
 
     def resolve(
-        self, topic: str, field: MessageField, selection: SchemaSelection
+        self,
+        topic: str,
+        field: MessageField,
+        selection: SchemaSelection,
+        document: SchemaDocument | None = None,
     ) -> ResolvedSchema:
         artifact_id = selection.artifact or _subject(topic, field)
         name = (
@@ -294,15 +359,10 @@ class ApicurioSchemaResolver:
             if selection.group == APICURIO_DEFAULT_GROUP
             else f"{selection.group}/{artifact_id}"
         )
-        try:
-            version = self.client.get_version(
-                selection.group, artifact_id, selection.version or APICURIO_LATEST_VERSION
-            )
-        except ApicurioRegistryError as ex:
-            cause = ex.__cause__
-            if isinstance(cause, httpx.HTTPStatusError) and cause.response.status_code == 404:
-                raise SchemaError(f"Apicurio artifact {name} has no such version") from ex
-            raise
+        if document is not None:
+            version = self._register(selection.group, artifact_id, document)
+        else:
+            version = self._version(selection, artifact_id, name)
         use_content_id = self.client.config.use_id == "contentId"
         schema_id = version.content_id if use_content_id else version.global_id
         artifact = self.client.get_artifact(schema_id)
@@ -324,11 +384,53 @@ class ApicurioSchemaResolver:
             partial(_framed, header, encode),
         )
 
+    def _version(self, selection: SchemaSelection, artifact_id: str, name: str) -> ApicurioVersion:
+        try:
+            return self.client.get_version(
+                selection.group, artifact_id, selection.version or APICURIO_LATEST_VERSION
+            )
+        except ApicurioRegistryError as ex:
+            if _status(ex) == 404:
+                raise SchemaError(f"Apicurio artifact {name} has no such version") from ex
+            raise
+
+    def _register(self, group: str, artifact_id: str, document: SchemaDocument) -> ApicurioVersion:
+        """Register references first, then the artifact, reusing versions with the same content."""
+        cached = self._registered.get((group, artifact_id, document))
+        if cached is not None:
+            return cached
+        references = tuple(
+            ApicurioReference(
+                name=reference.name,
+                group=group,
+                artifact=reference.name,
+                version=self._register(group, reference.name, reference.document).version,
+            )
+            for reference in document.references
+        )
+        try:
+            version = self.client.create_version(
+                group, artifact_id, document.type.value, document.content, references
+            )
+        except ApicurioRegistryError as ex:
+            if _status(ex) in {401, 403}:
+                raise SchemaError(
+                    f"Apicurio refused to register {artifact_id}; registering needs write access"
+                ) from ex
+            raise
+        self._registered[(group, artifact_id, document)] = version
+        return version
+
     def close(self) -> None:
         self.client.close()
 
 
 SchemaResolver = ConfluentSchemaResolver | ApicurioSchemaResolver
+
+
+def _status(ex: ApicurioRegistryError) -> int | None:
+    cause = ex.__cause__
+    return cause.response.status_code if isinstance(cause, httpx.HTTPStatusError) else None
 
 
 def schema_resolver(
@@ -341,7 +443,7 @@ def schema_resolver(
 
 
 class RegistrySerializer(JsonDocumentSerializer):
-    """Encodes one field with its registered schema once resolve() finds it."""
+    """Encodes one field with its registered schema once resolve() finds or registers it."""
 
     def __init__(
         self,
@@ -349,11 +451,13 @@ class RegistrySerializer(JsonDocumentSerializer):
         topic: str,
         field: MessageField,
         selection: SchemaSelection,
+        document: SchemaDocument | None = None,
     ) -> None:
         self._resolver = resolver
         self._topic = topic
         self._field = field
         self._selection = selection
+        self._document = document
         self._resolved: ResolvedSchema | None = None
         self._problem: str | None = None
 
@@ -373,11 +477,14 @@ class RegistrySerializer(JsonDocumentSerializer):
 
     def resolve(self) -> None:
         try:
-            self._resolved = self._resolver.resolve(self._topic, self._field, self._selection)
+            self._resolved = self._resolver.resolve(
+                self._topic, self._field, self._selection, self._document
+            )
         except REGISTRY_EXCEPTIONS as ex:
-            self._problem = registry_problem(ex)
+            self._problem = registry_problem(ex, registering=self._document is not None)
             logger.warning(
-                "schema lookup failed topic=%s field=%s error=%s",
+                "schema %s failed topic=%s field=%s error=%s",
+                "registration" if self._document is not None else "lookup",
                 self._topic,
                 self._field.name,
                 self._problem,
@@ -388,11 +495,15 @@ class RegistrySerializer(JsonDocumentSerializer):
     def serialize(self, text: str) -> bytes:
         content = parse_json(text)
         if self._resolved is None:
-            raise SerializationError(self._problem or LOOKING_UP)
+            pending = REGISTERING if self._document is not None else LOOKING_UP
+            raise SerializationError(self._problem or pending)
         return self._resolved.encode(content)
 
 
-def registry_problem(ex: Exception) -> str:
+def registry_problem(ex: Exception, *, registering: bool = False) -> str:
     if isinstance(ex, SchemaRegistryError):
-        return f"Schema Registry error: {ex.error_message}"
-    return f"Schema lookup failed: {ex}"
+        problem = f"Schema Registry error: {ex.error_message}"
+        if registering and ex.http_status_code in {401, 403}:
+            problem += "; registering needs write access to the subject"
+        return problem
+    return f"Schema {'registration' if registering else 'lookup'} failed: {ex}"

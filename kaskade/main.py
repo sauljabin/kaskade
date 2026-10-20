@@ -34,6 +34,7 @@ from kaskade.configs import (
     IDEMPOTENCE_CHOICES,
     JSON_DESERIALIZER_CONFIGS,
     JSON_SERIALIZER_CONFIGS,
+    NORMALIZE_SCHEMAS,
     PROTOBUF_DESERIALIZER_CONFIGS,
     PROTOBUF_MESSAGE,
     PROTOBUF_SERIALIZER_CONFIGS,
@@ -99,7 +100,8 @@ AVRO_CONFIG_HELP = (
 )
 PROTOBUF_CONFIG_HELP = (
     "Protobuf deserializer property. Repeatable; required when the key or value format "
-    f"is protobuf. Properties: {', '.join(PROTOBUF_DESERIALIZER_CONFIGS)}. Framing: "
+    "is protobuf. descriptor takes a descriptor set and source a .proto file; use one. "
+    f"Properties: {', '.join(PROTOBUF_DESERIALIZER_CONFIGS)}. Framing: "
     f"{', '.join(DESERIALIZER_FRAMINGS)} (case-insensitive); scoped framing overrides "
     "the global value."
 )
@@ -126,16 +128,20 @@ REGISTRY_CONFIG_HELP = (
     "Apicurio deserializer properties."
 )
 SERIALIZER_JSON_HELP = (
-    "JSON Schema file that validates the key or value before it is produced. Repeatable. "
+    "JSON Schema file that validates the key or value before it is produced, or that a "
+    "registry key or value registers. Repeatable. "
     f"Properties: {', '.join(JSON_SERIALIZER_CONFIGS)}."
 )
 SERIALIZER_AVRO_HELP = (
-    "Avro schema file for the key or value; required when its serializer is avro. "
+    "Avro schema file for the key or value; required when its serializer is avro, or "
+    "the schema a registry key or value registers. "
     f"Repeatable. Properties: {', '.join(AVRO_SERIALIZER_CONFIGS)}."
 )
 SERIALIZER_PROTOBUF_HELP = (
-    "Protobuf descriptor set and message names; required when a serializer is protobuf. "
-    f"Repeatable. Properties: {', '.join(PROTOBUF_SERIALIZER_CONFIGS)}."
+    "Protobuf schema and message names; required when a serializer is protobuf, or the "
+    "schema a registry key or value registers. descriptor takes a descriptor set and "
+    "source a .proto file, which Apicurio registration needs; use one. Repeatable. "
+    f"Properties: {', '.join(PROTOBUF_SERIALIZER_CONFIGS)}."
 )
 SERIALIZER_BYTES_HELP = (
     "Input encoding for keys and values using the bytes serializer. Repeatable. "
@@ -149,7 +155,8 @@ SERIALIZER_REGISTRY_HELP = (
     f"scoped with key. or value.: {USE_SCHEMA_ID}, {USE_LATEST_VERSION}, "
     "apicurio.registry.artifact.group-id, apicurio.registry.artifact.artifact-id, "
     f"apicurio.registry.artifact.version, apicurio.registry.find-latest, {PROTOBUF_MESSAGE}. "
-    f"{AUTO_REGISTER_SCHEMAS} and apicurio.registry.auto-register must stay false."
+    f"Registration: {AUTO_REGISTER_SCHEMAS}, {NORMALIZE_SCHEMAS}, and "
+    "apicurio.registry.auto-register register the --avro, --json, or --protobuf schema."
 )
 CliDecoratorTarget = TypeVar("CliDecoratorTarget", bound=Callable[..., Any])
 

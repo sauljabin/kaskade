@@ -36,6 +36,7 @@ up the way you like.
   - [Serializers](#serializers)
   - [Produce with schema files](#produce-with-schema-files)
   - [Produce with a Schema Registry](#produce-with-a-schema-registry)
+  - [Register schemas](#register-schemas)
   - [Load a draft from a file](#load-a-draft-from-a-file)
   - [Producer configuration](#producer-configuration)
 - [Format-specific consumers](#format-specific-consumers)
@@ -1000,7 +1001,8 @@ kaskade producer -b my-kafka:9092 -t users -v protobuf \
   fetched. Without a schema, `json` sends any valid JSON.
 - `--avro key=…` and `value=…` take `.avsc` files. They are required for each
   field that uses `avro`.
-- `--protobuf descriptor=…` takes a descriptor set, built as in the
+- `--protobuf` takes a schema, `descriptor=…` for a descriptor set or
+  `source=…` for a `.proto` file, as in the
   [Protobuf consumer](#protobuf-consumer), and `key=…` or `value=…` the full
   message name.
 
@@ -1033,8 +1035,8 @@ Kaskade chooses the schema the way the official serializers do:
 Each selection property applies to both fields, or to one with a `key.` or
 `value.` prefix, such as `--registry value.use.schema.id=12`. Confluent's
 `use.latest.version=true` and Apicurio's `apicurio.registry.find-latest=true`
-are accepted; without a local schema to look up, `false` fails unless an
-Apicurio version is given.
+are accepted. `false` needs a schema to [register](#register-schemas), or an
+Apicurio version.
 
 The framing follows the schema type:
 
@@ -1049,14 +1051,54 @@ Protobuf uses the first message in the schema. Choose another with
 `--registry protobuf.message=Order` or a nested name such as `Order.Line`.
 Imported schemas resolve from the registry.
 
-Kaskade only looks up schemas that are already registered.
-`auto.register.schemas=true` and `apicurio.registry.auto-register=true` fail
-before the composer opens.
-
 The lookup runs when the composer opens. Until it finishes, the field shows
 `Looking up the schema`. If it fails, for example because the subject doesn't
 exist, the field shows the registry's error, and `Ctrl+S` looks up the schema
 again before producing.
+
+### Register schemas
+
+Kaskade registers a schema only when you enable auto-registration, which is off
+by default, and give the field a local schema file:
+
+```bash
+kaskade producer -b my-kafka:9092 -t users -v registry \
+        --registry url=http://my-schema-registry:8081 \
+        --registry auto.register.schemas=true \
+        --avro value=user.avsc
+kaskade producer -b my-kafka:9092 -t users -v registry \
+        --registry provider=apicurio \
+        --registry apicurio.registry.url=http://my-apicurio-registry:8080/apis/registry/v3 \
+        --registry apicurio.registry.auto-register=true \
+        --protobuf source=user.proto --protobuf value=mypackage.User
+```
+
+The field takes exactly one schema file: `--avro`, `--json`, or `--protobuf`
+with its message name. Kaskade registers it under the subject or artifact from
+[Produce with a Schema Registry](#produce-with-a-schema-registry), when the
+composer opens, and frames each record with the returned ID. Registering the
+same content again returns the existing version, so producing twice keeps one
+version. Confluent's `normalize.schemas=true` normalizes the schema before
+registering it.
+
+The schema's references are registered first, each under its own reference
+name in the same registry and group:
+
+| Schema | Reference | Subject or artifact |
+| --- | --- | --- |
+| Avro | A named type the file doesn't define, read from `<full name>.avsc` next to it | `shop.Address` |
+| JSON Schema | A relative `$ref` file | `defs/address.json` |
+| Protobuf | An `import`; bundled well-known types such as `google/protobuf/timestamp.proto` are never registered | `common/address.proto` |
+
+Confluent stores Protobuf as compiled descriptors, as its own serializer does,
+so either `descriptor=` or `source=` works. Apicurio stores `.proto` text and
+needs `source=`.
+
+As in the official serializers, registration can't be combined with
+`use.latest.version=true`, `use.schema.id`, `apicurio.registry.find-latest=true`,
+or `apicurio.registry.artifact.version`. Registration needs write access to the
+registry. A compatibility rule or read-only credentials make the field show the
+registry's error.
 
 ### Load a draft from a file
 
@@ -1166,7 +1208,20 @@ Use `apicurio` instead for records produced by Apicurio serializers.
 
 ### Protobuf consumer
 
-Install `protoc` with your platform's package manager. For example:
+`--protobuf` takes the schema as `source=` (a `.proto` file) or `descriptor=` (a
+descriptor set), never both. Kaskade compiles a source with its bundled
+`protoc`; its imports resolve from files next to it and the well-known types:
+
+```bash
+kaskade consumer -b my-kafka:9092 --earliest \
+        -k string -v protobuf \
+        -t my-protobuf-topic \
+        --protobuf source=my-proto.proto \
+        --protobuf value=mypackage.MyMessage
+```
+
+To use a descriptor set instead, install `protoc` with your platform's package
+manager:
 
 ```bash
 brew install protobuf                 # macOS

@@ -38,6 +38,7 @@ from kaskade.configs import (
     APICURIO_OPTION,
     AUTO_REGISTER_SCHEMAS,
     CONFLUENT_OPTION,
+    NORMALIZE_SCHEMAS,
     PROTOBUF_MESSAGE,
     USE_LATEST_VERSION,
     USE_SCHEMA_ID,
@@ -481,29 +482,65 @@ class TestSchemaSelection(unittest.TestCase):
         )
         self.assertEqual(SchemaSelection(artifact="shared"), apicurio)
 
-    def test_rejects_registration_and_unsupported_lookups(self):
+    def test_rejects_conflicting_and_unsupported_lookups(self):
         cases = (
-            (CONFLUENT_OPTION, {AUTO_REGISTER_SCHEMAS: "true"}, "isn't supported yet"),
-            (CONFLUENT_OPTION, {f"value.{AUTO_REGISTER_SCHEMAS}": "True"}, "isn't supported yet"),
-            (CONFLUENT_OPTION, {USE_LATEST_VERSION: "false"}, "needs a local schema"),
+            (CONFLUENT_OPTION, {USE_LATEST_VERSION: "false"}, "needs auto.register.schemas=true"),
             (CONFLUENT_OPTION, {USE_LATEST_VERSION: "maybe"}, "must be true or false"),
+            (CONFLUENT_OPTION, {AUTO_REGISTER_SCHEMAS: "yes"}, "must be true or false"),
+            (
+                CONFLUENT_OPTION,
+                {AUTO_REGISTER_SCHEMAS: "true", USE_LATEST_VERSION: "true"},
+                "can't be combined with use.latest.version",
+            ),
+            (
+                CONFLUENT_OPTION,
+                {f"value.{AUTO_REGISTER_SCHEMAS}": "True", USE_SCHEMA_ID: "4"},
+                "can't be combined with use.schema.id",
+            ),
             (CONFLUENT_OPTION, {USE_SCHEMA_ID: "0"}, "must be a positive integer"),
             (CONFLUENT_OPTION, {USE_SCHEMA_ID: "one"}, "must be a positive integer"),
             (CONFLUENT_OPTION, {APICURIO_ARTIFACT_ID: "orders"}, "requires provider=apicurio"),
-            (APICURIO_OPTION, {APICURIO_AUTO_REGISTER: "true"}, "isn't supported yet"),
-            (APICURIO_OPTION, {APICURIO_FIND_LATEST: "false"}, "needs a local schema"),
+            (APICURIO_OPTION, {APICURIO_FIND_LATEST: "false"}, "needs apicurio.registry.artifact"),
+            (
+                APICURIO_OPTION,
+                {APICURIO_AUTO_REGISTER: "true", APICURIO_FIND_LATEST: "true"},
+                "can't be combined with apicurio.registry.find-latest",
+            ),
+            (
+                APICURIO_OPTION,
+                {APICURIO_AUTO_REGISTER: "true", APICURIO_ARTIFACT_VERSION: "2"},
+                "can't be combined with apicurio.registry.artifact.version",
+            ),
             (APICURIO_OPTION, {USE_SCHEMA_ID: "4"}, "requires provider=confluent"),
+            (APICURIO_OPTION, {NORMALIZE_SCHEMAS: "true"}, "requires provider=confluent"),
             (APICURIO_OPTION, {APICURIO_ARTIFACT_GROUP_ID: ""}, "must not be empty"),
         )
         for provider, config, message in cases:
             with self.subTest(config=config), self.assertRaisesRegex(ValueError, message):
                 SchemaSelection.from_config(config, provider, VALUE)
 
-    def test_accepts_disabled_registration_and_pinned_versions(self):
-        SchemaSelection.from_config({AUTO_REGISTER_SCHEMAS: "false"}, CONFLUENT_OPTION, VALUE)
-        selection = SchemaSelection.from_config(
+    def test_accepts_registration_and_pinned_versions(self):
+        confluent = SchemaSelection.from_config(
             {
-                APICURIO_AUTO_REGISTER: "false",
+                AUTO_REGISTER_SCHEMAS: "true",
+                USE_LATEST_VERSION: "false",
+                f"value.{NORMALIZE_SCHEMAS}": "true",
+            },
+            CONFLUENT_OPTION,
+            VALUE,
+        )
+        self.assertEqual(SchemaSelection(auto_register=True, normalize=True), confluent)
+        self.assertFalse(
+            SchemaSelection.from_config(
+                {AUTO_REGISTER_SCHEMAS: "false"}, CONFLUENT_OPTION, KEY
+            ).auto_register
+        )
+        apicurio = SchemaSelection.from_config(
+            {APICURIO_AUTO_REGISTER: "true", APICURIO_FIND_LATEST: "false"}, APICURIO_OPTION, KEY
+        )
+        self.assertEqual(SchemaSelection(auto_register=True), apicurio)
+        pinned = SchemaSelection.from_config(
+            {
                 APICURIO_FIND_LATEST: "false",
                 APICURIO_ARTIFACT_VERSION: "2",
                 APICURIO_ARTIFACT_GROUP_ID: "payments",
@@ -511,7 +548,7 @@ class TestSchemaSelection(unittest.TestCase):
             APICURIO_OPTION,
             VALUE,
         )
-        self.assertEqual(SchemaSelection(group="payments", version="2"), selection)
+        self.assertEqual(SchemaSelection(group="payments", version="2"), pinned)
 
 
 class TestConfluentRegistrySerializer(unittest.TestCase):

@@ -5,6 +5,7 @@ import tempfile
 import unittest
 from io import BytesIO
 from pathlib import Path
+from urllib.parse import quote
 
 import httpx
 from confluent_kafka import Consumer, Producer
@@ -99,6 +100,39 @@ JSON_SCHEMA = json.dumps(
 PROTOBUF_SCHEMA = 'syntax = "proto3"; message User { string name = 1; }'
 
 
+USER_WITH_ADDRESS = {"name": "Ada", "address": {"city": "Quito"}}
+
+
+def write_schemas_with_references(directory: Path) -> None:
+    """A user that references an address: an Avro named type and a Protobuf import."""
+    address = {
+        "type": "record",
+        "name": "Address",
+        "namespace": "shop",
+        "fields": [{"name": "city", "type": "string"}],
+    }
+    user = {
+        "type": "record",
+        "name": "User",
+        "namespace": "shop",
+        "fields": [{"name": "name", "type": "string"}, {"name": "address", "type": "Address"}],
+    }
+    (directory / "shop.Address.avsc").write_text(json.dumps(address), encoding="utf-8")
+    (directory / "user.avsc").write_text(json.dumps(user), encoding="utf-8")
+    (directory / "common").mkdir()
+    (directory / "common" / "address.proto").write_text(
+        'syntax = "proto3"; package shop; message Address { string city = 1; }',
+        encoding="utf-8",
+    )
+    (directory / "user.proto").write_text(
+        'syntax = "proto3"; package shop; import "common/address.proto"; '
+        'import "google/protobuf/timestamp.proto"; '
+        "message User { string name = 1; Address address = 2; "
+        "google.protobuf.Timestamp created = 3; }",
+        encoding="utf-8",
+    )
+
+
 def protobuf_user_model() -> tuple[FileDescriptorProto, type[Message]]:
     descriptor = FileDescriptorProto(name="user.proto", syntax="proto3")
     user_descriptor = descriptor.message_type.add(name="User")
@@ -178,6 +212,12 @@ def register_apicurio_schema(url: str, artifact: str, artifact_type: str, conten
     response.raise_for_status()
     body = response.json()
     return int(body.get("version", body)["contentId"])
+
+
+def apicurio_version_count(url: str, artifact: str) -> int:
+    response = httpx.get(f"{url}/groups/default/artifacts/{quote(artifact, safe='')}/versions")
+    response.raise_for_status()
+    return int(response.json()["count"])
 
 
 def apicurio_type_ref(name: str) -> bytes:
@@ -329,11 +369,13 @@ class TestE2E(unittest.IsolatedAsyncioTestCase):
             self.assertIsNone(second.key())
             self.assertEqual(b"{}", second.value())
 
-    async def produce_user(self, topic: str, kafka_config: dict, **serializers) -> None:
-        """Produce MY_KEY and the user {"name": "Ada"} with Kaskade's value serializer."""
+    async def produce_user(
+        self, topic: str, kafka_config: dict, value: dict | None = None, **serializers
+    ) -> None:
+        """Produce MY_KEY and a user, {"name": "Ada"} by default, with Kaskade's serializer."""
         draft = RecordDraft(
             key=DraftField(MY_KEY, is_null=False),
-            value=DraftField({"name": "Ada"}, is_null=False),
+            value=DraftField(value or {"name": "Ada"}, is_null=False),
         )
         producer_app = KaskadeProducer(
             ProducerSettings(topic, kafka_config, **serializers), draft=draft
@@ -441,6 +483,120 @@ class TestE2E(unittest.IsolatedAsyncioTestCase):
                         registry_config=registry_config,
                         expected_registry_provider=APICURIO,
                     )
+
+    async def consumed_values(self, topic: str, kafka_config: dict, registry_config: dict) -> list:
+        consumer_app = KaskadeConsumer(
+            ConsumerSettings(
+                topic,
+                kafka_config | {AUTO_OFFSET_RESET: EARLIEST},
+                Deserialization.STRING,
+                Deserialization.REGISTRY,
+                registry_config=registry_config,
+            )
+        )
+        async with consumer_app.run_test():
+            await self.wait_for_rows(consumer_app.query_one(DataTable), 2)
+            records = consumer_app.query_one(ListRecords).records.values()
+            return [record.dict()["value"] for record in records]
+
+    async def register_and_produce_twice(
+        self,
+        kafka_config: dict,
+        registry_config: dict,
+        registration: dict,
+        directory: Path,
+        **schema_files,
+    ) -> list:
+        """Produce USER_WITH_ADDRESS twice to registering topics; return each topic's values."""
+        cases = (
+            (AVRO_TOPIC, {"avro_config": {"value": str(directory / "user.avsc")}}),
+            (
+                PROTOBUF_TOPIC,
+                {
+                    "protobuf_config": {
+                        "source": str(directory / "user.proto"),
+                        "value": "shop.User",
+                    }
+                },
+            ),
+        )
+        consumed = []
+        for topic, files in cases:
+            create_topic(kafka_config, topic)
+            for _ in range(2):
+                await self.produce_user(
+                    topic,
+                    kafka_config,
+                    USER_WITH_ADDRESS,
+                    value_serialization=Serialization.REGISTRY,
+                    registry_config=registry_config | registration,
+                    **schema_files,
+                    **files,
+                )
+            consumed.append(await self.consumed_values(topic, kafka_config, registry_config))
+        return consumed
+
+    async def test_producer_registers_schemas_with_references_in_confluent(self):
+        with Network() as network, tempfile.TemporaryDirectory() as directory:
+            write_schemas_with_references(Path(directory))
+            kafka_container_instance = (
+                kafka_container().with_network(network).with_network_aliases("kafka")
+            )
+            with (
+                kafka_container_instance as kafka,
+                schema_registry_container(network) as registry,
+            ):
+                kafka_config = {BOOTSTRAP_SERVERS: kafka.get_bootstrap_server()}
+                url = schema_registry_url(registry)
+                consumed = await self.register_and_produce_twice(
+                    kafka_config, {"url": url}, {"auto.register.schemas": "true"}, Path(directory)
+                )
+
+                for values in consumed:
+                    self.assertEqual(
+                        [USER_WITH_ADDRESS] * 2, [value["content"] for value in values]
+                    )
+                    self.assertEqual("CONFLUENT", values[0]["schema"]["provider"])
+                with SchemaRegistryClient({"url": url}) as registry_client:
+                    for subject in (
+                        f"{AVRO_TOPIC}-value",
+                        "shop.Address",
+                        f"{PROTOBUF_TOPIC}-value",
+                        "common/address.proto",
+                    ):
+                        with self.subTest(subject=subject):
+                            self.assertEqual([1], registry_client.get_versions(subject))
+
+    async def test_producer_registers_schemas_with_references_in_apicurio(self):
+        with (
+            tempfile.TemporaryDirectory() as directory,
+            kafka_container() as kafka,
+            apicurio_container() as registry,
+        ):
+            write_schemas_with_references(Path(directory))
+            kafka_config = {BOOTSTRAP_SERVERS: kafka.get_bootstrap_server()}
+            registry_url = apicurio_url(registry)
+            registry_config = {"provider": APICURIO_OPTION, "apicurio.registry.url": registry_url}
+
+            consumed = await self.register_and_produce_twice(
+                kafka_config,
+                registry_config,
+                {"apicurio.registry.auto-register": "true"},
+                Path(directory),
+                apicurio_config=ApicurioConfig.from_dict(registry_config),
+            )
+
+            for values in consumed:
+                self.assertEqual([USER_WITH_ADDRESS] * 2, [value["content"] for value in values])
+                self.assertEqual("APICURIO", values[0]["schema"]["provider"])
+            for artifact in (
+                f"{AVRO_TOPIC}-value",
+                "shop.Address",
+                f"{PROTOBUF_TOPIC}-value",
+                "common/address.proto",
+            ):
+                with self.subTest(artifact=artifact):
+                    self.assertEqual(1, apicurio_version_count(registry_url, artifact))
 
     async def test_consumer(self):
         with kafka_container() as kafka:

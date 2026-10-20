@@ -20,6 +20,7 @@ from kaskade.configs import (
     JSON_DESERIALIZER_CONFIGS,
     JSON_SERIALIZER_CONFIGS,
     PROTOBUF_DESERIALIZER_CONFIGS,
+    PROTOBUF_SCHEMA_CONFIGS,
     PROTOBUF_SERIALIZER_CONFIGS,
     REGISTRY_PROVIDERS,
 )
@@ -104,10 +105,16 @@ def normalize_serializer_options(
     """Validate the serializer properties, including local schema files, and copy them."""
     formats = (key_serialization, value_serialization)
     require_configured(registry_config, avro_config, protobuf_config, *formats)
-    registry, apicurio = normalize_producer_registry(registry_config, *formats)
-    normalized_json = normalize_json(json_config, *formats, JSON_SERIALIZER_CONFIGS)
-    normalized_avro = normalize_producer_avro(avro_config, *formats)
-    normalized_protobuf = normalize_producer_protobuf(protobuf_config, *formats)
+    registry, apicurio, registering = normalize_producer_registry(registry_config, *formats)
+    # A registering Registry field takes its schema file as if it used that format.
+    file_formats = schema_file_formats(
+        formats, registering, avro=avro_config, json=json_config, protobuf=protobuf_config
+    )
+    normalized_json = normalize_json(json_config, *file_formats, JSON_SERIALIZER_CONFIGS)
+    normalized_avro = normalize_producer_avro(avro_config, *file_formats)
+    normalized_protobuf = normalize_producer_protobuf(protobuf_config, *file_formats)
+    if apicurio is not None:
+        require_protobuf_source(normalized_protobuf, registering)
     return SerializerOptions(
         registry_config=registry,
         apicurio_config=apicurio,
@@ -116,6 +123,47 @@ def normalize_serializer_options(
         json_config=normalized_json,
         bytes_config=normalize_bytes(bytes_config, *formats),
     )
+
+
+def schema_file_formats(
+    formats: tuple[Serialization, Serialization],
+    registering: set[str],
+    **configs: Properties,
+) -> tuple[Serialization, Serialization]:
+    """Each field's format for schema-file validation; registering fields use their file's."""
+    result = []
+    for field_name, serialization in zip(("key", "value"), formats, strict=True):
+        found = [
+            Serialization.from_str(name) for name, config in configs.items() if field_name in config
+        ]
+        if field_name not in registering:
+            if serialization == Serialization.REGISTRY and found:
+                raise BadParameter(
+                    f"--{found[0]} {field_name} with a Registry {field_name} is the schema to "
+                    "register; enable auto.register.schemas or apicurio.registry.auto-register.",
+                    param_hint="'--registry'",
+                )
+            result.append(serialization)
+            continue
+        if len(found) != 1:
+            raise BadParameter(
+                f"Registering the {field_name} schema needs exactly one schema file: "
+                f"--avro {field_name}=…, --json {field_name}=…, or --protobuf {field_name}=… "
+                "with descriptor= or source=.",
+                param_hint="'--registry'",
+            )
+        result.append(found[0])
+    key_format, value_format = result
+    return key_format, value_format
+
+
+def require_protobuf_source(protobuf_config: Properties, registering: set[str]) -> None:
+    """Apicurio stores .proto text, which only a source= file has."""
+    if "descriptor" in protobuf_config and registering.intersection(protobuf_config):
+        raise BadParameter(
+            "Registering Protobuf in Apicurio needs --protobuf source=my.proto.",
+            param_hint="'--protobuf descriptor'",
+        )
 
 
 def uses(
@@ -280,12 +328,16 @@ def normalize_producer_registry(
     registry_config: Properties,
     key_serialization: Serialization,
     value_serialization: Serialization,
-) -> tuple[dict[str, str], ApicurioConfig | None]:
-    """Validate the client properties and each Registry field's schema selection."""
+) -> tuple[dict[str, str], ApicurioConfig | None, set[str]]:
+    """Validate the client properties and each Registry field's schema selection.
+
+    Also return the fields that register their schema.
+    """
     client_config, selection = split_registry_config(registry_config)
     normalized, apicurio = normalize_registry(client_config, key_serialization, value_serialization)
+    registering: set[str] = set()
     if not selection:
-        return normalized, apicurio
+        return normalized, apicurio, registering
     require_usage(Serialization.REGISTRY, key_serialization, value_serialization)
     provider = normalized.get("provider", CONFLUENT_OPTION)
     for flag, field, serialization in (
@@ -299,10 +351,12 @@ def normalize_producer_registry(
                 raise BadParameter(f"--registry {scoped} requires '{flag} registry'.")
             continue
         try:
-            SchemaSelection.from_config(selection, provider, field)
+            field_selection = SchemaSelection.from_config(selection, provider, field)
         except ValueError as ex:
             raise BadParameter(message=str(ex), param_hint="'--registry'") from ex
-    return normalized | selection, apicurio
+        if field_selection.auto_register:
+            registering.add(field.name.lower())
+    return normalized | selection, apicurio, registering
 
 
 def normalize_bytes(
@@ -423,10 +477,7 @@ def normalize_protobuf(
         protobuf_config, FRAMING_CONFIGS, DESERIALIZER_FRAMINGS, "Protobuf framing"
     )
     require_usage(Deserialization.PROTOBUF, key_deserialization, value_deserialization)
-    if "descriptor" not in normalized:
-        raise MissingParameter(
-            param_hint="'--protobuf descriptor=my-descriptor'", param_type="option"
-        )
+    require_protobuf_schema(normalized)
     require_field_properties(
         normalized,
         Deserialization.PROTOBUF,
@@ -435,7 +486,7 @@ def normalize_protobuf(
         "--protobuf",
         "MyMessage",
     )
-    validate_file(normalized["descriptor"], "'--protobuf descriptor'")
+    check_protobuf_messages(normalized)
     validate_field_scope(
         normalized,
         "framing",
@@ -477,19 +528,33 @@ def normalize_producer_protobuf(
     normalized = dict(protobuf_config)
     formats = (key_serialization, value_serialization)
     require_usage(Serialization.PROTOBUF, *formats)
-    if "descriptor" not in normalized:
-        raise MissingParameter(
-            param_hint="'--protobuf descriptor=my-descriptor'", param_type="option"
-        )
+    require_protobuf_schema(normalized)
     require_field_properties(
         normalized, Serialization.PROTOBUF, *formats, "--protobuf", "MyMessage"
     )
     validate_schema_scope(normalized, Serialization.PROTOBUF, *formats, "--protobuf")
-    validate_file(normalized["descriptor"], "'--protobuf descriptor'")
+    check_protobuf_messages(normalized)
+    return normalized
+
+
+def require_protobuf_schema(config: Properties) -> None:
+    """Exactly one of descriptor= (a descriptor set) or source= (a .proto file)."""
+    given = [name for name in PROTOBUF_SCHEMA_CONFIGS if name in config]
+    if not given:
+        raise MissingParameter(
+            param_hint="'--protobuf descriptor=my-descriptor' or '--protobuf source=my.proto'",
+            param_type="option",
+        )
+    if len(given) > 1:
+        raise BadParameter("Use either descriptor or source, not both.", param_hint="'--protobuf'")
+    validate_file(config[given[0]], f"'--protobuf {given[0]}'")
+
+
+def check_protobuf_messages(config: Properties) -> None:
+    """Compile or read the schema now and find each field's message."""
     for field_name in ("value", "key"):
-        if field_name in normalized:
+        if field_name in config:
             try:
-                local_message_class(normalized["descriptor"], normalized[field_name])
+                local_message_class(config, config[field_name])
             except SchemaError as ex:
                 raise BadParameter(str(ex), param_hint=f"'--protobuf {field_name}'") from ex
-    return normalized
