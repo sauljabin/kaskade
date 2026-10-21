@@ -26,7 +26,8 @@ Steps to upgrade Kaskade between major versions. Release notes are on
   ```
 
   `--timeout` now accepts only the current command's properties: `admin.*` for
-  `admin`, `consumer.*` for `consumer`.
+  `admin`, `consumer.*` for `consumer`, and `producer.*` for the new
+  `producer`.
 - **Docker:** images are no longer published. Install with `brew install kaskade`
   or `pipx install kaskade`.
 

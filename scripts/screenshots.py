@@ -1,18 +1,23 @@
 import asyncio
+import json
 import os
+from collections.abc import Awaitable, Callable
 from dataclasses import replace
 from datetime import datetime, timezone
 from pathlib import Path
 
+from confluent_kafka.serialization import MessageField
 from textual.app import ComposeResult
-from textual.widgets import Footer
+from textual.pilot import Pilot
+from textual.widgets import Footer, TabbedContent
 
 from kaskade.admin import KaskadeAdmin, ListTopics
 from kaskade.commands import EMPTY_RECORD_FILTERS, RecordFilters
 from kaskade.configs import BOOTSTRAP_SERVERS
 from kaskade.consumer import KaskadeConsumer, ListRecords
 from kaskade.consumer_service import ConsumerService, ConsumerSettings
-from kaskade.deserializers import Deserialization, StringDeserializer
+from kaskade.deserializers import Deserialization, Deserializer, StringDeserializer
+from kaskade.deserializers.base import DeserializationResult, RegistrySchema
 from kaskade.models import (
     Group,
     GroupMember,
@@ -23,6 +28,10 @@ from kaskade.models import (
     Record,
     Topic,
 )
+from kaskade.producer import KaskadeProducer, RecordComposer, RecordDraft
+from kaskade.producer.source import DraftField
+from kaskade.producer_service import ProducerService, ProducerSettings
+from kaskade.serializers import Serialization
 from kaskade.settings import load_settings
 from kaskade.topic_service import EnrichmentResult, GroupSnapshot, TopicService
 from kaskade.widgets import KaskadeHeader
@@ -159,11 +168,50 @@ def mock_records() -> list[Record]:
     ]
 
 
+class MockRegistryDeserializer(Deserializer):
+    """Decode the JSON after a Registry header and report a fixed Avro schema."""
+
+    SCHEMA = RegistrySchema(id=12, subject="order-events-value", version=3, type="AVRO")
+
+    def deserialize(
+        self, data: bytes, topic: str | None = None, context: MessageField = MessageField.NONE
+    ) -> object:
+        return json.loads(data[5:])
+
+    def deserialize_with_metadata(
+        self, data: bytes, topic: str | None = None, context: MessageField = MessageField.NONE
+    ) -> DeserializationResult:
+        return DeserializationResult(self.deserialize(data, topic, context), self.SCHEMA)
+
+
+def mock_registry_records() -> list[Record]:
+    """Build consumer records whose values a Schema Registry decoded."""
+    registry_deserializer = MockRegistryDeserializer()
+    header = b"\x00" + MockRegistryDeserializer.SCHEMA.id.to_bytes(4, "big")
+    return [
+        replace(
+            record,
+            value=header + (record.value or b""),
+            headers=[
+                *record.headers,
+                Header(
+                    key="trace-id",
+                    value=f"7f3c9a{record.offset}".encode(),
+                    value_deserializer=StringDeserializer(),
+                ),
+            ],
+            value_deserialization=Deserialization.REGISTRY,
+            value_deserializer=registry_deserializer,
+        )
+        for record in mock_records()
+    ]
+
+
 class MockConsumerService(ConsumerService):
-    def __init__(self) -> None:
+    def __init__(self, records: list[Record] | None = None) -> None:
         self.page_size = 25
         self.group_id = "order-inspector"
-        self._records = mock_records()
+        self._records = mock_records() if records is None else records
 
     def start(self) -> None:
         pass
@@ -200,10 +248,68 @@ class ConsumerScreenshotApp(KaskadeConsumer):
         yield Footer(compact=True)
 
 
-async def _export(app: KaskadeAdmin | KaskadeConsumer, name: str) -> tuple[Path, Path]:
+PRODUCER_DRAFT = RecordDraft(
+    headers=(("source", "storefront"), ("trace-id", "7f3c9a12")),
+    key=DraftField("order-1056", is_null=False),
+    value=DraftField(
+        {"customer": "Ada", "total": 149.90, "status": "paid", "items": ["keyboard", "mouse"]},
+        is_null=False,
+    ),
+)
+
+
+class MockProducerService(ProducerService):
+    def start(self) -> None:
+        pass
+
+    def close(self) -> None:
+        pass
+
+
+class ProducerScreenshotApp(KaskadeProducer):
+    CSS_PATH = str(PROJECT_ROOT / "kaskade" / "styles.css")
+
+    def new_producer(self) -> ProducerService:
+        return MockProducerService(self.producer_settings)
+
+    def compose(self) -> ComposeResult:
+        yield KaskadeHeader(self.producer_settings.kafka_config, version=SCREENSHOT_VERSION)
+        yield RecordComposer(
+            self.producer_settings,
+            self.producer,
+            self.serializers,
+            self.field_serializers,
+            self.draft,
+        )
+        yield Footer(compact=True)
+
+    def on_mount(self) -> None:
+        self.query_one("#composer-tabs", TabbedContent).active = "value-tab"
+
+
+class RecordDetailsScreenshotApp(ConsumerScreenshotApp):
+    def new_consumer(self) -> ConsumerService:
+        return MockConsumerService(mock_registry_records())
+
+
+async def open_record_details(pilot: Pilot[object]) -> None:
+    """Open Record Details on the first record and show its Registry-decoded value."""
+    await pilot.press("enter")
+    await pilot.pause()
+    pilot.app.screen.query_one("#record-details-tabs", TabbedContent).active = "value"
+    await pilot.pause()
+
+
+async def _export(
+    app: KaskadeAdmin | KaskadeConsumer | KaskadeProducer,
+    name: str,
+    prepare: Callable[[Pilot[object]], Awaitable[None]] | None = None,
+) -> tuple[Path, Path]:
     async with app.run_test(size=SCREENSHOT_SIZE) as pilot:
         await app.workers.wait_for_complete()
         await pilot.pause()
+        if prepare is not None:
+            await prepare(pilot)
         svg = draw_box_glyphs(app.export_screenshot(title=app.TITLE, simplify=True))
 
     framed_path = IMAGES_DIRECTORY / f"{name}.svg"
@@ -213,27 +319,48 @@ async def _export(app: KaskadeAdmin | KaskadeConsumer, name: str) -> tuple[Path,
     return framed_path, borderless_path
 
 
-async def generate_screenshots() -> tuple[Path, Path, Path, Path]:
-    """Render framed and borderless admin and consumer screenshots as SVG files."""
+async def generate_screenshots() -> tuple[Path, ...]:
+    """Render framed and borderless admin, consumer, producer, and record screenshots as SVGs."""
     IMAGES_DIRECTORY.mkdir(parents=True, exist_ok=True)
-    admin, consumer = _new_apps()
+    admin, consumer, producer, record_details = _new_apps()
     admin_paths = await _export(admin, "admin")
     consumer_paths = await _export(consumer, "consumer")
-    return *admin_paths, *consumer_paths
+    producer_paths = await _export(producer, "producer")
+    record_details_paths = await _export(record_details, "record-details", open_record_details)
+    return *admin_paths, *consumer_paths, *producer_paths, *record_details_paths
 
 
-def _new_apps() -> tuple[AdminScreenshotApp, ConsumerScreenshotApp]:
+def _consumer_settings() -> ConsumerSettings:
+    return ConsumerSettings(
+        "order-events",
+        KAFKA_CONFIG,
+        Deserialization.STRING,
+        Deserialization.STRING,
+    )
+
+
+def _new_apps() -> (
+    tuple[
+        AdminScreenshotApp, ConsumerScreenshotApp, ProducerScreenshotApp, RecordDetailsScreenshotApp
+    ]
+):
     no_color = os.environ.pop("NO_COLOR", None)
     try:
-        return AdminScreenshotApp(
-            KAFKA_CONFIG, settings=replace(load_settings(), admin_refresh_interval_seconds=0)
-        ), ConsumerScreenshotApp(
-            ConsumerSettings(
-                "order-events",
-                KAFKA_CONFIG,
-                Deserialization.STRING,
-                Deserialization.STRING,
-            )
+        return (
+            AdminScreenshotApp(
+                KAFKA_CONFIG, settings=replace(load_settings(), admin_refresh_interval_seconds=0)
+            ),
+            ConsumerScreenshotApp(_consumer_settings()),
+            ProducerScreenshotApp(
+                ProducerSettings(
+                    "order-events",
+                    KAFKA_CONFIG,
+                    Serialization.STRING,
+                    Serialization.JSON,
+                ),
+                draft=PRODUCER_DRAFT,
+            ),
+            RecordDetailsScreenshotApp(_consumer_settings()),
         )
     finally:
         if no_color is not None:

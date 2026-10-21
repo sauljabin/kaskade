@@ -266,9 +266,9 @@ kaskade producer -b localhost:9092 -t qa-producer --kafka message.max.bytes=1000
 Every screen must stay readable in every theme and at any width.
 
 ```bash
-kaskade producer -b localhost:9092 -t qa-producer --theme textual-light
-kaskade consumer -b localhost:9092 --earliest -t json -v json --theme ansi-dark
 kaskade admin -b localhost:9092 --theme eva01
+kaskade consumer -b localhost:9092 --earliest -t json -v json --theme ansi-dark
+kaskade producer -b localhost:9092 -t qa-producer --theme textual-light
 ```
 
 1. Text, borders, and the Footer are readable in each theme.

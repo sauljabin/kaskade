@@ -96,6 +96,10 @@ class TestReadmeVisualScripts(unittest.IsolatedAsyncioTestCase):
                     "admin-borderless.svg",
                     "consumer.svg",
                     "consumer-borderless.svg",
+                    "producer.svg",
+                    "producer-borderless.svg",
+                    "record-details.svg",
+                    "record-details-borderless.svg",
                 },
             )
             for path in paths:
@@ -103,7 +107,9 @@ class TestReadmeVisualScripts(unittest.IsolatedAsyncioTestCase):
                     svg = path.read_text(encoding="utf-8")
                     self.assert_default_theme_colors(svg.lower())
                     self.assert_intrinsic_dimensions(svg)
-                    self.assertIn(f"v{screenshots.SCREENSHOT_VERSION}", svg)
+                    if not path.stem.startswith("record-details"):
+                        # Record Details is a modal that covers the version header.
+                        self.assertIn(f"v{screenshots.SCREENSHOT_VERSION}", svg)
                     self.assertFalse(BOX_GLYPHS.keys() & set(svg))
                     if APP_VERSION != screenshots.SCREENSHOT_VERSION:
                         self.assertNotIn(f"v{APP_VERSION}", svg)
@@ -126,6 +132,10 @@ class TestReadmeVisualScripts(unittest.IsolatedAsyncioTestCase):
 
             consumer_svg = (output / "consumer.svg").read_text(encoding="utf-8")
             self.assertIn("Group&#160;order-inspector", consumer_svg)
+            producer_svg = (output / "producer.svg").read_text(encoding="utf-8")
+            self.assertIn("Compose&#160;Record", producer_svg)
+            record_details_svg = (output / "record-details.svg").read_text(encoding="utf-8")
+            self.assertIn("order-events-value&#160;v3", record_details_svg)
 
 
 ROOT = Path(__file__).resolve().parents[2]

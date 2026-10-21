@@ -3,6 +3,7 @@
 ## Contents
 
 - [Setup](#setup)
+- [Code layout](#code-layout)
 - [Scripts](#scripts)
 - [Configuration conventions](#configuration-conventions)
 - [Website](#website)
@@ -11,6 +12,7 @@
 - [Sandbox](#sandbox)
   - [Start the local sandbox](#start-the-local-sandbox)
   - [Populate test topics](#populate-test-topics)
+  - [Run each mode against the sandbox](#run-each-mode-against-the-sandbox)
   - [Inspect registry APIs with HTTPie](#inspect-registry-apis-with-httpie)
   - [Populate a remote Amazon MSK cluster](#populate-a-remote-amazon-msk-cluster)
   - [Stop the local sandbox](#stop-the-local-sandbox)
@@ -51,19 +53,40 @@ unit tests and the E2E tests, which require Docker. A push, pull request, or
 GitHub templates skips E2E, both in the hook and in CI. A manual run of the CI
 workflow from the Actions tab always runs E2E.
 
-Running kaskade:
-
-```bash
-uv run kaskade
-```
-
-Run textual console:
+To see Textual logs and `print` output, run the Textual console in one
+terminal and Kaskade in another:
 
 ```bash
 uv run textual console --port 7342
 uv run textual run --port 7342 --dev -c kaskade admin -b localhost:9092
 uv run textual run --port 7342 --dev -c kaskade consumer -b localhost:9092 -t my-topic
+uv run textual run --port 7342 --dev -c kaskade producer -b localhost:9092 -t my-topic
 ```
+
+## Code layout
+
+`kaskade/main.py` declares the `admin`, `consumer`, and `producer` commands.
+Each mode has a package for its Textual screens and a service that owns its
+Kafka client:
+
+| Mode | Screens | Kafka service | Records |
+| --- | --- | --- | --- |
+| Admin | `kaskade/admin/`: `app.py`, `topics.py`, `screens.py`, `forms.py` | `topic_service.py` | None |
+| Consumer | `kaskade/consumer/`: `app.py`, `records.py`, `details.py`, `screens.py` | `consumer_service.py` | `kaskade/deserializers/` decodes them |
+| Producer | `kaskade/producer/`: `app.py`, `composer.py`, `highlighting.py`, `source.py` | `producer_service.py` | `kaskade/serializers/` encodes them |
+
+The modes share the rest:
+
+- `kaskade/cli/` resolves the Kafka, Registry, and AWS connection, validates
+  options, and loads `settings.yaml` into the `AppSettings` each app receives.
+- `kaskade/schemas/` loads local schema files and Registry schemas, with their
+  references, for both the deserializers and the serializers, and registers
+  schemas for the producer.
+- `kaskade/app.py` holds `KaskadeApp`, the base of the three apps, and
+  `kaskade/styles.css` their shared styles. `settings.py`, `keymaps.py`, and
+  `themes.py` read `settings.yaml`.
+
+[AGENT.md](AGENT.md) records the rules each part must keep.
 
 ## Scripts
 
@@ -142,6 +165,8 @@ cp -R site/. /tmp/kaskade-site-preview/
 cp images/banner-borderless.svg \
    images/admin-borderless.svg \
    images/consumer-borderless.svg \
+   images/producer-borderless.svg \
+   images/record-details-borderless.svg \
    images/littlehorse-badge.svg \
    images/textual-badge.svg \
    /tmp/kaskade-site-preview/assets/
@@ -302,6 +327,23 @@ uv run python -m sandbox \
     --registry http://localhost:8081 \
     --apicurio-registry http://localhost:8082/apis/registry/v3
 ```
+
+### Run each mode against the sandbox
+
+Run the working tree against the populated sandbox:
+
+```bash
+uv run kaskade admin -b localhost:9092
+uv run kaskade consumer -b localhost:9092 --earliest -t json -k string -v json
+uv run kaskade consumer -b localhost:9092 --earliest -t avro-schema -k string -v registry \
+    --registry url=http://localhost:8081
+uv run kaskade producer -b localhost:9092 -t json -k string -v json
+uv run kaskade producer -b localhost:9092 -t avro-schema -k string -v registry \
+    --registry url=http://localhost:8081
+```
+
+[MANUAL_TESTING.md](MANUAL_TESTING.md) has a command for every sandbox topic and
+format.
 
 ### Inspect registry APIs with HTTPie
 

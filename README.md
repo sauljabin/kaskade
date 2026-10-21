@@ -14,10 +14,11 @@
 <a href="https://pypi.org/project/kaskade"><img alt="macOS support" src="https://img.shields.io/badge/os-macOS-7C3AED?style=flat-square&logo=apple&logoColor=white"></a>
 </p>
 
-Kaskade is a terminal UI for Kafka. `kaskade admin` shows your topics,
-partitions, and consumer groups and lets you create, edit, and delete topics.
-`kaskade consumer` reads records from a topic and decodes them as JSON, Avro,
-or Protobuf, with or without Schema Registry. Everything works from the
+Kaskade is a terminal UI for Kafka with three modes. `kaskade admin` shows your
+topics, partitions, and consumer groups and lets you create, edit, and delete
+topics. `kaskade consumer` reads records from a topic and decodes them as JSON,
+Avro, or Protobuf, with or without Schema Registry. `kaskade producer` composes
+a record and produces it, encoding it the same ways. Everything works from the
 keyboard.
 
 ## Screenshots
@@ -33,6 +34,18 @@ keyboard.
     </td>
     <td width="50%">
       <img alt="Kaskade consumer mode" width="100%" src="https://raw.githubusercontent.com/sauljabin/kaskade/main/images/consumer.svg">
+    </td>
+  </tr>
+  <tr>
+    <th width="50%">Producer</th>
+    <th width="50%">Record Details</th>
+  </tr>
+  <tr>
+    <td width="50%">
+      <img alt="Kaskade producer mode" width="100%" src="https://raw.githubusercontent.com/sauljabin/kaskade/main/images/producer.svg">
+    </td>
+    <td width="50%">
+      <img alt="Kaskade consumer Record Details with a Schema Registry value" width="100%" src="https://raw.githubusercontent.com/sauljabin/kaskade/main/images/record-details.svg">
     </td>
   </tr>
 </table>
@@ -57,6 +70,20 @@ keyboard.
 - Keep consuming when a key, value, or header fails to decode, and show it as bytes next to the error
 - Show bytes as Base64, hex, byte arrays, or escaped bytes
 - Copy or export individual records as JSON
+
+### Record production
+
+- Compose a record's key, value, and ordered headers, keeping null and empty
+  content apart
+- Serialize keys and values as bytes, primitives, JSON, Avro, or Protobuf,
+  with local schema files or through Confluent Schema Registry or native
+  Apicurio Registry v3
+- Validate JSON against a JSON Schema before producing it
+- Register schemas and their references when auto-registration is enabled
+- Paste a key or value copied from the consumer to produce the same bytes again
+- Load a draft from a JSON file
+- Confirm delivery with the partition, offset, and timestamp the broker
+  acknowledged
 
 ### Connections and configuration
 
@@ -100,10 +127,16 @@ Consumer view:
 kaskade consumer -b my-kafka:9092 -t my-topic
 ```
 
+Producer view:
+
+```bash
+kaskade producer -b my-kafka:9092 -t my-topic
+```
+
 ## Documentation
 
-- [Usage](https://github.com/sauljabin/kaskade/blob/main/USAGE.md): commands,
-  settings, connections, and decoding.
+- [Usage](https://github.com/sauljabin/kaskade/blob/main/USAGE.md): connecting,
+  then the admin, consumer, and producer commands and settings.
 - [Migration](https://github.com/sauljabin/kaskade/blob/main/MIGRATION.md):
   upgrading between major versions.
 - [Development](https://github.com/sauljabin/kaskade/blob/main/DEVELOPMENT.md):

@@ -26,7 +26,7 @@ class KaskadeProducer(KaskadeApp):
         super().__init__(settings=settings)
         self.producer_settings = producer_settings
         self.draft = draft
-        self.producer = ProducerService(producer_settings)
+        self.producer = self.new_producer()
         self.producer.start()
         # Build the serializers now, so unusable schema files or Registry settings
         # fail before the TUI opens; Registry schemas are looked up once it runs.
@@ -41,6 +41,9 @@ class KaskadeProducer(KaskadeApp):
         except Exception:
             self.serializers.close()
             raise
+
+    def new_producer(self) -> ProducerService:
+        return ProducerService(self.producer_settings)
 
     def compose(self) -> ComposeResult:
         yield KaskadeHeader(self.producer_settings.kafka_config, profile=kantrip_profile())

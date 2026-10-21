@@ -20,6 +20,10 @@
   added, renamed, or removed. Shorter documents and this file have none.
 - Keep affected documentation concise and current. Remove obsolete or
   contradicted guidance rather than recording implementation history.
+- Wherever documentation, the site, screenshots, examples, or templates list or
+  explain the modes, cover admin, consumer, and producer, in that order, with
+  the same names and section shape. In `USAGE.md`, each mode has commands,
+  behavior, configuration, and a shortcuts table with binding IDs.
 - Importing `kaskade` must not create directories, open files, or modify the root
   logger. Configure the named logger lazily and tolerate an unavailable log
   destination.
@@ -55,7 +59,8 @@
   flatten them in order and reject empty or duplicate brokers. Forward client
   properties for downstream validation and keep `examples/client.ini`
   synchronized.
-- Keep `-k` as the short form of consumer `--key`; `--kafka` has no short form.
+- Keep `-k` and `-v` as the short forms of `--key` and `--value` in consumer
+  and producer; `--kafka` has no short form.
 - Keep settings loading in `settings.py`, key binding parsing in `keymaps.py`,
   supported-theme resolution in `themes.py`, and the shared `KaskadeApp` in
   `app.py`. Settings failures retain valid
@@ -128,9 +133,8 @@
 - Preserve the last complete metrics during refresh. Never overlap automatic,
   manual, resumed, or post-mutation refreshes; coalesce non-periodic requests in
   the shared refresh coordinator.
-- Admin auto-refresh defaults to 30 seconds, pauses outside the topic list, and
-  is configured by `admin.refresh-interval` or
-  `admin --refresh-interval`; `0` disables it.
+- Admin auto-refresh pauses outside the topic list; `USAGE.md` owns its default
+  and configuration.
 - Pass Kaskade's `logger` to every `confluent-kafka` client so client warnings,
   such as properties meant for another client type, reach the log file and
   never the terminal.
@@ -230,9 +234,7 @@ entries.
   only exception is `StretchyDataTable._compute_row_renderables`, which
   ellipsizes cells; keep it documented and guarded by `TestPrivateTextualHook`,
   and keep `textual` capped below the next major version.
-- `eva01-berserk` is the default bundled theme; retain the original `eva01` and
-  every Textual built-in theme.
-  Style CSS with semantic variables and Rich renderables with semantic names,
+- Style CSS with semantic variables and Rich renderables with semantic names,
   never Eva01 hex values.
 - `KaskadeApp` synchronizes Rich semantic colors from the active theme and on
   theme changes, using Textual's fallbacks for omitted colors. Strip `ansi_`
@@ -267,11 +269,13 @@ only when nothing under `tests/e2e` or `kaskade/` reads it.
 
 Generated SVGs in `images/` come from `uv run python -m scripts.banner` and
 `uv run python -m scripts.screenshots`; neither needs Kafka. The screenshot
-commands emit framed README images and borderless site variants. Use absolute
-`raw.githubusercontent.com` URLs targeting `main`. Paired README screenshots
-use equal 50% table columns and 100% image width. Never leave box-drawing
-glyphs as SVG text: Linux and Android take them from fallback fonts whose cells
-differ from the monospace grid, which splits borders and squeezes border titles.
+commands emit framed README images and borderless site variants for admin,
+consumer, producer, and consumer Record Details. Use absolute
+`raw.githubusercontent.com` URLs targeting `main`. README screenshots form a
+2x2 grid of equal 50% table columns at 100% image width. Never leave
+box-drawing glyphs as SVG text: Linux and Android take them from fallback fonts
+whose cells differ from the monospace grid, which splits borders and squeezes
+border titles.
 `scripts.draw_box_glyphs` draws them as paths; extend its `BOX_GLYPHS` when a
 new border style appears.
 
@@ -310,6 +314,8 @@ focused on workflows.
   metadata.
 - The protected release workflow builds once, verifies the tag, and publishes
   those artifacts to PyPI and GitHub after approval.
+- PR and issue bodies are a few plain sentences or bullets: what changed, why,
+  and how it was tested. Add details only when they help the reader.
 - Use Conventional Commits for commit and PR titles, with short imperative
   descriptions. Release notes derive from squash titles; use accurate user-facing
   types such as `feat`, `fix`, `perf`, `docs`, `fix(security)`, and dependency

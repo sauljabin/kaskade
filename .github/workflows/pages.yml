@@ -8,6 +8,8 @@ on:
       - "images/banner-borderless.svg"
       - "images/admin-borderless.svg"
       - "images/consumer-borderless.svg"
+      - "images/producer-borderless.svg"
+      - "images/record-details-borderless.svg"
       - "images/littlehorse-badge.svg"
       - "images/textual-badge.svg"
       - ".github/workflows/pages.yml"
@@ -18,6 +20,8 @@ on:
       - "images/banner-borderless.svg"
       - "images/admin-borderless.svg"
       - "images/consumer-borderless.svg"
+      - "images/producer-borderless.svg"
+      - "images/record-details-borderless.svg"
       - "images/littlehorse-badge.svg"
       - "images/textual-badge.svg"
       - ".github/workflows/pages.yml"
@@ -48,6 +52,8 @@ jobs:
             images/banner-borderless.svg \
             images/admin-borderless.svg \
             images/consumer-borderless.svg \
+            images/producer-borderless.svg \
+            images/record-details-borderless.svg \
             images/littlehorse-badge.svg \
             images/textual-badge.svg \
             _site/assets/
