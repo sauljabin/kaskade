@@ -37,15 +37,15 @@ keyboard.
     </td>
   </tr>
   <tr>
-    <th width="50%">Producer</th>
     <th width="50%">Record Details</th>
+    <th width="50%">Producer</th>
   </tr>
   <tr>
     <td width="50%">
-      <img alt="Kaskade producer mode" width="100%" src="https://raw.githubusercontent.com/sauljabin/kaskade/main/images/producer.svg">
+      <img alt="Kaskade consumer Record Details with a Schema Registry value" width="100%" src="https://raw.githubusercontent.com/sauljabin/kaskade/main/images/record-details.svg">
     </td>
     <td width="50%">
-      <img alt="Kaskade consumer Record Details with a Schema Registry value" width="100%" src="https://raw.githubusercontent.com/sauljabin/kaskade/main/images/record-details.svg">
+      <img alt="Kaskade producer mode" width="100%" src="https://raw.githubusercontent.com/sauljabin/kaskade/main/images/producer.svg">
     </td>
   </tr>
 </table>

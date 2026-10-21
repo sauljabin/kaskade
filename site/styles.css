@@ -474,14 +474,12 @@ main > section:not(.hero) {
 
 .feature-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   border-top: 1px solid var(--border);
   border-left: 1px solid var(--border);
 }
 
 .feature-card {
-  position: relative;
-  min-height: 17rem;
   padding: clamp(1.3rem, 3vw, 2rem);
   border-right: 1px solid var(--border);
   border-bottom: 1px solid var(--border);
@@ -492,34 +490,54 @@ main > section:not(.hero) {
   background: rgba(31, 14, 54, 0.88);
 }
 
-.feature-card--wide {
-  grid-column: span 2;
-}
-
-.feature-icon {
-  margin: 0 0 3.8rem;
+.feature-command {
+  margin: 0 0 0.9rem;
   color: var(--green);
   font-size: 0.72rem;
 }
 
 .feature-card h3 {
-  margin: 0 0 0.6rem;
+  margin: 0 0 0.8rem;
   font-size: 1.08rem;
   letter-spacing: -0.035em;
 }
 
-.feature-card > p:not(.feature-icon) {
-  max-width: 40ch;
+.feature-list {
+  display: grid;
+  gap: 0.5rem;
   margin: 0;
+  padding: 0;
+  list-style: none;
   color: var(--muted);
   font-size: 0.84rem;
 }
 
-.feature-command {
-  display: block;
-  margin-top: 1.25rem;
+.feature-list li {
+  position: relative;
+  padding-left: 1.1rem;
+}
+
+.feature-list li::before {
+  position: absolute;
+  left: 0;
   color: var(--purple-bright);
-  font-size: 0.68rem;
+  content: "›";
+}
+
+.feature-shared {
+  margin: 0;
+  padding: 1rem clamp(1.3rem, 3vw, 2rem);
+  border: 1px solid var(--border);
+  border-top: 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.feature-shared span {
+  margin-right: 0.75rem;
+  color: var(--green);
+  font-size: 0.72rem;
+  text-transform: uppercase;
 }
 
 .screenshots {
@@ -796,7 +814,10 @@ main > section:not(.hero) {
     margin-inline: auto;
   }
 
-  .feature-grid,
+  .feature-grid {
+    grid-template-columns: 1fr;
+  }
+
   .resource-links {
     grid-template-columns: repeat(2, 1fr);
   }
@@ -872,18 +893,6 @@ main > section:not(.hero) {
   .resource-links,
   .install-grid {
     grid-template-columns: 1fr;
-  }
-
-  .feature-card--wide {
-    grid-column: auto;
-  }
-
-  .feature-card {
-    min-height: 14rem;
-  }
-
-  .feature-icon {
-    margin-bottom: 2.5rem;
   }
 
   .screenshot-caption {

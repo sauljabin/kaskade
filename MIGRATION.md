@@ -28,6 +28,10 @@ Steps to upgrade Kaskade between major versions. Release notes are on
   `--timeout` now accepts only the current command's properties: `admin.*` for
   `admin`, `consumer.*` for `consumer`, and `producer.*` for the new
   `producer`.
+- **Consumer deserializers:** `-k` and `-v` default to `string` instead of
+  `bytes`. Pass `-k bytes -v bytes` for the previous Base64 output; `--bytes`
+  now needs one of them. Keys and values that aren't valid UTF-8 show as bytes
+  next to a deserialization error.
 - **Docker:** images are no longer published. Install with `brew install kaskade`
   or `pipx install kaskade`.
 

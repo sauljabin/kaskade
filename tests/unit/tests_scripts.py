@@ -10,7 +10,7 @@ import yaml
 
 from kaskade import APP_VERSION
 from kaskade.themes import EVA01_BERSERK_THEME
-from scripts import BOX_GLYPHS, banner, draw_box_glyphs, screenshots
+from scripts import BLOCK_GLYPHS, BOX_GLYPHS, banner, draw_box_glyphs, screenshots
 
 
 class TestReadmeVisualScripts(unittest.IsolatedAsyncioTestCase):
@@ -53,6 +53,24 @@ class TestReadmeVisualScripts(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(path.get("stroke"), "#9b4dca")
         self.assertEqual(path.get("d"), "M12.2 13.7H6.1V25.9M12.2 13.7H24.4")
+
+    def test_draw_box_glyphs_fills_block_glyphs_to_the_cell_height(self) -> None:
+        svg = (
+            '<svg xmlns="http://www.w3.org/2000/svg"><style>.t-r1 { fill: #9b4dca }</style>'
+            '<g class="t-matrix"><text class="t-r1" x="0" y="20" textLength="36.6">▐X▌</text>'
+            "</g></svg>"
+        )
+
+        root = ElementTree.fromstring(draw_box_glyphs(svg))
+
+        texts = [element for element in root.iter() if element.tag.endswith("text")]
+        path = next(element for element in root.iter() if element.tag.endswith("path"))
+        self.assertEqual(
+            [(text.get("x"), text.get("textLength"), text.text) for text in texts],
+            [("12.2", "12.2", "X")],
+        )
+        self.assertEqual(path.get("fill"), "#9b4dca")
+        self.assertEqual(path.get("d"), "M6.1 1.5H12.2V25.9H6.1ZM24.4 1.5H30.5V25.9H24.4Z")
 
     async def test_banner_generates_framed_and_borderless_default_theme_variants(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
@@ -110,7 +128,7 @@ class TestReadmeVisualScripts(unittest.IsolatedAsyncioTestCase):
                     if not path.stem.startswith("record-details"):
                         # Record Details is a modal that covers the version header.
                         self.assertIn(f"v{screenshots.SCREENSHOT_VERSION}", svg)
-                    self.assertFalse(BOX_GLYPHS.keys() & set(svg))
+                    self.assertFalse((BOX_GLYPHS.keys() | BLOCK_GLYPHS.keys()) & set(svg))
                     if APP_VERSION != screenshots.SCREENSHOT_VERSION:
                         self.assertNotIn(f"v{APP_VERSION}", svg)
 

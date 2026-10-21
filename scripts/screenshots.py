@@ -320,14 +320,14 @@ async def _export(
 
 
 async def generate_screenshots() -> tuple[Path, ...]:
-    """Render framed and borderless admin, consumer, producer, and record screenshots as SVGs."""
+    """Render framed and borderless admin, consumer, Record Details, and producer SVGs."""
     IMAGES_DIRECTORY.mkdir(parents=True, exist_ok=True)
     admin, consumer, producer, record_details = _new_apps()
     admin_paths = await _export(admin, "admin")
     consumer_paths = await _export(consumer, "consumer")
-    producer_paths = await _export(producer, "producer")
     record_details_paths = await _export(record_details, "record-details", open_record_details)
-    return *admin_paths, *consumer_paths, *producer_paths, *record_details_paths
+    producer_paths = await _export(producer, "producer")
+    return *admin_paths, *consumer_paths, *record_details_paths, *producer_paths
 
 
 def _consumer_settings() -> ConsumerSettings:
