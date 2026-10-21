@@ -270,9 +270,10 @@ only when nothing under `tests/e2e` or `kaskade/` reads it.
 Generated SVGs in `images/` come from `uv run python -m scripts.banner` and
 `uv run python -m scripts.screenshots`; neither needs Kafka. The screenshot
 commands emit framed README images and borderless site variants for admin,
-consumer, producer, and consumer Record Details. Use absolute
-`raw.githubusercontent.com` URLs targeting `main`. README screenshots form a
-2x2 grid of equal 50% table columns at 100% image width. Never leave
+consumer, consumer Record Details, and producer, the order the README and site
+show them. Use absolute `raw.githubusercontent.com` URLs targeting `main`.
+README screenshots form a 2x2 grid of equal 50% table columns at 100% image
+width. Never leave
 box-drawing glyphs as SVG text: Linux and Android take them from fallback fonts
 whose cells differ from the monospace grid, which splits borders and squeezes
 border titles.

@@ -34,6 +34,13 @@ BOX_GLYPHS = {
     "╚": (1, -1, True),
     "╝": (-1, -1, True),
 }
+# Block elements fill the cell's full height between these fractions of its width.
+BLOCK_GLYPHS = {
+    "▌": (0, 0.5),
+    "▐": (0.5, 1),
+    "▏": (0, 0.125),
+    "▕": (0.875, 1),
+}
 
 
 def normalize_svg(svg: str) -> str:
@@ -82,10 +89,11 @@ def remove_svg_terminal_chrome(svg: str) -> str:
 
 
 def draw_box_glyphs(svg: str) -> str:
-    """Draw a Rich SVG's box-drawing glyphs as paths between its text runs.
+    """Draw a Rich SVG's box-drawing and block glyphs as paths between its text runs.
 
-    Linux and Android borrow these glyphs from fallback fonts whose widths and
-    heights differ from the monospace cells. Borders then split apart, and the
+    Linux, macOS, and Android borrow these glyphs from fallback fonts whose
+    widths and heights differ from the monospace cells. Borders then split
+    apart, blocks such as a checkbox's half blocks overflow their line, and the
     wider glyphs squeeze the rest of their text element into its textLength.
     """
     root = ElementTree.fromstring(svg)
@@ -94,34 +102,46 @@ def draw_box_glyphs(svg: str) -> str:
     )
     style = root.find(f"{SVG}style")
     fills = dict(SVG_CLASS_FILL.findall(style.text or "")) if style is not None else {}
-    commands: dict[str, list[str]] = {}
+    strokes: dict[str, list[str]] = {}
+    blocks: dict[str, list[str]] = {}
     children = []
     for child in matrix:
         color = fills.get(child.get("class", ""))
         if child.tag == f"{SVG}text" and color and child.text:
-            children.extend(_split_box_glyphs(child, commands.setdefault(color, [])))
+            children.extend(
+                _split_box_glyphs(
+                    child, strokes.setdefault(color, []), blocks.setdefault(color, [])
+                )
+            )
         else:
             children.append(child)
 
-    paths = [_box_glyph_path(color, path) for color, path in commands.items() if path]
+    paths = [_box_glyph_path(color, path) for color, path in strokes.items() if path]
+    paths += [_block_glyph_path(color, path) for color, path in blocks.items() if path]
     matrix[:] = paths + children
     ElementTree.register_namespace("", SVG_NAMESPACE)
     # Keep Rich's escaped no-break spaces.
     return ElementTree.tostring(root, encoding="unicode").replace("\xa0", "&#160;")
 
 
-def _split_box_glyphs(text: ElementTree.Element, commands: list[str]) -> list[ElementTree.Element]:
+def _split_box_glyphs(
+    text: ElementTree.Element, commands: list[str], blocks: list[str]
+) -> list[ElementTree.Element]:
     left = float(text.get("x", 0))
     top = float(text.get("y", 0)) - SVG_BASELINE + SVG_LINE_OFFSET
     runs: list[tuple[float, str]] = []
     run_left, run = left, ""
     for character in text.text or "":
         glyph = BOX_GLYPHS.get(character)
-        if glyph is None:
+        block = BLOCK_GLYPHS.get(character)
+        if glyph is not None:
+            commands.extend(_box_path(glyph, left, top))
+        elif block is not None:
+            blocks.append(_block_path(block, left, top))
+        else:
             run_left = run_left if run else left
             run += character
-        else:
-            commands.extend(_box_path(glyph, left, top))
+        if glyph is not None or block is not None:
             runs.extend([(run_left, run)] if run else [])
             run = ""
         left += cell_len(character) * SVG_CELL_WIDTH
@@ -154,6 +174,17 @@ def _box_glyph_path(color: str, commands: list[str]) -> ElementTree.Element:
     )
     path.tail = "\n"
     return path
+
+
+def _block_glyph_path(color: str, commands: list[str]) -> ElementTree.Element:
+    path = ElementTree.Element(f"{SVG}path", {"fill": color, "d": "".join(commands)})
+    path.tail = "\n"
+    return path
+
+
+def _block_path(block: tuple[float, float], left: float, top: float) -> str:
+    start, end = (left + fraction * SVG_CELL_WIDTH for fraction in block)
+    return f"M{_n(start)} {_n(top)}H{_n(end)}V{_n(top + SVG_LINE_HEIGHT)}H{_n(start)}Z"
 
 
 def _box_path(glyph: tuple[int, int, bool], left: float, top: float) -> list[str]:

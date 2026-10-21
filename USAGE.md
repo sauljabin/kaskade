@@ -543,9 +543,11 @@ kaskade consumer -b my-kafka:9092 -t my-json-topic -k json -v json
 ```
 
 The deserializers are `bytes`, `boolean`, `string`, `long`, `integer`,
-`double`, `float`, `json`, `avro`, `protobuf`, and `registry`. The `-k/--key`
-and `-v/--value` names are case-insensitive and normalize to the lowercase
-choices shown in CLI help.
+`double`, `float`, `json`, `avro`, `protobuf`, and `registry`. Both `-k/--key`
+and `-v/--value` default to `string`, as in the producer. A key or value that
+isn't valid UTF-8 is a [deserialization failure](#deserialization-failures): it
+shows as bytes next to the error, and consuming continues. The names are
+case-insensitive and normalize to the lowercase choices shown in CLI help.
 
 Deserializer settings are repeatable `property=value` options: `--bytes` and
 `--fallback` control byte encoding, `--json`, `--avro`, and `--protobuf`
@@ -554,9 +556,12 @@ The sections below cover each one.
 
 ### Byte presentation
 
-BYTES content defaults to Base64. Configure it globally or per field:
+`-k bytes` and `-v bytes` show content as Base64 by default. `--bytes` changes
+the encoding globally or per field, and needs at least one field that uses
+`bytes`:
 
 ```bash
+-k bytes -v bytes \
 --bytes encoding=base64 \
 --bytes key.encoding=hex \
 --bytes value.encoding=byte-array

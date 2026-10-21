@@ -427,7 +427,7 @@ def admin(
         "key_deserialization",
         type=cloup.Choice(Deserialization.str_list(), False),
         help="Key deserializer (case-insensitive).",
-        default=str(Deserialization.BYTES),
+        default=str(Deserialization.STRING),
         show_default=True,
         callback=string_to_deserializer_type,
     ),
@@ -437,7 +437,7 @@ def admin(
         "value_deserialization",
         type=cloup.Choice(Deserialization.str_list(), False),
         help="Value deserializer (case-insensitive).",
-        default=str(Deserialization.BYTES),
+        default=str(Deserialization.STRING),
         show_default=True,
         callback=string_to_deserializer_type,
     ),
@@ -535,7 +535,7 @@ def consumer(
     Examples:
       kaskade consumer -b localhost:9092 -t my-topic
       kaskade consumer -b localhost:9092 -t my-topic --earliest -k string -v json
-      kaskade consumer -b localhost:9092 -t my-topic --bytes encoding=hex --fallback encoding=hex
+      kaskade consumer -b localhost:9092 -t my-topic -v bytes --bytes encoding=hex
       kaskade consumer -b localhost:9092 -t my-topic -v registry --registry url=http://localhost:8081
     """
 

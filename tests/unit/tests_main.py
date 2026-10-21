@@ -1364,7 +1364,7 @@ class TestConsumerCli(unittest.TestCase):
             ConsumerSettings(
                 EXPECTED_TOPIC,
                 {BOOTSTRAP_SERVERS: EXPECTED_SERVER, "security.protocol": "SSL"},
-                Deserialization.BYTES,
+                Deserialization.STRING,
                 Deserialization.REGISTRY,
                 registry_config={
                     "url": "http://my-url",
@@ -1406,7 +1406,7 @@ class TestConsumerCli(unittest.TestCase):
             ConsumerSettings(
                 EXPECTED_TOPIC,
                 {BOOTSTRAP_SERVERS: EXPECTED_SERVER},
-                Deserialization.BYTES,
+                Deserialization.STRING,
                 Deserialization.REGISTRY,
                 registry_config={
                     "url": "http://inline-url",
@@ -1433,8 +1433,8 @@ class TestConsumerCli(unittest.TestCase):
             ConsumerSettings(
                 EXPECTED_TOPIC,
                 {BOOTSTRAP_SERVERS: CONFIGURED_SERVER, "security.protocol": "SSL"},
-                Deserialization.BYTES,
-                Deserialization.BYTES,
+                Deserialization.STRING,
+                Deserialization.STRING,
             ),
             settings=ANY,
         )
@@ -1457,8 +1457,8 @@ class TestConsumerCli(unittest.TestCase):
             ConsumerSettings(
                 EXPECTED_TOPIC,
                 {BOOTSTRAP_SERVERS: CONFIGURED_SERVER},
-                Deserialization.BYTES,
-                Deserialization.BYTES,
+                Deserialization.STRING,
+                Deserialization.STRING,
             ),
             settings=ANY,
         )
@@ -1486,8 +1486,8 @@ class TestConsumerCli(unittest.TestCase):
             ConsumerSettings(
                 EXPECTED_TOPIC,
                 {BOOTSTRAP_SERVERS: EXPECTED_SERVER, "security.protocol": "SASL_SSL"},
-                Deserialization.BYTES,
-                Deserialization.BYTES,
+                Deserialization.STRING,
+                Deserialization.STRING,
             ),
             settings=ANY,
         )
@@ -1503,8 +1503,8 @@ class TestConsumerCli(unittest.TestCase):
             ConsumerSettings(
                 EXPECTED_TOPIC,
                 {BOOTSTRAP_SERVERS: EXPECTED_SERVER},
-                Deserialization.BYTES,
-                Deserialization.BYTES,
+                Deserialization.STRING,
+                Deserialization.STRING,
             ),
             settings=ANY,
         )
@@ -1621,6 +1621,10 @@ class TestConsumerCli(unittest.TestCase):
                 EXPECTED_SERVER,
                 "-t",
                 EXPECTED_TOPIC,
+                "-k",
+                "bytes",
+                "-v",
+                "bytes",
                 "--bytes",
                 "encoding=BASE64",
                 "--bytes",
@@ -1756,6 +1760,8 @@ class TestConsumerCli(unittest.TestCase):
                 EXPECTED_TOPIC,
                 "-k",
                 "string",
+                "-v",
+                "bytes",
                 "--bytes",
                 "key.encoding=hex",
             ],
@@ -1829,8 +1835,8 @@ class TestConsumerCli(unittest.TestCase):
                     BOOTSTRAP_SERVERS: EXPECTED_SERVER,
                     expected_property_name: expected_property_value,
                 },
-                Deserialization.BYTES,
-                Deserialization.BYTES,
+                Deserialization.STRING,
+                Deserialization.STRING,
             ),
             settings=ANY,
         )
@@ -1866,8 +1872,8 @@ class TestConsumerCli(unittest.TestCase):
                     expected_property_name: expected_property_value,
                     expected_property_name2: expected_property_value2,
                 },
-                Deserialization.BYTES,
-                Deserialization.BYTES,
+                Deserialization.STRING,
+                Deserialization.STRING,
             ),
             settings=ANY,
         )
@@ -2268,7 +2274,7 @@ class TestConsumerCli(unittest.TestCase):
                 {
                     BOOTSTRAP_SERVERS: EXPECTED_SERVER,
                 },
-                Deserialization.BYTES,
+                Deserialization.STRING,
                 Deserialization.PROTOBUF,
                 protobuf_config={
                     expected_descriptor_name: expected_descriptor_value,

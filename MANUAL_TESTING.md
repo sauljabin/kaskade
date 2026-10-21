@@ -94,6 +94,7 @@ Primitive and JSON formats:
 
 ```bash
 kaskade consumer -b localhost:9092 --earliest -t string
+kaskade consumer -b localhost:9092 --earliest -k bytes -v bytes -t string --bytes encoding=hex
 kaskade consumer -b localhost:9092 --earliest -k string -v string -t null
 kaskade consumer -b localhost:9092 --earliest -k string -v integer -t integer
 kaskade consumer -b localhost:9092 --earliest -k string -v long -t long
@@ -121,8 +122,9 @@ kaskade consumer -b localhost:9092 --earliest -t errors -k registry -v registry 
 
 In any of them:
 
-1. Records show decoded keys and values, not raw bytes. The `null` topic shows
-   null key, value, and a `sandbox-null` header.
+1. Records show decoded keys and values, not raw bytes, except with
+   `-k bytes -v bytes`, which shows hex. The `null` topic shows null key,
+   value, and a `sandbox-null` header.
 2. Press `Enter` for Record Details. Move with `n` and `N`, and check the Key,
    Value, and Headers tabs.
 3. Press `y` to copy and `Ctrl+E` to export a record. The copy and the file are
