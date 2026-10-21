@@ -6,7 +6,7 @@
     <title>Kaskade: Kafka in your terminal</title>
     <meta
       name="description"
-      content="A keyboard-driven terminal UI for Kafka: manage topics and consumer groups, and read records as JSON, Avro, or Protobuf, with or without Schema Registry."
+      content="A keyboard-driven terminal UI for Kafka: manage topics and consumer groups, and read and produce records as JSON, Avro, or Protobuf, with or without Schema Registry."
     >
     <meta name="theme-color" content="#0e0024">
     <link rel="canonical" href="https://sauljabin.github.io/kaskade/">
@@ -20,7 +20,7 @@
     <meta property="og:title" content="Kaskade: Kafka in your terminal">
     <meta
       property="og:description"
-      content="Manage Kafka topics and read records from your terminal, with JSON, Avro, Protobuf, and Schema Registry decoding."
+      content="Manage Kafka topics, and read and produce records from your terminal, with JSON, Avro, Protobuf, and Schema Registry support."
     >
     <meta property="og:url" content="https://sauljabin.github.io/kaskade/">
     <meta
@@ -36,7 +36,7 @@
     <meta name="twitter:title" content="Kaskade: Kafka in your terminal">
     <meta
       name="twitter:description"
-      content="Manage Kafka topics and read records from your terminal, with JSON, Avro, Protobuf, and Schema Registry decoding."
+      content="Manage Kafka topics, and read and produce records from your terminal, with JSON, Avro, Protobuf, and Schema Registry support."
     >
     <meta
       name="twitter:image"
@@ -68,9 +68,9 @@
           <div class="hero-copy">
             <h1 id="hero-title">Kafka in <span>your terminal.</span></h1>
             <p class="hero-description">
-              Browse and manage topics and consumer groups, and read records as JSON,
-              Avro, or Protobuf, with or without Schema Registry. All from the
-              keyboard.
+              Browse and manage topics and consumer groups, and read and produce
+              records as JSON, Avro, or Protobuf, with or without Schema Registry.
+              All from the keyboard.
             </p>
 
             <div class="install-prompt" aria-label="Homebrew installation command">
@@ -130,14 +130,14 @@
         <div class="section-heading">
           <p class="eyebrow"><span aria-hidden="true">01.</span> Features</p>
           <h2 id="features-title">What it does</h2>
-          <p>Two commands: <code>kaskade admin</code> for topics and consumer groups, and <code>kaskade consumer</code> for records.</p>
+          <p>Three commands: <code>kaskade admin</code> for topics and consumer groups, <code>kaskade consumer</code> to read records, and <code>kaskade producer</code> to write them.</p>
         </div>
 
         <div class="feature-grid">
           <article class="feature-card feature-card--wide">
             <p class="feature-icon" aria-hidden="true">[01]</p>
             <h3>See your cluster</h3>
-            <p>Topics, partitions, consumer groups, lag, replicas, and record counts, refreshed every 30 seconds by default.</p>
+            <p>Topics, partitions, consumer groups, members, lag, replicas, and record counts.</p>
             <span class="feature-command" aria-hidden="true">kaskade admin</span>
           </article>
           <article class="feature-card">
@@ -147,24 +147,56 @@
           </article>
           <article class="feature-card">
             <p class="feature-icon" aria-hidden="true">[03]</p>
-            <h3>Start where you need</h3>
-            <p>Read from the latest or earliest offsets, or from exact partitions and offsets.</p>
+            <h3>Stay current</h3>
+            <p>Metadata and metrics refresh every 30 seconds by default, or whenever you ask.</p>
+          </article>
+          <article class="feature-card feature-card--wide">
+            <p class="feature-icon" aria-hidden="true">[04]</p>
+            <h3>Read records</h3>
+            <p>Start from the latest or earliest offsets, or from exact partitions and offsets, and filter by key, value, header, or partition.</p>
+            <span class="feature-command" aria-hidden="true">kaskade consumer</span>
           </article>
           <article class="feature-card">
-            <p class="feature-icon" aria-hidden="true">[04]</p>
+            <p class="feature-icon" aria-hidden="true">[05]</p>
             <h3>Decode records</h3>
             <p>Bytes, primitives, JSON, Avro, and Protobuf, with local schemas or through Confluent Schema Registry or Apicurio Registry.</p>
           </article>
           <article class="feature-card">
-            <p class="feature-icon" aria-hidden="true">[05]</p>
+            <p class="feature-icon" aria-hidden="true">[06]</p>
             <h3>See broken records too</h3>
             <p>A key, value, or header that fails to decode shows up as bytes next to the error, and consuming carries on.</p>
           </article>
           <article class="feature-card feature-card--wide">
-            <p class="feature-icon" aria-hidden="true">[06]</p>
+            <p class="feature-icon" aria-hidden="true">[07]</p>
+            <h3>Write records</h3>
+            <p>Compose a key, value, and headers, and see the partition and offset once the broker acknowledges the record.</p>
+            <span class="feature-command" aria-hidden="true">kaskade producer</span>
+          </article>
+          <article class="feature-card">
+            <p class="feature-icon" aria-hidden="true">[08]</p>
+            <h3>Encode records</h3>
+            <p>The same formats and registries as the consumer, plus JSON Schema validation and opt-in schema registration.</p>
+          </article>
+          <article class="feature-card">
+            <p class="feature-icon" aria-hidden="true">[09]</p>
+            <h3>Send it again</h3>
+            <p>Paste a key or value copied from the consumer and produce the same bytes, or load a draft from a JSON file.</p>
+          </article>
+          <article class="feature-card feature-card--wide">
+            <p class="feature-icon" aria-hidden="true">[10]</p>
             <h3>Connect to your cluster</h3>
             <p>Keep connection settings in a <code>client.ini</code> file and connect over TLS, SASL, Confluent Cloud, or Amazon MSK IAM.</p>
             <span class="feature-command" aria-hidden="true">client.ini &nbsp;·&nbsp; TLS &nbsp;·&nbsp; IAM</span>
+          </article>
+          <article class="feature-card">
+            <p class="feature-icon" aria-hidden="true">[11]</p>
+            <h3>Make it yours</h3>
+            <p>Pick a theme or define your own, and rebind any shortcut.</p>
+          </article>
+          <article class="feature-card">
+            <p class="feature-icon" aria-hidden="true">[12]</p>
+            <h3>Copy and export</h3>
+            <p>Copy topics and records through your terminal's clipboard, or export a record as JSON.</p>
           </article>
         </div>
       </section>
@@ -173,9 +205,9 @@
         <div class="section-heading section-heading--row">
           <div>
             <p class="eyebrow"><span aria-hidden="true">02.</span> Screenshots</p>
-            <h2 id="screenshots-title">Admin and consumer</h2>
+            <h2 id="screenshots-title">Admin, consumer, and producer</h2>
           </div>
-          <p>Both work entirely from the keyboard, with arrow keys or Vim-style shortcuts.</p>
+          <p>All three work entirely from the keyboard, with arrow keys or Vim-style shortcuts.</p>
         </div>
 
         <article class="screenshot-card">
@@ -217,6 +249,48 @@
           <div class="screenshot-caption">
             <p><span>Consumer</span> Read and filter records.</p>
             <code>filter · deserialize · copy · export</code>
+          </div>
+        </article>
+
+        <article class="screenshot-card">
+          <div class="terminal-window">
+            <div class="terminal-bar">
+              <span class="terminal-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+              <span>kaskade producer</span>
+              <span class="terminal-mode">PRODUCER</span>
+            </div>
+            <img
+              src="assets/producer-borderless.svg"
+              width="1219"
+              height="731"
+              alt="Kaskade Producer view composing a Kafka record with a JSON value and a summary panel"
+              loading="lazy"
+            >
+          </div>
+          <div class="screenshot-caption">
+            <p><span>Producer</span> Compose and produce records.</p>
+            <code>compose · serialize · register · deliver</code>
+          </div>
+        </article>
+
+        <article class="screenshot-card screenshot-card--reverse">
+          <div class="terminal-window">
+            <div class="terminal-bar">
+              <span class="terminal-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+              <span>kaskade consumer</span>
+              <span class="terminal-mode">RECORD</span>
+            </div>
+            <img
+              src="assets/record-details-borderless.svg"
+              width="1219"
+              height="731"
+              alt="Kaskade Record Details showing a value decoded through Schema Registry with its schema ID, subject, and version"
+              loading="lazy"
+            >
+          </div>
+          <div class="screenshot-caption">
+            <p><span>Record Details</span> Inspect one record.</p>
+            <code>key · value · headers · schema</code>
           </div>
         </article>
       </section>
@@ -287,7 +361,11 @@
               <code><span aria-hidden="true">$ </span>kaskade consumer -b my-kafka:9092 -t my-topic</code>
             </div>
             <div>
-              <span class="command-label">Profile</span>
+              <span class="command-label">Producer</span>
+              <code><span aria-hidden="true">$ </span>kaskade producer -b my-kafka:9092 -t my-topic</code>
+            </div>
+            <div>
+              <span class="command-label">Config file</span>
               <code><span aria-hidden="true">$ </span>kaskade admin --config-file client.ini</code>
             </div>
           </div>
