@@ -16,7 +16,7 @@ a newer one may lack `confluent-kafka` wheels and fail to build it:
 
 ```bash
 uv build --clear
-pipx install --python "$(uv python find 3.14)" --suffix=-qa dist/kaskade-*.whl
+pipx install --force --python "$(uv python find 3.14)" --suffix=-qa dist/kaskade-*.whl
 alias kaskade=kaskade-qa
 ```
 
