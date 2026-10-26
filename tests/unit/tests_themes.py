@@ -1002,7 +1002,10 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
 
     async def test_header_constrains_kafka_information_on_narrow_terminals(self):
         bootstrap_servers = "[::1]:9092,kafka2.example.com:9092"
-        with patch("kaskade.admin.app.TopicService") as topic_service:
+        with (
+            patch("kaskade.widgets.APP_VERSION", "1.0.0"),
+            patch("kaskade.admin.app.TopicService") as topic_service,
+        ):
             configure_admin_service(topic_service.return_value, {})
             app = KaskadeAdmin({BOOTSTRAP_SERVERS: bootstrap_servers})
 
@@ -1012,7 +1015,7 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 product = header.query_one("#kaskade-product", Static)
                 kafka = header.query_one("#kaskade-kafka", Static)
 
-                self.assertEqual(f"Kaskade v{APP_VERSION}", product.render().plain)
+                self.assertEqual("Kaskade v1.0.0", product.render().plain)
                 self.assertEqual("[::1]:9092", kafka.render().plain)
                 self.assertEqual(3, header.region.height)
                 self.assertEqual(app.screen.content_region.width, header.region.width)
@@ -1073,6 +1076,7 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
 
     async def test_header_truncates_bootstrap_server_before_kantrip_profile(self):
         with (
+            patch("kaskade.widgets.APP_VERSION", "1.0.0"),
             patch.dict(os.environ, {KANTRIP_PROFILE: "staging"}),
             patch("kaskade.admin.app.TopicService") as topic_service,
         ):
