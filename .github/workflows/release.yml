@@ -127,7 +127,7 @@ jobs:
         with:
           name: release-bundle
       - name: Publish distributions
-        uses: pypa/gh-action-pypi-publish@v1.14.2
+        uses: pypa/gh-action-pypi-publish@v1.14.3
         with:
           packages-dir: dist/
 
