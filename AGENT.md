@@ -292,9 +292,10 @@ and retain a link to the releases index when the request is unavailable. The
 social preview is `images/social-preview.svg`, rendered to
 `site/social-preview.png` as [Development](DEVELOPMENT.md#website) describes;
 draw its frames as shapes, never as box-drawing glyphs. The site's demo
-simulates the consumer with HTML and CSS borders, using the mock records from
-`scripts.screenshots`; keep its keys, columns, and Record Details layout
-matching the real consumer. The site follows the system color scheme until a
+has admin, consumer, and producer tabs, each a scene simulated with HTML and
+CSS borders from the mock data in `scripts.screenshots`; keep their keys,
+columns, footers, and modal layouts matching the real modes. Without
+JavaScript every mode shows its final screen. The site follows the system color scheme until a
 visitor picks one with the header toggle; `site/theme.js` loads synchronously
 and stores only an explicit choice that differs from the system's.
 
