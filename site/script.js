@@ -21,6 +21,15 @@ function setUpCopyButtons() {
   }
 }
 
+// The recorded header leaves room for "vX.Y.Z"; the latest release fills it in.
+let releaseTag = "";
+
+function fillVersion(root) {
+  for (const version of root.querySelectorAll("[data-version]")) {
+    version.textContent = releaseTag.padEnd(version.textContent.length);
+  }
+}
+
 async function loadRelease() {
   const line = document.querySelector("[data-release]");
   if (!line) return;
@@ -36,212 +45,80 @@ async function loadRelease() {
     link.textContent = release.tag_name;
     link.href = `${link.href}/tag/${encodeURIComponent(release.tag_name)}`;
     line.dataset.state = "stable";
-    for (const version of document.querySelectorAll("[data-version]")) {
-      version.textContent = release.tag_name;
-    }
+    releaseTag = release.tag_name;
+    fillVersion(document);
   } catch {
     // Offline or rate limited: keep the link to the Releases page.
   }
 }
 
-// Indented JSON with the classes Kaskade's Rich styles map to.
-function highlightJson(text) {
-  const fragment = document.createDocumentFragment();
-  const json = JSON.stringify(JSON.parse(text), null, 2);
-  const token = /("(?:[^"\\]|\\.)*")(\s*:)?|(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)/g;
-  let last = 0;
-  for (const match of json.matchAll(token)) {
-    fragment.append(json.slice(last, match.index));
-    const span = document.createElement("span");
-    span.className = match[2] ? "j-key" : match[1] ? "j-string" : "j-number";
-    span.textContent = match[1] ?? match[3];
-    fragment.append(span, match[2] ?? "");
-    last = match.index + match[0].length;
-  }
-  fragment.append(json.slice(last));
-  return fragment;
-}
-
-// Each scene replays one mode over its static final screen. reset() shows the
-// starting state, steps(at) queues [delay, action] pairs, and finish() restores
-// the static screen, so stopping at any point leaves a complete picture.
-function sceneBase(demo) {
+// Each scene replays frames that scripts.demos recorded from the real app.
+// reset() shows the shell, steps(at) queues [delay, action] pairs, and finish()
+// restores the last frame, which is also the static screen without JavaScript.
+function frameScene(demo, frames) {
   const screen = demo.querySelector(".screen");
   const command = demo.querySelector("[data-shell-command]");
   const typed = command.textContent;
+  const tui = demo.querySelector("[data-frame]");
   const keycap = demo.querySelector("[data-keycap]");
+  const show = (frame) => {
+    tui.innerHTML = frame;
+    fillVersion(tui);
+  };
   const press = (key) => {
     keycap.textContent = key;
     keycap.hidden = false;
   };
   return {
-    press,
     reset() {
       screen.dataset.view = "shell";
       command.textContent = "";
       keycap.hidden = true;
     },
-    start(at) {
+    steps(at) {
       for (const character of typed) {
         at(character === " " ? 70 : 35, () => command.append(character));
       }
       at(450, () => press("⏎"));
       at(400, () => {
         keycap.hidden = true;
+        show(frames[0].html);
         screen.dataset.view = "tui";
+      });
+      frames.slice(1).forEach((frame, index) => {
+        at(frames[index].delay, () => press(frame.key ?? ""));
+        at(150, () => show(frame.html));
+      });
+      at(frames.at(-1).delay, () => {
+        keycap.hidden = true;
       });
     },
     finish() {
       screen.dataset.view = "tui";
       command.textContent = typed;
       keycap.hidden = true;
+      show(frames.at(-1).html);
     },
   };
 }
 
-function selectRow(rows, position) {
-  rows.forEach((row, index) => row.classList.toggle("selected", index === position));
+async function loadScenes(section) {
+  const response = await fetch("demos.json");
+  if (!response.ok) throw new Error(`demos.json returned ${response.status}`);
+  const { lines, demos } = await response.json();
+  return Object.fromEntries(
+    Object.entries(demos).map(([name, { frames }]) => [
+      name,
+      frameScene(
+        section.querySelector(`[data-demo="${name}"]`),
+        frames.map((frame) => ({ ...frame, html: frame.lines.map((i) => lines[i]).join("\n") })),
+      ),
+    ]),
+  );
 }
-
-// Topic metadata renders first; record and group metrics fill in afterwards.
-function adminScene(demo) {
-  const base = sceneBase(demo);
-  const rows = [...demo.querySelectorAll("[data-records] tr")];
-  const metrics = [...demo.querySelectorAll("[data-metric]")];
-  const values = metrics.map((cell) => cell.textContent);
-  const details = demo.querySelector("[data-details]");
-  const showMetrics = (row) =>
-    row.querySelectorAll("[data-metric]").forEach((cell) => {
-      cell.textContent = values[metrics.indexOf(cell)];
-    });
-  return {
-    reset() {
-      base.reset();
-      metrics.forEach((cell) => {
-        cell.textContent = "…";
-      });
-      selectRow(rows, 0);
-      details.hidden = true;
-    },
-    steps(at) {
-      base.start(at);
-      rows.forEach((row) => at(rows.indexOf(row) ? 120 : 1100, () => showMetrics(row)));
-      at(1200, () => base.press("j"));
-      at(150, () => selectRow(rows, 1));
-      at(550, () => base.press("j"));
-      at(150, () => selectRow(rows, 2));
-      at(800, () => base.press("d"));
-      at(150, () => {
-        details.hidden = false;
-      });
-      at(3600, () => base.press("esc"));
-      at(150, () => {
-        details.hidden = true;
-      });
-    },
-    finish() {
-      base.finish();
-      rows.forEach(showMetrics);
-      details.hidden = true;
-    },
-  };
-}
-
-function consumerScene(demo) {
-  const base = sceneBase(demo);
-  const count = demo.querySelector("[data-count]");
-  const rows = [...demo.querySelectorAll("[data-records] tr")];
-  const details = demo.querySelector("[data-details]");
-
-  function showDetails(row) {
-    const [key, value, size, timestamp, partition, offset] = [...row.cells].map(
-      (cell) => cell.textContent,
-    );
-    const fields = {
-      size,
-      timestamp,
-      partition,
-      offset,
-      "value-size": `${new TextEncoder().encode(value).length} bytes`,
-    };
-    for (const field of details.querySelectorAll("[data-detail]")) {
-      const name = field.dataset.detail;
-      if (name === "value") field.replaceChildren(highlightJson(value));
-      else field.textContent = fields[name];
-    }
-    details.setAttribute("aria-label", `Record Details for ${key}`);
-    details.hidden = false;
-  }
-
-  return {
-    reset() {
-      base.reset();
-      rows.forEach((row) => {
-        row.hidden = true;
-      });
-      count.textContent = "0";
-      selectRow(rows, 0);
-      details.hidden = true;
-    },
-    steps(at) {
-      base.start(at);
-      rows.forEach((row, index) => {
-        at(index ? 140 : 700, () => {
-          row.hidden = false;
-          count.textContent = String(index + 1);
-        });
-      });
-      at(1200, () => base.press("j"));
-      at(150, () => selectRow(rows, 1));
-      at(550, () => base.press("j"));
-      at(150, () => selectRow(rows, 2));
-      at(800, () => base.press("⏎"));
-      at(150, () => showDetails(rows[2]));
-      at(3600, () => base.press("esc"));
-      at(150, () => {
-        details.hidden = true;
-      });
-    },
-    finish() {
-      base.finish();
-      rows.forEach((row) => {
-        row.hidden = false;
-      });
-      count.textContent = String(rows.length);
-      details.hidden = true;
-    },
-  };
-}
-
-function producerScene(demo) {
-  const base = sceneBase(demo);
-  const toast = demo.querySelector("[data-toast]");
-  return {
-    reset() {
-      base.reset();
-      toast.hidden = true;
-    },
-    steps(at) {
-      base.start(at);
-      at(2400, () => base.press("^s"));
-      at(450, () => {
-        toast.hidden = false;
-      });
-      at(3600, () => {
-        toast.hidden = true;
-      });
-    },
-    finish() {
-      base.finish();
-      toast.hidden = true;
-    },
-  };
-}
-
-const SCENES = { admin: adminScene, consumer: consumerScene, producer: producerScene };
 
 // One player drives the selected mode's scene; the tabs pick the mode.
-function setUpDemos() {
+async function setUpDemos() {
   const section = document.querySelector("#demo");
   const tabs = [...section.querySelectorAll("[data-demo-tab]")];
   const controls = section.querySelector(".demo-controls");
@@ -249,12 +126,13 @@ function setUpDemos() {
   const toggle = controls.querySelector("[data-demo-toggle]");
   const replay = controls.querySelector("[data-demo-replay]");
   const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
-  const scenes = Object.fromEntries(
-    tabs.map((tab) => {
-      const name = tab.dataset.demoTab;
-      return [name, SCENES[name](section.querySelector(`[data-demo="${name}"]`))];
-    }),
-  );
+  let scenes;
+  try {
+    scenes = await loadScenes(section);
+  } catch {
+    // Without the recording, every mode keeps its static last frame.
+    return;
+  }
 
   let scene = null;
   let queue = [];

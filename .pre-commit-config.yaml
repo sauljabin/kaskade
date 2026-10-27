@@ -23,6 +23,12 @@ repos:
         pass_filenames: false
         files: ^(kaskade/|scripts/(__init__|screenshots)\.py$|pyproject\.toml$|uv\.lock$)
         entry: uv run --locked python -m scripts.screenshots
+      - id: demos
+        name: recording site demos
+        language: system
+        pass_filenames: false
+        files: ^(kaskade/|scripts/(__init__|screenshots|demos)\.py$|pyproject\.toml$|uv\.lock$)
+        entry: uv run --locked python -m scripts.demos
       - id: analyze
         name: code analysis
         language: system

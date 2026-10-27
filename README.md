@@ -133,6 +133,18 @@ Producer view:
 kaskade producer -b my-kafka:9092 -t my-topic
 ```
 
+## Kantrip
+
+Working with several clusters? [Kantrip](https://sauljabin.github.io/kantrip/)
+saves each Kafka connection as a profile and runs Kaskade, kcat, and the Kafka
+CLIs against it, with its secrets in your operating system's credential store:
+
+```bash
+kantrip exec prod -- kaskade admin
+```
+
+See its [repository](https://github.com/sauljabin/kantrip) for more.
+
 ## Documentation
 
 - [Usage](https://github.com/sauljabin/kaskade/blob/main/USAGE.md): connecting,

@@ -318,8 +318,6 @@ img {
   --accent: #ff7a00;
   --success: #a6ff4d;
   --focus: #a6ff4d;
-  --cursor: #512875;
-  --panel: #2a1845;
   margin: 0;
   overflow: hidden;
   color: var(--fg);
@@ -379,19 +377,8 @@ pre {
   color: var(--secondary);
 }
 
-.t-primary {
-  color: var(--primary);
-  font-weight: 700;
-}
 
-.t-secondary {
-  color: var(--secondary);
-  font-weight: 700;
-}
 
-.t-muted {
-  color: var(--muted);
-}
 
 /* Hero */
 .hero {
@@ -515,8 +502,9 @@ pre {
   cursor: default;
 }
 
-/* Consumer demo: a Textual screen drawn with CSS. Borders are CSS borders, not
-   box-drawing glyphs, so fallback fonts can't break them. */
+/* Demos: frames recorded from the real apps by scripts.demos. Lines and blocks
+   are cells drawn with CSS (demos.css colors them), never glyphs from a
+   fallback font. The screen is 100 columns, scaled to the window's width. */
 .keycap {
   position: relative;
   min-width: 1.75rem;
@@ -534,8 +522,7 @@ pre {
 
 .screen {
   display: grid;
-  height: 26rem;
-  font: 0.8rem/1.5 var(--mono);
+  container-type: inline-size;
 }
 
 .screen > * {
@@ -550,221 +537,89 @@ pre {
 
 .shell {
   padding: 1rem;
-  font-size: inherit;
+  font-size: 0.8rem;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
 
+/* 100 columns fill the window: a monospace cell is about 0.6em wide. Centering
+   splits what a font's slightly different cell width leaves over. */
 .tui {
+  justify-self: center;
+  padding: 0.5rem 0;
+  overflow: hidden;
+  font-size: 1.64cqw;
+  line-height: 1.25;
+  white-space: pre;
+}
+
+/* Runs fill the whole line, so background colors leave no gaps between lines. */
+.tui span {
+  display: inline-block;
+  height: 1.25em;
+  vertical-align: top;
+}
+
+.g {
+  --w: max(1px, 0.08em);
   position: relative;
-  display: flex;
-  flex-direction: column;
-  padding: 0.25rem 0.5rem 0;
+  display: inline-block;
+  width: calc(var(--n, 1) * 1ch);
+  height: 1.25em;
+  vertical-align: top;
 }
 
-.tui p {
-  margin: 0;
+.gh {
+  --w: max(2px, 0.16em);
 }
 
-.tui-header {
-  display: flex;
-  gap: 1rem;
-  justify-content: space-between;
-  padding: 0.25rem 0.5rem 0.75rem;
-}
-
-.frame {
-  position: relative;
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  min-height: 0;
-  padding: 0.6rem 0.5rem 0.75rem;
-  border: 1px solid var(--secondary);
-  border-radius: 2px;
-}
-
-.frame-title,
-.frame-subtitle {
+.g::before,
+.g::after {
   position: absolute;
-  max-width: calc(100% - 2ch);
-  padding: 0 0.5ch;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  color: var(--secondary);
-  background: #0e0024;
-  white-space: nowrap;
+  background: currentColor;
+  content: "";
 }
 
-.frame-title {
-  top: -0.75em;
-  left: 1ch;
+.g::before {
+  top: calc(50% - var(--w) / 2);
+  right: 50%;
+  left: 50%;
+  height: var(--w);
 }
 
-.frame-subtitle {
-  right: 1ch;
-  bottom: -0.75em;
-  color: var(--fg);
+.g::after {
+  top: 50%;
+  bottom: 50%;
+  left: calc(50% - var(--w) / 2);
+  width: var(--w);
 }
 
-.records {
-  width: 100%;
-  table-layout: fixed;
-  border-collapse: collapse;
+.gl::before {
+  left: 0;
 }
 
-.records th,
-.records td {
-  padding: 0 1ch;
-  overflow: hidden;
-  text-align: left;
-  white-space: nowrap;
-  text-overflow: ellipsis;
+.gr::before {
+  right: 0;
 }
 
-.records th {
-  color: var(--secondary);
+.gu::after {
+  top: 0;
 }
 
-[data-demo="consumer"] .records th:first-child {
-  width: 12ch;
+.gd::after {
+  bottom: 0;
 }
 
-[data-demo="consumer"] .records th:nth-child(3) {
-  width: 10ch;
+.gf::before {
+  top: calc(var(--t) * 100%);
+  right: calc(var(--r) * 100%);
+  bottom: calc(var(--b) * 100%);
+  left: calc(var(--l) * 100%);
+  height: auto;
 }
 
-[data-demo="consumer"] .records th:nth-child(4) {
-  width: 25ch;
-}
-
-[data-demo="consumer"] .records th:nth-child(5) {
-  width: 13ch;
-}
-
-[data-demo="consumer"] .records th:nth-child(6),
-[data-demo="consumer"] .records th:nth-child(7) {
-  width: 10ch;
-}
-
-.topics th:first-child {
-  width: 22ch;
-}
-
-.records .selected {
-  font-weight: 700;
-  background: var(--cursor);
-}
-
-.records [hidden] {
+.gf::after {
   display: none;
-}
-
-.tui-footer {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0 1.5ch;
-  padding: 0.5rem 0.5rem 0.35rem;
-}
-
-.tui-footer b {
-  color: var(--accent);
-}
-
-.modal {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  padding: 1rem 1rem 0;
-  background: rgb(14 0 36 / 0.7);
-}
-
-.modal .tui-footer {
-  margin-inline: -1rem;
-  padding-inline: 1.5rem;
-  background: #0e0024;
-}
-
-.modal[hidden] {
-  display: none;
-}
-
-.modal-box {
-  position: relative;
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  min-height: 0;
-  padding: 0.9rem 1.5ch 0.5rem;
-  background: #1c1030;
-  border: 1px solid var(--secondary);
-}
-
-.modal .frame-title {
-  background: #1c1030;
-}
-
-.meta {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(12ch, 1fr));
-  gap: 0 2ch;
-  margin: 0 0 0.5rem;
-}
-
-.meta dt,
-.meta-label {
-  color: var(--muted);
-  text-transform: uppercase;
-}
-
-.meta dd {
-  margin: 0;
-}
-
-.tabs {
-  display: flex;
-  gap: 2ch;
-  margin: 0.25rem 0 0.75rem !important;
-  border-bottom: 2px solid var(--panel);
-}
-
-.tabs .active {
-  margin-bottom: -2px;
-  color: var(--fg);
-  font-weight: 700;
-  border-bottom: 2px solid var(--secondary);
-}
-
-.tabs span:not(.active) {
-  color: var(--muted);
-}
-
-.json {
-  flex: 1;
-  min-height: 0;
-  padding-left: 1ch;
-  overflow: hidden;
-  font-size: inherit;
-}
-
-.j-key {
-  color: var(--primary);
-  font-weight: 700;
-}
-
-.j-string {
-  color: var(--secondary);
-}
-
-.j-number {
-  color: var(--accent);
-}
-
-@media (max-width: 52rem) {
-  .wide {
-    display: none;
-  }
 }
 
 /* Mode tabs; without JavaScript every panel shows. */
@@ -809,92 +664,6 @@ pre {
 
 .demo-tabs:not([hidden]) ~ .demo-panel + .demo-panel {
   margin-top: 0;
-}
-
-.table-clip {
-  flex: 1;
-  min-height: 0;
-  overflow: hidden;
-}
-
-.modal .tabs {
-  overflow: hidden;
-  white-space: nowrap;
-}
-
-/* Producer: the composer and its Summary side by side. */
-.producer {
-  display: flex;
-  flex: 1;
-  gap: 1ch;
-  min-height: 0;
-}
-
-.producer .frame {
-  padding-top: 0.9rem;
-}
-
-.producer .frame:first-child {
-  flex: 1;
-  min-width: 0;
-}
-
-.summary {
-  flex: 0 0 30ch;
-}
-
-.summary .frame-title {
-  color: var(--primary);
-}
-
-.summary .meta {
-  grid-template-columns: 1fr 1fr;
-}
-
-.summary .full {
-  grid-column: 1 / -1;
-}
-
-.summary-heading {
-  margin-top: 0.25rem !important;
-  color: var(--primary);
-  font-weight: 700;
-}
-
-.checkbox {
-  margin-bottom: 0.5rem !important;
-}
-
-.checkbox .box {
-  display: inline-block;
-  width: 3ch;
-  color: var(--muted);
-  text-align: center;
-  background: var(--panel);
-}
-
-.editor {
-  margin-top: 0.25rem;
-  padding: 0.25rem 1ch;
-  border-left: 2px solid var(--secondary);
-}
-
-.toast {
-  position: absolute;
-  right: 1ch;
-  bottom: 2.5rem;
-  max-width: calc(100% - 2ch);
-  padding: 0.5rem 1.5ch;
-  background: var(--panel);
-  border-left: 3px solid var(--success);
-}
-
-.toast[hidden] {
-  display: none;
-}
-
-.toast b {
-  color: var(--success);
 }
 
 .demo-controls {
@@ -958,6 +727,18 @@ pre {
 }
 
 /* Thanks: copies of the README badges, which draw their own colors. */
+.kantrip-code {
+  padding: 0.75rem 1rem;
+  overflow-x: auto;
+}
+
+.links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.5rem;
+  margin-top: 1rem;
+}
+
 .thanks {
   text-align: center;
 }

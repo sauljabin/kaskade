@@ -131,6 +131,13 @@ Generate the README screenshots with mock data (no Kafka broker required):
 uv run python -m scripts.screenshots
 ```
 
+Record the site's admin, consumer, and producer demos from the real apps with
+the same mock data:
+
+```bash
+uv run python -m scripts.demos
+```
+
 ## Configuration conventions
 
 Each setting belongs to the file that owns its responsibility:
