@@ -1,7 +1,7 @@
 import json
 import unittest
 from copy import deepcopy
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -124,7 +124,7 @@ class TestConsumerRecordSchema(unittest.TestCase):
                         topic="orders",
                         partition=0,
                         offset=43,
-                        timestamp=datetime(2026, 9, 1, 19, 13, 18, 27_000, tzinfo=timezone.utc),
+                        timestamp=datetime(2026, 9, 1, 19, 13, 18, 27_000, tzinfo=UTC),
                         value=b"payload",
                         value_deserialization=Deserialization.REGISTRY,
                         value_deserializer=MetadataDeserializer(schema_type),

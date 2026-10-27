@@ -53,7 +53,7 @@ jobs:
         uses: astral-sh/setup-uv@v10.3.0
         with:
           version: ${{ env.UV_VERSION }}
-          python-version: "3.10"
+          python-version: "3.11"
           enable-cache: true
       - name: Sync dependencies
         run: uv sync --locked
@@ -73,7 +73,7 @@ jobs:
         env:
           RELEASE_VERSION: ${{ steps.release.outputs.version }}
         run: |
-          uv venv "$RUNNER_TEMP/release-venv" --python 3.10
+          uv venv "$RUNNER_TEMP/release-venv" --python 3.11
           uv pip install --python "$RUNNER_TEMP/release-venv/bin/python" dist/*.whl
           "$RUNNER_TEMP/release-venv/bin/kaskade" --version | grep -F "$RELEASE_VERSION"
       - name: Generate release notes

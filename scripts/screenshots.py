@@ -3,7 +3,7 @@ import json
 import os
 from collections.abc import Awaitable, Callable
 from dataclasses import replace
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from confluent_kafka.serialization import MessageField
@@ -123,7 +123,7 @@ class AdminScreenshotApp(KaskadeAdmin):
     def on_list_topics_refresh_completed(self, message: ListTopics.RefreshCompleted) -> None:
         super().on_list_topics_refresh_completed(message)
         topics = self.query_one(ListTopics)
-        topics.last_updated_at = datetime(2026, 8, 28, 14, 30, tzinfo=timezone.utc)
+        topics.last_updated_at = datetime(2026, 8, 28, 14, 30, tzinfo=UTC)
         topics.update_status(refreshing=False)
 
 

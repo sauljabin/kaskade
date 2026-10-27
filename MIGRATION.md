@@ -34,6 +34,9 @@ Steps to upgrade Kaskade between major versions. Release notes are on
   next to a deserialization error.
 - **Docker:** images are no longer published. Install with `brew install kaskade`
   or `pipx install kaskade`.
+- **Python:** Kaskade now requires Python 3.11 or later; Python 3.10 reached
+  end of life in October 2026. Upgrade the interpreter before upgrading
+  Kaskade, for example `pipx reinstall --python python3.14 kaskade`.
 
 ## v4 to v5
 

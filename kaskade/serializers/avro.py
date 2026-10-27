@@ -183,7 +183,7 @@ def _logical(schema: dict[str, Any], value: Any) -> Any:
 
 
 def _utc_suffix(value: str) -> str:
-    """Python 3.10 reads offsets, not the Z suffix."""
+    """fromisoformat reads the Z suffix only in uppercase."""
     return value[:-1] + "+00:00" if value.endswith(("Z", "z")) else value
 
 

@@ -3,7 +3,7 @@ import json
 import struct
 import threading
 import unittest
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from io import StringIO
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, call, patch
@@ -88,7 +88,7 @@ def exported_record() -> Record:
         topic="orders",
         partition=2,
         offset=42,
-        timestamp=datetime(2026, 8, 28, 14, 12, 5, 120_000, tzinfo=timezone.utc),
+        timestamp=datetime(2026, 8, 28, 14, 12, 5, 120_000, tzinfo=UTC),
         headers=[
             Header("source", b"storefront", string_deserializer),
             Header("source", b"mobile", string_deserializer),
@@ -221,7 +221,7 @@ class TestRecordExport(unittest.TestCase):
             topic="orders",
             partition=1,
             offset=10,
-            timestamp=datetime(2026, 8, 28, 14, 12, 7, 120_000, tzinfo=timezone.utc),
+            timestamp=datetime(2026, 8, 28, 14, 12, 7, 120_000, tzinfo=UTC),
             key=b"\xff",
             value=b"paid",
             key_deserialization=Deserialization.JSON,
@@ -284,7 +284,7 @@ class TestRecordExport(unittest.TestCase):
             topic="orders",
             partition=0,
             offset=43,
-            timestamp=datetime(2026, 8, 28, 14, 12, 6, 120_000, tzinfo=timezone.utc),
+            timestamp=datetime(2026, 8, 28, 14, 12, 6, 120_000, tzinfo=UTC),
             key=b"key",
             value=b"value",
             key_deserialization=Deserialization.REGISTRY,
@@ -339,7 +339,7 @@ class TestRecordExport(unittest.TestCase):
 
         filename = record_filename(
             record,
-            datetime(2026, 8, 28, 14, 20, 10, 930643, tzinfo=timezone.utc),
+            datetime(2026, 8, 28, 14, 20, 10, 930643, tzinfo=UTC),
         )
 
         self.assertEqual(
@@ -859,7 +859,7 @@ class TestRecordDetailsTabs(unittest.IsolatedAsyncioTestCase):
             topic="orders",
             partition=2,
             offset=42,
-            timestamp=datetime(2026, 8, 28, 14, 12, 5, 120_000, tzinfo=timezone.utc),
+            timestamp=datetime(2026, 8, 28, 14, 12, 5, 120_000, tzinfo=UTC),
             headers=[
                 Header("source", b"storefront", StringDeserializer()),
                 Header(
