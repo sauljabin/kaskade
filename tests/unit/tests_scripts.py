@@ -10,7 +10,7 @@ import yaml
 
 from kaskade import APP_VERSION
 from kaskade.themes import EVA01_BERSERK_THEME
-from scripts import BLOCK_GLYPHS, BOX_GLYPHS, banner, draw_box_glyphs, screenshots
+from scripts import BLOCK_GLYPHS, BOX_GLYPHS, banner, demos, draw_box_glyphs, screenshots
 
 
 class TestReadmeVisualScripts(unittest.IsolatedAsyncioTestCase):
@@ -147,6 +147,29 @@ class TestReadmeVisualScripts(unittest.IsolatedAsyncioTestCase):
 
 
 ROOT = Path(__file__).resolve().parents[2]
+
+
+class TestSiteDemos(unittest.IsolatedAsyncioTestCase):
+    async def test_recorded_demos_match_the_site(self) -> None:
+        with patch.dict(os.environ, {"NO_COLOR": "1"}):
+            scenes = await demos.record_scenes()
+
+        self.assertEqual(
+            demos.DEMOS_PATH.read_text(encoding="utf-8"),
+            demos.demos_json(scenes),
+            "Run `uv run python -m scripts.demos` to rerecord the site demos.",
+        )
+        self.assertEqual(demos.DEMOS_CSS_PATH.read_text(encoding="utf-8"), demos.styles_css())
+        index = demos.INDEX_PATH.read_text(encoding="utf-8")
+        self.assertEqual(index, demos.render_index(index, scenes))
+        self.assertEqual(["admin", "consumer", "producer"], list(scenes))
+        recorded = demos.DEMOS_PATH.read_text(encoding="utf-8")
+        self.assertIn("data-version", recorded)
+        self.assertFalse((BOX_GLYPHS.keys() | BLOCK_GLYPHS.keys()) & set(recorded))
+
+    def test_unmapped_drawing_glyph_fails(self) -> None:
+        with self.assertRaisesRegex(ValueError, "U\\+2591"):
+            demos.line_html([demos.Cell("░", ())])
 
 
 def e2e_exempt_patterns() -> tuple[str, str]:

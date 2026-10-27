@@ -19,6 +19,7 @@
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 64 64%22><rect width=%2264%22 height=%2264%22 rx=%2212%22 fill=%22%230e0024%22/><path d=%22M17 14v36M47 14 19 32l28 18%22 fill=%22none%22 stroke=%22%23a6ff4d%22 stroke-width=%228%22 stroke-linecap=%22square%22/></svg>">
 <link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="demos.css">
 <script src="theme.js"></script>
 <script src="script.js" defer></script>
 </head>
@@ -82,181 +83,132 @@
     <div class="demo-panel" id="panel-admin" aria-labelledby="tab-admin">
       <p>Browse topics while their metrics load, then press <kbd>d</kbd> to describe one: its
         partitions, configurations, and consumer groups.</p>
-    <figure class="window demo" data-demo="admin" aria-label="Simulated Kaskade admin">
+    <figure class="window demo" data-demo="admin" aria-label="Kaskade admin, recorded from the app">
       <div class="window-bar" aria-hidden="true"><span class="dots"><i></i><i></i><i></i></span><span class="window-title">kaskade admin</span><kbd class="keycap" data-keycap hidden></kbd></div>
       <div class="screen" data-view="tui">
-        <pre class="shell" aria-hidden="true"><code><span class="t-prompt">❯ </span><span data-shell-command>kaskade admin -b kafka.example.com:9092</span></code></pre>
-        <div class="tui">
-          <p class="tui-header"><span><span class="t-primary">Kaskade</span> <span class="t-secondary" data-version></span></span><span class="t-muted">kafka.example.com:9092</span></p>
-          <div class="frame">
-            <p class="frame-title">Topics [6]</p>
-            <table class="records topics">
-              <thead>
-                <tr><th>Name</th><th>Partitions</th><th class="wide">Replicas</th><th class="wide">In Sync</th><th>Groups</th><th class="wide">Members</th><th>Records</th><th>Lag</th></tr>
-              </thead>
-              <tbody data-records>
-                <tr class="selected"><td>customer-events</td><td>12</td><td class="wide">3</td><td class="wide">3</td><td data-metric>1</td><td class="wide" data-metric>2</td><td data-metric>≈184320</td><td data-metric>≈18</td></tr>
-                <tr><td>inventory-updates</td><td>6</td><td class="wide">3</td><td class="wide">3</td><td data-metric>1</td><td class="wide" data-metric>2</td><td data-metric>≈72408</td><td data-metric>≈0</td></tr>
-                <tr><td>order-events</td><td>12</td><td class="wide">3</td><td class="wide">3</td><td data-metric>1</td><td class="wide" data-metric>3</td><td data-metric>≈391020</td><td data-metric>≈42</td></tr>
-                <tr><td>payment-events</td><td>9</td><td class="wide">3</td><td class="wide">3</td><td data-metric>1</td><td class="wide" data-metric>2</td><td data-metric>≈128898</td><td data-metric>≈7</td></tr>
-                <tr><td>shipping-status</td><td>6</td><td class="wide">3</td><td class="wide">3</td><td data-metric>1</td><td class="wide" data-metric>2</td><td data-metric>≈83112</td><td data-metric>≈3</td></tr>
-                <tr><td>user-notifications</td><td>3</td><td class="wide">3</td><td class="wide">3</td><td data-metric>0</td><td class="wide" data-metric>0</td><td data-metric>≈24900</td><td data-metric>≈0</td></tr>
-              </tbody>
-            </table>
-            <p class="frame-subtitle">[Admin Mode · Updated 14:30:00 · Auto 30s]</p>
-          </div>
-          <p class="tui-footer" aria-hidden="true"><span><b>d</b> Describe</span><span><b>/</b> Filter</span><span><b>^r</b> Refresh</span><span class="wide"><b>n</b> Create</span><span><b>^c</b> Quit</span><span><b>?</b> Help</span></p>
-          <div class="modal" data-details hidden>
-            <div class="modal-box">
-              <p class="frame-title">Topic Details [order-events]</p>
-              <dl class="meta">
-                <div><dt>Partitions</dt><dd>12</dd></div>
-                <div><dt>Replicas</dt><dd>3</dd></div>
-                <div><dt>In Sync</dt><dd>3</dd></div>
-                <div><dt>Groups</dt><dd>1</dd></div>
-                <div><dt>Members</dt><dd>3</dd></div>
-                <div><dt>Records</dt><dd>≈391020</dd></div>
-                <div><dt>Lag</dt><dd>≈42</dd></div>
-              </dl>
-              <p class="tabs"><span class="active">Partitions [12]</span><span>Configurations [3]</span><span>Groups [1]</span><span class="wide">Group Offsets [1]</span><span class="wide">Group Members [3]</span></p>
-              <div class="table-clip">
-                <table class="records">
-                  <thead>
-                    <tr><th>ID</th><th>Leader</th><th>Earliest</th><th>End</th><th>Records</th><th class="wide">ISRs</th><th class="wide">Replicas</th></tr>
-                  </thead>
-                  <tbody>
-                    <tr><td>0</td><td>0</td><td>0</td><td>32585</td><td>32585</td><td class="wide">[0, 1, 2]</td><td class="wide">[0, 1, 2]</td></tr>
-                    <tr><td>1</td><td>1</td><td>0</td><td>32585</td><td>32585</td><td class="wide">[0, 1, 2]</td><td class="wide">[0, 1, 2]</td></tr>
-                    <tr><td>2</td><td>2</td><td>0</td><td>32585</td><td>32585</td><td class="wide">[0, 1, 2]</td><td class="wide">[0, 1, 2]</td></tr>
-                    <tr><td>3</td><td>0</td><td>0</td><td>32585</td><td>32585</td><td class="wide">[0, 1, 2]</td><td class="wide">[0, 1, 2]</td></tr>
-                    <tr><td>4</td><td>1</td><td>0</td><td>32585</td><td>32585</td><td class="wide">[0, 1, 2]</td><td class="wide">[0, 1, 2]</td></tr>
-                    <tr><td>5</td><td>2</td><td>0</td><td>32585</td><td>32585</td><td class="wide">[0, 1, 2]</td><td class="wide">[0, 1, 2]</td></tr>
-                    <tr><td>6</td><td>0</td><td>0</td><td>32585</td><td>32585</td><td class="wide">[0, 1, 2]</td><td class="wide">[0, 1, 2]</td></tr>
-                    <tr><td>7</td><td>1</td><td>0</td><td>32585</td><td>32585</td><td class="wide">[0, 1, 2]</td><td class="wide">[0, 1, 2]</td></tr>
-                    <tr><td>8</td><td>2</td><td>0</td><td>32585</td><td>32585</td><td class="wide">[0, 1, 2]</td><td class="wide">[0, 1, 2]</td></tr>
-                    <tr><td>9</td><td>0</td><td>0</td><td>32585</td><td>32585</td><td class="wide">[0, 1, 2]</td><td class="wide">[0, 1, 2]</td></tr>
-                    <tr><td>10</td><td>1</td><td>0</td><td>32585</td><td>32585</td><td class="wide">[0, 1, 2]</td><td class="wide">[0, 1, 2]</td></tr>
-                    <tr><td>11</td><td>2</td><td>0</td><td>32585</td><td>32585</td><td class="wide">[0, 1, 2]</td><td class="wide">[0, 1, 2]</td></tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-            <p class="tui-footer"><span><b>esc</b> Back</span><span><b>?</b> Help</span></p>
-          </div>
-        </div>
+<!-- demo:admin:start -->
+<pre class="shell" aria-hidden="true"><code><span class="t-prompt">❯ </span><span data-shell-command>kaskade admin -b kafka.example.com:9092</span></code></pre>
+<pre class="tui" data-frame>
+ <span class="s0">Kaskade</span><span class="s1"> <span data-version>      </span></span>                                                              <span class="s2">kafka.example.com:9092</span>
+
+ <span class="g s3 gr gd"></span><span class="g s3 gl gr"></span> <span class="s3">Topics [6] </span><span class="g s3 gl gr" style="--n:83"></span><span class="g s3 gl gd"></span>
+ <span class="g s3 gu gd"></span><span class="s4"> Name                            Partitions  Replicas  In Sync  Groups  Members  Records  Lag </span>  <span class="g s3 gu gd"></span>
+ <span class="g s3 gu gd"></span><span class="s7"> customer-events                 12          3         3        1       2        ≈184320  ≈18 </span>  <span class="g s3 gu gd"></span>
+ <span class="g s3 gu gd"></span><span class="s7"> inventory-updates               6           3         3        1       2        ≈72408   ≈0  </span>  <span class="g s3 gu gd"></span>
+ <span class="g s3 gu gd"></span><span class="s5"> order-events                    12          3         3        1       3        ≈391020  ≈42 </span><span class="s6">  </span><span class="g s3 gu gd"></span>
+ <span class="g s3 gu gd"></span><span class="s7"> payment-events                  9           3         3        1       2        ≈128898  ≈7  </span>  <span class="g s3 gu gd"></span>
+ <span class="g s3 gu gd"></span><span class="s7"> shipping-status                 6           3         3        1       2        ≈83112   ≈3  </span>  <span class="g s3 gu gd"></span>
+ <span class="g s3 gu gd"></span><span class="s7"> user-notifications              3           3         3        0       0        ≈24900   ≈0  </span>  <span class="g s3 gu gd"></span>
+ <span class="g s3 gu gd"></span>                                                                                                <span class="g s3 gu gd"></span>
+ <span class="g s3 gu gd"></span>                                                                                                <span class="g s3 gu gd"></span>
+ <span class="g s3 gu gd"></span>                                                                                                <span class="g s3 gu gd"></span>
+ <span class="g s3 gu gd"></span>                                                                                                <span class="g s3 gu gd"></span>
+ <span class="g s3 gu gd"></span>                                                                                                <span class="g s3 gu gd"></span>
+ <span class="g s3 gu gd"></span>                                                                                                <span class="g s3 gu gd"></span>
+ <span class="g s3 gu gd"></span>                                                                                                <span class="g s3 gu gd"></span>
+ <span class="g s3 gu gd"></span>                                                                                                <span class="g s3 gu gd"></span>
+ <span class="g s3 gu gd"></span>                                                                                                <span class="g s3 gu gd"></span>
+ <span class="g s3 gu gd"></span>                                                                                                <span class="g s3 gu gd"></span>
+ <span class="g s3 gu gd"></span>                                                                                                <span class="g s3 gu gd"></span>
+ <span class="g s3 gu gd"></span>                                                                                                <span class="g s3 gu gd"></span>
+ <span class="g s3 gu gd"></span>                                                                                                <span class="g s3 gu gd"></span>
+ <span class="g s3 gu gd"></span>                                                                                                <span class="g s3 gu gd"></span>
+ <span class="g s3 gu gd"></span>                                                                                                <span class="g s3 gu gd"></span>
+ <span class="g s3 gu gd"></span>                                                                                                <span class="g s3 gu gd"></span>
+ <span class="g s3 gu gd"></span>                                                                                                <span class="g s3 gu gd"></span>
+ <span class="g s3 gr gu"></span><span class="g s3 gl gr" style="--n:51"></span><span class="s3"> [Admin Mode · Updated 14:30:00 · Auto 30s] </span><span class="g s3 gl gr"></span><span class="g s3 gl gu"></span>
+ <span class="s8">d</span><span class="s7"> Describe</span> <span class="s8">/</span><span class="s7"> Filter</span> <span class="s8">^r</span><span class="s7"> Refresh</span> <span class="s8">n</span><span class="s7"> Create</span> <span class="s8">^c</span><span class="s7"> Quit</span> <span class="s8">?</span><span class="s7"> Help</span>                                <span class="g s9 gf" style="--t:0;--r:0.875;--b:0;--l:0"></span><span class="s8">:</span><span class="s7"> Commands</span></pre>
+<!-- demo:admin:end -->
       </div>
     </figure>
     </div>
     <div class="demo-panel" id="panel-consumer" aria-labelledby="tab-consumer">
       <p>Read a topic, move through the records with the arrow keys or <kbd>j</kbd> and
         <kbd>k</kbd>, and press <kbd>Enter</kbd> to open one.</p>
-    <figure class="window demo" data-demo="consumer" aria-label="Simulated Kaskade consumer">
+    <figure class="window demo" data-demo="consumer" aria-label="Kaskade consumer, recorded from the app">
       <div class="window-bar" aria-hidden="true"><span class="dots"><i></i><i></i><i></i></span><span class="window-title">kaskade consumer</span><kbd class="keycap" data-keycap hidden></kbd></div>
       <div class="screen" data-view="tui">
-        <pre class="shell" aria-hidden="true"><code><span class="t-prompt">❯ </span><span data-shell-command>kaskade consumer -b kafka.example.com:9092 -t order-events -v json</span></code></pre>
-        <div class="tui">
-          <p class="tui-header"><span><span class="t-primary">Kaskade</span> <span class="t-secondary" data-version></span></span><span class="t-muted">kafka.example.com:9092</span></p>
-          <div class="frame">
-            <p class="frame-title">Records [order-events][<span data-count>8</span>]</p>
-            <table class="records">
-              <thead>
-                <tr><th>Key</th><th>Value</th><th class="wide">Size</th><th class="wide">Timestamp</th><th>Partition</th><th>Offset</th><th class="wide">Headers</th></tr>
-              </thead>
-              <tbody data-records>
-                <tr class="selected"><td>order-1048</td><td>{"customer":"Ada","total":149.9,"status":"paid"}</td><td class="wide">75 bytes</td><td class="wide">2026-08-28 14:12:05.120</td><td>0</td><td>8421</td><td class="wide">1</td></tr>
-                <tr><td>order-1049</td><td>{"customer":"Linus","total":42.0,"status":"paid"}</td><td class="wide">76 bytes</td><td class="wide">2026-08-28 14:13:05.120</td><td>1</td><td>8422</td><td class="wide">1</td></tr>
-                <tr><td>order-1050</td><td>{"customer":"Grace","total":87.35,"status":"pending"}</td><td class="wide">79 bytes</td><td class="wide">2026-08-28 14:14:05.120</td><td>2</td><td>8423</td><td class="wide">1</td></tr>
-                <tr><td>order-1051</td><td>{"customer":"Edsger","total":215.1,"status":"paid"}</td><td class="wide">78 bytes</td><td class="wide">2026-08-28 14:15:05.120</td><td>0</td><td>8424</td><td class="wide">1</td></tr>
-                <tr><td>order-1052</td><td>{"customer":"Margaret","total":63.8,"status":"shipped"}</td><td class="wide">82 bytes</td><td class="wide">2026-08-28 14:16:05.120</td><td>1</td><td>8425</td><td class="wide">1</td></tr>
-                <tr><td>order-1053</td><td>{"customer":"Amy","total":19.99,"status":"paid"}</td><td class="wide">74 bytes</td><td class="wide">2026-08-28 14:17:05.120</td><td>2</td><td>8426</td><td class="wide">1</td></tr>
-                <tr><td>order-1054</td><td>{"customer":"Ken","total":104.25,"status":"pending"}</td><td class="wide">78 bytes</td><td class="wide">2026-08-28 14:18:05.120</td><td>0</td><td>8427</td><td class="wide">1</td></tr>
-                <tr><td>order-1055</td><td>{"customer":"James","total":78.45,"status":"shipped"}</td><td class="wide">79 bytes</td><td class="wide">2026-08-28 14:19:05.120</td><td>1</td><td>8428</td><td class="wide">1</td></tr>
-              </tbody>
-            </table>
-            <p class="frame-subtitle">[Consumer Mode · Group order-inspector]</p>
-          </div>
-          <p class="tui-footer" aria-hidden="true"><span><b>⏎</b> Show Record</span><span><b>n</b> Consume More</span><span><b>/</b> Filter</span><span class="wide"><b>#</b> Chunk Size</span><span><b>^c</b> Quit</span><span><b>?</b> Help</span></p>
-          <div class="modal" data-details hidden>
-            <div class="modal-box">
-              <p class="frame-title">Record Details [order-events][<span data-detail="partition"></span>][<span data-detail="offset"></span>]</p>
-              <dl class="meta">
-                <div><dt>Total Size</dt><dd data-detail="size"></dd></div>
-                <div><dt>Partition</dt><dd data-detail="partition"></dd></div>
-                <div><dt>Offset</dt><dd data-detail="offset"></dd></div>
-                <div class="wide"><dt>Timestamp</dt><dd data-detail="timestamp"></dd></div>
-              </dl>
-              <p class="tabs"><span>Key</span><span class="active">Value</span><span>Headers [1]</span><span>Export</span></p>
-              <dl class="meta">
-                <div><dt>Deserializer</dt><dd>JSON</dd></div>
-                <div><dt>Schema</dt><dd>—</dd></div>
-                <div><dt>Size</dt><dd data-detail="value-size"></dd></div>
-              </dl>
-              <p class="meta-label">Content</p>
-              <pre class="json" data-detail="value"></pre>
-            </div>
-            <p class="tui-footer"><span><b>esc</b> Back</span><span><b>?</b> Help</span></p>
-          </div>
-        </div>
+<!-- demo:consumer:start -->
+<pre class="shell" aria-hidden="true"><code><span class="t-prompt">❯ </span><span data-shell-command>kaskade consumer -b kafka.example.com:9092 -t order-events</span></code></pre>
+<pre class="tui" data-frame>
+ <span class="s0">Kaskade</span><span class="s1"> <span data-version>      </span></span>                                                              <span class="s2">kafka.example.com:9092</span>
+
+ <span class="g s3 gr gd"></span><span class="g s3 gl gr"></span> <span class="s3">Records [order-events][8] </span><span class="g s3 gl gr" style="--n:68"></span><span class="g s3 gl gd"></span>
+ <span class="g s3 gu gd"></span><span class="s4"> Key        Value             Size        Timestamp                Partition  Offset  Headers </span>  <span class="g s3 gu gd"></span>
+ <span class="g s3 gu gd"></span><span class="s7"> order-10…  {"customer":"Ad…  75 bytes    2026-08-28 14:12:05.120  0          8421    1       </span>  <span class="g s3 gu gd"></span>
+ <span class="g s3 gu gd"></span><span class="s7"> order-10…  {"customer":"Li…  76 bytes    2026-08-28 14:13:05.120  1          8422    1       </span>  <span class="g s3 gu gd"></span>
+ <span class="g s3 gu gd"></span><span class="s5"> order-10…  {"customer":"Gr…  79 bytes    2026-08-28 14:14:05.120  2          8423    1       </span><span class="s6">  </span><span class="g s3 gu gd"></span>
+ <span class="g s3 gu gd"></span><span class="s7"> order-10…  {"customer":"Ed…  78 bytes    2026-08-28 14:15:05.120  0          8424    1       </span>  <span class="g s3 gu gd"></span>
+ <span class="g s3 gu gd"></span><span class="s7"> order-10…  {"customer":"Ma…  82 bytes    2026-08-28 14:16:05.120  1          8425    1       </span>  <span class="g s3 gu gd"></span>
+ <span class="g s3 gu gd"></span><span class="s7"> order-10…  {"customer":"Am…  74 bytes    2026-08-28 14:17:05.120  2          8426    1       </span>  <span class="g s3 gu gd"></span>
+ <span class="g s3 gu gd"></span><span class="s7"> order-10…  {"customer":"Ke…  78 bytes    2026-08-28 14:18:05.120  0          8427    1       </span>  <span class="g s3 gu gd"></span>
+ <span class="g s3 gu gd"></span><span class="s7"> order-10…  {"customer":"Ja…  79 bytes    2026-08-28 14:19:05.120  1          8428    1       </span>  <span class="g s3 gu gd"></span>
+ <span class="g s3 gu gd"></span>                                                                                                <span class="g s3 gu gd"></span>
+ <span class="g s3 gu gd"></span>                                                                                                <span class="g s3 gu gd"></span>
+ <span class="g s3 gu gd"></span>                                                                                                <span class="g s3 gu gd"></span>
+ <span class="g s3 gu gd"></span>                                                                                                <span class="g s3 gu gd"></span>
+ <span class="g s3 gu gd"></span>                                                                                                <span class="g s3 gu gd"></span>
+ <span class="g s3 gu gd"></span>                                                                                                <span class="g s3 gu gd"></span>
+ <span class="g s3 gu gd"></span>                                                                                                <span class="g s3 gu gd"></span>
+ <span class="g s3 gu gd"></span>                                                                                                <span class="g s3 gu gd"></span>
+ <span class="g s3 gu gd"></span>                                                                                                <span class="g s3 gu gd"></span>
+ <span class="g s3 gu gd"></span>                                                                                                <span class="g s3 gu gd"></span>
+ <span class="g s3 gu gd"></span>                                                                                                <span class="g s3 gu gd"></span>
+ <span class="g s3 gu gd"></span>                                                                                                <span class="g s3 gu gd"></span>
+ <span class="g s3 gu gd"></span>                                                                                                <span class="g s3 gu gd"></span>
+ <span class="g s3 gu gd"></span>                                                                                                <span class="g s3 gu gd"></span>
+ <span class="g s3 gu gd"></span>                                                                                                <span class="g s3 gu gd"></span>
+ <span class="g s3 gr gu"></span><span class="g s3 gl gr" style="--n:54"></span><span class="s3"> [Consumer Mode · Group order-inspector] </span><span class="g s3 gl gr"></span><span class="g s3 gl gu"></span>
+ <span class="s8">⏎</span><span class="s7"> Show Record</span> <span class="s8">n</span><span class="s7"> Consume More</span> <span class="s8">/</span><span class="s7"> Filter</span> <span class="s8">#</span><span class="s7"> Chunk Size</span> <span class="s8">^c</span><span class="s7"> Quit</span> <span class="s8">?</span><span class="s7"> Help</span>                     <span class="g s9 gf" style="--t:0;--r:0.875;--b:0;--l:0"></span><span class="s8">:</span><span class="s7"> Commands</span></pre>
+<!-- demo:consumer:end -->
       </div>
     </figure>
     </div>
     <div class="demo-panel" id="panel-producer" aria-labelledby="tab-producer">
       <p>Load a draft, check its sizes in the Summary, and press <kbd>Ctrl+S</kbd> to produce
         it. Kaskade reports the partition and offset the broker acknowledged.</p>
-    <figure class="window demo" data-demo="producer" aria-label="Simulated Kaskade producer">
+    <figure class="window demo" data-demo="producer" aria-label="Kaskade producer, recorded from the app">
       <div class="window-bar" aria-hidden="true"><span class="dots"><i></i><i></i><i></i></span><span class="window-title">kaskade producer</span><kbd class="keycap" data-keycap hidden></kbd></div>
       <div class="screen" data-view="tui">
-        <pre class="shell" aria-hidden="true"><code><span class="t-prompt">❯ </span><span data-shell-command>kaskade producer -b kafka.example.com:9092 -t order-events -v json --source order.json</span></code></pre>
-        <div class="tui">
-          <p class="tui-header"><span><span class="t-primary">Kaskade</span> <span class="t-secondary" data-version></span></span><span class="t-muted">kafka.example.com:9092</span></p>
-          <div class="producer">
-            <div class="frame">
-              <p class="frame-title">Compose Record [order-events]</p>
-              <p class="tabs"><span>Key</span><span class="active">Value</span><span>Headers [2]</span></p>
-              <p class="checkbox"><span class="box" aria-hidden="true">X</span> Null</p>
-              <p class="meta-label">Content</p>
-<pre class="json editor">{
-  <span class="j-key">"customer"</span>: <span class="j-string">"Ada"</span>,
-  <span class="j-key">"total"</span>: <span class="j-number">149.9</span>,
-  <span class="j-key">"status"</span>: <span class="j-string">"paid"</span>,
-  <span class="j-key">"items"</span>: [
-    <span class="j-string">"keyboard"</span>,
-    <span class="j-string">"mouse"</span>
-  ]
-}</pre>
-              <p class="frame-subtitle">[Producer Mode · Value: 77 bytes]</p>
-            </div>
-            <div class="frame summary wide">
-              <p class="frame-title">Summary</p>
-              <dl class="meta">
-                <div class="full"><dt>Topic</dt><dd>order-events</dd></div>
-                <div><dt>Partition</dt><dd>Automatic</dd></div>
-                <div><dt>Total Size</dt><dd>119 bytes</dd></div>
-              </dl>
-              <p class="summary-heading">Key</p>
-              <dl class="meta">
-                <div><dt>Serializer</dt><dd>STRING</dd></div>
-                <div><dt>Size</dt><dd>10 bytes</dd></div>
-              </dl>
-              <p class="summary-heading">Value</p>
-              <dl class="meta">
-                <div><dt>Serializer</dt><dd>JSON</dd></div>
-                <div><dt>Size</dt><dd>77 bytes</dd></div>
-              </dl>
-              <p class="summary-heading">Headers</p>
-              <dl class="meta">
-                <div><dt>Count</dt><dd>2</dd></div>
-                <div><dt>Size</dt><dd>32 bytes</dd></div>
-              </dl>
-            </div>
-          </div>
-          <p class="tui-footer" aria-hidden="true"><span><b>^s</b> Produce</span><span><b>f3</b> Summary</span><span><b>^c</b> Quit</span><span><b>?</b> Help</span></p>
-          <p class="toast" data-toast role="status" hidden><b>Record Delivered</b><br>Delivered · Partition 4 · Offset 32585 · 14:20:05.120</p>
-        </div>
+<!-- demo:producer:start -->
+<pre class="shell" aria-hidden="true"><code><span class="t-prompt">❯ </span><span data-shell-command>kaskade producer -b kafka.example.com:9092 -t order-events -v json --source order.json</span></code></pre>
+<pre class="tui" data-frame>
+ <span class="s0">Kaskade</span><span class="s1"> <span data-version>      </span></span>                                                              <span class="s2">kafka.example.com:9092</span>
+
+ <span class="g s3 gr gd"></span><span class="g s3 gl gr"></span> <span class="s3">Compose Record [order-events] </span><span class="g s3 gl gr" style="--n:13"></span><span class="g s3 gl gd"></span> <span class="g s12 gr gd"></span><span class="g s12 gl gr"></span> <span class="s12">Summary</span> <span class="g s12 gl gr" style="--n:38"></span><span class="g s12 gl gd"></span>
+ <span class="g s3 gu gd"></span>  <span class="s20">Key</span> <span class="s18"> </span><span class="s19">Value</span><span class="s18"> </span> <span class="s20">Headers [2]</span>                    <span class="g s3 gu gd"></span> <span class="g s12 gu gd"></span> <span class="g s12 gr gd"></span><span class="g s12 gl gr" style="--n:42"></span><span class="g s12 gl gd"></span><span class="s28">  </span> <span class="g s12 gu gd"></span>
+ <span class="g s3 gu gd"></span> <span class="g s22 gl gr gh" style="--n:5"></span><span class="g s22 gl gh"></span><span class="g s23 gl gr gh" style="--n:5"></span><span class="g s22 gr gh"></span><span class="g s22 gl gr gh" style="--n:31"></span> <span class="g s3 gu gd"></span> <span class="g s12 gu gd"></span> <span class="g s12 gu gd"></span><span class="s14">TOPIC</span>                                     <span class="g s12 gu gd"></span><span class="s28">  </span> <span class="g s12 gu gd"></span>
+ <span class="g s3 gu gd"></span>  <span class="g s12 gr gd"></span><span class="g s12 gl gr" style="--n:11"></span><span class="g s12 gl gd"></span>                              <span class="g s3 gu gd"></span> <span class="g s12 gu gd"></span> <span class="g s12 gu gd"></span><span class="s7">order-events</span>                              <span class="g s12 gu gd"></span><span class="s28">  </span> <span class="g s12 gu gd"></span>
+ <span class="g s3 gu gd"></span>  <span class="g s12 gu gd"></span> <span class="g s29 gf" style="--t:0;--r:0;--b:0;--l:0.5"></span><span class="s30">X</span><span class="g s29 gf" style="--t:0;--r:0.5;--b:0;--l:0"></span><span class="s7"> Null </span> <span class="g s12 gu gd"></span>                              <span class="g s3 gu gd"></span> <span class="g s12 gu gd"></span> <span class="g s12 gr gu"></span><span class="g s12 gl gr" style="--n:42"></span><span class="g s12 gl gu"></span><span class="s28">  </span> <span class="g s12 gu gd"></span>
+ <span class="g s3 gu gd"></span>  <span class="g s12 gr gu"></span><span class="g s12 gl gr" style="--n:11"></span><span class="g s12 gl gu"></span>                              <span class="g s3 gu gd"></span> <span class="g s12 gu gd"></span> <span class="g s12 gr gd"></span><span class="g s12 gl gr" style="--n:20"></span><span class="g s12 gl gd"></span><span class="g s12 gr gd"></span><span class="g s12 gl gr" style="--n:20"></span><span class="g s12 gl gd"></span><span class="s28">  </span> <span class="g s12 gu gd"></span>
+ <span class="g s3 gu gd"></span>                                             <span class="g s3 gu gd"></span> <span class="g s12 gu gd"></span> <span class="g s12 gu gd"></span><span class="s14">PARTITION</span>           <span class="g s12 gu gd"></span><span class="g s12 gu gd"></span><span class="s14">TOTAL SIZE</span>          <span class="g s12 gu gd"></span><span class="s28">  </span> <span class="g s12 gu gd"></span>
+ <span class="g s3 gu gd"></span>  <span class="s7">CONTENT</span>                                    <span class="g s3 gu gd"></span> <span class="g s12 gu gd"></span> <span class="g s12 gu gd"></span><span class="s7">Automatic</span>           <span class="g s12 gu gd"></span><span class="g s12 gu gd"></span><span class="s7">119 bytes</span>           <span class="g s12 gu gd"></span><span class="s28">  </span> <span class="g s12 gu gd"></span>
+ <span class="g s3 gu gd"></span>  <span class="s26">                                         </span>  <span class="g s3 gu gd"></span> <span class="g s12 gu gd"></span> <span class="g s12 gr gu"></span><span class="g s12 gl gr" style="--n:20"></span><span class="g s12 gl gu"></span><span class="g s12 gr gu"></span><span class="g s12 gl gr" style="--n:20"></span><span class="g s12 gl gu"></span><span class="s28">  </span> <span class="g s12 gu gd"></span>
+ <span class="g s3 gu gd"></span>  <span class="s26">  </span><span class="s31">{</span><span class="s26">                                      </span>  <span class="g s3 gu gd"></span> <span class="g s12 gu gd"></span>                                             <span class="s28">  </span> <span class="g s12 gu gd"></span>
+ <span class="g s3 gu gd"></span>  <span class="s26">    </span><span class="s32">"customer"</span><span class="s33">: </span><span class="s27">"Ada"</span><span class="s33">, </span><span class="s26">                  </span>  <span class="g s3 gu gd"></span> <span class="g s12 gu gd"></span> <span class="s7">KEY</span>                                         <span class="s28">  </span> <span class="g s12 gu gd"></span>
+ <span class="g s3 gu gd"></span>  <span class="s26">    </span><span class="s32">"total"</span><span class="s33">: </span><span class="s34">149.9</span><span class="s33">, </span><span class="s26">                     </span>  <span class="g s3 gu gd"></span> <span class="g s12 gu gd"></span> <span class="g s12 gr gd"></span><span class="g s12 gl gr" style="--n:27"></span><span class="g s12 gl gd"></span><span class="g s12 gr gd"></span><span class="g s12 gl gr" style="--n:13"></span><span class="g s12 gl gd"></span><span class="s28">  </span> <span class="g s12 gu gd"></span>
+ <span class="g s3 gu gd"></span>  <span class="s26">    </span><span class="s32">"status"</span><span class="s33">: </span><span class="s27">"paid"</span><span class="s33">, </span><span class="s26">                   </span>  <span class="g s3 gu gd"></span> <span class="g s12 gu gd"></span> <span class="g s12 gu gd"></span><span class="s14">SERIALIZER</span>                 <span class="g s12 gu gd"></span><span class="g s12 gu gd"></span><span class="s14">SIZE</span>         <span class="g s12 gu gd"></span><span class="s28">  </span> <span class="g s12 gu gd"></span>
+ <span class="g s3 gu gd"></span>  <span class="s26">    </span><span class="s32">"items"</span><span class="s33">: </span><span class="s35">[</span><span class="s26">                           </span>  <span class="g s3 gu gd"></span> <span class="g s12 gu gd"></span> <span class="g s12 gu gd"></span><span class="s7">STRING</span>                     <span class="g s12 gu gd"></span><span class="g s12 gu gd"></span><span class="s7">10 bytes</span>     <span class="g s12 gu gd"></span><span class="s28">  </span> <span class="g s12 gu gd"></span>
+ <span class="g s3 gu gd"></span>  <span class="s26">      </span><span class="s27">"keyboard"</span><span class="s33">, </span><span class="s26">                       </span>  <span class="g s3 gu gd"></span> <span class="g s12 gu gd"></span> <span class="g s12 gr gu"></span><span class="g s12 gl gr" style="--n:27"></span><span class="g s12 gl gu"></span><span class="g s12 gr gu"></span><span class="g s12 gl gr" style="--n:13"></span><span class="g s12 gl gu"></span><span class="s28">  </span> <span class="g s12 gu gd"></span>
+ <span class="g s3 gu gd"></span>  <span class="s26">      </span><span class="s27">"mouse"</span><span class="s26">                            </span>  <span class="g s3 gu gd"></span> <span class="g s12 gu gd"></span>                                             <span class="s28">  </span> <span class="g s12 gu gd"></span>
+ <span class="g s3 gu gd"></span>  <span class="s26">    </span><span class="s35">]</span><span class="s26">                                    </span>  <span class="g s3 gu gd"></span> <span class="g s12 gu gd"></span> <span class="s7">VALUE</span>                                       <span class="s28">  </span> <span class="g s12 gu gd"></span>
+ <span class="g s3 gu gd"></span>  <span class="s26">  </span><span class="s31">}</span><span class="s26">                                      </span>  <span class="g s3 gu gd"></span> <span class="g s12 gu gd"></span> <span class="g s12 gr gd"></span><span class="g s12 gl gr" style="--n:27"></span><span class="g s12 gl gd"></span><span class="g s12 gr gd"></span><span class="g s12 gl gr" style="--n:13"></span><span class="g s12 gl gd"></span><span class="s36">  </span> <span class="g s12 gu gd"></span>
+ <span class="g s3 gu gd"></span>  <span class="s26">                                         </span>  <span class="g s3 gu gd"></span> <span class="g s12 gu gd"></span> <span class="g s12 gu gd"></span><span class="s14">SERIALIZER</span>                 <span class="g s12 gu gd"></span><span class="g s12 gu gd"></span><span class="s14">SIZE</span>         <span class="g s12 gu gd"></span><span class="s36">  </span> <span class="g s12 gu gd"></span>
+ <span class="g s3 gu gd"></span>  <span class="s26">                                         </span>  <span class="g s3 gu gd"></span> <span class="g s12 gu gd"></span> <span class="g s12 gu gd"></span><span class="s7">JSON</span>                       <span class="g s12 gu gd"></span><span class="g s12 gu gd"></span><span class="s7">77 bytes</span>     <span class="g s12 gu gd"></span><span class="s36">  </span> <span class="g s12 gu gd"></span>
+ <span class="g s3 gu gd"></span>  <span class="s26">                                         </span>  <span class="g s3 gu gd"></span> <span class="g s12 gu gd"></span> <span class="g s12 gr gu"></span><span class="g s12 gl gr" style="--n:27"></span><span class="g s12 gl gu"></span><span class="g s12 gr gu"></span><span class="g s12 gl gr" style="--n:13"></span><span class="g s12 gl gu"></span><span class="s36">  </span> <span class="g s12 gu gd"></span>
+ <span class="g s3 gu gd"></span>  <span class="s26">                                         </span>  <span class="g s3 gu gd"></span> <span class="g s37 gf" style="--t:0;--r:0.5;--b:0;--l:0"></span><span class="s38">                                               </span> <span class="g s12 gu gd"></span>
+ <span class="g s3 gu gd"></span>  <span class="s26">                                         </span>  <span class="g s3 gu gd"></span> <span class="g s37 gf" style="--t:0;--r:0.5;--b:0;--l:0"></span><span class="s38"> </span><span class="s39">Record Delivered</span><span class="s38">                              </span> <span class="g s12 gu gd"></span>
+ <span class="g s3 gu gd"></span>  <span class="s26">                                         </span>  <span class="g s3 gu gd"></span> <span class="g s37 gf" style="--t:0;--r:0.5;--b:0;--l:0"></span><span class="s38"> </span><span class="s40">Delivered · Partition 4 · Offset 32585 ·</span><span class="s38">      </span> <span class="g s12 gu gd"></span>
+ <span class="g s3 gu gd"></span>  <span class="s26">                                         </span>  <span class="g s3 gu gd"></span> <span class="g s37 gf" style="--t:0;--r:0.5;--b:0;--l:0"></span><span class="s38"> </span><span class="s40">14:20:05.120</span><span class="s38">                                  </span> <span class="g s12 gu gd"></span>
+ <span class="g s3 gr gu"></span><span class="g s3 gl gr"></span><span class="s3"> [Producer Mode · Value: 77 bytes · Deliv…</span> <span class="g s3 gl gr"></span><span class="g s3 gl gu"></span> <span class="g s37 gf" style="--t:0;--r:0.5;--b:0;--l:0"></span><span class="s38">                                               </span><span class="g s12 gl gr"></span><span class="g s12 gl gu"></span>
+ <span class="s8">^s</span><span class="s7"> Produce</span> <span class="s8">f3</span><span class="s7"> Summary</span> <span class="s8">^c</span><span class="s7"> Quit</span> <span class="s8">?</span><span class="s7"> Help</span>                                                  <span class="g s9 gf" style="--t:0;--r:0.875;--b:0;--l:0"></span><span class="s8">:</span><span class="s7"> Commands</span></pre>
+<!-- demo:producer:end -->
       </div>
     </figure>
     </div>
     <div class="demo-controls" hidden>
+      <div class="demo-progress" data-demo-progress role="progressbar" aria-label="Demo progress"
+        aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span></span></div>
       <button type="button" class="button" data-demo-toggle>Pause</button>
       <button type="button" class="button" data-demo-replay>Replay</button>
     </div>
@@ -288,6 +240,19 @@
       Cloud, Amazon MSK IAM, themes, and custom keybindings. The
       <a href="https://github.com/sauljabin/kaskade/blob/main/USAGE.md">usage guide</a>
       covers each option.</p>
+  </section>
+
+  <section class="container section" aria-labelledby="kantrip-title">
+    <h2 id="kantrip-title">Kantrip</h2>
+    <p>Working with several clusters? <a href="https://sauljabin.github.io/kantrip/">Kantrip</a>
+      saves each Kafka connection as a profile and runs Kaskade, kcat, and the Kafka CLIs
+      against it, with its secrets in your operating system's credential store.</p>
+    <div class="window">
+      <div class="window-bar" aria-hidden="true"><span class="dots"><i></i><i></i><i></i></span><span class="window-title">kantrip</span></div>
+      <pre class="code kantrip-code"><code><span class="t-prompt" aria-hidden="true">$ </span>kantrip exec prod -- kaskade admin</code></pre>
+    </div>
+    <p class="links"><a href="https://sauljabin.github.io/kantrip/">Kantrip website</a>
+      <a href="https://github.com/sauljabin/kantrip">Kantrip on GitHub</a></p>
   </section>
 
   <section class="container section thanks" aria-labelledby="thanks-title">

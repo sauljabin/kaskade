@@ -292,10 +292,13 @@ and retain a link to the releases index when the request is unavailable. The
 social preview is `images/social-preview.svg`, rendered to
 `site/social-preview.png` as [Development](DEVELOPMENT.md#website) describes;
 draw its frames as shapes, never as box-drawing glyphs. The site's demo
-has admin, consumer, and producer tabs, each a scene simulated with HTML and
-CSS borders from the mock data in `scripts.screenshots`; keep their keys,
-columns, footers, and modal layouts matching the real modes. Without
-JavaScript every mode shows its final screen. The site follows the system color scheme until a
+has admin, consumer, and producer tabs. `scripts.demos` records each scene
+from the real app with Pilot over the `scripts.screenshots` mock data, as
+text frames in `site/demos.json`, colors in `site/demos.css`, and the last
+frame in `index.html`; never edit them by hand. Line and block glyphs become
+cells drawn with CSS, and an unmapped one fails the recording. The `demos`
+pre-commit hook rerecords them when `kaskade/` changes, and a unit test fails
+when they are stale. The site follows the system color scheme until a
 visitor picks one with the header toggle; `site/theme.js` loads synchronously
 and stores only an explicit choice that differs from the system's.
 
