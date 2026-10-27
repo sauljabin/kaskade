@@ -4,6 +4,9 @@
 
 - Support Linux and macOS; keep paths, terminal input, and shell documentation
   portable.
+- CI tests only the oldest and newest supported Python versions, 3.10 and 3.14,
+  to save time. Never add an intermediate version to a matrix; single-version
+  jobs use one of the two.
 - Keep cyclomatic complexity at or below 10. Ruff `C901` runs through
   `scripts.analyze`; prefer focused helpers over suppressions.
 - Before finishing, review the complete diff for clarity, duplication, and
