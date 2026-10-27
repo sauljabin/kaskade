@@ -29,7 +29,7 @@
   --text: #3b2d4f;
   --muted: #5e5070;
   --link: #7b2fb0;
-  --glow: rgb(123 47 176 / 0.12);
+  --glow: rgb(123 47 176 / 0.20);
   --shadow: 0 1px 2px rgb(28 16 48 / 0.06), 0 8px 24px rgb(28 16 48 / 0.07);
   --border: rgb(28 16 48 / 0.22);
   --primary: #7b2fb0;
@@ -48,7 +48,7 @@
     --text: #3b2d4f;
     --muted: #5e5070;
     --link: #7b2fb0;
-    --glow: rgb(123 47 176 / 0.12);
+    --glow: rgb(123 47 176 / 0.20);
     --shadow: 0 1px 2px rgb(28 16 48 / 0.06), 0 8px 24px rgb(28 16 48 / 0.07);
     --border: rgb(28 16 48 / 0.22);
     --primary: #7b2fb0;
