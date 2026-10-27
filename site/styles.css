@@ -535,21 +535,27 @@ pre {
   visibility: hidden;
 }
 
-.shell {
-  padding: 1rem;
-  font-size: 0.8rem;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-
 /* 100 columns fill the window: a monospace cell is about 0.6em wide. Centering
-   splits what a font's slightly different cell width leaves over. */
+   splits what a font's slightly different cell width leaves over. The shell
+   shares the grid, so the typed command looks like part of the same terminal,
+   starting in the column where the app's header does. */
+.shell,
 .tui {
   justify-self: center;
+  width: 100ch;
   padding: 0.5rem 0;
   overflow: hidden;
   font-size: 1.64cqw;
   line-height: 1.25;
+}
+
+.shell {
+  padding-left: 1ch;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.tui {
   white-space: pre;
 }
 
