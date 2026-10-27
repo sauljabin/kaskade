@@ -672,6 +672,27 @@ pre {
   margin-top: 0.75rem;
 }
 
+/* Fills while the demo plays and turns green when it ends. */
+.demo-progress {
+  flex: 1;
+  align-self: center;
+  height: 0.3rem;
+  overflow: hidden;
+  background: var(--border);
+  border-radius: 999px;
+}
+
+.demo-progress span {
+  display: block;
+  width: 0;
+  height: 100%;
+  background: var(--primary);
+}
+
+.demo-progress[data-state="done"] span {
+  background: var(--success);
+}
+
 .demo-controls[hidden] {
   display: none;
 }
