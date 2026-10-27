@@ -133,6 +133,29 @@ class TestInitialLoadingFrame(unittest.IsolatedAsyncioTestCase):
                     release.set()
                 await app.workers.wait_for_complete()
 
+    async def test_topics_table_keeps_focus_after_slow_first_load(self) -> None:
+        started = asyncio.Event()
+        release = asyncio.Event()
+        service = MagicMock()
+        configure_admin_service(service, {})
+
+        async def metadata() -> dict[str, Topic]:
+            started.set()
+            await release.wait()
+            return {"orders": Topic(name="orders")}
+
+        service.metadata = AsyncMock(side_effect=metadata)
+        with patch("kaskade.admin.app.TopicService", return_value=service):
+            app = KaskadeAdmin({})
+            async with app.run_test() as pilot:
+                await started.wait()
+                await pilot.pause()
+                release.set()
+                await app.workers.wait_for_complete()
+                await pilot.pause()
+
+                self.assertIs(app.query_one("#topics-table", DataTable), app.focused)
+
     async def test_shows_only_truncated_topic_name_in_table_tooltip(self) -> None:
         long_topic = Topic(name="example-streamlet.sl.example-streamlet")
         short_topic = Topic(name="orders")

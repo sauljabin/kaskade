@@ -11,6 +11,7 @@ from textual.containers import Container, Horizontal, ScrollableContainer
 from textual.coordinate import Coordinate
 from textual.geometry import Region, Size
 from textual.strip import Strip
+from textual.widget import Widget
 from textual.widgets import DataTable, OptionList, Static
 
 # The only private Textual import; see StretchyDataTable._compute_row_renderables.
@@ -21,6 +22,18 @@ from kaskade import APP_NAME, APP_VERSION
 from kaskade.configs import BOOTSTRAP_SERVERS
 
 KANTRIP_PROFILE = "KANTRIP_PROFILE"
+
+
+def stop_loading(widget: Widget) -> None:
+    """Uncover a loading widget and give back the focus its cover took.
+
+    Textual's loading cover blurs the widget underneath and leaves the screen
+    without focus when it is removed, so keys would reach nothing. Focus that
+    moved elsewhere in the meantime stays where it is.
+    """
+    widget.loading = False
+    if widget.screen.focused is None:
+        widget.focus()
 
 
 def kantrip_profile() -> str:

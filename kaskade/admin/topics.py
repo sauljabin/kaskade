@@ -39,7 +39,7 @@ from kaskade.refresh import RefreshCoordinator, RefreshReason
 from kaskade.topic_service import ADMIN_EXCEPTIONS, TopicService
 from kaskade.ui import copy_text, notify_error
 from kaskade.unicodes import APPROXIMATION
-from kaskade.widgets import TableFrame, TruncatedTooltipDataTable
+from kaskade.widgets import TableFrame, TruncatedTooltipDataTable, stop_loading
 
 T = TypeVar("T")
 
@@ -253,7 +253,7 @@ class ListTopics(Container):
 
         self.topics = refreshed_topics
         self.fill_table()
-        self.query_one(DataTable).loading = False
+        stop_loading(self.query_one(DataTable))
         offsets_task = asyncio.create_task(self.topic_service.enrich_offsets(self.topics))
         groups_task = asyncio.create_task(self.topic_service.load_groups())
         stage_tasks.extend((offsets_task, groups_task))
@@ -295,7 +295,7 @@ class ListTopics(Container):
             return
         if not self.is_attached:
             return
-        table.loading = False
+        stop_loading(table)
         self.update_status(refreshing=False)
         self.post_message(self.RefreshCompleted())
         if self.refresh_coordinator.take_pending():
@@ -357,8 +357,7 @@ class ListTopics(Container):
         table.loading = True
 
     def finish_loading_table(self) -> None:
-        table = self.query_one(DataTable)
-        table.loading = False
+        stop_loading(self.query_one(DataTable))
 
     @work(exclusive=True, group="topic-config")
     async def action_edit(self) -> None:
