@@ -1,7 +1,7 @@
 import asyncio
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from math import ceil
 from time import perf_counter
 from typing import Any
@@ -373,7 +373,7 @@ class ConsumerService:
         timestamp_available, timestamp = message.timestamp()
         if timestamp_available <= 0:
             return None
-        return datetime.fromtimestamp(timestamp / 1000, tz=timezone.utc)
+        return datetime.fromtimestamp(timestamp / 1000, tz=UTC)
 
     @staticmethod
     def _matches(

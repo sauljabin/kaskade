@@ -1,4 +1,4 @@
-from enum import Enum
+from enum import StrEnum
 
 MILLISECONDS_24H = 86400000
 MILLISECONDS_1W = 604800000
@@ -42,15 +42,12 @@ ENABLE_AUTO_COMMIT = "enable.auto.commit"
 GROUP_ID = "group.id"
 
 
-class SchemaType(str, Enum):
+class SchemaType(StrEnum):
     """Schema formats supported by the Registry deserializers."""
 
     AVRO = "AVRO"
     JSON = "JSON"
     PROTOBUF = "PROTOBUF"
-
-    def __str__(self) -> str:
-        return self.value
 
 
 ACKS = "acks"

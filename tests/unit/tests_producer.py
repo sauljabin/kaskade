@@ -2,7 +2,7 @@ import asyncio
 import json
 import struct
 import unittest
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -31,7 +31,7 @@ AVRO_USER_SCHEMA = {
     "name": "User",
     "fields": [{"name": "name", "type": "string"}],
 }
-DELIVERY = Delivery(2, 8429, datetime(2026, 10, 8, 14, 20, 5, 120000, tzinfo=timezone.utc))
+DELIVERY = Delivery(2, 8429, datetime(2026, 10, 8, 14, 20, 5, 120000, tzinfo=UTC))
 
 
 def producer_app(

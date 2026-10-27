@@ -3,7 +3,7 @@ import struct
 import tempfile
 import unittest
 from base64 import b64encode
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from io import BytesIO
 from pathlib import Path
@@ -128,7 +128,7 @@ AVRO_SCHEMA = {
     ],
 }
 AVRO_VALUE = {
-    "paid_at": datetime(2026, 10, 8, 14, 20, 5, 120000, tzinfo=timezone.utc),
+    "paid_at": datetime(2026, 10, 8, 14, 20, 5, 120000, tzinfo=UTC),
     "due": date(2026, 11, 1),
     "amount": Decimal("1234.50"),
     "signature": b"\x00sig\\",

@@ -2,7 +2,7 @@
 
 import threading
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum, auto
 from time import perf_counter
 from typing import Any
@@ -250,4 +250,4 @@ def _timestamp(message: Any) -> datetime | None:
     timestamp_type, milliseconds = message.timestamp()
     if timestamp_type == TIMESTAMP_NOT_AVAILABLE:
         return None
-    return datetime.fromtimestamp(milliseconds / 1000, tz=timezone.utc)
+    return datetime.fromtimestamp(milliseconds / 1000, tz=UTC)

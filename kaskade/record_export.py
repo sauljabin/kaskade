@@ -1,5 +1,5 @@
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from io import StringIO
 
 from rich.json import JSON
@@ -33,7 +33,7 @@ def record_json_renderable(data: object) -> JSON:
 
 def record_filename(record: Record, exported_at: datetime | None = None) -> str:
     """Build a screenshot-style, collision-resistant record export filename."""
-    export_time = exported_at or datetime.now(timezone.utc).astimezone()
+    export_time = exported_at or datetime.now(UTC).astimezone()
     timestamp = export_time.replace(tzinfo=None).isoformat()
     filename_stem = f"kaskade-record-{record.topic}-{record.partition}-{record.offset}_{timestamp}"
     for reserved_character in ' <>:"/\\|?*.':
