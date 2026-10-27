@@ -25,9 +25,10 @@ from textual.pilot import Pilot
 from textual.widgets import Footer
 
 from kaskade.admin import ListTopics
-from kaskade.consumer_service import ConsumerSettings
+from kaskade.commands import EMPTY_RECORD_FILTERS, RecordFilters
+from kaskade.consumer_service import ConsumerService, ConsumerSettings
 from kaskade.deserializers import Deserialization
-from kaskade.models import MetricState, Topic, TopicConfiguration
+from kaskade.models import MetricState, Record, Topic, TopicConfiguration
 from kaskade.producer_service import Delivery, OutgoingRecord, ProducerService, ProducerSettings
 from kaskade.serializers import Serialization
 from kaskade.settings import AppSettings
@@ -50,6 +51,7 @@ from scripts.screenshots import (
     PROJECT_ROOT,
     AdminScreenshotApp,
     ConsumerScreenshotApp,
+    MockConsumerService,
     MockProducerService,
     MockTopicService,
     ProducerScreenshotApp,
@@ -331,14 +333,30 @@ class AdminDemoApp(AdminScreenshotApp):
         yield Footer(compact=True)
 
 
+class GatedConsumerService(MockConsumerService):
+    """Records arrive when the gate opens, like a first fetch from a slow broker."""
+
+    def __init__(self, gate: asyncio.Event) -> None:
+        super().__init__()
+        self.gate = gate
+
+    async def consume(self, *, filters: RecordFilters = EMPTY_RECORD_FILTERS) -> list[Record]:
+        await self.gate.wait()
+        return await super().consume(filters=filters)
+
+
 class ConsumerDemoApp(ConsumerScreenshotApp):
     def __init__(self) -> None:
+        self.gate = asyncio.Event()
         super().__init__(
             ConsumerSettings(
                 "order-events", KAFKA_CONFIG, Deserialization.STRING, Deserialization.STRING
             ),
             settings=AppSettings(path=Path(), keymap={}),
         )
+
+    def new_consumer(self) -> ConsumerService:
+        return GatedConsumerService(self.gate)
 
 
 class DeliveringProducerService(MockProducerService):
@@ -373,6 +391,8 @@ async def record_admin(app: AdminDemoApp, recorder: Recorder) -> None:
 
 
 async def record_consumer(app: ConsumerDemoApp, recorder: Recorder) -> None:
+    await recorder.capture(1000)
+    app.gate.set()
     await app.workers.wait_for_complete()
     await recorder.capture(1500)
     await recorder.press("j", "j", 500)
@@ -415,6 +435,9 @@ async def record_scenes() -> dict[str, Scene]:
         for name, (command, new_app, steps) in SCENES.items():
             scene = Scene(command)
             app = new_app()
+            # Animated widgets, such as the loading indicator's dots, change color
+            # with the clock; without animation every recording is identical.
+            app.animation_level = "none"
             async with app.run_test(size=DEMO_SIZE, notifications=True) as pilot:
                 await steps(app, Recorder(pilot, scene))
             scenes[name] = scene
