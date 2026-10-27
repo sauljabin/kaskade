@@ -125,8 +125,7 @@ Generate the framed README banner and borderless site variant:
 uv run python -m scripts.banner
 ```
 
-Generate framed README screenshots and borderless site variants with mock data
-(no Kafka broker required):
+Generate the README screenshots with mock data (no Kafka broker required):
 
 ```bash
 uv run python -m scripts.screenshots
@@ -163,10 +162,6 @@ generated assets used by GitHub Pages:
 mkdir -p /tmp/kaskade-site-preview/assets
 cp -R site/. /tmp/kaskade-site-preview/
 cp images/banner-borderless.svg \
-   images/admin-borderless.svg \
-   images/consumer-borderless.svg \
-   images/producer-borderless.svg \
-   images/record-details-borderless.svg \
    images/littlehorse-badge.svg \
    images/textual-badge.svg \
    /tmp/kaskade-site-preview/assets/

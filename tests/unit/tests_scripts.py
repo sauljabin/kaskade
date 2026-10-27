@@ -98,7 +98,7 @@ class TestReadmeVisualScripts(unittest.IsolatedAsyncioTestCase):
             borderless_svg = paths[1].read_text(encoding="utf-8").lower()
             self.assertIn(EVA01_BERSERK_THEME.background.lower(), borderless_svg)
 
-    async def test_screenshots_generate_framed_and_borderless_default_theme_variants(self) -> None:
+    async def test_screenshots_generate_framed_default_theme_images(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             output = Path(temporary_directory)
             with (
@@ -111,13 +111,9 @@ class TestReadmeVisualScripts(unittest.IsolatedAsyncioTestCase):
                 {path.name for path in paths},
                 {
                     "admin.svg",
-                    "admin-borderless.svg",
                     "consumer.svg",
-                    "consumer-borderless.svg",
                     "producer.svg",
-                    "producer-borderless.svg",
                     "record-details.svg",
-                    "record-details-borderless.svg",
                 },
             )
             for path in paths:
@@ -139,14 +135,8 @@ class TestReadmeVisualScripts(unittest.IsolatedAsyncioTestCase):
                         if child.tag.endswith("g") and "clip-terminal" in child.get("clip-path", "")
                     ]
                     self.assertEqual(len(terminal_groups), 1)
-                    if "borderless" in path.stem:
-                        self.assertNotIn("transform", terminal_groups[0].attrib)
-                        self.assertFalse(any(child.tag.endswith("circle") for child in root.iter()))
-                    else:
-                        self.assertIn("transform", terminal_groups[0].attrib)
-                        self.assertEqual(
-                            sum(child.tag.endswith("circle") for child in root.iter()), 3
-                        )
+                    self.assertIn("transform", terminal_groups[0].attrib)
+                    self.assertEqual(sum(child.tag.endswith("circle") for child in root.iter()), 3)
 
             consumer_svg = (output / "consumer.svg").read_text(encoding="utf-8")
             self.assertIn("Group&#160;order-inspector", consumer_svg)
