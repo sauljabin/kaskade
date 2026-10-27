@@ -37,7 +37,7 @@ from kaskade.models import DeserializationOutcome, Record
 from kaskade.record_export import deliver_record, record_json
 from kaskade.ui import copy_text, format_size, notify_error
 from kaskade.unicodes import WARNING_SIGN
-from kaskade.widgets import StretchyDataTable, TableFrame
+from kaskade.widgets import StretchyDataTable, TableFrame, stop_loading
 
 CHUNKS_SHORTCUT = "#"
 FILTER_SHORTCUT = "/,ctrl+f"
@@ -416,6 +416,6 @@ class ListRecords(Container):
         except CONSUMER_EXCEPTIONS as ex:
             notify_error(self.app, "Consumption Error", ex)
         finally:
-            table.loading = False
+            stop_loading(table)
             self._is_consuming = False
             self.refresh_bindings()

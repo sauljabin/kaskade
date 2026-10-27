@@ -1240,6 +1240,38 @@ class TestConsumptionCoordination(unittest.IsolatedAsyncioTestCase):
             await app.workers.wait_for_complete()
 
     @patch("kaskade.consumer.app.ConsumerService")
+    async def test_records_table_keeps_focus_after_slow_loads(
+        self, consumer_service: MagicMock
+    ) -> None:
+        release = asyncio.Event()
+
+        async def consume(*, filters: object) -> list[Record]:
+            await release.wait()
+            release.clear()
+            return []
+
+        configure_consumer_service(consumer_service.return_value)
+        consumer_service.return_value.consume = AsyncMock(side_effect=consume)
+        app = KaskadeConsumer(
+            ConsumerSettings("orders", {}, Deserialization.STRING, Deserialization.STRING)
+        )
+
+        async with app.run_test() as pilot:
+            table = app.query_one("#records-table", DataTable)
+            for key in (None, "n"):
+                with self.subTest(load="first" if key is None else "more"):
+                    if key is not None:
+                        await pilot.press(key)
+                    await pilot.pause()
+                    self.assertTrue(table.loading)
+                    release.set()
+                    await app.workers.wait_for_complete()
+                    await pilot.pause()
+
+                    self.assertFalse(table.loading)
+                    self.assertIs(table, app.focused)
+
+    @patch("kaskade.consumer.app.ConsumerService")
     async def test_boolean_cells_use_json_literals(self, consumer_service: MagicMock) -> None:
         deserializer = BooleanDeserializer()
         record = Record(
