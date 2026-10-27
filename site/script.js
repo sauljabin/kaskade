@@ -1,7 +1,7 @@
 "use strict";
 
-// Progressive enhancement only: without this script the page shows the
-// consumer's final screen and the install commands as plain text.
+// Progressive enhancement only: without this script the page shows each mode's
+// final screen and the install commands as plain text.
 
 function setUpCopyButtons() {
   const status = document.querySelector(".copy-status");
@@ -62,39 +62,96 @@ function highlightJson(text) {
   return fragment;
 }
 
-// Replays a consumer session over the static final screen: type the command,
-// receive the records, move down two rows, and open Record Details.
-function setUpDemo() {
-  const demo = document.querySelector("[data-demo]");
-  const controls = document.querySelector(".demo-controls");
-  if (!demo || !controls || !("IntersectionObserver" in window)) return;
+// Each scene replays one mode over its static final screen. reset() shows the
+// starting state, steps(at) queues [delay, action] pairs, and finish() restores
+// the static screen, so stopping at any point leaves a complete picture.
+function sceneBase(demo) {
   const screen = demo.querySelector(".screen");
   const command = demo.querySelector("[data-shell-command]");
   const typed = command.textContent;
+  const keycap = demo.querySelector("[data-keycap]");
+  const press = (key) => {
+    keycap.textContent = key;
+    keycap.hidden = false;
+  };
+  return {
+    press,
+    reset() {
+      screen.dataset.view = "shell";
+      command.textContent = "";
+      keycap.hidden = true;
+    },
+    start(at) {
+      for (const character of typed) {
+        at(character === " " ? 70 : 35, () => command.append(character));
+      }
+      at(450, () => press("⏎"));
+      at(400, () => {
+        keycap.hidden = true;
+        screen.dataset.view = "tui";
+      });
+    },
+    finish() {
+      screen.dataset.view = "tui";
+      command.textContent = typed;
+      keycap.hidden = true;
+    },
+  };
+}
+
+function selectRow(rows, position) {
+  rows.forEach((row, index) => row.classList.toggle("selected", index === position));
+}
+
+// Topic metadata renders first; record and group metrics fill in afterwards.
+function adminScene(demo) {
+  const base = sceneBase(demo);
+  const rows = [...demo.querySelectorAll("[data-records] tr")];
+  const metrics = [...demo.querySelectorAll("[data-metric]")];
+  const values = metrics.map((cell) => cell.textContent);
+  const details = demo.querySelector("[data-details]");
+  const showMetrics = (row) =>
+    row.querySelectorAll("[data-metric]").forEach((cell) => {
+      cell.textContent = values[metrics.indexOf(cell)];
+    });
+  return {
+    reset() {
+      base.reset();
+      metrics.forEach((cell) => {
+        cell.textContent = "…";
+      });
+      selectRow(rows, 0);
+      details.hidden = true;
+    },
+    steps(at) {
+      base.start(at);
+      rows.forEach((row) => at(rows.indexOf(row) ? 120 : 1100, () => showMetrics(row)));
+      at(1200, () => base.press("j"));
+      at(150, () => selectRow(rows, 1));
+      at(550, () => base.press("j"));
+      at(150, () => selectRow(rows, 2));
+      at(800, () => base.press("d"));
+      at(150, () => {
+        details.hidden = false;
+      });
+      at(3600, () => base.press("esc"));
+      at(150, () => {
+        details.hidden = true;
+      });
+    },
+    finish() {
+      base.finish();
+      rows.forEach(showMetrics);
+      details.hidden = true;
+    },
+  };
+}
+
+function consumerScene(demo) {
+  const base = sceneBase(demo);
   const count = demo.querySelector("[data-count]");
   const rows = [...demo.querySelectorAll("[data-records] tr")];
   const details = demo.querySelector("[data-details]");
-  const keycap = demo.querySelector("[data-keycap]");
-  const toggle = controls.querySelector("[data-demo-toggle]");
-  const replay = controls.querySelector("[data-demo-replay]");
-  const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
-
-  let queue = [];
-  let index = 0;
-  let timer = 0;
-  let due = 0;
-  let remaining = 0;
-  let state = "idle";
-
-  function select(position) {
-    rows.forEach((row, rowIndex) => row.classList.toggle("selected", rowIndex === position));
-    return rows[position];
-  }
-
-  function press(key) {
-    keycap.textContent = key;
-    keycap.hidden = false;
-  }
 
   function showDetails(row) {
     const [key, value, size, timestamp, partition, offset] = [...row.cells].map(
@@ -116,48 +173,97 @@ function setUpDemo() {
     details.hidden = false;
   }
 
-  function reset() {
-    screen.dataset.view = "shell";
-    command.textContent = "";
-    rows.forEach((row) => {
-      row.hidden = true;
-    });
-    count.textContent = "0";
-    select(0);
-    details.hidden = true;
-    keycap.hidden = true;
-  }
-
-  function buildQueue() {
-    const steps = [];
-    const at = (delay, action) => steps.push([delay, action]);
-    for (const character of typed) {
-      at(character === " " ? 70 : 35, () => command.append(character));
-    }
-    at(450, () => press("⏎"));
-    at(400, () => {
-      keycap.hidden = true;
-      screen.dataset.view = "tui";
-    });
-    rows.forEach((row, rowIndex) => {
-      at(rowIndex ? 140 : 700, () => {
-        row.hidden = false;
-        count.textContent = String(rowIndex + 1);
+  return {
+    reset() {
+      base.reset();
+      rows.forEach((row) => {
+        row.hidden = true;
       });
-    });
-    at(1200, () => press("j"));
-    at(150, () => select(1));
-    at(550, () => press("j"));
-    at(150, () => select(2));
-    at(800, () => press("⏎"));
-    at(150, () => showDetails(rows[2]));
-    at(3600, () => press("esc"));
-    at(150, () => {
+      count.textContent = "0";
+      selectRow(rows, 0);
       details.hidden = true;
-    });
-    at(900, finish);
-    return steps;
-  }
+    },
+    steps(at) {
+      base.start(at);
+      rows.forEach((row, index) => {
+        at(index ? 140 : 700, () => {
+          row.hidden = false;
+          count.textContent = String(index + 1);
+        });
+      });
+      at(1200, () => base.press("j"));
+      at(150, () => selectRow(rows, 1));
+      at(550, () => base.press("j"));
+      at(150, () => selectRow(rows, 2));
+      at(800, () => base.press("⏎"));
+      at(150, () => showDetails(rows[2]));
+      at(3600, () => base.press("esc"));
+      at(150, () => {
+        details.hidden = true;
+      });
+    },
+    finish() {
+      base.finish();
+      rows.forEach((row) => {
+        row.hidden = false;
+      });
+      count.textContent = String(rows.length);
+      details.hidden = true;
+    },
+  };
+}
+
+function producerScene(demo) {
+  const base = sceneBase(demo);
+  const toast = demo.querySelector("[data-toast]");
+  return {
+    reset() {
+      base.reset();
+      toast.hidden = true;
+    },
+    steps(at) {
+      base.start(at);
+      at(2400, () => base.press("^s"));
+      at(450, () => {
+        toast.hidden = false;
+      });
+      at(3600, () => {
+        toast.hidden = true;
+      });
+    },
+    finish() {
+      base.finish();
+      toast.hidden = true;
+    },
+  };
+}
+
+const SCENES = { admin: adminScene, consumer: consumerScene, producer: producerScene };
+
+// One player drives the selected mode's scene; the tabs pick the mode.
+function setUpDemos() {
+  const section = document.querySelector("#demo");
+  const tabs = [...section.querySelectorAll("[data-demo-tab]")];
+  const controls = section.querySelector(".demo-controls");
+  if (!tabs.length || !controls || !("IntersectionObserver" in window)) return;
+  const toggle = controls.querySelector("[data-demo-toggle]");
+  const replay = controls.querySelector("[data-demo-replay]");
+  const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
+  const scenes = Object.fromEntries(
+    tabs.map((tab) => {
+      const name = tab.dataset.demoTab;
+      return [name, SCENES[name](section.querySelector(`[data-demo="${name}"]`))];
+    }),
+  );
+
+  let scene = null;
+  let queue = [];
+  let index = 0;
+  let timer = 0;
+  let due = 0;
+  let remaining = 0;
+  let state = "idle";
+  let seen = false;
 
   function tick() {
     const [, action] = queue[index];
@@ -178,32 +284,50 @@ function setUpDemo() {
 
   function play() {
     window.clearTimeout(timer);
-    reset();
-    controls.hidden = false;
-    queue = buildQueue();
+    scene.reset();
+    queue = [];
+    scene.steps((delay, action) => queue.push([delay, action]));
+    queue.push([900, finish]);
     index = 0;
     state = "playing";
     render();
     schedule(queue[0][0]);
   }
 
-  // The finished replay leaves the same screen as the static page, plus the
-  // row it moved to.
   function finish() {
     window.clearTimeout(timer);
     state = "done";
-    screen.dataset.view = "tui";
-    command.textContent = typed;
-    rows.forEach((row) => {
-      row.hidden = false;
-    });
-    count.textContent = String(rows.length);
-    details.hidden = true;
-    keycap.hidden = true;
+    scene.finish();
     if (document.activeElement === toggle) replay.focus();
     render();
   }
 
+  function select(tab) {
+    if (scene) finish();
+    for (const other of tabs) {
+      const selected = other === tab;
+      other.setAttribute("aria-selected", String(selected));
+      other.tabIndex = selected ? 0 : -1;
+      document.getElementById(other.getAttribute("aria-controls")).hidden = !selected;
+    }
+    scene = scenes[tab.dataset.demoTab];
+    if (reduced.matches) return;
+    if (seen) play();
+    else scene.reset();
+  }
+
+  section.querySelector("[role=tablist]").hidden = false;
+  for (const tab of tabs) {
+    document.getElementById(tab.getAttribute("aria-controls")).setAttribute("role", "tabpanel");
+    tab.addEventListener("click", () => select(tab));
+    tab.addEventListener("keydown", (event) => {
+      const step = { ArrowRight: 1, ArrowLeft: -1 }[event.key];
+      if (!step) return;
+      const next = tabs[(tabs.indexOf(tab) + step + tabs.length) % tabs.length];
+      next.focus();
+      select(next);
+    });
+  }
   toggle.addEventListener("click", () => {
     if (state === "playing") {
       window.clearTimeout(timer);
@@ -216,20 +340,19 @@ function setUpDemo() {
     render();
   });
   replay.addEventListener("click", play);
+  select(tabs[0]);
+  controls.hidden = reduced.matches;
 
   const observer = new IntersectionObserver(
     (entries) => {
       if (!entries.some((entry) => entry.isIntersecting)) return;
       observer.disconnect();
+      seen = true;
       if (!reduced.matches) play();
     },
-    { threshold: 0.35 },
+    { threshold: 0.25 },
   );
-  if (!reduced.matches) {
-    // Show the empty shell before the replay starts so the records don't flash.
-    reset();
-    observer.observe(demo);
-  }
+  if (!reduced.matches) observer.observe(section);
   reduced.addEventListener("change", () => {
     if (!reduced.matches) return;
     observer.disconnect();
@@ -239,5 +362,5 @@ function setUpDemo() {
 }
 
 setUpCopyButtons();
-setUpDemo();
+setUpDemos();
 loadRelease();
