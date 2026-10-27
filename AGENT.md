@@ -269,9 +269,8 @@ only when nothing under `tests/e2e` or `kaskade/` reads it.
 
 Generated SVGs in `images/` come from `uv run python -m scripts.banner` and
 `uv run python -m scripts.screenshots`; neither needs Kafka. The screenshot
-commands emit framed README images and borderless site variants for admin,
-consumer, consumer Record Details, and producer, the order the README and site
-show them. Use absolute `raw.githubusercontent.com` URLs targeting `main`.
+command emits framed README images for admin, consumer, consumer Record
+Details, and producer, the order the README shows them. Use absolute `raw.githubusercontent.com` URLs targeting `main`.
 README screenshots form a 2x2 grid of equal 50% table columns at 100% image
 width. Never leave
 box-drawing glyphs as SVG text: Linux and Android take them from fallback fonts
@@ -288,7 +287,12 @@ stable version from GitHub Releases at runtime; never hard-code a release tag,
 and retain a link to the releases index when the request is unavailable. The
 social preview is `images/social-preview.svg`, rendered to
 `site/social-preview.png` as [Development](DEVELOPMENT.md#website) describes;
-draw its frames as shapes, never as box-drawing glyphs.
+draw its frames as shapes, never as box-drawing glyphs. The site's demo
+simulates the consumer with HTML and CSS borders, using the mock records from
+`scripts.screenshots`; keep its keys, columns, and Record Details layout
+matching the real consumer. The site follows the system color scheme until a
+visitor picks one with the header toggle; `site/theme.js` loads synchronously
+and stores only an explicit choice that differs from the system's.
 
 Keep the manual Kafka environment self-contained in `sandbox`; never share its
 fixtures or models with tests. Maintain one topology with one Confluent Kafka

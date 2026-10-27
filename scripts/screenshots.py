@@ -35,7 +35,7 @@ from kaskade.serializers import Serialization
 from kaskade.settings import load_settings
 from kaskade.topic_service import EnrichmentResult, GroupSnapshot, TopicService
 from kaskade.widgets import KaskadeHeader
-from scripts import draw_box_glyphs, normalize_svg, remove_svg_terminal_chrome
+from scripts import draw_box_glyphs, normalize_svg
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 IMAGES_DIRECTORY = PROJECT_ROOT / "images"
@@ -304,7 +304,7 @@ async def _export(
     app: KaskadeAdmin | KaskadeConsumer | KaskadeProducer,
     name: str,
     prepare: Callable[[Pilot[object]], Awaitable[None]] | None = None,
-) -> tuple[Path, Path]:
+) -> Path:
     async with app.run_test(size=SCREENSHOT_SIZE) as pilot:
         await app.workers.wait_for_complete()
         await pilot.pause()
@@ -312,22 +312,21 @@ async def _export(
             await prepare(pilot)
         svg = draw_box_glyphs(app.export_screenshot(title=app.TITLE, simplify=True))
 
-    framed_path = IMAGES_DIRECTORY / f"{name}.svg"
-    borderless_path = IMAGES_DIRECTORY / f"{name}-borderless.svg"
-    framed_path.write_text(normalize_svg(svg), encoding="utf-8")
-    borderless_path.write_text(normalize_svg(remove_svg_terminal_chrome(svg)), encoding="utf-8")
-    return framed_path, borderless_path
+    path = IMAGES_DIRECTORY / f"{name}.svg"
+    path.write_text(normalize_svg(svg), encoding="utf-8")
+    return path
 
 
 async def generate_screenshots() -> tuple[Path, ...]:
-    """Render framed and borderless admin, consumer, Record Details, and producer SVGs."""
+    """Render the admin, consumer, Record Details, and producer README SVGs."""
     IMAGES_DIRECTORY.mkdir(parents=True, exist_ok=True)
     admin, consumer, producer, record_details = _new_apps()
-    admin_paths = await _export(admin, "admin")
-    consumer_paths = await _export(consumer, "consumer")
-    record_details_paths = await _export(record_details, "record-details", open_record_details)
-    producer_paths = await _export(producer, "producer")
-    return *admin_paths, *consumer_paths, *record_details_paths, *producer_paths
+    return (
+        await _export(admin, "admin"),
+        await _export(consumer, "consumer"),
+        await _export(record_details, "record-details", open_record_details),
+        await _export(producer, "producer"),
+    )
 
 
 def _consumer_settings() -> ConsumerSettings:

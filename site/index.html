@@ -1,385 +1,190 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Kaskade: Kafka in your terminal</title>
-    <meta
-      name="description"
-      content="A keyboard-driven terminal UI for Kafka: manage topics and consumer groups, and read and produce records as JSON, Avro, or Protobuf, with or without Schema Registry."
-    >
-    <meta name="theme-color" content="#0e0024">
-    <link rel="canonical" href="https://sauljabin.github.io/kaskade/">
-    <link
-      rel="icon"
-      href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 64 64%22><rect width=%2264%22 height=%2264%22 rx=%2212%22 fill=%22%230e0024%22/><path d=%22M17 14v36M47 14 19 32l28 18%22 fill=%22none%22 stroke=%22%23a6ff4d%22 stroke-width=%228%22 stroke-linecap=%22square%22/></svg>"
-    >
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark light">
+<title>Kaskade: Kafka in your terminal</title>
+<meta name="description" content="A keyboard-driven terminal UI for Kafka: manage topics and consumer groups, and read and produce records as JSON, Avro, or Protobuf, with or without Schema Registry.">
+<link rel="canonical" href="https://sauljabin.github.io/kaskade/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Kaskade">
+<meta property="og:title" content="Kaskade: Kafka in your terminal">
+<meta property="og:description" content="Manage Kafka topics, and read and produce records from your terminal, with JSON, Avro, Protobuf, and Schema Registry support.">
+<meta property="og:url" content="https://sauljabin.github.io/kaskade/">
+<meta property="og:image" content="https://sauljabin.github.io/kaskade/social-preview.png">
+<meta property="og:image:width" content="1280">
+<meta property="og:image:height" content="640">
+<meta property="og:image:alt" content="Kaskade banner in a terminal window: kafka in your terminal, brew install kaskade">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 64 64%22><rect width=%2264%22 height=%2264%22 rx=%2212%22 fill=%22%230e0024%22/><path d=%22M17 14v36M47 14 19 32l28 18%22 fill=%22none%22 stroke=%22%23a6ff4d%22 stroke-width=%228%22 stroke-linecap=%22square%22/></svg>">
+<link rel="stylesheet" href="styles.css">
+<script src="theme.js"></script>
+<script src="script.js" defer></script>
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
 
-    <meta property="og:type" content="website">
-    <meta property="og:site_name" content="Kaskade">
-    <meta property="og:title" content="Kaskade: Kafka in your terminal">
-    <meta
-      property="og:description"
-      content="Manage Kafka topics, and read and produce records from your terminal, with JSON, Avro, Protobuf, and Schema Registry support."
-    >
-    <meta property="og:url" content="https://sauljabin.github.io/kaskade/">
-    <meta
-      property="og:image"
-      content="https://sauljabin.github.io/kaskade/social-preview.png"
-    >
-    <meta property="og:image:type" content="image/png">
-    <meta property="og:image:width" content="1280">
-    <meta property="og:image:height" content="640">
-    <meta property="og:image:alt" content="Kaskade banner in a terminal window: kafka in your terminal, brew install kaskade">
+<header class="site-header">
+  <div class="container header-row">
+    <a class="brand" href="./"><span class="brand-mark" aria-hidden="true">&gt;_</span>kaskade</a>
+    <nav aria-label="Primary">
+      <ul class="nav-list">
+        <li><a href="#demo">Demo</a></li>
+        <li><a href="https://github.com/sauljabin/kaskade/blob/main/USAGE.md">Usage</a></li>
+        <li><a href="https://github.com/sauljabin/kaskade">GitHub</a></li>
+        <li><button type="button" class="theme-toggle" data-theme-toggle hidden>
+          <svg class="icon icon-sun" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+          <svg class="icon icon-moon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z"/></svg>
+          <span class="visually-hidden" data-theme-label>Switch theme</span>
+        </button></li>
+      </ul>
+    </nav>
+  </div>
+</header>
 
-    <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="Kaskade: Kafka in your terminal">
-    <meta
-      name="twitter:description"
-      content="Manage Kafka topics, and read and produce records from your terminal, with JSON, Avro, Protobuf, and Schema Registry support."
-    >
-    <meta
-      name="twitter:image"
-      content="https://sauljabin.github.io/kaskade/social-preview.png"
-    >
-    <meta name="twitter:image:alt" content="Kaskade banner in a terminal window: kafka in your terminal, brew install kaskade">
+<main id="main">
+  <section class="hero container" aria-labelledby="title">
+    <h1 id="title" class="visually-hidden">Kaskade: Kafka in your terminal</h1>
+    <div class="window banner-window">
+      <div class="window-bar" aria-hidden="true"><span class="dots"><i></i><i></i><i></i></span><span class="window-title">Kaskade</span></div>
+      <img class="banner" src="assets/banner-borderless.svg" width="511" height="194" alt="Kaskade: kafka in your terminal">
+    </div>
+    <p class="lede">A terminal UI for Kafka with three modes: manage topics and consumer
+      groups, read records, and produce them, as JSON, Avro, or Protobuf, with or without
+      Schema Registry. Everything works from the keyboard.</p>
+    <div class="install">
+      <div class="window">
+        <div class="window-bar" aria-hidden="true"><span class="dots"><i></i><i></i><i></i></span><span class="window-title">install</span></div>
+        <div class="install-row">
+          <pre class="code"><code><span class="t-prompt" aria-hidden="true">$ </span><span id="brew-install">brew install kaskade</span></code></pre>
+          <button type="button" class="button" data-copy="brew-install" hidden>Copy</button>
+        </div>
+        <div class="install-row">
+          <pre class="code"><code><span class="t-prompt" aria-hidden="true">$ </span><span id="pipx-install">pipx install kaskade</span></code></pre>
+          <button type="button" class="button" data-copy="pipx-install" hidden>Copy</button>
+        </div>
+      </div>
+      <p class="copy-status" role="status" aria-live="polite"></p>
+    </div>
+    <p class="release" data-release><span class="release-label">latest release</span>
+      <a href="https://github.com/sauljabin/kaskade/releases">on GitHub</a></p>
+    <p class="note">For macOS and Linux, with Python 3.10 or later.</p>
+  </section>
 
-    <link rel="stylesheet" href="styles.css">
-    <script src="script.js" defer></script>
-  </head>
-  <body>
-    <a class="skip-link" href="#main-content">Skip to content</a>
-
-    <header class="site-header">
-      <a class="wordmark" href="#top" aria-label="Kaskade home">
-        <span aria-hidden="true">&gt;_</span> kaskade
-      </a>
-      <nav aria-label="Primary navigation">
-        <a href="#features">Features</a>
-        <a href="#screenshots">Screenshots</a>
-        <a href="#quick-start">Quick start</a>
-        <a class="nav-github" href="https://github.com/sauljabin/kaskade">GitHub ↗</a>
-      </nav>
-    </header>
-
-    <main id="main-content">
-      <section class="hero section-shell" id="top" aria-labelledby="hero-title">
-        <div class="hero-grid">
-          <div class="hero-copy">
-            <h1 id="hero-title">Kafka in <span>your terminal.</span></h1>
-            <p class="hero-description">
-              Browse and manage topics and consumer groups, and read and produce
-              records as JSON, Avro, or Protobuf, with or without Schema Registry.
-              All from the keyboard.
-            </p>
-
-            <div class="install-prompt" aria-label="Homebrew installation command">
-              <span class="prompt" aria-hidden="true">$</span>
-              <code id="hero-install">brew install kaskade</code>
-              <button
-                class="copy-button copy-button--compact"
-                type="button"
-                data-copy-target="hero-install"
-                aria-label="Copy Homebrew installation command"
-              >
-                Copy
-              </button>
-            </div>
-
-            <div class="hero-actions">
-              <a class="button button--primary" href="#quick-start">Quick start <span aria-hidden="true">↓</span></a>
-              <a
-                class="button button--secondary"
-                href="https://github.com/sauljabin/kaskade/blob/main/USAGE.md"
-              >Documentation <span aria-hidden="true">↗</span></a>
-              <a class="text-link" href="https://github.com/sauljabin/kaskade">
-                View on GitHub <span aria-hidden="true">↗</span>
-              </a>
-            </div>
+  <section id="demo" class="container section" aria-labelledby="demo-title">
+    <h2 id="demo-title">Read a topic</h2>
+    <p>Start the consumer on a topic, move through the records with the arrow keys or
+      <kbd>j</kbd> and <kbd>k</kbd>, and press <kbd>Enter</kbd> to open a record.</p>
+    <figure class="window demo" data-demo aria-label="Simulated Kaskade consumer">
+      <div class="window-bar" aria-hidden="true"><span class="dots"><i></i><i></i><i></i></span><span class="window-title">kaskade consumer</span><kbd class="keycap" data-keycap hidden></kbd></div>
+      <div class="screen" data-view="tui">
+        <pre class="shell" aria-hidden="true"><code><span class="t-prompt">❯ </span><span data-shell-command>kaskade consumer -b kafka.example.com:9092 -t order-events -v json</span></code></pre>
+        <div class="tui">
+          <p class="tui-header"><span><span class="t-primary">Kaskade</span> <span class="t-secondary" data-version></span></span><span class="t-muted">kafka.example.com:9092</span></p>
+          <div class="frame">
+            <p class="frame-title">Records [order-events][<span data-count>8</span>]</p>
+            <table class="records">
+              <thead>
+                <tr><th>Key</th><th>Value</th><th class="wide">Size</th><th class="wide">Timestamp</th><th>Partition</th><th>Offset</th><th class="wide">Headers</th></tr>
+              </thead>
+              <tbody data-records>
+                <tr class="selected"><td>order-1048</td><td>{"customer":"Ada","total":149.9,"status":"paid"}</td><td class="wide">75 bytes</td><td class="wide">2026-08-28 14:12:05.120</td><td>0</td><td>8421</td><td class="wide">1</td></tr>
+                <tr><td>order-1049</td><td>{"customer":"Linus","total":42.0,"status":"paid"}</td><td class="wide">76 bytes</td><td class="wide">2026-08-28 14:13:05.120</td><td>1</td><td>8422</td><td class="wide">1</td></tr>
+                <tr><td>order-1050</td><td>{"customer":"Grace","total":87.35,"status":"pending"}</td><td class="wide">79 bytes</td><td class="wide">2026-08-28 14:14:05.120</td><td>2</td><td>8423</td><td class="wide">1</td></tr>
+                <tr><td>order-1051</td><td>{"customer":"Edsger","total":215.1,"status":"paid"}</td><td class="wide">78 bytes</td><td class="wide">2026-08-28 14:15:05.120</td><td>0</td><td>8424</td><td class="wide">1</td></tr>
+                <tr><td>order-1052</td><td>{"customer":"Margaret","total":63.8,"status":"shipped"}</td><td class="wide">82 bytes</td><td class="wide">2026-08-28 14:16:05.120</td><td>1</td><td>8425</td><td class="wide">1</td></tr>
+                <tr><td>order-1053</td><td>{"customer":"Amy","total":19.99,"status":"paid"}</td><td class="wide">74 bytes</td><td class="wide">2026-08-28 14:17:05.120</td><td>2</td><td>8426</td><td class="wide">1</td></tr>
+                <tr><td>order-1054</td><td>{"customer":"Ken","total":104.25,"status":"pending"}</td><td class="wide">78 bytes</td><td class="wide">2026-08-28 14:18:05.120</td><td>0</td><td>8427</td><td class="wide">1</td></tr>
+                <tr><td>order-1055</td><td>{"customer":"James","total":78.45,"status":"shipped"}</td><td class="wide">79 bytes</td><td class="wide">2026-08-28 14:19:05.120</td><td>1</td><td>8428</td><td class="wide">1</td></tr>
+              </tbody>
+            </table>
+            <p class="frame-subtitle">[Consumer Mode · Group order-inspector]</p>
           </div>
-
-          <div class="hero-terminal terminal-window" aria-label="Kaskade terminal preview">
-            <div class="terminal-bar">
-              <span class="terminal-dots" aria-hidden="true"><i></i><i></i><i></i></span>
-              <span>kaskade — zsh</span>
-              <span aria-hidden="true">⌘1</span>
+          <p class="tui-footer" aria-hidden="true"><span><b>⏎</b> Show Record</span><span><b>n</b> Consume More</span><span><b>/</b> Filter</span><span class="wide"><b>#</b> Chunk Size</span><span><b>^c</b> Quit</span><span><b>?</b> Help</span></p>
+          <div class="modal" data-details hidden>
+            <div class="modal-box">
+              <p class="frame-title">Record Details [order-events][<span data-detail="partition"></span>][<span data-detail="offset"></span>]</p>
+              <dl class="meta">
+                <div><dt>Total Size</dt><dd data-detail="size"></dd></div>
+                <div><dt>Partition</dt><dd data-detail="partition"></dd></div>
+                <div><dt>Offset</dt><dd data-detail="offset"></dd></div>
+                <div class="wide"><dt>Timestamp</dt><dd data-detail="timestamp"></dd></div>
+              </dl>
+              <p class="tabs"><span>Key</span><span class="active">Value</span><span>Headers [1]</span><span>Export</span></p>
+              <dl class="meta">
+                <div><dt>Deserializer</dt><dd>JSON</dd></div>
+                <div><dt>Schema</dt><dd>—</dd></div>
+                <div><dt>Size</dt><dd data-detail="value-size"></dd></div>
+              </dl>
+              <p class="meta-label">Content</p>
+              <pre class="json" data-detail="value"></pre>
             </div>
-            <div class="hero-terminal-body">
-              <div class="hero-terminal-content">
-                <img
-                  src="assets/banner-borderless.svg"
-                  width="511"
-                  height="194"
-                  alt="Kaskade banner rendered in a terminal"
-                >
-                <p class="hero-release" data-release-state="loading" aria-live="polite">
-                  <span>Latest release</span>
-                  <a
-                    href="https://github.com/sauljabin/kaskade/releases"
-                    data-latest-release
-                  >View releases ↗</a>
-                </p>
-              </div>
-            </div>
+            <p class="tui-footer"><span><b>esc</b> Back</span><span><b>?</b> Help</span></p>
           </div>
         </div>
-        <p class="hero-footnote"><span aria-hidden="true">◆</span> Open source · Python 3.10+ · macOS &amp; Linux</p>
-      </section>
+      </div>
+    </figure>
+    <div class="demo-controls" hidden>
+      <button type="button" class="button" data-demo-toggle>Pause</button>
+      <button type="button" class="button" data-demo-replay>Replay</button>
+    </div>
+  </section>
 
-      <section class="features section-shell" id="features" aria-labelledby="features-title">
-        <div class="section-heading">
-          <p class="eyebrow"><span aria-hidden="true">01.</span> Features</p>
-          <h2 id="features-title">What it does</h2>
-          <p>Three commands: <code>kaskade admin</code> for topics and consumer groups, <code>kaskade consumer</code> to read records, and <code>kaskade producer</code> to write them.</p>
-        </div>
+  <section class="container section" aria-labelledby="modes-title">
+    <h2 id="modes-title">Three modes</h2>
+    <ul class="cards">
+      <li class="card">
+        <h3>Admin</h3>
+        <p>Browse topics, partitions, consumer groups, lag, and record counts. Create, edit,
+          and delete topics, and check their configuration.</p>
+        <p class="card-command">kaskade admin -b my-kafka:9092</p>
+      </li>
+      <li class="card">
+        <h3>Consumer</h3>
+        <p>Read from the latest or earliest offsets, or from exact partitions. Decode JSON,
+          Avro, and Protobuf, filter records, and copy or export them.</p>
+        <p class="card-command">kaskade consumer -b my-kafka:9092 -t my-topic</p>
+      </li>
+      <li class="card">
+        <h3>Producer</h3>
+        <p>Compose a key, value, and headers, encode them in the consumer's formats, and see
+          the offset the broker acknowledged.</p>
+        <p class="card-command">kaskade producer -b my-kafka:9092 -t my-topic</p>
+      </li>
+    </ul>
+    <p>Every mode reads the same <code>client.ini</code> and supports TLS, SASL, Confluent
+      Cloud, Amazon MSK IAM, themes, and custom keybindings. The
+      <a href="https://github.com/sauljabin/kaskade/blob/main/USAGE.md">usage guide</a>
+      covers each option.</p>
+  </section>
 
-        <div class="feature-grid">
-          <article class="feature-card">
-            <p class="feature-command">kaskade admin</p>
-            <h3>Manage topics</h3>
-            <ul class="feature-list">
-              <li>Topics, partitions, consumer groups, lag, replicas, and record counts</li>
-              <li>Create, edit, delete, and filter topics, and check their configuration</li>
-              <li>Refresh every 30 seconds by default, or whenever you ask</li>
-            </ul>
-          </article>
-          <article class="feature-card">
-            <p class="feature-command">kaskade consumer</p>
-            <h3>Read records</h3>
-            <ul class="feature-list">
-              <li>Start from the latest or earliest offsets, or exact partitions and offsets</li>
-              <li>Decode JSON, Avro, and Protobuf, with local schemas or Schema Registry</li>
-              <li>Filter by key, value, header, or partition</li>
-              <li>See records that fail to decode as bytes next to the error</li>
-            </ul>
-          </article>
-          <article class="feature-card">
-            <p class="feature-command">kaskade producer</p>
-            <h3>Write records</h3>
-            <ul class="feature-list">
-              <li>Compose a key, value, and headers, and see the offset the broker acknowledged</li>
-              <li>Encode the consumer's formats, validate JSON Schema, and register schemas</li>
-              <li>Resend a record copied from the consumer, or load a draft from a file</li>
-            </ul>
-          </article>
-        </div>
-        <p class="feature-shared">
-          <span>Every mode</span>
-          client.ini · TLS · SASL · Confluent Cloud · Amazon MSK IAM · themes · keybindings · copy and export
-        </p>
-      </section>
+  <section class="container section thanks" aria-labelledby="thanks-title">
+    <h2 id="thanks-title">Thanks</h2>
+    <div class="thanks-links">
+      <a href="https://github.com/littlehorse-enterprises/littlehorse"><img src="assets/littlehorse-badge.svg" width="172" height="20" alt="Sponsored by LittleHorse"></a>
+      <a href="https://textual.textualize.io/"><img src="assets/textual-badge.svg" width="133" height="20" alt="Built with Textual"></a>
+    </div>
+  </section>
+</main>
 
-      <section class="screenshots section-shell" id="screenshots" aria-labelledby="screenshots-title">
-        <div class="section-heading section-heading--row">
-          <div>
-            <p class="eyebrow"><span aria-hidden="true">02.</span> Screenshots</p>
-            <h2 id="screenshots-title">Admin, consumer, and producer</h2>
-          </div>
-          <p>All three work entirely from the keyboard, with arrow keys or Vim-style shortcuts.</p>
-        </div>
-
-        <article class="screenshot-card">
-          <div class="terminal-window">
-            <div class="terminal-bar">
-              <span class="terminal-dots" aria-hidden="true"><i></i><i></i><i></i></span>
-              <span>kaskade admin</span>
-              <span class="terminal-mode">ADMIN</span>
-            </div>
-            <img
-              src="assets/admin-borderless.svg"
-              width="1219"
-              height="731"
-              alt="Kaskade Admin view showing Kafka topics, partitions, consumer groups, and metrics"
-              loading="lazy"
-            >
-          </div>
-          <div class="screenshot-caption">
-            <p><span>Admin</span> Browse and manage topics.</p>
-            <code>topics · partitions · groups · lag</code>
-          </div>
-        </article>
-
-        <article class="screenshot-card screenshot-card--reverse">
-          <div class="terminal-window">
-            <div class="terminal-bar">
-              <span class="terminal-dots" aria-hidden="true"><i></i><i></i><i></i></span>
-              <span>kaskade consumer</span>
-              <span class="terminal-mode">CONSUMER</span>
-            </div>
-            <img
-              src="assets/consumer-borderless.svg"
-              width="1219"
-              height="731"
-              alt="Kaskade Consumer view showing Kafka record keys, values, partitions, and offsets"
-              loading="lazy"
-            >
-          </div>
-          <div class="screenshot-caption">
-            <p><span>Consumer</span> Read and filter records.</p>
-            <code>filter · deserialize · copy · export</code>
-          </div>
-        </article>
-
-        <article class="screenshot-card">
-          <div class="terminal-window">
-            <div class="terminal-bar">
-              <span class="terminal-dots" aria-hidden="true"><i></i><i></i><i></i></span>
-              <span>kaskade consumer</span>
-              <span class="terminal-mode">RECORD</span>
-            </div>
-            <img
-              src="assets/record-details-borderless.svg"
-              width="1219"
-              height="731"
-              alt="Kaskade Record Details showing a value decoded through Schema Registry with its schema ID, subject, and version"
-              loading="lazy"
-            >
-          </div>
-          <div class="screenshot-caption">
-            <p><span>Record Details</span> Inspect one record.</p>
-            <code>key · value · headers · schema</code>
-          </div>
-        </article>
-
-        <article class="screenshot-card screenshot-card--reverse">
-          <div class="terminal-window">
-            <div class="terminal-bar">
-              <span class="terminal-dots" aria-hidden="true"><i></i><i></i><i></i></span>
-              <span>kaskade producer</span>
-              <span class="terminal-mode">PRODUCER</span>
-            </div>
-            <img
-              src="assets/producer-borderless.svg"
-              width="1219"
-              height="731"
-              alt="Kaskade Producer view composing a Kafka record with a JSON value and a summary panel"
-              loading="lazy"
-            >
-          </div>
-          <div class="screenshot-caption">
-            <p><span>Producer</span> Compose and produce records.</p>
-            <code>compose · serialize · register · deliver</code>
-          </div>
-        </article>
-      </section>
-
-      <section class="quick-start section-shell" id="quick-start" aria-labelledby="quick-start-title">
-        <div class="section-heading section-heading--row">
-          <div>
-            <p class="eyebrow"><span aria-hidden="true">03.</span> Install</p>
-            <h2 id="quick-start-title">Quick start</h2>
-          </div>
-          <p>Install with Homebrew or pipx, then point Kaskade at a broker or a <code>client.ini</code> file.</p>
-        </div>
-
-        <div class="install-grid">
-          <article class="install-card">
-            <div class="install-card-heading">
-              <div>
-                <p class="step-label">Option A</p>
-                <h3>Homebrew</h3>
-              </div>
-              <span aria-hidden="true">brew</span>
-            </div>
-            <div class="command-block">
-              <span class="prompt" aria-hidden="true">$</span>
-              <code id="brew-install">brew install kaskade</code>
-              <button
-                class="copy-button"
-                type="button"
-                data-copy-target="brew-install"
-                aria-label="Copy Homebrew installation command"
-              >Copy</button>
-            </div>
-          </article>
-
-          <article class="install-card">
-            <div class="install-card-heading">
-              <div>
-                <p class="step-label">Option B</p>
-                <h3>pipx</h3>
-              </div>
-              <span aria-hidden="true">pipx</span>
-            </div>
-            <div class="command-block">
-              <span class="prompt" aria-hidden="true">$</span>
-              <code id="pipx-install">pipx install kaskade</code>
-              <button
-                class="copy-button"
-                type="button"
-                data-copy-target="pipx-install"
-                aria-label="Copy pipx installation command"
-              >Copy</button>
-            </div>
-          </article>
-        </div>
-
-        <div class="connect-panel">
-          <div class="connect-heading">
-            <span class="step-label">Then connect</span>
-            <p>Replace the example broker, topic, and options with your own.</p>
-          </div>
-          <div class="connect-commands">
-            <div>
-              <span class="command-label">Admin</span>
-              <code><span aria-hidden="true">$ </span>kaskade admin -b my-kafka:9092</code>
-            </div>
-            <div>
-              <span class="command-label">Consumer</span>
-              <code><span aria-hidden="true">$ </span>kaskade consumer -b my-kafka:9092 -t my-topic</code>
-            </div>
-            <div>
-              <span class="command-label">Producer</span>
-              <code><span aria-hidden="true">$ </span>kaskade producer -b my-kafka:9092 -t my-topic</code>
-            </div>
-            <div>
-              <span class="command-label">Config file</span>
-              <code><span aria-hidden="true">$ </span>kaskade admin --config-file client.ini</code>
-            </div>
-          </div>
-          <a
-            class="button button--primary"
-            href="https://github.com/sauljabin/kaskade/blob/main/USAGE.md"
-          >Read the usage guide <span aria-hidden="true">↗</span></a>
-        </div>
-      </section>
-
-      <section class="resources section-shell" aria-labelledby="resources-title">
-        <div class="section-heading">
-          <p class="eyebrow"><span aria-hidden="true">04.</span> Links</p>
-          <h2 id="resources-title">Docs and community</h2>
-        </div>
-        <div class="resource-links">
-          <a href="https://github.com/sauljabin/kaskade/blob/main/USAGE.md"><span>Usage</span><small>Configuration &amp; guides</small><i aria-hidden="true">↗</i></a>
-          <a href="https://github.com/sauljabin/kaskade/blob/main/DEVELOPMENT.md"><span>Development</span><small>Contributor guide</small><i aria-hidden="true">↗</i></a>
-          <a href="https://github.com/sauljabin/kaskade/releases"><span>Releases</span><small>What’s new</small><i aria-hidden="true">↗</i></a>
-          <a href="https://github.com/sauljabin/kaskade/discussions"><span>Discussions</span><small>Questions &amp; ideas</small><i aria-hidden="true">↗</i></a>
-          <a href="https://pypi.org/project/kaskade/"><span>PyPI</span><small>Python package</small><i aria-hidden="true">↗</i></a>
-          <a href="https://formulae.brew.sh/formula/kaskade"><span>Homebrew</span><small>Formula details</small><i aria-hidden="true">↗</i></a>
-          <a href="https://github.com/sponsors/sauljabin"><span>Sponsors</span><small>Support Kaskade</small><i aria-hidden="true">↗</i></a>
-          <a href="https://github.com/sauljabin/kaskade"><span>Repository</span><small>Source &amp; issues</small><i aria-hidden="true">↗</i></a>
-        </div>
-      </section>
-
-      <section class="acknowledgements section-shell" aria-labelledby="acknowledgements-title">
-        <p class="eyebrow" id="acknowledgements-title"><span aria-hidden="true">//</span> Thanks</p>
-        <div class="acknowledgement-links">
-          <a href="https://github.com/littlehorse-enterprises/littlehorse">
-            <img src="assets/littlehorse-badge.svg" width="172" height="20" alt="Sponsored by LittleHorse">
-          </a>
-          <a href="https://textual.textualize.io/">
-            <img src="assets/textual-badge.svg" width="133" height="20" alt="Built with Textual">
-          </a>
-        </div>
-      </section>
-    </main>
-
-    <footer class="site-footer section-shell">
-      <a class="wordmark" href="#top"><span aria-hidden="true">&gt;_</span> kaskade</a>
-      <p>Kafka in your terminal. Open source under the MIT License.</p>
-      <a href="https://github.com/sauljabin/kaskade">github.com/sauljabin/kaskade <span aria-hidden="true">↗</span></a>
-    </footer>
-
-    <p class="copy-status" role="status" aria-live="polite" aria-atomic="true"></p>
-  </body>
+<footer class="site-footer">
+  <div class="container">
+    <p class="footer-brand"><strong><span class="brand-mark" aria-hidden="true">&gt;_</span>kaskade</strong><span>kafka in your terminal</span></p>
+    <nav aria-label="Project">
+      <ul class="nav-list">
+        <li><a href="https://github.com/sauljabin/kaskade/blob/main/USAGE.md">Usage</a></li>
+        <li><a href="https://github.com/sauljabin/kaskade/releases">Releases</a></li>
+        <li><a href="https://github.com/sauljabin/kaskade/discussions">Discussions</a></li>
+        <li><a href="https://github.com/sauljabin/kaskade">Source</a></li>
+        <li><a href="https://pypi.org/project/kaskade/">PyPI</a></li>
+        <li><a href="https://formulae.brew.sh/formula/kaskade">Homebrew</a></li>
+      </ul>
+    </nav>
+    <p>Kaskade is <a href="https://github.com/sauljabin/kaskade/blob/main/LICENSE">MIT licensed</a>.
+      This site sets no cookies. The only outside request it makes is to the GitHub API, for
+      the latest release number.</p>
+  </div>
+</footer>
+</body>
 </html>
