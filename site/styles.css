@@ -6,6 +6,7 @@
   --text: #d6cce6;
   --muted: #a99cbc;
   --link: #c58af0;
+  --glow: rgb(180 106 224 / 0.22);
   --shadow: none;
   --border: rgb(155 77 202 / 0.45);
   --primary: #b46ae0;
@@ -28,6 +29,7 @@
   --text: #3b2d4f;
   --muted: #5e5070;
   --link: #7b2fb0;
+  --glow: rgb(123 47 176 / 0.20);
   --shadow: 0 1px 2px rgb(28 16 48 / 0.06), 0 8px 24px rgb(28 16 48 / 0.07);
   --border: rgb(28 16 48 / 0.22);
   --primary: #7b2fb0;
@@ -46,6 +48,7 @@
     --text: #3b2d4f;
     --muted: #5e5070;
     --link: #7b2fb0;
+    --glow: rgb(123 47 176 / 0.20);
     --shadow: 0 1px 2px rgb(28 16 48 / 0.06), 0 8px 24px rgb(28 16 48 / 0.07);
     --border: rgb(28 16 48 / 0.22);
     --primary: #7b2fb0;
@@ -70,7 +73,9 @@ html {
 
 body {
   margin: 0;
-  background: var(--bg);
+  background:
+    radial-gradient(80rem 36rem at 50% -8rem, var(--glow), transparent 70%) no-repeat,
+    var(--bg);
   color: var(--text);
   font: 1rem/1.6 var(--sans);
 }
