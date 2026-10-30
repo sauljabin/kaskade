@@ -50,7 +50,7 @@ jobs:
           fi
           echo "version=${RELEASE_TAG#v}" >> "$GITHUB_OUTPUT"
       - name: Set up uv and Python
-        uses: astral-sh/setup-uv@v10.3.0
+        uses: astral-sh/setup-uv@v10.3.2
         with:
           version: ${{ env.UV_VERSION }}
           python-version: "3.11"
