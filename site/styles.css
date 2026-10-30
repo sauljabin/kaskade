@@ -548,7 +548,7 @@ pre {
 .tui {
   justify-self: center;
   width: 100ch;
-  padding: 0.5rem 0;
+  padding: 0.5em 0;
   overflow: hidden;
   font-size: 1.64cqw;
   line-height: 1.25;
