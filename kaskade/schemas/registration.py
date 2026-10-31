@@ -26,7 +26,7 @@ from kaskade.schemas.json_schema import (
     local_references,
     read_json_text,
 )
-from kaskade.schemas.protobuf import is_builtin, protobuf_descriptor_set
+from kaskade.schemas.protobuf import is_builtin, protobuf_descriptor_set, protobuf_includes
 
 
 @dataclass(frozen=True)
@@ -132,18 +132,19 @@ def protobuf_document(
     message_class = GetMessages(descriptor_set.file).get(message_name)
     if message_class is None:
         raise SchemaError(f"Protobuf message {message_name} isn't in the schema")
-    source_directory: Path | None = None
+    source_directories: tuple[Path, ...] = ()
     if as_source:
         if "source" not in config:
             raise SchemaError("Registering Protobuf in Apicurio needs --protobuf source=my.proto")
         source_directory = Path(config["source"]).expanduser().resolve().parent
-    return _protobuf_document(message_class.DESCRIPTOR.file.name, files, source_directory, {})
+        source_directories = (source_directory, *protobuf_includes(config))
+    return _protobuf_document(message_class.DESCRIPTOR.file.name, files, source_directories, {})
 
 
 def _protobuf_document(
     name: str,
     files: dict[str, FileDescriptorProto],
-    source_directory: Path | None,
+    source_directories: tuple[Path, ...],
     loaded: dict[str, SchemaDocument],
 ) -> SchemaDocument:
     descriptor = files[name]
@@ -152,13 +153,19 @@ def _protobuf_document(
         if is_builtin(dependency):
             continue
         if dependency not in loaded:
-            loaded[dependency] = _protobuf_document(dependency, files, source_directory, loaded)
+            loaded[dependency] = _protobuf_document(dependency, files, source_directories, loaded)
         references.append(DocumentReference(dependency, loaded[dependency]))
-    if source_directory is None:
-        content = b64encode(descriptor.SerializeToString()).decode("ascii")
+    if source_directories:
+        content = _proto_text(name, source_directories)
     else:
-        try:
-            content = (source_directory / name).read_text(encoding="utf-8")
-        except (OSError, UnicodeDecodeError) as ex:
-            raise SchemaError(f"Unable to read {name}: {ex}") from ex
+        content = b64encode(descriptor.SerializeToString()).decode("ascii")
     return SchemaDocument(SchemaType.PROTOBUF, content, tuple(references))
+
+
+def _proto_text(name: str, directories: tuple[Path, ...]) -> str:
+    """Read an import from the first folder holding it, the order protoc searches."""
+    found = (directory / name for directory in directories if (directory / name).is_file())
+    try:
+        return next(found, directories[0] / name).read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as ex:
+        raise SchemaError(f"Unable to read {name}: {ex}") from ex

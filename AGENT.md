@@ -107,7 +107,9 @@
   the returned ID. Composed Avro and Protobuf JSON is the shape the consumer
   shows, so copied records round-trip.
 - `--protobuf` takes `descriptor=` or `source=`, never both, in both commands.
-  Sources compile once per process with the bundled `protoc`. Confluent
+  Sources compile once per process with the bundled `protoc`; imports resolve
+  from the source's folder, then `include=` folders in order, then bundled types.
+  Only `include=` merges repeated values; other properties keep the last. Confluent
   registers serialized descriptors; Apicurio registers `.proto` text, so it
   needs `source=`.
 - Producer dedicated options (`--acks`, `--compression`, `--idempotence`) apply

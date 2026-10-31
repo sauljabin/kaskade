@@ -11,7 +11,11 @@ from kaskade import APP_VERSION
 from kaskade.admin import KaskadeAdmin
 from kaskade.cli.application import resolve_app_settings
 from kaskade.cli.connection import load_config_file, resolve_connection
-from kaskade.cli.properties import join_bootstrap_servers, tuple_properties_to_dict
+from kaskade.cli.properties import (
+    join_bootstrap_servers,
+    protobuf_properties_to_dict,
+    tuple_properties_to_dict,
+)
 from kaskade.cli.validation import normalize_deserializer_options, normalize_serializer_options
 from kaskade.configs import (
     ACKS,
@@ -101,6 +105,7 @@ AVRO_CONFIG_HELP = (
 PROTOBUF_CONFIG_HELP = (
     "Protobuf deserializer property. Repeatable; required when the key or value format "
     "is protobuf. descriptor takes a descriptor set and source a .proto file; use one. "
+    "include adds folders for a source's imports. "
     f"Properties: {', '.join(PROTOBUF_DESERIALIZER_CONFIGS)}. Framing: "
     f"{', '.join(DESERIALIZER_FRAMINGS)} (case-insensitive); scoped framing overrides "
     "the global value."
@@ -140,7 +145,8 @@ SERIALIZER_AVRO_HELP = (
 SERIALIZER_PROTOBUF_HELP = (
     "Protobuf schema and message names; required when a serializer is protobuf, or the "
     "schema a registry key or value registers. descriptor takes a descriptor set and "
-    "source a .proto file, which Apicurio registration needs; use one. Repeatable. "
+    "source a .proto file, which Apicurio registration needs; use one. include adds "
+    "folders for a source's imports. Repeatable. "
     f"Properties: {', '.join(PROTOBUF_SERIALIZER_CONFIGS)}."
 )
 SERIALIZER_BYTES_HELP = (
@@ -494,7 +500,7 @@ def admin(
         help=PROTOBUF_CONFIG_HELP,
         metavar="property=value",
         multiple=True,
-        callback=tuple_properties_to_dict,
+        callback=protobuf_properties_to_dict,
     ),
 )
 @cloup.option_group(
@@ -656,7 +662,9 @@ def consumer(
             help=help_text,
             metavar="property=value",
             multiple=True,
-            callback=tuple_properties_to_dict,
+            callback=(
+                protobuf_properties_to_dict if name == "protobuf" else tuple_properties_to_dict
+            ),
         )
         for name, help_text in (
             ("bytes", SERIALIZER_BYTES_HELP),
