@@ -148,6 +148,79 @@ class TestBootstrapServerOption(unittest.TestCase):
                 self.assertIn("No such option '--bootstrap-servers'", result.output)
 
 
+class TestProtobufIncludeOption(unittest.TestCase):
+    def setUp(self):
+        self.runner = CliRunner()
+        close_log_handlers_on_cleanup(self)
+        temp_directory = tempfile.TemporaryDirectory()
+        self.addCleanup(temp_directory.cleanup)
+        directory = Path(temp_directory.name)
+        self.first = directory / "first"
+        self.second = directory / "second"
+        self.second.mkdir()
+        (self.first / "shop").mkdir(parents=True)
+        address = 'syntax = "proto3";\npackage shop;\nmessage Address { string city = 1; }\n'
+        (self.first / "shop" / "address.proto").write_text(address, encoding="utf-8")
+        self.source = directory / "user.proto"
+        self.source.write_text(
+            'syntax = "proto3";\npackage shop;\nimport "shop/address.proto";\n'
+            "message User { Address address = 1; }\n",
+            encoding="utf-8",
+        )
+
+    def invoke(self, command: str, *protobuf: str):
+        arguments = [command, "-b", EXPECTED_SERVER, "-t", EXPECTED_TOPIC, "-v", "protobuf"]
+        for item in ("value=shop.User", *protobuf):
+            arguments += ["--protobuf", item]
+        return self.runner.invoke(cli, arguments)
+
+    def test_repeated_and_comma_separated_folders_keep_their_order(self):
+        for includes in (
+            (f"include={self.first}", f"include={self.second}"),
+            (f"include={self.first},{self.second}",),
+        ):
+            with self.subTest(includes), patch("kaskade.main.KaskadeProducer") as producer:
+                result = self.invoke("producer", f"source={self.source}", *includes)
+
+                self.assertEqual(0, result.exit_code, result.output)
+                self.assertEqual(
+                    f"{self.first},{self.second}",
+                    producer.call_args.args[0].protobuf_config["include"],
+                )
+
+    def test_rejects_unusable_folders_in_both_commands(self):
+        source = f"source={self.source}"
+        missing = self.first / "missing"
+        for protobuf, message in (
+            ((source, f"include={missing}"), "should exist."),
+            ((source, f"include={self.source}"), "should exist."),
+            ((source, f"include={self.first},"), "Empty include folder in"),
+            (
+                (source, f"include={self.first}", f"include={self.first}"),
+                "was specified more than once.",
+            ),
+            ((f"descriptor={self.source}", f"include={self.first}"), "Use include with source."),
+        ):
+            for command in ("consumer", "producer"):
+                with self.subTest(command=command, message=message):
+                    result = self.invoke(command, *protobuf)
+
+                    self.assertEqual(2, result.exit_code)
+                    self.assertIn(message, " ".join(result.output.split()))
+
+    def test_other_protobuf_properties_keep_the_last_value(self):
+        with patch("kaskade.main.KaskadeProducer") as producer:
+            result = self.invoke(
+                "producer",
+                f"source={self.source}",
+                f"include={self.first}",
+                "value=shop.Address",
+            )
+
+        self.assertEqual(0, result.exit_code, result.output)
+        self.assertEqual("shop.Address", producer.call_args.args[0].protobuf_config["value"])
+
+
 class TestTimeoutOptions(unittest.TestCase):
     def setUp(self):
         self.runner = CliRunner()
@@ -2120,7 +2193,7 @@ class TestConsumerCli(unittest.TestCase):
 
         self.assertGreater(result.exit_code, 0)
         self.assertIn(
-            "Valid properties: ['descriptor', 'source', 'key', 'value', 'framing', "
+            "Valid properties: ['descriptor', 'source', 'include', 'key', 'value', 'framing', "
             "'key.framing', 'value.framing'].",
             result.output,
         )
