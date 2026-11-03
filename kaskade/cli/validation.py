@@ -20,6 +20,7 @@ from kaskade.configs import (
     JSON_DESERIALIZER_CONFIGS,
     JSON_SERIALIZER_CONFIGS,
     PROTOBUF_DESERIALIZER_CONFIGS,
+    PROTOBUF_INCLUDE,
     PROTOBUF_SCHEMA_CONFIGS,
     PROTOBUF_SERIALIZER_CONFIGS,
     REGISTRY_PROVIDERS,
@@ -548,6 +549,20 @@ def require_protobuf_schema(config: Properties) -> None:
     if len(given) > 1:
         raise BadParameter("Use either descriptor or source, not both.", param_hint="'--protobuf'")
     validate_file(config[given[0]], f"'--protobuf {given[0]}'")
+    validate_protobuf_includes(config)
+
+
+def validate_protobuf_includes(config: Properties) -> None:
+    """Include folders resolve a source's imports; a descriptor set already holds them."""
+    if PROTOBUF_INCLUDE not in config:
+        return
+    if "source" not in config:
+        raise BadParameter("Use include with source.", param_hint="'--protobuf include'")
+    for folder in config[PROTOBUF_INCLUDE].split(","):
+        if not Path(folder).expanduser().is_dir():
+            raise BadParameter(
+                f"Folder {folder!r} should exist.", param_hint="'--protobuf include'"
+            )
 
 
 def check_protobuf_messages(config: Properties) -> None:

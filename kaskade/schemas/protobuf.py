@@ -1,7 +1,7 @@
 """Protobuf descriptors from descriptor sets, Registry descriptors, or `.proto` sources."""
 
 import tempfile
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from functools import cache
 from pathlib import Path
 
@@ -14,6 +14,7 @@ from google.protobuf.message import DecodeError, Message
 from google.protobuf.message_factory import GetMessages
 from grpc_tools import protoc
 
+from kaskade.configs import PROTOBUF_INCLUDE
 from kaskade.files import file_to_bytes
 from kaskade.schemas.errors import SchemaError
 
@@ -140,16 +141,24 @@ def _bundled_protos() -> Path:
     return Path(grpc_tools.__file__).parent / "_proto"
 
 
-def compile_proto_file(path: str | Path) -> FileDescriptorSet:
-    """Compile a `.proto` file; its imports resolve from its directory or bundled types."""
+def protobuf_includes(config: Mapping[str, str]) -> tuple[Path, ...]:
+    """The resolved `include=` folders, in search order."""
+    folders = config.get(PROTOBUF_INCLUDE)
+    if not folders:
+        return ()
+    return tuple(Path(folder).expanduser().resolve() for folder in folders.split(","))
+
+
+def compile_proto_file(path: str | Path, includes: Sequence[Path] = ()) -> FileDescriptorSet:
+    """Compile a `.proto` file; imports resolve from its folder, `includes`, or bundled types."""
     source = Path(path).expanduser().resolve()
     if not source.is_file():
         raise SchemaError(f"Unable to read {path}")
-    return FileDescriptorSet.FromString(_compiled(str(source)))
+    return FileDescriptorSet.FromString(_compiled(str(source), tuple(map(str, includes))))
 
 
 @cache
-def _compiled(source: str) -> bytes:
+def _compiled(source: str, includes: tuple[str, ...]) -> bytes:
     """Compile each source once per process, so protoc never runs again inside the TUI."""
     path = Path(source)
     with tempfile.TemporaryDirectory() as directory:
@@ -158,6 +167,7 @@ def _compiled(source: str) -> bytes:
             [
                 "grpc_tools.protoc",
                 f"-I{path.parent}",
+                *(f"-I{include}" for include in includes),
                 f"-I{_bundled_protos()}",
                 f"--descriptor_set_out={descriptor_path}",
                 "--include_imports",
@@ -181,7 +191,7 @@ def load_descriptor_set(path: str | Path) -> FileDescriptorSet:
 def protobuf_descriptor_set(config: Mapping[str, str]) -> FileDescriptorSet:
     """The descriptor set from `descriptor=`, or compiled from `source=`."""
     if "source" in config:
-        return compile_proto_file(config["source"])
+        return compile_proto_file(config["source"], protobuf_includes(config))
     return load_descriptor_set(config["descriptor"])
 
 

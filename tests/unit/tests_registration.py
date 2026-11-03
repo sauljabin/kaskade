@@ -26,7 +26,7 @@ from kaskade.cli.validation import normalize_serializer_options
 from kaskade.configs import SchemaType
 from kaskade.deserializers import ProtobufDeserializer
 from kaskade.schemas import SchemaError
-from kaskade.schemas.protobuf import compile_proto_file
+from kaskade.schemas.protobuf import compile_proto_file, protobuf_descriptor_set
 from kaskade.schemas.registration import (
     DocumentReference,
     SchemaDocument,
@@ -185,6 +185,67 @@ class TestProtobufSources(SchemaFiles):
             compile_proto_file(broken)
         with self.assertRaisesRegex(SchemaError, "Unable to read"):
             compile_proto_file(self.directory / "missing.proto")
+
+    def proto_files_in_two_folders(self) -> tuple[str, str]:
+        self.write("public/common/address.proto", ADDRESS_PROTO)
+        return self.write("internal/user.proto", USER_PROTO), str(self.directory / "public")
+
+    def test_include_resolves_imports_from_another_folder(self):
+        source, include = self.proto_files_in_two_folders()
+        config = {"source": source, "include": include, "value": "shop.User"}
+        serializer = SerializerPool(protobuf_config=config).get(Serialization.PROTOBUF, VALUE)
+
+        data = serializer.serialize('{"name": "Ada", "address": {"city": "Quito"}}')
+
+        decoded = ProtobufDeserializer(config).deserialize(data, "users", VALUE)
+        self.assertEqual({"city": "Quito"}, decoded["address"])
+
+    def test_compiling_without_include_fails_even_after_compiling_with_it(self):
+        source, include = self.proto_files_in_two_folders()
+
+        compile_proto_file(source, [Path(include)])
+
+        with self.assertRaisesRegex(SchemaError, "Invalid Protobuf schema"):
+            compile_proto_file(source)
+
+    def assert_address_resolves_to(self, config: dict[str, str], field: str) -> None:
+        """The compiled descriptor and the registered text come from the same file."""
+        descriptors = {
+            descriptor.name: descriptor for descriptor in protobuf_descriptor_set(config).file
+        }
+        address = descriptors["common/address.proto"]
+        self.assertEqual(field, address.message_type[0].field[0].name)
+        document = protobuf_document(config, "shop.User", as_source=True)
+        self.assertIn(field, document.references[0].document.content)
+
+    def write_address_folders(self) -> str:
+        for folder in ("first", "second"):
+            self.write(
+                f"{folder}/common/address.proto", ADDRESS_PROTO.replace("city", f"{folder}_city")
+            )
+        return f"{self.directory / 'second'},{self.directory / 'first'}"
+
+    def test_includes_are_searched_in_order(self):
+        includes = self.write_address_folders()
+        source = self.write("user.proto", USER_PROTO)
+
+        self.assert_address_resolves_to({"source": source, "include": includes}, "second_city")
+
+    def test_source_folder_is_searched_before_includes(self):
+        includes = self.write_address_folders()
+        source = self.proto_files()
+
+        self.assert_address_resolves_to({"source": source, "include": includes}, "city")
+
+    def test_apicurio_documents_read_imports_from_include(self):
+        source, include = self.proto_files_in_two_folders()
+        config = {"source": source, "include": include}
+
+        document = protobuf_document(config, "shop.User", as_source=True)
+
+        self.assertEqual(USER_PROTO, document.content)
+        self.assertEqual("common/address.proto", document.references[0].name)
+        self.assertEqual(ADDRESS_PROTO, document.references[0].document.content)
 
 
 class TestConfluentRegistration(SchemaFiles):

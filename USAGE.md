@@ -647,6 +647,20 @@ kaskade consumer -b my-kafka:9092 --earliest \
         --protobuf value=mypackage.MyMessage
 ```
 
+When a source imports files from other folders, add them with `include=`. It
+works only with `source=`, can be repeated or comma-separated like `-b`, and is
+searched in order after the source's folder and before the well-known types:
+
+```bash
+kaskade consumer -b my-kafka:9092 --earliest \
+        -k string -v protobuf \
+        -t my-protobuf-topic \
+        --protobuf source=protos/orders/order.proto \
+        --protobuf include=protos/common \
+        --protobuf include=vendor/protos \
+        --protobuf value=mypackage.Order
+```
+
 To use a descriptor set instead, install `protoc` with your platform's package
 manager:
 
@@ -959,8 +973,8 @@ kaskade producer -b my-kafka:9092 -t users -v protobuf \
 - `--avro key=…` and `value=…` take `.avsc` files. They are required for each
   field that uses `avro`.
 - `--protobuf` takes the schema and message names as in the consumer's
-  [Protobuf](#protobuf) section: `descriptor=…` or `source=…`, and `key=…` or
-  `value=…`.
+  [Protobuf](#protobuf) section: `descriptor=…` or `source=…` with optional
+  `include=…`, and `key=…` or `value=…`.
 
 These serializers write the raw encoding without Confluent or Apicurio
 framing: the five-byte header needs a schema ID that only a registry can
