@@ -20,8 +20,9 @@ SETTINGS_FILE_NAME = "settings.yaml"
 DEFAULT_ADMIN_REFRESH_INTERVAL_SECONDS = 30
 MIN_ADMIN_REFRESH_INTERVAL_SECONDS = 5
 ADMIN_REFRESH_INTERVAL_SETTING = "refresh-interval"
+ADMIN_READ_ONLY_SETTING = "read-only"
 TIMEOUTS_SETTING = "timeouts"
-ADMIN_SETTINGS = (ADMIN_REFRESH_INTERVAL_SETTING, TIMEOUTS_SETTING)
+ADMIN_SETTINGS = (ADMIN_REFRESH_INTERVAL_SETTING, ADMIN_READ_ONLY_SETTING, TIMEOUTS_SETTING)
 CONSUMER_SETTINGS = (TIMEOUTS_SETTING,)
 PRODUCER_SETTINGS = (TIMEOUTS_SETTING,)
 
@@ -31,6 +32,7 @@ class AppSettings:
     path: Path
     keymap: dict[str, str]
     admin_refresh_interval_seconds: int = DEFAULT_ADMIN_REFRESH_INTERVAL_SECONDS
+    admin_read_only: bool = False
     theme: str | None = None
     custom_themes: dict[Any, Any] = field(default_factory=dict)
     timeouts: TimeoutConfig = field(default_factory=TimeoutConfig)
@@ -59,6 +61,7 @@ def load_settings(path: Path | None = None) -> AppSettings:
     keymap, keymap_warnings = parse_keymap(data.get("keymap", {}), settings_path)
     admin, admin_warnings = _parse_section(data, "admin", ADMIN_SETTINGS)
     refresh_interval, refresh_interval_warnings = _parse_admin_refresh_interval(admin)
+    read_only, read_only_warnings = _parse_admin_read_only(admin)
     admin_timeouts, admin_timeout_warnings = _parse_timeouts(
         "admin", admin, ADMIN_TIMEOUT_PROPERTIES
     )
@@ -76,6 +79,7 @@ def load_settings(path: Path | None = None) -> AppSettings:
         settings_path,
         keymap,
         admin_refresh_interval_seconds=refresh_interval,
+        admin_read_only=read_only,
         theme=theme,
         custom_themes=custom_themes,
         timeouts=TimeoutConfig.from_dict(admin_timeouts | consumer_timeouts | producer_timeouts),
@@ -84,6 +88,7 @@ def load_settings(path: Path | None = None) -> AppSettings:
             *keymap_warnings,
             *admin_warnings,
             *refresh_interval_warnings,
+            *read_only_warnings,
             *admin_timeout_warnings,
             *consumer_warnings,
             *consumer_timeout_warnings,
@@ -170,6 +175,13 @@ def _parse_admin_refresh_interval(admin: dict[Any, Any]) -> tuple[int, tuple[str
             ),
         )
     return configured_interval, ()
+
+
+def _parse_admin_read_only(admin: dict[Any, Any]) -> tuple[bool, tuple[str, ...]]:
+    configured_read_only = admin.get(ADMIN_READ_ONLY_SETTING, False)
+    if not isinstance(configured_read_only, bool):
+        return False, (f"Ignoring 'admin.{ADMIN_READ_ONLY_SETTING}': it must be true or false",)
+    return configured_read_only, ()
 
 
 def _parse_timeouts(

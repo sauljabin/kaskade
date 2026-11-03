@@ -335,6 +335,26 @@ class TestTimeoutOptions(unittest.TestCase):
         self.assertEqual(10, settings.admin_refresh_interval_seconds)
         self.assertEqual(TimeoutConfig(admin_read=20.0, admin_write=62.0), settings.timeouts)
 
+    def test_read_only_flag_overrides_settings(self):
+        for configured, flag, expected in (
+            ("false", "--read-only", True),
+            ("true", None, True),
+            ("false", None, False),
+        ):
+            with self.subTest(configured=configured, flag=flag):
+                self.settings_path.write_text(
+                    f"admin:\n  read-only: {configured}\n", encoding="utf-8"
+                )
+                arguments = ["admin", "-b", EXPECTED_SERVER, *([flag] if flag else [])]
+
+                with patch("kaskade.main.KaskadeAdmin") as admin:
+                    result = self.runner.invoke(
+                        cli, arguments, env={SETTINGS_ENV_VAR: str(self.settings_path)}
+                    )
+
+                self.assertEqual(0, result.exit_code, result.output)
+                self.assertEqual(expected, admin.call_args.kwargs["settings"].admin_read_only)
+
     def test_config_file_rejects_timeouts_section(self):
         config_path = write_config_ini(self.temp_directory.name, timeouts={"admin.read": "12"})
 

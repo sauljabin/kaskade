@@ -13,6 +13,7 @@ def resolve_app_settings(
     *,
     theme: str | None = None,
     refresh_interval: int | None = None,
+    read_only: bool = False,
 ) -> AppSettings:
     """Load settings.yaml once and apply this session's command-line overrides."""
     settings = load_settings()
@@ -24,6 +25,7 @@ def resolve_app_settings(
             if refresh_interval is None
             else refresh_interval
         ),
+        admin_read_only=read_only or settings.admin_read_only,
         timeouts=resolve_timeouts(timeout_properties, settings.timeouts, timeout_config),
     )
 

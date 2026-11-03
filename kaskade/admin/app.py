@@ -86,5 +86,6 @@ class KaskadeAdmin(KaskadeApp):
                 timeouts=self.timeouts,
             ),
             refresh_interval=self.auto_refresh_interval,
+            read_only=self.settings.admin_read_only,
         )
         yield Footer(compact=True)
