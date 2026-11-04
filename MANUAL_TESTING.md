@@ -86,6 +86,25 @@ kaskade admin -b localhost:9092
 7. Create `qa-delete`, then delete it with `Ctrl+D`; the dialog asks you to type
    the name.
 8. Press `y` on a topic and paste: the topic name was copied.
+9. In another terminal, commit offsets for `qa-group` on the `string` topic,
+   then press `Ctrl+R`:
+
+   ```bash
+   docker compose --project-directory sandbox exec kafka kafka-console-consumer \
+       --bootstrap-server localhost:9092 --topic string --group qa-group \
+       --from-beginning --timeout-ms 5000 >/dev/null
+   ```
+
+10. Open `string` with `d` and go to Groups. Press `r`, choose Earliest, and
+    press `Ctrl+S`: Review Reset shows each partition's committed offset and its
+    earliest offset. `Esc` returns to the form; `Ctrl+S` twice applies the reset
+    and reports every partition. Reopen `string`: Group Offsets shows the lag.
+11. Run the command from step 9 again without `--timeout-ms`, and while it
+    runs, press `r` and `Ctrl+S` on `qa-group`: Kaskade refuses with `Group Not
+    Empty`. Stop the consumer, press `Ctrl+D`, and type `qa-group`: the group is
+    deleted.
+12. Restart with `--read-only`: Topic Details offers neither Reset Offsets nor
+    Delete Group.
 
 Keep `qa-producer` for section 4.
 

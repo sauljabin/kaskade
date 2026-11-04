@@ -23,6 +23,7 @@ share.
   - [Browse and change topics](#browse-and-change-topics)
   - [Topic Details](#topic-details)
   - [Edit a topic](#edit-a-topic)
+  - [Consumer group offsets](#consumer-group-offsets)
   - [Admin auto-refresh](#admin-auto-refresh)
   - [Read-only mode](#read-only-mode)
   - [Admin shortcuts](#admin-shortcuts)
@@ -316,7 +317,7 @@ The IAM principal used by `--aws` needs these `kafka-cluster` actions:
 | Mode | Required actions |
 | --- | --- |
 | Admin (read only) | `Connect`, `DescribeTopic`, `DescribeTopicDynamicConfiguration`, `DescribeGroup` |
-| Admin (full access) | Read-only actions plus `CreateTopic`, `AlterTopic`, `DeleteTopic`, `AlterTopicDynamicConfiguration` |
+| Admin (full access) | Read-only actions plus `CreateTopic`, `AlterTopic`, `DeleteTopic`, `AlterTopicDynamicConfiguration`, `ReadData`, `AlterGroup`, `DeleteGroup` |
 | Consumer | `Connect`, `DescribeTopic`, `ReadData`, `DescribeGroup`, `AlterGroup` |
 | Producer | `Connect`, `DescribeTopic`, `WriteData`; `CreateTopic` only for broker auto-creation; `WriteDataIdempotently` on the cluster with `--idempotence` |
 
@@ -325,15 +326,16 @@ Example identity policies:
 - [Admin](examples/aws-msk-iam-admin-policy.json)
 - [Consumer](examples/aws-msk-iam-consumer-policy.json)
 - [Producer](examples/aws-msk-iam-producer-policy.json)
-- [Admin and consumer](examples/aws-msk-iam-admin-consumer-policy.json)
 
 Replace the region, account, cluster name, and cluster UUID placeholders, and
 narrow the topic wildcard when appropriate. If `group.id` is configured,
 replace the `kaskade-*` group pattern with that group ID or a suitable
-wildcard. For read-only admin access with the admin and consumer policy, remove
-`CreateTopic`, `AlterTopic`, `DeleteTopic`, `AlterTopicDynamicConfiguration`,
-and `ReadData` from the topic statement, then remove the
-`UseKaskadeConsumerGroups` statement.
+wildcard. The admin policy also covers the consumer. For read-only admin
+access, remove `CreateTopic`, `AlterTopic`, `DeleteTopic`,
+`AlterTopicDynamicConfiguration`, and `ReadData` from the topic statement, and
+`AlterGroup` and `DeleteGroup` from the group statement. Resetting offsets
+needs `ReadData` on the topic and `AlterGroup` on the group; deleting a group
+needs `DeleteGroup`.
 
 For cross-account access, the cluster owner must also add a
 [resource-based cluster policy](https://docs.aws.amazon.com/msk/latest/developerguide/security_iam_service-with-iam-resource-based-policies.html)
@@ -351,12 +353,14 @@ For SASL/SCRAM and mTLS connections, grant the Kafka principal these operations:
 | Mode | Topic ACLs | Group ACLs |
 | --- | --- | --- |
 | Admin (read only) | `Describe`, `DescribeConfigs` | `Describe` on groups to display |
-| Admin (full access) | `Describe`, `DescribeConfigs`, `Create`, `Alter`, `Delete`, `AlterConfigs` | `Describe` on groups to display |
+| Admin (full access) | `Describe`, `DescribeConfigs`, `Create`, `Alter`, `Delete`, `AlterConfigs`, `Read` | `Describe` on groups to display; `Read` to reset offsets and `Delete` to delete groups |
 | Consumer | `Read`, `Describe` on topics to consume | `Read`, `Describe` on the configured `group.id` or `kaskade-` prefix |
 | Producer | `Write`, `Describe` on the topic; `Create` only for broker auto-creation | None |
 
-`Write` implies `Describe`. With `--idempotence`, brokers older than Kafka 3.0
-also need cluster `IdempotentWrite`.
+`Write` and `Read` imply `Describe`. Resetting offsets needs `Read` on the
+topic and the group; deleting a group needs `Delete` on the group. With
+`--idempotence`, brokers older than Kafka 3.0 also need cluster
+`IdempotentWrite`.
 
 Admin shows only the consumer groups the principal can describe. A principal
 with cluster `Describe` lists every group; Kaskade skips the ones it cannot
@@ -380,6 +384,7 @@ kafka-acls.sh \
     --operation Alter \
     --operation Delete \
     --operation AlterConfigs \
+    --operation Read \
     --topic '*'
 
 kafka-acls.sh \
@@ -388,6 +393,8 @@ kafka-acls.sh \
     --add \
     --allow-principal "User:<principal>" \
     --operation Describe \
+    --operation Read \
+    --operation Delete \
     --group '*'
 ```
 
@@ -501,6 +508,31 @@ value shows as `Reset` to `Cluster default`. `Ctrl+S` again applies the
 changes; `Esc` returns to the form with your edits, and nothing is applied
 until you confirm. Saving without changes closes the form.
 
+### Consumer group offsets
+
+In Topic Details, select a group on the Groups or Group Offsets tab and press
+`r` to reset its committed offsets for the topic, or `Ctrl+D` to delete the
+group. Kafka changes only groups without active members: stop the group's
+consumers first, or Kaskade refuses with `Group Not Empty`.
+
+Reset Offsets moves the group to one of these targets:
+
+| Target | New offset |
+| --- | --- |
+| Earliest | The partition's earliest offset |
+| Latest | The partition's end offset |
+| Timestamp | The first offset at or after the time, or the end offset when no record is that recent; enter ISO 8601, such as `2026-01-31T09:30:00` in local time, or epoch milliseconds |
+| Offset | That offset, kept between the partition's earliest and end offsets |
+
+Partitions takes IDs separated by commas, such as `0,2`; leave it empty for
+every partition. From Group Offsets it starts with the selected partition.
+`Ctrl+S` opens Review Reset, which shows each partition's current and new
+offset. `Ctrl+S` again commits exactly those offsets and reports any partition
+that failed; `Esc` returns to the form without committing.
+
+Delete Group asks you to type the group ID. It removes the group and its
+offsets for every topic, not only this one.
+
 ### Admin auto-refresh
 
 Admin mode refreshes every 30 seconds, pauses outside the topic list, and
@@ -530,8 +562,8 @@ Admin's read and write deadlines are in
 ### Read-only mode
 
 Read-only mode hides every action that changes the cluster: Create, Edit, and
-Delete disappear from the Footer, Help, and Commands, and their keys do
-nothing. The topic list subtitle shows `Read Only` while the mode is on. Kafka
+Delete topic, and Reset Offsets and Delete Group in Topic Details, disappear
+from the Footer, Help, and Commands, and their keys do nothing. The topic list subtitle shows `Read Only` while the mode is on. Kafka
 ACLs remain the real control; this mode guards against a stray key when your
 credentials can write.
 
@@ -565,7 +597,10 @@ binding ID is the name to use in a [custom keymap](#custom-keymap).
 | Copy the selected topic name | `y` | `kaskade.topics.copy` |
 | Save Create Topic or Edit Topic | `Ctrl+S`, `Ctrl+Shift+S`, or `F2` | `kaskade.create-topic.save`, `kaskade.edit-topic.save` |
 | Apply reviewed topic changes | `Ctrl+S`, `Ctrl+Shift+S`, or `F2` | `kaskade.review-topic-changes.apply` |
-| Apply the topic filter or confirm a deletion | `Enter` | `kaskade.filter-topics.apply`, `kaskade.delete-topic.confirm` |
+| Reset the selected group's offsets in Topic Details | `r` | `kaskade.describe-topic.reset-offsets` |
+| Delete the selected group in Topic Details | `Ctrl+D` | `kaskade.describe-topic.delete-group` |
+| Review or apply an offset reset | `Ctrl+S`, `Ctrl+Shift+S`, or `F2` | `kaskade.reset-offsets.review`, `kaskade.review-offset-reset.apply` |
+| Apply the topic filter or confirm a deletion | `Enter` | `kaskade.filter-topics.apply`, `kaskade.delete-topic.confirm`, `kaskade.delete-group.confirm` |
 
 ## Consumer
 
@@ -1348,7 +1383,7 @@ These binding IDs aren't in the shortcut tables:
 | Context | Binding IDs |
 | --- | --- |
 | Navigation | `kaskade.navigation.home`, `.end`, `.page-left`, `.page-right` |
-| Back and cancel | `kaskade.help.close`, `kaskade.describe-topic.close`, `kaskade.filter-topics.close`, `kaskade.create-topic.close`, `kaskade.edit-topic.close`, `kaskade.review-topic-changes.close`, `kaskade.delete-topic.cancel`, `kaskade.record-details.close`, `kaskade.filter-records.close`, `kaskade.chunk-size.close` |
+| Back and cancel | `kaskade.help.close`, `kaskade.describe-topic.close`, `kaskade.filter-topics.close`, `kaskade.create-topic.close`, `kaskade.edit-topic.close`, `kaskade.review-topic-changes.close`, `kaskade.reset-offsets.close`, `kaskade.review-offset-reset.close`, `kaskade.delete-topic.cancel`, `kaskade.delete-group.cancel`, `kaskade.record-details.close`, `kaskade.filter-records.close`, `kaskade.chunk-size.close` |
 
 Unknown binding IDs, invalid key names, and malformed configuration produce an
 in-app warning while Kaskade continues with its default bindings.

@@ -8,12 +8,15 @@ from textual.widgets import DataTable
 
 from kaskade.admin import (
     CreateTopicScreen,
+    DeleteGroupScreen,
     DeleteTopicScreen,
     DescribeTopicScreen,
     EditTopicScreen,
     FilterTopicsScreen,
     KaskadeAdmin,
     ListTopics,
+    ResetOffsetsScreen,
+    ReviewOffsetResetScreen,
     ReviewTopicChangesScreen,
 )
 from kaskade.app import KaskadeApp
@@ -57,6 +60,9 @@ class TestSettingsConfiguration(unittest.TestCase):
             DescribeTopicScreen,
             EditTopicScreen,
             ReviewTopicChangesScreen,
+            ResetOffsetsScreen,
+            ReviewOffsetResetScreen,
+            DeleteGroupScreen,
             CreateTopicScreen,
             ListTopics,
             FilterRecordScreen,

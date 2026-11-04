@@ -17,18 +17,22 @@ from textual.message import Message
 from textual.widgets import DataTable
 
 from kaskade import logger
-from kaskade.admin.forms import CreateTopicScreen, EditTopicScreen
+from kaskade.admin.forms import CreateTopicScreen, EditTopicScreen, ResetOffsetsScreen
 from kaskade.admin.screens import (
     BACK_SHORTCUT,
     COPY_TOPIC_SHORTCUT,
+    DeleteGroupScreen,
     DeleteTopicScreen,
     DescribeTopicScreen,
     FilterTopicsScreen,
+    GroupAction,
+    GroupActionKind,
     metric_value,
 )
 from kaskade.colors import PRIMARY
-from kaskade.commands import CreateTopicCommand, UpdateTopicCommand
+from kaskade.commands import CreateTopicCommand, ResetOffsetsCommand, UpdateTopicCommand
 from kaskade.concurrency import run_blocking
+from kaskade.group_service import GroupNotEmptyError, OffsetResetOutcome, OffsetResetPlan
 from kaskade.models import MetricState, Topic
 from kaskade.refresh import RefreshCoordinator, RefreshReason
 from kaskade.topic_service import ADMIN_EXCEPTIONS, TopicService
@@ -48,6 +52,8 @@ NEW_TOPIC_SHORTCUT = "n,ctrl+n"
 DELETE_TOPIC_SHORTCUT = "ctrl+d"
 EDIT_TOPIC_SHORTCUT = "e,ctrl+e"
 REFRESH_TOPICS_SHORTCUT = "ctrl+r"
+OUTCOME_LINES = 10
+"""Partitions a reset toast lists before summarizing the rest."""
 TOPIC_COLUMN_KEYS = (
     "name",
     "partitions",
@@ -456,8 +462,92 @@ class ListTopics(Container):
 
         topic = self.current_topic
         configurations = await self._load_topic_details(self.topic_service.describe_configs, topic)
-        if configurations is not None:
-            self.app.push_screen(DescribeTopicScreen(topic, configurations))
+        if configurations is None:
+            return
+
+        def on_dismiss(action: GroupAction | None) -> None:
+            if action is not None:
+                self._start_group_action(topic, action)
+
+        self.app.push_screen(
+            DescribeTopicScreen(topic, configurations, read_only=self.read_only), on_dismiss
+        )
+
+    def _start_group_action(self, topic: Topic, action: GroupAction) -> None:
+        if action.kind is GroupActionKind.RESET_OFFSETS:
+
+            def on_reset(plan: OffsetResetPlan | None) -> None:
+                if plan is not None:
+                    self.refresh_coordinator.begin_mutation()
+                    self.reset_offsets(plan)
+
+            self.app.push_screen(
+                ResetOffsetsScreen(
+                    topic, action.group, self.plan_offset_reset, partition=action.partition
+                ),
+                on_reset,
+            )
+            return
+
+        def on_delete(confirmed: bool | None) -> None:
+            if confirmed:
+                self.refresh_coordinator.begin_mutation()
+                self.delete_group(action.group)
+
+        self.app.push_screen(DeleteGroupScreen(action.group), on_delete)
+
+    async def plan_offset_reset(self, command: ResetOffsetsCommand) -> OffsetResetPlan | None:
+        """Compute a reset's offsets for review, or report why it can't run."""
+        try:
+            return await run_blocking(self.topic_service.groups.plan_reset, command)
+        except GroupNotEmptyError as ex:
+            self.app.notify(str(ex), title="Group Not Empty", severity="warning")
+        except ADMIN_EXCEPTIONS as ex:
+            notify_error(self.app, "Kafka Error", ex)
+        return None
+
+    @work(exclusive=True, group="topic-mutation")
+    async def reset_offsets(self, plan: OffsetResetPlan) -> None:
+        """Commit reviewed offsets without blocking Textual's message loop."""
+        async with self._mutation(KafkaException, ValueError) as mutation:
+            outcomes = await run_blocking(self.topic_service.groups.apply_reset, plan)
+            mutation.changed = True
+            self._notify_reset(plan, outcomes)
+
+    def _notify_reset(
+        self, plan: OffsetResetPlan, outcomes: tuple[OffsetResetOutcome, ...]
+    ) -> None:
+        failed = [outcome for outcome in outcomes if outcome.error is not None]
+        lines = [
+            (
+                f"Partition {outcome.partition}: {outcome.error}"
+                if outcome.error is not None
+                else f"Partition {outcome.partition}: {outcome.offset}"
+            )
+            for outcome in (failed or outcomes)
+        ]
+        if len(lines) > OUTCOME_LINES:
+            lines = [*lines[:OUTCOME_LINES], f"{len(lines) - OUTCOME_LINES} more partitions"]
+        reset = len(outcomes) - len(failed)
+        summary = f"Reset {reset} of {len(outcomes)} partitions of group '{plan.group}'"
+        if failed:
+            self.app.notify(
+                "\n".join([summary, *lines]), title="Offsets Partially Reset", severity="warning"
+            )
+        else:
+            self._notify_info("Offsets Reset", "\n".join([summary, *lines]))
+
+    @work(exclusive=True, group="topic-mutation")
+    async def delete_group(self, group: str) -> None:
+        """Delete a consumer group without blocking Textual's message loop."""
+        async with self._mutation(KafkaException, ValueError) as mutation:
+            try:
+                await run_blocking(self.topic_service.groups.delete, group)
+            except GroupNotEmptyError as ex:
+                self.app.notify(str(ex), title="Group Not Empty", severity="warning")
+                return
+            self._notify_info("Group Deleted", f"Deleted group '{group}'")
+            mutation.changed = True
 
     def action_all(self) -> None:
         self.current_filter = None

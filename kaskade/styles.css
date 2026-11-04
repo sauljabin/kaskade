@@ -80,6 +80,9 @@ DeleteTopicScreen,
 CreateTopicScreen,
 EditTopicScreen,
 ReviewTopicChangesScreen,
+ResetOffsetsScreen,
+ReviewOffsetResetScreen,
+DeleteGroupScreen,
 FilterRecordScreen,
 ChunkSizeScreen,
 TopicScreen,
@@ -131,7 +134,8 @@ CommandPalette CommandList > .option-list--option-highlighted {
 }
 
 FilterTopicsScreen > Input,
-DeleteTopicScreen > Input {
+DeleteTopicScreen > Input,
+DeleteGroupScreen > Input {
     width: 72;
     max-width: 90%;
 }

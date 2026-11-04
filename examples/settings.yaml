@@ -95,6 +95,14 @@ keymap:
   kaskade.delete-topic.confirm: enter
   kaskade.delete-topic.cancel: escape
   kaskade.describe-topic.close: escape
+  kaskade.describe-topic.reset-offsets: r
+  kaskade.describe-topic.delete-group: ctrl+d
+  kaskade.reset-offsets.review: ctrl+s,ctrl+shift+s,f2
+  kaskade.reset-offsets.close: escape
+  kaskade.review-offset-reset.apply: ctrl+s,ctrl+shift+s,f2
+  kaskade.review-offset-reset.close: escape
+  kaskade.delete-group.confirm: enter
+  kaskade.delete-group.cancel: escape
   kaskade.edit-topic.close: escape
   kaskade.edit-topic.save: ctrl+s,ctrl+shift+s,f2
   kaskade.review-topic-changes.apply: ctrl+s,ctrl+shift+s,f2

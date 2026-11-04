@@ -15,8 +15,8 @@
 </p>
 
 Kaskade is a terminal UI for Kafka with three modes. `kaskade admin` shows your
-topics, partitions, and consumer groups and lets you create, edit, and delete
-topics. `kaskade consumer` reads records from a topic and decodes them as JSON,
+topics, partitions, and consumer groups, lets you create, edit, and delete
+topics, and resets or deletes consumer groups. `kaskade consumer` reads records from a topic and decodes them as JSON,
 Avro, or Protobuf, with or without Schema Registry. `kaskade producer` composes
 a record and produces it, encoding it the same ways. Everything works from the
 keyboard.
@@ -57,6 +57,7 @@ keyboard.
 - Browse topics, partitions, consumer groups, and group members
 - Inspect topic configuration, lag, replicas, and record counts
 - Create, edit, delete, and filter topics without leaving the TUI
+- Reset consumer group offsets after previewing them, and delete groups
 - Refresh topic metadata and metrics every 30 seconds by default, or on demand
 
 ### Record consumption
