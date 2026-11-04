@@ -181,6 +181,28 @@ class TestSettingsConfiguration(unittest.TestCase):
         self.assertEqual(10, settings.admin_refresh_interval_seconds)
         self.assertEqual((), settings.warnings)
 
+    def test_loads_admin_read_only(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            path = Path(temporary_directory) / "settings.yaml"
+            path.write_text("admin:\n  read-only: true\n", encoding="utf-8")
+
+            settings = load_settings(path)
+
+        self.assertTrue(settings.admin_read_only)
+        self.assertEqual((), settings.warnings)
+
+    def test_invalid_admin_read_only_keeps_read_write(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            path = Path(temporary_directory) / "settings.yaml"
+            path.write_text("admin:\n  read-only: 'yes'\n", encoding="utf-8")
+
+            settings = load_settings(path)
+
+        self.assertFalse(settings.admin_read_only)
+        self.assertEqual(
+            ("Ignoring 'admin.read-only': it must be true or false",), settings.warnings
+        )
+
     def test_loads_admin_and_consumer_timeouts(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
             path = Path(temporary_directory) / "settings.yaml"

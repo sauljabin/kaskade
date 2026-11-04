@@ -20,10 +20,12 @@ themes:
     dark: true
 
 # Set refresh-interval to 0 to disable auto-refresh; enabled intervals must be at
-# least 5 seconds. Timeouts are Kaskade operation deadlines in seconds;
-# --timeout admin.read=20 overrides admin.timeouts.read for one session.
+# least 5 seconds. read-only hides actions that change the cluster. Timeouts are
+# Kaskade operation deadlines in seconds; --timeout admin.read=20 overrides
+# admin.timeouts.read for one session.
 admin:
   refresh-interval: 30
+  read-only: false
   timeouts:
     read: 10
     write: 60

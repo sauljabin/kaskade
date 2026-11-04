@@ -145,10 +145,10 @@ Each setting belongs to the file that owns its responsibility:
 - `--config-file` (INI) says how to connect to a cluster: `[kafka]`,
   `[registry]`, and `[aws]`.
 - `settings.yaml` says how Kaskade behaves: theme, custom themes, keymap, admin
-  auto-refresh, and operation timeouts. Command-line options such as `--theme`,
-  `--refresh-interval`, and `--timeout` override it for one session. The CLI
-  loads `settings.yaml` once, applies those overrides, and passes the resulting
-  `AppSettings` to the application.
+  auto-refresh and read-only mode, and operation timeouts. Command-line options
+  such as `--theme`, `--refresh-interval`, `--read-only`, and `--timeout`
+  override it for one session. The CLI loads `settings.yaml` once, applies those
+  overrides, and passes the resulting `AppSettings` to the application.
 
 Name new settings the same way:
 

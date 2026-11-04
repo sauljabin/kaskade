@@ -23,6 +23,7 @@ share.
   - [Browse and change topics](#browse-and-change-topics)
   - [Topic Details](#topic-details)
   - [Admin auto-refresh](#admin-auto-refresh)
+  - [Read-only mode](#read-only-mode)
   - [Admin shortcuts](#admin-shortcuts)
 - [Consumer](#consumer)
   - [Consume records](#consume-records)
@@ -512,6 +513,27 @@ kaskade admin -b my-kafka:9092 --refresh-interval 0
 
 Admin's read and write deadlines are in
 [Operation timeouts](#operation-timeouts).
+
+### Read-only mode
+
+Read-only mode hides every action that changes the cluster: Create, Edit, and
+Delete disappear from the Footer, Help, and Commands, and their keys do
+nothing. The topic list subtitle shows `Read Only` while the mode is on. Kafka
+ACLs remain the real control; this mode guards against a stray key when your
+credentials can write.
+
+Turn it on in `settings.yaml`:
+
+```yaml
+admin:
+  read-only: true
+```
+
+Or turn it on for one session with `--read-only`:
+
+```bash
+kaskade admin -b my-kafka:9092 --read-only
+```
 
 ### Admin shortcuts
 

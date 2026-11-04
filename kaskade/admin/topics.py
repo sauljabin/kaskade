@@ -63,6 +63,8 @@ TOPIC_COLUMN_KEYS = (
     "records",
     "lag",
 )
+MUTATING_ACTIONS = frozenset({"new", "edit", "delete"})
+"""Topic list actions that change the cluster, which read-only mode refuses."""
 
 
 def changed_topic_config(command: UpdateTopicCommand) -> dict[str, str]:
@@ -164,10 +166,13 @@ class ListTopics(Container):
     class RefreshCompleted(Message):
         """Posted after a refresh finishes, so the app can restart periodic refreshes."""
 
-    def __init__(self, topic_service: TopicService, *, refresh_interval: int = 0):
+    def __init__(
+        self, topic_service: TopicService, *, refresh_interval: int = 0, read_only: bool = False
+    ):
         super().__init__()
         self.topic_service = topic_service
         self.refresh_interval = refresh_interval
+        self.read_only = read_only
         self.topics: dict[str, Topic] = {}
         self.current_topic: Topic | None = None
         self.current_filter: str | None = None
@@ -488,6 +493,8 @@ class ListTopics(Container):
 
     def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
         """Disable contextual actions when their required state is unavailable."""
+        if self.read_only and action in MUTATING_ACTIONS:
+            return False
         if action == "describe":
             return self.current_topic is not None and all(
                 state is MetricState.READY
@@ -588,6 +595,7 @@ class ListTopics(Container):
             state = f"Updated {self.last_updated_at:%H:%M:%S}"
         else:
             state = "Not Updated"
+        mode = "Admin Mode · Read Only" if self.read_only else "Admin Mode"
         self.query_one("#topics-frame", TableFrame).border_subtitle = (
-            rf"\[[{PRIMARY}]Admin Mode · {state} · {auto_status}[/]]"
+            rf"\[[{PRIMARY}]{mode} · {state} · {auto_status}[/]]"
         )

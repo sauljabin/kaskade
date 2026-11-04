@@ -268,6 +268,11 @@ def admin_application_options() -> Callable[[CliDecoratorTarget], CliDecoratorTa
             metavar="seconds",
             help="Admin auto-refresh interval. Use 0 to disable; overrides settings.yaml.",
         ),
+        cloup.option(
+            "--read-only",
+            is_flag=True,
+            help="Hide and refuse actions that change the cluster; overrides settings.yaml.",
+        ),
     )
 
 
@@ -371,6 +376,7 @@ def admin(
     timeout_config: dict[str, str],
     theme: str | None,
     refresh_interval: int | None,
+    read_only: bool,
 ) -> None:
     """
     Administrator mode.
@@ -386,7 +392,11 @@ def admin(
     file_config = load_config_file(config_file)
     connection = resolve_connection(file_config, bootstrap_servers, kafka_config, aws_config)
     app_settings = resolve_app_settings(
-        ADMIN_TIMEOUT_PROPERTIES, timeout_config, theme=theme, refresh_interval=refresh_interval
+        ADMIN_TIMEOUT_PROPERTIES,
+        timeout_config,
+        theme=theme,
+        refresh_interval=refresh_interval,
+        read_only=read_only,
     )
 
     KaskadeAdmin(connection.kafka_config, settings=app_settings).run()

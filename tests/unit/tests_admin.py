@@ -36,6 +36,7 @@ from kaskade.configs import (
     MIN_INSYNC_REPLICAS_CONFIG,
     RETENTION_MS_CONFIG,
 )
+from kaskade.help import contextual_help
 from kaskade.models import (
     Group,
     GroupMember,
@@ -913,6 +914,59 @@ class TestTopicCopyActions(unittest.IsolatedAsyncioTestCase):
 
                 self.assertEqual("", app.clipboard)
                 app.notify.assert_not_called()
+
+
+class TestReadOnlyMode(unittest.IsolatedAsyncioTestCase):
+    MUTATIONS = (
+        ("new", "n", "Create"),
+        ("edit", "e", "Edit"),
+        ("delete", "ctrl+d", "Delete"),
+    )
+
+    async def test_hides_and_refuses_every_mutating_action(self) -> None:
+        topic = Topic(name="orders")
+        with patch("kaskade.admin.app.TopicService") as topic_service:
+            configure_admin_service(topic_service.return_value, {topic.name: topic})
+            app = KaskadeAdmin({}, settings=replace(load_settings(), admin_read_only=True))
+
+            async with app.run_test() as pilot:
+                await app.workers.wait_for_complete()
+                await pilot.pause()
+                topics = app.query_one(ListTopics)
+                commands = {command.title for command in app.get_system_commands(app.screen)}
+                help_entries = {entry.description for entry in contextual_help(app.screen)[1]}
+
+                self.assertIn(
+                    "Read Only", app.query_one("#topics-frame", TableFrame).border_subtitle
+                )
+                for action, key, description in self.MUTATIONS:
+                    with self.subTest(action=action):
+                        self.assertFalse(topics.check_action(action, ()))
+                        self.assertNotIn(description, commands)
+                        self.assertNotIn(description, help_entries)
+
+                        await pilot.press(key)
+                        await pilot.pause()
+
+                        self.assertIs(app.screen, app.screen_stack[0])
+
+    async def test_read_write_mode_keeps_mutating_actions(self) -> None:
+        topic = Topic(name="orders")
+        with patch("kaskade.admin.app.TopicService") as topic_service:
+            configure_admin_service(topic_service.return_value, {topic.name: topic})
+            app = KaskadeAdmin({})
+
+            async with app.run_test() as pilot:
+                await app.workers.wait_for_complete()
+                await pilot.pause()
+                topics = app.query_one(ListTopics)
+
+                self.assertNotIn(
+                    "Read Only", app.query_one("#topics-frame", TableFrame).border_subtitle
+                )
+                for action, _, _ in self.MUTATIONS:
+                    with self.subTest(action=action):
+                        self.assertTrue(topics.check_action(action, ()))
 
 
 class TestAdminRefresh(unittest.IsolatedAsyncioTestCase):
