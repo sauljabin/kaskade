@@ -79,7 +79,10 @@ kaskade admin -b localhost:9092
 3. Press `/`, filter by `json`, and clear the filter with `Esc`.
 4. Select a topic and press `d`. Check every tab in Topic Details.
 5. Press `n` and create `qa-producer` with 3 partitions. It appears in the list.
-6. Press `e` on `qa-producer` and raise it to 4 partitions.
+6. Press `e` on `qa-producer`, raise it to 4 partitions, set Retention to
+   `86400000`, and press `Ctrl+S`. Review Changes lists both changes; `Esc`
+   returns to the form, and `Ctrl+S` twice applies them. Edit it again, clear
+   Retention, and check that the review shows `Reset` to `Cluster default`.
 7. Create `qa-delete`, then delete it with `Ctrl+D`; the dialog asks you to type
    the name.
 8. Press `y` on a topic and paste: the topic name was copied.

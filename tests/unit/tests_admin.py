@@ -6,6 +6,7 @@ from contextlib import redirect_stderr
 from dataclasses import replace
 from io import StringIO
 from pathlib import Path
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from confluent_kafka import KafkaException
@@ -28,9 +29,10 @@ from kaskade.admin import (
     FilterTopicsScreen,
     KaskadeAdmin,
     ListTopics,
+    ReviewTopicChangesScreen,
 )
 from kaskade.admin.topics import DETAILS_LOADING_DELAY, TopicDataTable
-from kaskade.commands import CreateTopicCommand, UpdateTopicCommand
+from kaskade.commands import ConfigChange, CreateTopicCommand, UpdateTopicCommand
 from kaskade.configs import (
     CLEANUP_POLICY_CONFIG,
     MIN_INSYNC_REPLICAS_CONFIG,
@@ -55,14 +57,35 @@ from tests import configure_admin_service
 
 
 def edit_topic_screen(
-    *, min_insync_replicas: str = "2", cleanup_policy: str = "delete"
+    *,
+    min_insync_replicas: str = "2",
+    cleanup_policy: str = "delete",
+    retention_overridden: bool = True,
 ) -> EditTopicScreen:
-    """Edit a three-partition topic whose missing configuration has an empty value."""
-    configs = {CLEANUP_POLICY_CONFIG: cleanup_policy, RETENTION_MS_CONFIG: "1000"}
+    """Edit a three-partition topic that overrides min.insync.replicas.
+
+    Its cleanup policy is the cluster default, and a missing min.insync.replicas
+    has an empty value.
+    """
+    configurations = [
+        TopicConfiguration(CLEANUP_POLICY_CONFIG, cleanup_policy),
+        TopicConfiguration(RETENTION_MS_CONFIG, "1000", overridden=retention_overridden),
+    ]
     if min_insync_replicas:
-        configs[MIN_INSYNC_REPLICAS_CONFIG] = min_insync_replicas
+        configurations.append(
+            TopicConfiguration(MIN_INSYNC_REPLICAS_CONFIG, min_insync_replicas, overridden=True)
+        )
     topic = Topic(name="orders", partitions=[Partition(id=index) for index in range(3)])
-    return EditTopicScreen(topic, configs)
+    return EditTopicScreen(topic, configurations)
+
+
+async def save_and_apply(pilot: Any, key: str = "ctrl+s") -> None:
+    """Save the edit form, then apply its changes from Review Changes."""
+    await pilot.press(key)
+    await pilot.pause()
+    assert isinstance(pilot.app.screen, ReviewTopicChangesScreen)
+    await pilot.press(key)
+    await pilot.pause()
 
 
 class TestRefreshCoordinator(unittest.TestCase):
@@ -291,25 +314,7 @@ class TestCreateTopic(unittest.IsolatedAsyncioTestCase):
 
 
 class TestUpdateTopic(unittest.IsolatedAsyncioTestCase):
-    async def test_ctrl_shift_s_saves_topic_changes_from_an_input(self) -> None:
-        app = KaskadeAdmin({})
-        results: list[UpdateTopicCommand | None] = []
-
-        with patch("kaskade.admin.app.TopicService") as topic_service:
-            configure_admin_service(topic_service.return_value, {})
-            async with app.run_test() as pilot:
-                app.push_screen(
-                    edit_topic_screen(),
-                    results.append,
-                )
-                await pilot.pause()
-                app.screen.query_one("#retention", Input).value = "2000"
-
-                await pilot.press("ctrl+shift+s")
-
-                self.assertEqual(UpdateTopicCommand(3, None, None, 2000), results[0])
-
-    async def test_keeps_unchanged_topic_configuration_out_of_command(self) -> None:
+    async def test_ctrl_shift_s_saves_and_applies_topic_changes(self) -> None:
         app = KaskadeAdmin({})
         results: list[UpdateTopicCommand | None] = []
 
@@ -318,23 +323,48 @@ class TestUpdateTopic(unittest.IsolatedAsyncioTestCase):
             async with app.run_test() as pilot:
                 app.push_screen(edit_topic_screen(), results.append)
                 await pilot.pause()
+                app.screen.query_one("#retention", Input).value = "2000"
 
-                advanced = app.screen.query_one("#advanced-topic-config", Collapsible)
-                self.assertTrue(advanced.collapsed)
-                self.assertEqual("2", app.screen.query_one("#min_insync_replicas", Input).value)
+                await save_and_apply(pilot, "ctrl+shift+s")
 
-                await pilot.press("ctrl+s")
+                change = ConfigChange(RETENTION_MS_CONFIG, "1000", "2000")
+                self.assertEqual([UpdateTopicCommand(configs=(change,))], results)
 
-                self.assertEqual(
-                    UpdateTopicCommand(3, None, None, None),
-                    results[0],
-                )
+    async def test_closes_without_review_when_nothing_changed(self) -> None:
+        for cleanup_policy in ("delete", "compact,delete"):
+            with (
+                self.subTest(cleanup_policy=cleanup_policy),
+                patch("kaskade.admin.app.TopicService") as topic_service,
+            ):
+                configure_admin_service(topic_service.return_value, {})
+                app = KaskadeAdmin({})
+                app.notify = MagicMock()
+                results: list[UpdateTopicCommand | None] = []
+                async with app.run_test() as pilot:
+                    app.push_screen(
+                        edit_topic_screen(cleanup_policy=cleanup_policy), results.append
+                    )
+                    await pilot.pause()
+                    advanced = app.screen.query_one("#advanced-topic-config", Collapsible)
+                    self.assertTrue(advanced.collapsed)
+                    self.assertEqual("2", app.screen.query_one("#min_insync_replicas", Input).value)
+
+                    await pilot.press("ctrl+s")
+                    await pilot.pause()
+
+                    self.assertEqual([None], results)
+                    self.assertNotIsInstance(app.screen, ReviewTopicChangesScreen)
+                    app.notify.assert_called_once_with(
+                        "No changes to topic 'orders'",
+                        title="No Changes",
+                        severity="information",
+                    )
 
     async def test_includes_only_changed_topic_configuration_in_command(self) -> None:
         cases = (
-            ("min_insync", UpdateTopicCommand(3, 1, None, None)),
-            ("cleanup", UpdateTopicCommand(3, None, "compact", None)),
-            ("retention", UpdateTopicCommand(3, None, None, 2000)),
+            ("min_insync", ConfigChange(MIN_INSYNC_REPLICAS_CONFIG, "2", "1")),
+            ("cleanup", ConfigChange(CLEANUP_POLICY_CONFIG, "delete", "compact")),
+            ("retention", ConfigChange(RETENTION_MS_CONFIG, "1000", "2000")),
         )
 
         for setting, expected in cases:
@@ -344,10 +374,7 @@ class TestUpdateTopic(unittest.IsolatedAsyncioTestCase):
                 with patch("kaskade.admin.app.TopicService") as topic_service:
                     configure_admin_service(topic_service.return_value, {})
                     async with app.run_test() as pilot:
-                        app.push_screen(
-                            edit_topic_screen(),
-                            results.append,
-                        )
+                        app.push_screen(edit_topic_screen(), results.append)
                         await pilot.pause()
 
                         if setting == "min_insync":
@@ -356,11 +383,101 @@ class TestUpdateTopic(unittest.IsolatedAsyncioTestCase):
                             cleanup = app.screen.query_one("#cleanup", RadioSet)
                             cleanup.query(RadioButton)[1].value = True
                         else:
-                            app.screen.query_one("#retention", Input).value = "2000"
+                            app.screen.query_one("#retention", Input).value = "02000"
 
-                        await pilot.press("ctrl+s")
+                        await save_and_apply(pilot)
 
-                        self.assertEqual(expected, results[0])
+                        self.assertEqual([UpdateTopicCommand(configs=(expected,))], results)
+
+    async def test_clearing_an_overridden_value_resets_it(self) -> None:
+        app = KaskadeAdmin({})
+        results: list[UpdateTopicCommand | None] = []
+
+        with patch("kaskade.admin.app.TopicService") as topic_service:
+            configure_admin_service(topic_service.return_value, {})
+            async with app.run_test() as pilot:
+                app.push_screen(edit_topic_screen(), results.append)
+                await pilot.pause()
+                app.screen.query_one("#min_insync_replicas", Input).value = ""
+
+                await save_and_apply(pilot)
+
+                self.assertEqual(
+                    [
+                        UpdateTopicCommand(
+                            configs=(ConfigChange(MIN_INSYNC_REPLICAS_CONFIG, "2", None),)
+                        )
+                    ],
+                    results,
+                )
+
+    async def test_clearing_an_inherited_value_changes_nothing(self) -> None:
+        app = KaskadeAdmin({})
+        results: list[UpdateTopicCommand | None] = []
+
+        with patch("kaskade.admin.app.TopicService") as topic_service:
+            configure_admin_service(topic_service.return_value, {})
+            async with app.run_test() as pilot:
+                app.push_screen(edit_topic_screen(retention_overridden=False), results.append)
+                await pilot.pause()
+                app.screen.query_one("#retention", Input).value = ""
+
+                await pilot.press("ctrl+s")
+                await pilot.pause()
+
+                self.assertEqual([None], results)
+
+    async def test_review_lists_each_change_with_its_current_and_new_value(self) -> None:
+        app = KaskadeAdmin({})
+
+        with patch("kaskade.admin.app.TopicService") as topic_service:
+            configure_admin_service(topic_service.return_value, {})
+            async with app.run_test() as pilot:
+                app.push_screen(edit_topic_screen())
+                await pilot.pause()
+                app.screen.query_one("#partitions", Input).value = "5"
+                app.screen.query_one("#retention", Input).value = "2000"
+                app.screen.query_one("#min_insync_replicas", Input).value = ""
+
+                await pilot.press("ctrl+s")
+                await pilot.pause()
+
+                self.assertIsInstance(app.screen, ReviewTopicChangesScreen)
+                table = app.screen.query_one("#topic-changes", DataTable)
+                self.assertEqual(
+                    [
+                        ["Partitions", "Increase", "3", "5"],
+                        [MIN_INSYNC_REPLICAS_CONFIG, "Reset", "2", "Cluster default"],
+                        [RETENTION_MS_CONFIG, "Set", "1000", "2000"],
+                    ],
+                    [table.get_row_at(index) for index in range(table.row_count)],
+                )
+
+    async def test_back_from_review_returns_to_the_edits_without_applying(self) -> None:
+        app = KaskadeAdmin({})
+        results: list[UpdateTopicCommand | None] = []
+
+        with patch("kaskade.admin.app.TopicService") as topic_service:
+            configure_admin_service(topic_service.return_value, {})
+            async with app.run_test() as pilot:
+                app.push_screen(edit_topic_screen(), results.append)
+                await pilot.pause()
+                app.screen.query_one("#retention", Input).value = "2000"
+
+                await pilot.press("ctrl+s")
+                await pilot.pause()
+                await pilot.press("escape")
+                await pilot.pause()
+
+                self.assertIsInstance(app.screen, EditTopicScreen)
+                self.assertEqual("2000", app.screen.query_one("#retention", Input).value)
+                self.assertEqual([], results)
+
+                await pilot.press("escape")
+                await pilot.pause()
+
+                self.assertEqual([None], results)
+                topic_service.return_value.edit.assert_not_called()
 
     async def test_reads_cleanup_policy_from_the_button_not_its_label(self) -> None:
         screens: tuple[CreateTopicScreen | EditTopicScreen, ...] = (
@@ -370,7 +487,7 @@ class TestUpdateTopic(unittest.IsolatedAsyncioTestCase):
         for screen in screens:
             with self.subTest(screen=type(screen).__name__):
                 app = KaskadeAdmin({})
-                results: list[CreateTopicCommand | UpdateTopicCommand | None] = []
+                results: list[Any] = []
                 with patch("kaskade.admin.app.TopicService") as topic_service:
                     configure_admin_service(topic_service.return_value, {})
                     async with app.run_test() as pilot:
@@ -382,9 +499,12 @@ class TestUpdateTopic(unittest.IsolatedAsyncioTestCase):
                         compact.label = "Compacted"
                         compact.value = True
 
-                        await pilot.press("ctrl+s")
-
-                        self.assertEqual("compact", results[0].cleanup_policy)
+                        if isinstance(screen, CreateTopicScreen):
+                            await pilot.press("ctrl+s")
+                            self.assertEqual("compact", results[0].cleanup_policy)
+                        else:
+                            await save_and_apply(pilot)
+                            self.assertEqual("compact", results[0].configs[0].value)
 
     async def test_cleanup_cursor_starts_on_the_configured_policy(self) -> None:
         for policy, selected in (("compact", "compact"), ("delete", "delete"), ("", "delete")):
@@ -404,24 +524,7 @@ class TestUpdateTopic(unittest.IsolatedAsyncioTestCase):
                     ]
                     self.assertEqual([selected], highlighted)
 
-    async def test_preserves_unsupported_cleanup_policy_when_unchanged(self) -> None:
-        app = KaskadeAdmin({})
-        results: list[UpdateTopicCommand | None] = []
-
-        with patch("kaskade.admin.app.TopicService") as topic_service:
-            configure_admin_service(topic_service.return_value, {})
-            async with app.run_test() as pilot:
-                app.push_screen(
-                    edit_topic_screen(cleanup_policy="compact,delete"),
-                    results.append,
-                )
-                await pilot.pause()
-
-                await pilot.press("ctrl+s")
-
-                self.assertEqual(UpdateTopicCommand(3, None, None, None), results[0])
-
-    async def test_expands_advanced_when_min_insync_is_cleared(self) -> None:
+    async def test_expands_advanced_when_min_insync_is_invalid(self) -> None:
         app = KaskadeAdmin({})
         results: list[UpdateTopicCommand | None] = []
 
@@ -430,7 +533,7 @@ class TestUpdateTopic(unittest.IsolatedAsyncioTestCase):
             async with app.run_test() as pilot:
                 app.push_screen(edit_topic_screen(), results.append)
                 await pilot.pause()
-                app.screen.query_one("#min_insync_replicas", Input).value = ""
+                app.screen.query_one("#min_insync_replicas", Input).value = "0"
 
                 await pilot.press("ctrl+s")
 
@@ -451,7 +554,7 @@ class TestUpdateTopic(unittest.IsolatedAsyncioTestCase):
 
                 await pilot.press("ctrl+s")
 
-                self.assertEqual(UpdateTopicCommand(3, None, None, None), results[0])
+                self.assertEqual([None], results)
 
     async def test_rejects_partition_decreases_before_mutating(self) -> None:
         app = KaskadeAdmin({})
@@ -469,36 +572,11 @@ class TestUpdateTopic(unittest.IsolatedAsyncioTestCase):
                 self.assertIsInstance(app.screen, EditTopicScreen)
                 self.assertEqual([], results)
 
-    async def test_skips_kafka_calls_when_topic_is_unchanged(self) -> None:
-        topic = Topic(name="orders", partitions=[Partition(id=0, topic="orders")])
-        service = MagicMock()
-        configure_admin_service(service, {topic.name: topic})
-
-        with patch("kaskade.admin.app.TopicService", return_value=service):
-            app = KaskadeAdmin({})
-            app.notify = MagicMock()
-            async with app.run_test() as pilot:
-                await app.workers.wait_for_complete()
-                topics = app.query_one(ListTopics)
-                worker = topics.update_topic(
-                    topic,
-                    UpdateTopicCommand(1, None, None, None),
-                )
-                await worker.wait()
-                await pilot.pause()
-
-                service.add_partitions.assert_not_called()
-                service.edit.assert_not_called()
-                app.notify.assert_called_once_with(
-                    "No changes to topic 'orders'",
-                    title="No Changes",
-                    severity="information",
-                )
-
     async def test_sends_only_changed_topic_configuration(self) -> None:
         topic = Topic(name="orders", partitions=[Partition(id=0, topic="orders")])
         service = MagicMock()
         configure_admin_service(service, {topic.name: topic})
+        changes = (ConfigChange(MIN_INSYNC_REPLICAS_CONFIG, "1", "2"),)
 
         with patch("kaskade.admin.app.TopicService", return_value=service):
             app = KaskadeAdmin({})
@@ -506,15 +584,15 @@ class TestUpdateTopic(unittest.IsolatedAsyncioTestCase):
             async with app.run_test() as pilot:
                 await app.workers.wait_for_complete()
                 topics = app.query_one(ListTopics)
-                worker = topics.update_topic(
-                    topic,
-                    UpdateTopicCommand(1, 2, None, None),
-                )
+                worker = topics.update_topic(topic, UpdateTopicCommand(configs=changes))
                 await worker.wait()
                 await pilot.pause()
 
                 service.add_partitions.assert_not_called()
-                service.edit.assert_called_once_with("orders", {MIN_INSYNC_REPLICAS_CONFIG: "2"})
+                service.edit.assert_called_once_with("orders", changes)
+                app.notify.assert_called_with(
+                    "Updated topic 'orders'", title="Topic Updated", severity="information"
+                )
 
     async def test_partition_only_update_skips_topic_config_edit(self) -> None:
         topic = Topic(name="orders", partitions=[Partition(id=0, topic="orders")])
@@ -527,10 +605,7 @@ class TestUpdateTopic(unittest.IsolatedAsyncioTestCase):
             async with app.run_test() as pilot:
                 await app.workers.wait_for_complete()
                 topics = app.query_one(ListTopics)
-                worker = topics.update_topic(
-                    topic,
-                    UpdateTopicCommand(2, None, None, None),
-                )
+                worker = topics.update_topic(topic, UpdateTopicCommand(partitions=2))
                 await worker.wait()
                 await pilot.pause()
 
@@ -552,7 +627,10 @@ class TestUpdateTopic(unittest.IsolatedAsyncioTestCase):
                 with patch.object(topics, "set_timer") as set_timer:
                     worker = topics.update_topic(
                         topic,
-                        UpdateTopicCommand(2, 1, "delete", 1000),
+                        UpdateTopicCommand(
+                            partitions=2,
+                            configs=(ConfigChange(RETENTION_MS_CONFIG, "1000", None),),
+                        ),
                     )
                     await worker.wait()
                     await pilot.pause()
@@ -760,7 +838,7 @@ class TestDescribeTopic(unittest.IsolatedAsyncioTestCase):
         topic = Topic(name="orders")
         service = MagicMock()
         configure_admin_service(service, {topic.name: topic})
-        service.get_configs.return_value = {}
+        service.describe_configs.return_value = ()
 
         with patch("kaskade.admin.app.TopicService", return_value=service):
             app = KaskadeAdmin({})

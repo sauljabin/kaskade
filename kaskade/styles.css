@@ -79,6 +79,7 @@ FilterTopicsScreen,
 DeleteTopicScreen,
 CreateTopicScreen,
 EditTopicScreen,
+ReviewTopicChangesScreen,
 FilterRecordScreen,
 ChunkSizeScreen,
 TopicScreen,
@@ -136,6 +137,7 @@ DeleteTopicScreen > Input {
 }
 
 .topic-form,
+.topic-review,
 .record-filter {
     border: $secondary;
     width: 72;
@@ -148,6 +150,11 @@ DeleteTopicScreen > Input {
 
 .topic-form {
     overflow-y: auto;
+}
+
+.topic-review > DataTable {
+    height: auto;
+    scrollbar-size-horizontal: 0;
 }
 
 Input.kaskade-input {
@@ -287,7 +294,7 @@ TopicScreen .record-content-area {
 TopicScreen .record-content-scroll {
     height: auto;
     max-height: 100%;
-    overflow-x: hidden;
+    scrollbar-size-horizontal: 0;
     overflow-y: auto;
     padding: 0;
     background: $panel-darken-1;
@@ -427,6 +434,7 @@ DescribeTopicScreen #topic-details-tabs {
 }
 
 Screen.-narrow > .topic-form,
+Screen.-narrow > .topic-review,
 Screen.-narrow > .record-filter,
 Screen.-narrow > Input,
 Screen.-narrow > OptionList,

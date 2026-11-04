@@ -54,6 +54,8 @@ KNOWN_BINDING_IDS = (
             "kaskade.records.filter",
             "kaskade.records.show",
             "kaskade.records.show-all",
+            "kaskade.review-topic-changes.apply",
+            "kaskade.review-topic-changes.close",
             "kaskade.topics.create",
             "kaskade.topics.copy",
             "kaskade.topics.delete",

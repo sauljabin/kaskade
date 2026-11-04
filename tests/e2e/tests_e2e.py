@@ -34,21 +34,24 @@ from textual.widgets import Checkbox, DataTable, TextArea
 
 from kaskade.admin import KaskadeAdmin
 from kaskade.apicurio import ApicurioConfig
+from kaskade.commands import ConfigChange
 from kaskade.configs import (
     APICURIO,
     APICURIO_OPTION,
     AUTO_OFFSET_RESET,
     BOOTSTRAP_SERVERS,
     EARLIEST,
+    RETENTION_MS_CONFIG,
 )
 from kaskade.consumer import KaskadeConsumer, ListRecords
 from kaskade.consumer_service import ConsumerSettings
 from kaskade.deserializers import Deserialization
-from kaskade.models import PartitionOffset, PartitionSelection
+from kaskade.models import PartitionOffset, PartitionSelection, TopicConfiguration
 from kaskade.producer import KaskadeProducer, RecordComposer, RecordDraft
 from kaskade.producer.source import DraftField
 from kaskade.producer_service import ProducerSettings
 from kaskade.serializers import Serialization
+from kaskade.topic_service import TopicService
 
 MY_VALUE = "my-value"
 MY_KEY = "my-key"
@@ -325,6 +328,25 @@ class TestE2E(unittest.IsolatedAsyncioTestCase):
                 await self.wait_for_rows(table, 1)
 
                 self.assertEqual(MY_TOPIC, table.get_row(MY_TOPIC)[0])
+
+    async def test_topic_edit_sets_and_resets_configurations(self):
+        with kafka_container() as kafka:
+            config = {BOOTSTRAP_SERVERS: kafka.get_bootstrap_server()}
+            create_topic(config)
+            service = TopicService(config)
+
+            def retention() -> TopicConfiguration:
+                configurations = service.describe_configs(MY_TOPIC)
+                return next(item for item in configurations if item.name == RETENTION_MS_CONFIG)
+
+            default = retention()
+            self.assertFalse(default.overridden)
+
+            service.edit(MY_TOPIC, (ConfigChange(RETENTION_MS_CONFIG, default.value, "1000"),))
+            self.assertEqual(TopicConfiguration(RETENTION_MS_CONFIG, "1000", True), retention())
+
+            service.edit(MY_TOPIC, (ConfigChange(RETENTION_MS_CONFIG, "1000", None),))
+            self.assertEqual(default, retention())
 
     async def wait_for_subtitle(self, composer: RecordComposer, text: str) -> None:
         loop = asyncio.get_running_loop()

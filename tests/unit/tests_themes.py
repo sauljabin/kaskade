@@ -33,6 +33,7 @@ from kaskade.admin import (
     FilterTopicsScreen,
     KaskadeAdmin,
     ListTopics,
+    ReviewTopicChangesScreen,
 )
 from kaskade.app import KaskadeApp
 from kaskade.commands import RecordFilters
@@ -147,6 +148,7 @@ class TestThemes(unittest.TestCase):
             DeleteTopicScreen,
             DescribeTopicScreen,
             EditTopicScreen,
+            ReviewTopicChangesScreen,
             CreateTopicScreen,
             ListTopics,
             FilterRecordScreen,
@@ -182,6 +184,7 @@ class TestThemes(unittest.TestCase):
             DeleteTopicScreen: ["Delete Topic", "Cancel", "Help"],
             DescribeTopicScreen: ["Back", "Help"],
             EditTopicScreen: ["Save Changes", "Back", "Help"],
+            ReviewTopicChangesScreen: ["Apply Changes", "Back", "Help"],
             CreateTopicScreen: ["Create Topic", "Back", "Help"],
             FilterRecordScreen: ["Apply Filters", "Back", "Help"],
             ChunkSizeScreen: ["Select", "Back", "Help"],
@@ -847,11 +850,11 @@ class TestMainAppLayout(unittest.IsolatedAsyncioTestCase):
                 app.push_screen(
                     EditTopicScreen(
                         Topic(name="orders", partitions=[Partition(id=0)]),
-                        {
-                            "min.insync.replicas": "1",
-                            "cleanup.policy": "delete",
-                            "retention.ms": "1000",
-                        },
+                        (
+                            TopicConfiguration("min.insync.replicas", "1"),
+                            TopicConfiguration("cleanup.policy", "delete"),
+                            TopicConfiguration("retention.ms", "1000"),
+                        ),
                     ),
                     results.append,
                 )

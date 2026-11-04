@@ -255,6 +255,8 @@ class Topic:
 class TopicConfiguration:
     name: str
     value: str
+    overridden: bool = False
+    """Whether the topic sets the value instead of inheriting the cluster default."""
 
 
 class CleanupPolicy(Enum):
