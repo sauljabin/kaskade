@@ -98,7 +98,7 @@ kaskade admin -b localhost:9092
 10. Open `string` with `d` and go to Groups. Press `r`, choose Earliest, and
     press `Ctrl+S`: Review Reset shows each partition's committed offset and its
     earliest offset. `Esc` returns to the form; `Ctrl+S` twice applies the reset
-    and reports every partition. Reopen `string`: Group Offsets shows the lag.
+    and reports every partition. Topic Details stays open and shows the new lag.
 11. Run the command from step 9 again without `--timeout-ms`, and while it
     runs, press `r` and `Ctrl+S` on `qa-group`: Kaskade refuses with `Group Not
     Empty`. Stop the consumer, press `Ctrl+D`, and type `qa-group`: the group is

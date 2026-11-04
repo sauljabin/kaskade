@@ -36,7 +36,7 @@ from kaskade.admin import (
 )
 from kaskade.admin.forms import parse_partitions, parse_timestamp
 from kaskade.admin.screens import GroupAction, GroupActionKind
-from kaskade.admin.topics import DETAILS_LOADING_DELAY, TopicDataTable
+from kaskade.admin.topics import DETAILS_LOADING_DELAY, REFRESH_TABLE_DELAY, TopicDataTable
 from kaskade.commands import (
     ConfigChange,
     CreateTopicCommand,
@@ -1392,11 +1392,11 @@ RESET_PLAN = OffsetResetPlan("billing", "orders", (OffsetReset(0, 5, 10), Offset
 
 class TestGroupActionsInTopicDetails(unittest.IsolatedAsyncioTestCase):
     async def open_details(
-        self, app: KaskadeAdmin, pilot: Any, results: list[Any], *, read_only: bool = False
+        self, app: KaskadeAdmin, pilot: Any, actions: list[Any] | None
     ) -> DescribeTopicScreen:
-        app.push_screen(
-            DescribeTopicScreen(topic_with_groups(), (), read_only=read_only), results.append
-        )
+        """Open Topic Details, recording group actions unless ``actions`` is ``None``."""
+        handler = None if actions is None else lambda _topic, action: actions.append(action)
+        app.push_screen(DescribeTopicScreen(topic_with_groups(), (), group_actions=handler))
         await pilot.pause()
         assert isinstance(app.screen, DescribeTopicScreen)
         return app.screen
@@ -1421,13 +1421,12 @@ class TestGroupActionsInTopicDetails(unittest.IsolatedAsyncioTestCase):
                         self.assertTrue(screen.check_action("delete_group", ()))
                         self.assertLessEqual({"Reset Offsets", "Delete Group"}, help_entries)
 
-    async def test_read_only_mode_hides_and_refuses_group_actions(self) -> None:
+    async def test_hides_and_refuses_group_actions_without_a_handler(self) -> None:
         with patch("kaskade.admin.app.TopicService") as topic_service:
             configure_admin_service(topic_service.return_value, {})
             app = KaskadeAdmin({})
-            results: list[Any] = []
             async with app.run_test() as pilot:
-                screen = await self.open_details(app, pilot, results, read_only=True)
+                screen = await self.open_details(app, pilot, None)
                 screen.query_one(TabbedContent).active = "groups"
                 await pilot.pause()
                 help_entries = {entry.description for entry in contextual_help(screen)[1]}
@@ -1441,9 +1440,24 @@ class TestGroupActionsInTopicDetails(unittest.IsolatedAsyncioTestCase):
                 await pilot.pause()
 
                 self.assertIs(screen, app.screen)
-                self.assertEqual([], results)
 
-    async def test_actions_name_the_selected_group_and_partition(self) -> None:
+    async def test_read_only_mode_opens_details_without_group_actions(self) -> None:
+        topic = topic_with_groups()
+        with patch("kaskade.admin.app.TopicService") as topic_service:
+            configure_admin_service(topic_service.return_value, {topic.name: topic})
+            app = KaskadeAdmin({}, settings=replace(load_settings(), admin_read_only=True))
+            async with app.run_test() as pilot:
+                await app.workers.wait_for_complete()
+                await pilot.pause()
+
+                await pilot.press("d")
+                await app.workers.wait_for_complete()
+                await pilot.pause()
+
+                self.assertIsInstance(app.screen, DescribeTopicScreen)
+                self.assertIsNone(app.screen.group_actions)
+
+    async def test_actions_name_the_selected_group_and_keep_details_open(self) -> None:
         cases = (
             ("groups", "r", GroupAction(GroupActionKind.RESET_OFFSETS, "billing")),
             ("group-offsets", "r", GroupAction(GroupActionKind.RESET_OFFSETS, "billing", 1)),
@@ -1456,9 +1470,9 @@ class TestGroupActionsInTopicDetails(unittest.IsolatedAsyncioTestCase):
             ):
                 configure_admin_service(topic_service.return_value, {})
                 app = KaskadeAdmin({})
-                results: list[Any] = []
+                actions: list[Any] = []
                 async with app.run_test() as pilot:
-                    screen = await self.open_details(app, pilot, results)
+                    screen = await self.open_details(app, pilot, actions)
                     screen.query_one(TabbedContent).active = tab
                     await pilot.pause()
                     if tab == "group-offsets":
@@ -1467,7 +1481,68 @@ class TestGroupActionsInTopicDetails(unittest.IsolatedAsyncioTestCase):
                     await pilot.press(key)
                     await pilot.pause()
 
-                    self.assertEqual([expected], results)
+                    self.assertEqual([expected], actions)
+                    self.assertIs(screen, app.screen)
+
+    async def test_shows_refreshed_groups_after_a_reset_on_the_same_tab(self) -> None:
+        topic = topic_with_groups()
+        service = MagicMock()
+        configure_admin_service(service, {topic.name: topic})
+        service.groups.plan_reset.return_value = RESET_PLAN
+        service.groups.apply_reset.return_value = (
+            OffsetResetOutcome(0, 10),
+            OffsetResetOutcome(1, 10),
+        )
+
+        with patch("kaskade.admin.app.TopicService", return_value=service):
+            app = KaskadeAdmin({})
+            async with app.run_test() as pilot:
+                await app.workers.wait_for_complete()
+                await pilot.pause()
+                await pilot.press("d")
+                await app.workers.wait_for_complete()
+                await pilot.pause()
+                details = app.screen
+                assert isinstance(details, DescribeTopicScreen)
+                details.query_one(TabbedContent).active = "groups"
+                await pilot.pause()
+
+                await pilot.press("r")
+                await pilot.pause()
+                self.assertIsInstance(app.screen, ResetOffsetsScreen)
+                await pilot.press("escape")
+                await pilot.pause()
+                self.assertIs(details, app.screen)
+
+                refreshed = topic_with_groups()
+                refreshed.groups[0].partitions = [
+                    GroupPartition(id=0, offset=10, high=10),
+                    GroupPartition(id=1, offset=10, high=10),
+                ]
+                refreshed_groups = refreshed.groups
+                configure_admin_service(service, {refreshed.name: refreshed})
+
+                def apply_groups(topics: dict[str, Topic], _snapshot: Any) -> EnrichmentResult:
+                    topics[refreshed.name].groups = refreshed_groups
+                    return EnrichmentResult()
+
+                service.apply_groups.side_effect = apply_groups
+                await pilot.press("r")
+                await pilot.pause()
+                for _ in range(2):
+                    await pilot.press("ctrl+s")
+                    await pilot.pause()
+                    await app.workers.wait_for_complete()
+                    await pilot.pause()
+                await pilot.pause(REFRESH_TABLE_DELAY + 0.5)
+                await app.workers.wait_for_complete()
+                await pilot.pause()
+
+                service.groups.apply_reset.assert_called_once_with(RESET_PLAN)
+                self.assertIs(details, app.screen)
+                self.assertEqual("groups", details.query_one(TabbedContent).active)
+                groups = details.query_one("#groups-table", DataTable)
+                self.assertEqual("0", groups.get_row_at(0)[-1])
 
 
 class TestResetOffsets(unittest.IsolatedAsyncioTestCase):

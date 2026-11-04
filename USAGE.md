@@ -533,6 +533,9 @@ that failed; `Esc` returns to the form without committing.
 Delete Group asks you to type the group ID. It removes the group and its
 offsets for every topic, not only this one.
 
+Both open above Topic Details, and `Esc` returns to it. After a change, Topic
+Details stays on the same tab and shows the refreshed groups.
+
 ### Admin auto-refresh
 
 Admin mode refreshes every 30 seconds, pauses outside the topic list, and

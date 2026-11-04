@@ -291,9 +291,18 @@ class ListTopics(Container):
             return
         stop_loading(table)
         self.update_status(refreshing=False)
+        self._update_open_details()
         self.post_message(self.RefreshCompleted())
         if self.refresh_coordinator.take_pending():
             self.call_after_refresh(lambda: self.request_refresh(RefreshReason.PENDING))
+
+    def _update_open_details(self) -> None:
+        """Show refreshed metrics in Topic Details, such as after a group change."""
+        for screen in self.app.screen_stack:
+            if isinstance(screen, DescribeTopicScreen):
+                topic = self.topics.get(screen.topic.name)
+                if topic is not None:
+                    screen.call_later(screen.show_topic, topic)
 
     def _preserve_completed_metrics(self, refreshed_topics: dict[str, Topic]) -> None:
         for topic_name, refreshed_topic in refreshed_topics.items():
@@ -465,12 +474,12 @@ class ListTopics(Container):
         if configurations is None:
             return
 
-        def on_dismiss(action: GroupAction | None) -> None:
-            if action is not None:
-                self._start_group_action(topic, action)
-
         self.app.push_screen(
-            DescribeTopicScreen(topic, configurations, read_only=self.read_only), on_dismiss
+            DescribeTopicScreen(
+                topic,
+                configurations,
+                group_actions=None if self.read_only else self._start_group_action,
+            )
         )
 
     def _start_group_action(self, topic: Topic, action: GroupAction) -> None:

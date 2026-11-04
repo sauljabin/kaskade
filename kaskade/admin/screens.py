@@ -1,5 +1,6 @@
 """Topic filter, review, delete confirmation, and topic details screens."""
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum, auto
 from typing import ClassVar
@@ -26,7 +27,7 @@ COPY_TOPIC_SHORTCUT = "y"
 RESET_OFFSETS_SHORTCUT = "r"
 DELETE_GROUP_SHORTCUT = "ctrl+d"
 GROUP_ACTIONS = frozenset({"reset_offsets", "delete_group"})
-"""Topic Details actions that change a consumer group, which read-only mode refuses."""
+"""Topic Details actions that change a consumer group."""
 LOADING_METRIC = "…"
 UNAVAILABLE_METRIC = "—"
 
@@ -314,11 +315,14 @@ class GroupAction:
     partition: int | None = None
 
 
+GroupActionHandler = Callable[[Topic, GroupAction], None]
+"""Runs a group action chosen in Topic Details above it."""
+
 GROUP_TABS = frozenset({"groups", "group-offsets"})
 """Topic Details tabs whose selected row names a consumer group."""
 
 
-class DescribeTopicScreen(HelpableModalScreen[GroupAction]):
+class DescribeTopicScreen(HelpableModalScreen):
     BINDING_GROUP_TITLE = "Topic Details"
     AUTO_FOCUS = "Tabs"
     HORIZONTAL_BREAKPOINTS = [  # noqa: RUF012
@@ -379,12 +383,14 @@ class DescribeTopicScreen(HelpableModalScreen[GroupAction]):
         topic: Topic,
         configurations: tuple[TopicConfiguration, ...],
         *,
-        read_only: bool = False,
+        group_actions: GroupActionHandler | None = None,
     ):
+        """Show a topic; group actions are offered only with a handler to run them."""
         super().__init__()
         self.topic = topic
         self.configurations = configurations
-        self.read_only = read_only
+        self.group_actions = group_actions
+        self.initial_tab = "partitions"
 
     def compose(self) -> ComposeResult:
         details = Container(classes="topic-details")
@@ -398,7 +404,7 @@ class DescribeTopicScreen(HelpableModalScreen[GroupAction]):
                         id=metadata_id,
                         classes="topic-metadata-cell",
                     )
-            with TabbedContent(initial="partitions", id="topic-details-tabs"):
+            with TabbedContent(initial=self.initial_tab, id="topic-details-tabs"):
                 with TabPane(
                     Content(f"Partitions [{self.topic.partitions_count()}]"),
                     id="partitions",
@@ -563,7 +569,7 @@ class DescribeTopicScreen(HelpableModalScreen[GroupAction]):
     def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
         """Offer group actions only on a group tab with a selected group."""
         if action in GROUP_ACTIONS:
-            return not self.read_only and self.selected_group() is not None
+            return self.group_actions is not None and self.selected_group() is not None
         return True
 
     def selected_group(self) -> tuple[str, int | None] | None:
@@ -587,16 +593,25 @@ class DescribeTopicScreen(HelpableModalScreen[GroupAction]):
         ]
 
     def action_reset_offsets(self) -> None:
-        self._dismiss_with(GroupActionKind.RESET_OFFSETS)
+        self._start_group_action(GroupActionKind.RESET_OFFSETS)
 
     def action_delete_group(self) -> None:
-        self._dismiss_with(GroupActionKind.DELETE)
+        self._start_group_action(GroupActionKind.DELETE)
 
-    def _dismiss_with(self, kind: GroupActionKind) -> None:
+    def _start_group_action(self, kind: GroupActionKind) -> None:
         selected = self.selected_group()
-        if selected is not None:
+        if self.group_actions is not None and selected is not None:
             group, partition = selected
-            self.dismiss(GroupAction(kind, group, partition))
+            self.group_actions(self.topic, GroupAction(kind, group, partition))
+
+    async def show_topic(self, topic: Topic) -> None:
+        """Show refreshed metrics for the topic, keeping the active tab."""
+        self.initial_tab = self.query_one(TabbedContent).active or self.initial_tab
+        self.topic = topic
+        await self.recompose()
+        if self.is_current:
+            self.query_one(Tabs).focus()
+        self.refresh_bindings()
 
     def action_copy_topic(self) -> None:
         if self.query_one(TabbedContent).active == "configurations":
