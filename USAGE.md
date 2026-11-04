@@ -316,7 +316,7 @@ The IAM principal used by `--aws` needs these `kafka-cluster` actions:
 | Admin (read only) | `Connect`, `DescribeTopic`, `DescribeTopicDynamicConfiguration`, `DescribeGroup` |
 | Admin (full access) | Read-only actions plus `CreateTopic`, `AlterTopic`, `DeleteTopic`, `AlterTopicDynamicConfiguration` |
 | Consumer | `Connect`, `DescribeTopic`, `ReadData`, `DescribeGroup`, `AlterGroup` |
-| Producer | `Connect`, `DescribeTopic`, `WriteData`; `CreateTopic` only for broker auto-creation; `WriteDataIdempotently` on the cluster with `--idempotence true` |
+| Producer | `Connect`, `DescribeTopic`, `WriteData`; `CreateTopic` only for broker auto-creation; `WriteDataIdempotently` on the cluster with `--idempotence` |
 
 Example identity policies:
 
@@ -353,7 +353,7 @@ For SASL/SCRAM and mTLS connections, grant the Kafka principal these operations:
 | Consumer | `Read`, `Describe` on topics to consume | `Read`, `Describe` on the configured `group.id` or `kaskade-` prefix |
 | Producer | `Write`, `Describe` on the topic; `Create` only for broker auto-creation | None |
 
-`Write` implies `Describe`. With `--idempotence true`, brokers older than Kafka 3.0
+`Write` implies `Describe`. With `--idempotence`, brokers older than Kafka 3.0
 also need cluster `IdempotentWrite`.
 
 Admin shows only the consumer groups the principal can describe. A principal
@@ -1089,10 +1089,12 @@ These options set common producer properties:
 | --- | --- | --- |
 | `--acks all\|-1\|0\|1` | `acks` | `all` |
 | `--compression none\|gzip\|snappy\|lz4\|zstd` | `compression.type` | `none` |
-| `--idempotence true\|false` | `enable.idempotence` | `false` |
+| `--idempotence` | `enable.idempotence=true` | `false` |
 
 The defaults are `confluent-kafka`'s. Unlike Kafka's Java client, it doesn't
-enable idempotence by default.
+enable idempotence by default. When `enable.idempotence = true` comes from
+`--config-file`, `--kafka enable.idempotence=false` turns it off for one
+session.
 
 The same properties can live in the `[kafka]` section of `--config-file` or in
 `--kafka`. The options above apply only when you pass them, above `--kafka` and
@@ -1100,7 +1102,7 @@ below `-b`, as [Configuration precedence](#configuration-precedence) lists, so
 an option you don't pass never replaces a configured or default value.
 
 `confluent-kafka` checks that the settings are compatible. For example,
-`--idempotence true --acks 1` fails before the composer opens with a message that
+`--idempotence --acks 1` fails before the composer opens with a message that
 `acks` must be `all`.
 
 The delivery and flush deadlines are in [Operation timeouts](#operation-timeouts).
