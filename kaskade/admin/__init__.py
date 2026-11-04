@@ -2,7 +2,12 @@
 
 from kaskade.admin.app import KaskadeAdmin
 from kaskade.admin.forms import CreateTopicScreen, EditTopicScreen
-from kaskade.admin.screens import DeleteTopicScreen, DescribeTopicScreen, FilterTopicsScreen
+from kaskade.admin.screens import (
+    DeleteTopicScreen,
+    DescribeTopicScreen,
+    FilterTopicsScreen,
+    ReviewTopicChangesScreen,
+)
 from kaskade.admin.topics import ListTopics
 
 __all__ = [
@@ -13,4 +18,5 @@ __all__ = [
     "FilterTopicsScreen",
     "KaskadeAdmin",
     "ListTopics",
+    "ReviewTopicChangesScreen",
 ]

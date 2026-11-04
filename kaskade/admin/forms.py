@@ -1,6 +1,6 @@
 """The shared topic form behind the create and edit topic screens."""
 
-from collections.abc import Iterator, Mapping
+from collections.abc import Iterable, Iterator, Mapping
 from typing import ClassVar, TypeVar
 
 from textual.app import ComposeResult
@@ -10,9 +10,14 @@ from textual.validation import Function, Integer, Validator
 from textual.widget import Widget
 from textual.widgets import Collapsible, Footer, Input, RadioButton, RadioSet
 
-from kaskade.admin.screens import BACK_SHORTCUT
+from kaskade.admin.screens import (
+    BACK_SHORTCUT,
+    CLUSTER_DEFAULT,
+    SAVE_SHORTCUT,
+    ReviewTopicChangesScreen,
+)
 from kaskade.colors import PRIMARY
-from kaskade.commands import CreateTopicCommand, UpdateTopicCommand
+from kaskade.commands import ConfigChange, CreateTopicCommand, UpdateTopicCommand
 from kaskade.configs import (
     CLEANUP_POLICY_CONFIG,
     MILLISECONDS_1W,
@@ -20,9 +25,8 @@ from kaskade.configs import (
     RETENTION_MS_CONFIG,
 )
 from kaskade.help import HelpableModalScreen, modal_bindings
-from kaskade.models import CleanupPolicy, Topic
+from kaskade.models import CleanupPolicy, Topic, TopicConfiguration
 
-SAVE_SHORTCUT = "ctrl+s,ctrl+shift+s,f2"
 ADVANCED_ID = "advanced-topic-config"
 FIELD_LABELS = {
     "name": "Name",
@@ -57,6 +61,18 @@ def _optional_positive_integer(description: str) -> Function:
 
 def _optional_int(value: str) -> int | None:
     return int(value) if value else None
+
+
+def _normalized_int(value: str) -> str | None:
+    """Return an integer input in canonical form, or ``None`` when it is empty."""
+    return str(int(value)) if value else None
+
+
+def _valid_optional_retention(value: str) -> bool:
+    try:
+        return not value or int(value) >= -1
+    except ValueError:
+        return False
 
 
 def _input(
@@ -95,7 +111,7 @@ class TopicFormScreen(HelpableModalScreen[FormResult]):
     """
 
     EMPTY_MIN_INSYNC_DESCRIPTION: ClassVar[str]
-    MIN_INSYNC_PLACEHOLDER: ClassVar[str] = ""
+    DEFAULT_PLACEHOLDER: ClassVar[str] = ""
 
     def __init__(
         self,
@@ -125,8 +141,9 @@ class TopicFormScreen(HelpableModalScreen[FormResult]):
             yield _input(
                 "retention",
                 "Retention (ms)",
-                Integer(minimum=-1),
+                self.retention_validator(),
                 value=self.initial_retention,
+                placeholder=self.DEFAULT_PLACEHOLDER,
             )
             with RadioSet(id="cleanup", classes="kaskade-radio") as radio_set:
                 radio_set.border_title = "Cleanup Policy"
@@ -139,13 +156,9 @@ class TopicFormScreen(HelpableModalScreen[FormResult]):
                 yield _input(
                     "min_insync_replicas",
                     "Min In-Sync Replicas",
-                    (
-                        Integer(minimum=1)
-                        if self.initial_min_insync_replicas
-                        else _optional_positive_integer(self.EMPTY_MIN_INSYNC_DESCRIPTION)
-                    ),
+                    _optional_positive_integer(self.EMPTY_MIN_INSYNC_DESCRIPTION),
                     value=self.initial_min_insync_replicas,
-                    placeholder=self.MIN_INSYNC_PLACEHOLDER,
+                    placeholder=self.DEFAULT_PLACEHOLDER,
                 )
         yield Footer(compact=True)
 
@@ -159,6 +172,9 @@ class TopicFormScreen(HelpableModalScreen[FormResult]):
 
     def form_title(self) -> str:
         return f"[{PRIMARY}]{self.BINDING_GROUP_TITLE}[/]"
+
+    def retention_validator(self) -> Validator:
+        return Integer(minimum=-1)
 
     def leading_inputs(self) -> Iterator[Widget]:
         yield from ()
@@ -231,7 +247,7 @@ class CreateTopicScreen(TopicFormScreen[CreateTopicCommand]):
     EMPTY_MIN_INSYNC_DESCRIPTION = (
         "Enter a positive integer or leave empty to use the broker default"
     )
-    MIN_INSYNC_PLACEHOLDER = "Broker default"
+    DEFAULT_PLACEHOLDER = "Broker default"
 
     def __init__(self) -> None:
         super().__init__(
@@ -259,7 +275,7 @@ class CreateTopicScreen(TopicFormScreen[CreateTopicCommand]):
             "replicas",
             "Replication Factor",
             _optional_positive_integer(self.EMPTY_MIN_INSYNC_DESCRIPTION),
-            placeholder=self.MIN_INSYNC_PLACEHOLDER,
+            placeholder=self.DEFAULT_PLACEHOLDER,
         )
 
     def cross_field_failures(self, inputs: Mapping[str, Input]) -> list[str]:
@@ -306,47 +322,79 @@ class EditTopicScreen(TopicFormScreen[UpdateTopicCommand]):
             id="kaskade.edit-topic.close",
         ),
     )
-    EMPTY_MIN_INSYNC_DESCRIPTION = "Enter a positive integer or leave empty when unavailable"
+    EMPTY_MIN_INSYNC_DESCRIPTION = (
+        "Enter a positive integer or leave empty to use the cluster default"
+    )
+    DEFAULT_PLACEHOLDER = CLUSTER_DEFAULT
 
-    def __init__(self, topic: Topic, configs: Mapping[str, str]) -> None:
+    def __init__(self, topic: Topic, configurations: Iterable[TopicConfiguration]) -> None:
+        self.configurations = {
+            configuration.name: configuration for configuration in configurations
+        }
         super().__init__(
             partitions=topic.partitions_count(),
-            retention=configs.get(RETENTION_MS_CONFIG) or "",
-            cleanup_policy=configs.get(CLEANUP_POLICY_CONFIG) or "",
-            min_insync_replicas=configs.get(MIN_INSYNC_REPLICAS_CONFIG) or "",
+            retention=self._current_value(RETENTION_MS_CONFIG),
+            cleanup_policy=self._current_value(CLEANUP_POLICY_CONFIG),
+            min_insync_replicas=self._current_value(MIN_INSYNC_REPLICAS_CONFIG),
         )
         self.topic = topic
 
     def form_title(self) -> str:
         return rf"{super().form_title()} \[[{PRIMARY}]{self.topic.name}[/]]"
 
+    def retention_validator(self) -> Validator:
+        return Function(
+            _valid_optional_retention,
+            "Enter -1, 0, or a positive integer, or leave empty to use the cluster default",
+        )
+
     def action_edit(self) -> None:
         inputs = self.validated_inputs()
         if inputs is None:
             return
-        self.dismiss(
-            UpdateTopicCommand(
-                partitions=int(inputs["Partitions"].value),
-                min_insync_replicas=self._changed_min_insync_replicas(
-                    inputs["Min In-Sync Replicas"].value
-                ),
-                cleanup_policy=self._changed_cleanup_policy(),
-                retention_ms=self._changed_retention_ms(inputs["Retention"].value),
+        command = self.update_command(inputs)
+        if not command.changed:
+            self.app.notify(
+                f"No changes to topic '{self.topic.name}'",
+                title="No Changes",
+                severity="information",
             )
+            self.dismiss()
+            return
+
+        def on_review(apply: bool | None) -> None:
+            if apply:
+                self.dismiss(command)
+
+        self.app.push_screen(ReviewTopicChangesScreen(self.topic, command), on_review)
+
+    def update_command(self, inputs: Mapping[str, Input]) -> UpdateTopicCommand:
+        partitions = int(inputs["Partitions"].value)
+        selected_policy = self.selected_cleanup_policy()
+        values = {
+            MIN_INSYNC_REPLICAS_CONFIG: _normalized_int(inputs["Min In-Sync Replicas"].value),
+            CLEANUP_POLICY_CONFIG: (
+                str(selected_policy)
+                if selected_policy is not None
+                else self._current_value(CLEANUP_POLICY_CONFIG)
+            ),
+            RETENTION_MS_CONFIG: _normalized_int(inputs["Retention"].value),
+        }
+        changes = (self._config_change(name, value) for name, value in values.items())
+        return UpdateTopicCommand(
+            partitions=partitions if partitions > self.topic.partitions_count() else None,
+            configs=tuple(change for change in changes if change is not None),
         )
 
-    def _changed_min_insync_replicas(self, value: str) -> int | None:
-        min_insync_replicas = _optional_int(value)
-        if min_insync_replicas == _optional_int(self.initial_min_insync_replicas):
-            return None
-        return min_insync_replicas
+    def _current_value(self, name: str) -> str:
+        configuration = self.configurations.get(name)
+        return configuration.value if configuration is not None and configuration.value else ""
 
-    def _changed_cleanup_policy(self) -> str | None:
-        selected = self.selected_cleanup_policy()
-        if selected is None or str(selected) == self.initial_cleanup_policy:
-            return None
-        return str(selected)
-
-    def _changed_retention_ms(self, value: str) -> int | None:
-        retention_ms = int(value)
-        return None if retention_ms == _optional_int(self.initial_retention) else retention_ms
+    def _config_change(self, name: str, value: str | None) -> ConfigChange | None:
+        """Return a change, a reset when an overridden value is cleared, or ``None``."""
+        current = self._current_value(name)
+        if value is None:
+            configuration = self.configurations.get(name)
+            overridden = configuration is not None and configuration.overridden
+            return ConfigChange(name, current, None) if overridden else None
+        return None if value == current else ConfigChange(name, current, value)

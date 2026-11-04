@@ -1,5 +1,5 @@
 import asyncio
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from concurrent.futures import Future
 from dataclasses import dataclass, field
 from time import perf_counter
@@ -26,7 +26,7 @@ from confluent_kafka.admin import (
 from confluent_kafka.cimpl import NewPartitions, NewTopic
 
 from kaskade import logger
-from kaskade.commands import CreateTopicCommand
+from kaskade.commands import ConfigChange, CreateTopicCommand
 from kaskade.concurrency import run_blocking
 from kaskade.configs import (
     CLEANUP_POLICY_CONFIG,
@@ -107,14 +107,12 @@ class TopicService:
         )
         _wait_for(futures)
 
-    def get_configs(self, name: str) -> dict[str, str]:
-        return {config.name: cast(str, config.value) for config in self._config_entries(name)}
-
     def describe_configs(self, name: str) -> tuple[TopicConfiguration, ...]:
         configurations = (
             TopicConfiguration(
                 name=config.name,
                 value=cast(str, config.value),
+                overridden=ConfigSource(config.source) is ConfigSource.DYNAMIC_TOPIC_CONFIG,
             )
             for config in self._config_entries(name)
         )
@@ -128,15 +126,18 @@ class TopicService:
         configs = next(iter(futures.values())).result()
         return list(configs.values())
 
-    def edit(self, name: str, config: dict[str, str]) -> None:
+    def edit(self, name: str, changes: Iterable[ConfigChange]) -> None:
+        """Set changed values and delete reset ones, so the cluster default applies."""
         entries = [
             ConfigEntry(
-                name=key,
-                value=value,
+                name=change.name,
+                value=change.value,
                 source=ConfigSource.DYNAMIC_TOPIC_CONFIG,
-                incremental_operation=AlterConfigOpType.SET,
+                incremental_operation=(
+                    AlterConfigOpType.DELETE if change.reset else AlterConfigOpType.SET
+                ),
             )
-            for key, value in config.items()
+            for change in changes
         ]
 
         resource = ConfigResource(ResourceType.TOPIC, name=name, incremental_configs=entries)

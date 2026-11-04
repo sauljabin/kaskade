@@ -1,4 +1,4 @@
-"""Topic filter, delete confirmation, and topic details screens."""
+"""Topic filter, change review, delete confirmation, and topic details screens."""
 
 from typing import ClassVar
 
@@ -9,6 +9,7 @@ from textual.content import Content
 from textual.widgets import DataTable, Footer, Input, TabbedContent, TabPane, Tabs
 
 from kaskade.colors import PRIMARY
+from kaskade.commands import UpdateTopicCommand
 from kaskade.help import HelpableModalScreen, modal_bindings
 from kaskade.models import MetricState, Topic, TopicConfiguration
 from kaskade.ui import copy_text
@@ -16,6 +17,8 @@ from kaskade.unicodes import APPROXIMATION
 from kaskade.widgets import MetadataCell, StretchyDataTable, TruncatedTooltipDataTable
 
 BACK_SHORTCUT = "escape"
+SAVE_SHORTCUT = "ctrl+s,ctrl+shift+s,f2"
+CLUSTER_DEFAULT = "Cluster default"
 COPY_TOPIC_SHORTCUT = "y"
 LOADING_METRIC = "…"
 UNAVAILABLE_METRIC = "—"
@@ -66,6 +69,77 @@ class FilterTopicsScreen(HelpableModalScreen[str]):
 
     def action_close(self) -> None:
         self.dismiss()
+
+
+class ReviewTopicChangesScreen(HelpableModalScreen[bool]):
+    """List an edit's changes, each with its current and new value, before applying it."""
+
+    BINDING_GROUP_TITLE = "Review Changes"
+    AUTO_FOCUS = "#topic-changes"
+    BINDINGS: ClassVar[list[BindingType]] = modal_bindings(
+        Binding(
+            SAVE_SHORTCUT,
+            "apply",
+            "Apply Changes",
+            tooltip="Apply the listed changes to the topic.",
+            id="kaskade.review-topic-changes.apply",
+        ),
+        Binding(
+            BACK_SHORTCUT,
+            "back",
+            "Back",
+            tooltip="Return to the editor without applying the changes.",
+            id="kaskade.review-topic-changes.close",
+        ),
+    )
+
+    def __init__(self, topic: Topic, command: UpdateTopicCommand):
+        super().__init__()
+        self.topic = topic
+        self.command = command
+
+    def compose(self) -> ComposeResult:
+        review = Container(classes="topic-review")
+        review.border_title = rf"[{PRIMARY}]Review Changes[/] \[[{PRIMARY}]{self.topic.name}[/]]"
+        with review:
+            table: TruncatedTooltipDataTable[str] = TruncatedTooltipDataTable(
+                id="topic-changes", classes="details-table"
+            )
+            table.cursor_type = "row"
+            rows = self.change_rows()
+            table.add_column("Setting", width=max(len(row[0]) for row in rows), stretch=3)
+            table.add_column("Change", width=max(len(row[1]) for row in rows), stretch=1)
+            table.add_column("Current", stretch=2)
+            table.add_column("New", width=len(CLUSTER_DEFAULT), stretch=2)
+            for row in rows:
+                table.add_row(*row)
+            yield table
+        yield Footer(compact=True)
+
+    def change_rows(self) -> list[tuple[str, str, str, str]]:
+        """Return each change as its setting, kind, current value, and new value."""
+        rows: list[tuple[str, str, str, str]] = []
+        if self.command.partitions is not None:
+            rows.append(
+                (
+                    "Partitions",
+                    "Increase",
+                    str(self.topic.partitions_count()),
+                    str(self.command.partitions),
+                )
+            )
+        for change in self.command.configs:
+            if change.value is None:
+                rows.append((change.name, "Reset", change.current, CLUSTER_DEFAULT))
+            else:
+                rows.append((change.name, "Set", change.current, change.value))
+        return rows
+
+    def action_apply(self) -> None:
+        self.dismiss(True)
+
+    def action_back(self) -> None:
+        self.dismiss(False)
 
 
 class DeleteTopicScreen(HelpableModalScreen[bool]):

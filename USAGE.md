@@ -22,6 +22,7 @@ share.
 - [Admin](#admin)
   - [Browse and change topics](#browse-and-change-topics)
   - [Topic Details](#topic-details)
+  - [Edit a topic](#edit-a-topic)
   - [Admin auto-refresh](#admin-auto-refresh)
   - [Read-only mode](#read-only-mode)
   - [Admin shortcuts](#admin-shortcuts)
@@ -488,6 +489,18 @@ End is the next offset after the partition's latest record; Committed is the
 group's saved next offset to consume. Lag is their non-negative difference.
 Only partitions with available committed offsets appear in Group Offsets.
 
+### Edit a topic
+
+Edit Topic changes the partition count, retention, cleanup policy, and min
+in-sync replicas. Partitions can only increase. Leave Retention or Min In-Sync
+Replicas empty to remove the topic's value so the cluster default applies.
+
+`Ctrl+S` opens Review Changes, which lists only what changes: a partition
+increase, and each configuration with its current and new value. A removed
+value shows as `Reset` to `Cluster default`. `Ctrl+S` again applies the
+changes; `Esc` returns to the form with your edits, and nothing is applied
+until you confirm. Saving without changes closes the form.
+
 ### Admin auto-refresh
 
 Admin mode refreshes every 30 seconds, pauses outside the topic list, and
@@ -551,6 +564,7 @@ binding ID is the name to use in a [custom keymap](#custom-keymap).
 | Refresh topics | `Ctrl+R` | `kaskade.topics.refresh` |
 | Copy the selected topic name | `y` | `kaskade.topics.copy` |
 | Save Create Topic or Edit Topic | `Ctrl+S`, `Ctrl+Shift+S`, or `F2` | `kaskade.create-topic.save`, `kaskade.edit-topic.save` |
+| Apply reviewed topic changes | `Ctrl+S`, `Ctrl+Shift+S`, or `F2` | `kaskade.review-topic-changes.apply` |
 | Apply the topic filter or confirm a deletion | `Enter` | `kaskade.filter-topics.apply`, `kaskade.delete-topic.confirm` |
 
 ## Consumer
@@ -1334,7 +1348,7 @@ These binding IDs aren't in the shortcut tables:
 | Context | Binding IDs |
 | --- | --- |
 | Navigation | `kaskade.navigation.home`, `.end`, `.page-left`, `.page-right` |
-| Back and cancel | `kaskade.help.close`, `kaskade.describe-topic.close`, `kaskade.filter-topics.close`, `kaskade.create-topic.close`, `kaskade.edit-topic.close`, `kaskade.delete-topic.cancel`, `kaskade.record-details.close`, `kaskade.filter-records.close`, `kaskade.chunk-size.close` |
+| Back and cancel | `kaskade.help.close`, `kaskade.describe-topic.close`, `kaskade.filter-topics.close`, `kaskade.create-topic.close`, `kaskade.edit-topic.close`, `kaskade.review-topic-changes.close`, `kaskade.delete-topic.cancel`, `kaskade.record-details.close`, `kaskade.filter-records.close`, `kaskade.chunk-size.close` |
 
 Unknown binding IDs, invalid key names, and malformed configuration produce an
 in-app warning while Kaskade continues with its default bindings.

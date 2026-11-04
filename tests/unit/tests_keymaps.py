@@ -14,6 +14,7 @@ from kaskade.admin import (
     FilterTopicsScreen,
     KaskadeAdmin,
     ListTopics,
+    ReviewTopicChangesScreen,
 )
 from kaskade.app import KaskadeApp
 from kaskade.consumer import (
@@ -55,6 +56,7 @@ class TestSettingsConfiguration(unittest.TestCase):
             DeleteTopicScreen,
             DescribeTopicScreen,
             EditTopicScreen,
+            ReviewTopicChangesScreen,
             CreateTopicScreen,
             ListTopics,
             FilterRecordScreen,

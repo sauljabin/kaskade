@@ -10,7 +10,9 @@ from confluent_kafka import (
     Node,
 )
 from confluent_kafka.admin import (
+    AlterConfigOpType,
     ConfigEntry,
+    ConfigSource,
     ConsumerGroupDescription,
     ConsumerGroupListing,
     ListConsumerGroupsResult,
@@ -22,10 +24,12 @@ from confluent_kafka.admin import (
 )
 from confluent_kafka.cimpl import CONSUMER_GROUP_STATE_STABLE, TopicPartition
 
-from kaskade.commands import CreateTopicCommand
+from kaskade.commands import ConfigChange, CreateTopicCommand
+from kaskade.configs import MIN_INSYNC_REPLICAS_CONFIG, RETENTION_MS_CONFIG
 from kaskade.models import (
     MetricState,
     Topic,
+    TopicConfiguration,
 )
 from kaskade.timeouts import TimeoutConfig
 from kaskade.topic_service import TopicService
@@ -133,6 +137,33 @@ class TestTopicService(unittest.IsolatedAsyncioTestCase):
         self.assertEqual({"cleanup.policy": "delete", "retention.ms": "1000"}, new_topic.config)
 
     @patch("kaskade.topic_service.AdminClient")
+    def test_edit_sets_changed_values_and_deletes_reset_ones(
+        self, mock_class_admin: MagicMock
+    ) -> None:
+        admin = mock_class_admin.return_value
+        admin.incremental_alter_configs.return_value = {"orders": completed(None)}
+
+        TopicService({"bootstrap.servers": "localhost:9092"}).edit(
+            "orders",
+            (
+                ConfigChange(RETENTION_MS_CONFIG, "1000", "2000"),
+                ConfigChange(MIN_INSYNC_REPLICAS_CONFIG, "2", None),
+            ),
+        )
+
+        (resource,) = admin.incremental_alter_configs.call_args.args[0]
+        self.assertEqual(
+            [
+                (RETENTION_MS_CONFIG, "2000", AlterConfigOpType.SET),
+                (MIN_INSYNC_REPLICAS_CONFIG, None, AlterConfigOpType.DELETE),
+            ],
+            [
+                (entry.name, entry.value, entry.incremental_operation)
+                for entry in resource.incremental_configs
+            ],
+        )
+
+    @patch("kaskade.topic_service.AdminClient")
     async def test_describes_effective_topic_configurations(
         self, mock_class_admin: MagicMock
     ) -> None:
@@ -142,6 +173,12 @@ class TestTopicService(unittest.IsolatedAsyncioTestCase):
                 "visible.setting",
                 "visible",
             ),
+            "overridden.setting": ConfigEntry(
+                "overridden.setting",
+                "set",
+                # librdkafka reports the source as its integer value.
+                source=ConfigSource.DYNAMIC_TOPIC_CONFIG.value,
+            ),
         }
         admin.describe_configs.return_value = {"orders": completed(entries)}
 
@@ -150,10 +187,11 @@ class TestTopicService(unittest.IsolatedAsyncioTestCase):
         )
 
         self.assertEqual(
-            {
-                "visible.setting": "visible",
-            },
-            {configuration.name: configuration.value for configuration in configurations},
+            (
+                TopicConfiguration("visible.setting", "visible"),
+                TopicConfiguration("overridden.setting", "set", overridden=True),
+            ),
+            configurations,
         )
 
     @patch("kaskade.topic_service.Consumer", create=True)

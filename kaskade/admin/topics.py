@@ -29,11 +29,6 @@ from kaskade.admin.screens import (
 from kaskade.colors import PRIMARY
 from kaskade.commands import CreateTopicCommand, UpdateTopicCommand
 from kaskade.concurrency import run_blocking
-from kaskade.configs import (
-    CLEANUP_POLICY_CONFIG,
-    MIN_INSYNC_REPLICAS_CONFIG,
-    RETENTION_MS_CONFIG,
-)
 from kaskade.models import MetricState, Topic
 from kaskade.refresh import RefreshCoordinator, RefreshReason
 from kaskade.topic_service import ADMIN_EXCEPTIONS, TopicService
@@ -65,18 +60,6 @@ TOPIC_COLUMN_KEYS = (
 )
 MUTATING_ACTIONS = frozenset({"new", "edit", "delete"})
 """Topic list actions that change the cluster, which read-only mode refuses."""
-
-
-def changed_topic_config(command: UpdateTopicCommand) -> dict[str, str]:
-    """Return the Kafka topic configuration entries an update changes."""
-    changed_config: dict[str, str] = {}
-    if command.min_insync_replicas is not None:
-        changed_config[MIN_INSYNC_REPLICAS_CONFIG] = str(command.min_insync_replicas)
-    if command.cleanup_policy is not None:
-        changed_config[CLEANUP_POLICY_CONFIG] = command.cleanup_policy
-    if command.retention_ms is not None:
-        changed_config[RETENTION_MS_CONFIG] = str(command.retention_ms)
-    return changed_config
 
 
 class TopicDataTable(TruncatedTooltipDataTable[str]):
@@ -370,8 +353,8 @@ class ListTopics(Container):
             return
 
         topic = self.current_topic
-        topic_configs = await self._load_topic_details(self.topic_service.get_configs, topic)
-        if topic_configs is None:
+        configurations = await self._load_topic_details(self.topic_service.describe_configs, topic)
+        if configurations is None:
             return
 
         def on_dismiss(result: UpdateTopicCommand | None) -> None:
@@ -380,13 +363,13 @@ class ListTopics(Container):
             self.refresh_coordinator.begin_mutation()
             self.update_topic(topic, result)
 
-        self.app.push_screen(EditTopicScreen(topic, topic_configs), on_dismiss)
+        self.app.push_screen(EditTopicScreen(topic, configurations), on_dismiss)
 
     @work(exclusive=True, group="topic-mutation")
     async def update_topic(self, topic: Topic, command: UpdateTopicCommand) -> None:
         """Update a topic without blocking Textual's message loop."""
         async with self._mutation(KafkaException, ValueError) as mutation:
-            if command.partitions > topic.partitions_count():
+            if command.partitions is not None:
                 await run_blocking(
                     self.topic_service.add_partitions,
                     topic.name,
@@ -395,15 +378,11 @@ class ListTopics(Container):
                 mutation.changed = True
                 mutation.error_title = "Topic Partially Updated"
 
-            changed_config = changed_topic_config(command)
-            if changed_config:
-                await run_blocking(self.topic_service.edit, topic.name, changed_config)
+            if command.configs:
+                await run_blocking(self.topic_service.edit, topic.name, command.configs)
                 mutation.changed = True
 
-            if mutation.changed:
-                self._notify_info("Topic Updated", f"Updated topic '{topic.name}'")
-            else:
-                self._notify_info("No Changes", f"No changes to topic '{topic.name}'")
+            self._notify_info("Topic Updated", f"Updated topic '{topic.name}'")
 
     def action_delete(self) -> None:
         if self.current_topic is None:

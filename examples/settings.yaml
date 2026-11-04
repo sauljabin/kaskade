@@ -97,6 +97,8 @@ keymap:
   kaskade.describe-topic.close: escape
   kaskade.edit-topic.close: escape
   kaskade.edit-topic.save: ctrl+s,ctrl+shift+s,f2
+  kaskade.review-topic-changes.apply: ctrl+s,ctrl+shift+s,f2
+  kaskade.review-topic-changes.close: escape
   kaskade.create-topic.close: escape
   kaskade.create-topic.save: ctrl+s,ctrl+shift+s,f2
   kaskade.filter-records.apply: enter
