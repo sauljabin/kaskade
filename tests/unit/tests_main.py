@@ -2420,7 +2420,6 @@ class TestProducerCli(unittest.TestCase):
             "--acks",
             "all",
             "--idempotence",
-            "true",
             "-b",
             EXPECTED_SERVER,
             "-k",
@@ -2449,7 +2448,7 @@ class TestProducerCli(unittest.TestCase):
 
     def test_dedicated_options_map_to_kafka_properties(self):
         result = self.invoke(
-            "-b", EXPECTED_SERVER, "--acks", "-1", "--compression", "zstd", "--idempotence", "false"
+            "-b", EXPECTED_SERVER, "--acks", "-1", "--compression", "zstd", "--idempotence"
         )
 
         self.assertEqual(0, result.exit_code, result.output)
@@ -2458,17 +2457,29 @@ class TestProducerCli(unittest.TestCase):
                 BOOTSTRAP_SERVERS: EXPECTED_SERVER,
                 "acks": "-1",
                 "compression.type": "zstd",
-                "enable.idempotence": "false",
+                "enable.idempotence": "true",
             },
             self.producer_settings().kafka_config,
         )
+
+    def test_kafka_property_turns_off_configured_idempotence(self):
+        config_path = write_config_ini(
+            self.temp_directory.name,
+            kafka={BOOTSTRAP_SERVERS: CONFIGURED_SERVER, "enable.idempotence": "true"},
+        )
+
+        result = self.invoke("--config-file", config_path, "--kafka", "enable.idempotence=false")
+
+        self.assertEqual(0, result.exit_code, result.output)
+        self.assertEqual("false", self.producer_settings().kafka_config["enable.idempotence"])
 
     def test_help_lists_only_producer_timeouts(self):
         result = self.runner.invoke(cli, ["producer", "--help"], terminal_width=200)
 
         self.assertEqual(0, result.exit_code)
         self.assertIn("Properties: producer.delivery, producer.flush.", result.output)
-        self.assertIn("--idempotence [true|false]", result.output)
+        self.assertIn("--idempotence ", result.output)
+        self.assertNotIn("--idempotence [", result.output)
 
     def test_producer_timeouts_come_from_settings_and_the_option(self):
         settings_path = Path(self.temp_directory.name) / "settings.yaml"
@@ -2630,7 +2641,7 @@ class TestProducerCli(unittest.TestCase):
             )
         )
 
-        result = self.invoke("-b", EXPECTED_SERVER, "--idempotence", "true", "--acks", "1")
+        result = self.invoke("-b", EXPECTED_SERVER, "--idempotence", "--acks", "1")
 
         self.assertEqual(1, result.exit_code)
         self.assertIn(

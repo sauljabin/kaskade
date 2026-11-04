@@ -239,7 +239,7 @@ kaskade producer -b localhost:9092 -t qa-registered -v registry \
 Failures:
 
 ```bash
-kaskade producer -b localhost:9092 -t qa-producer --idempotence true --acks 1
+kaskade producer -b localhost:9092 -t qa-producer --idempotence --acks 1
 kaskade producer -b localhost:9092 -t qa-producer --partition 99
 kaskade producer -b localhost:9092 -t qa-missing --kafka allow.auto.create.topics=false
 kaskade producer -b localhost:9092 -t qa-producer --kafka message.max.bytes=1000
