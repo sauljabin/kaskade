@@ -1,5 +1,8 @@
-"""Topic filter, change review, delete confirmation, and topic details screens."""
+"""Topic filter, review, delete confirmation, and topic details screens."""
 
+from collections.abc import Callable
+from dataclasses import dataclass
+from enum import Enum, auto
 from typing import ClassVar
 
 from textual.app import ComposeResult
@@ -10,6 +13,7 @@ from textual.widgets import DataTable, Footer, Input, TabbedContent, TabPane, Ta
 
 from kaskade.colors import PRIMARY
 from kaskade.commands import UpdateTopicCommand
+from kaskade.group_service import OffsetResetPlan
 from kaskade.help import HelpableModalScreen, modal_bindings
 from kaskade.models import MetricState, Topic, TopicConfiguration
 from kaskade.ui import copy_text
@@ -20,6 +24,10 @@ BACK_SHORTCUT = "escape"
 SAVE_SHORTCUT = "ctrl+s,ctrl+shift+s,f2"
 CLUSTER_DEFAULT = "Cluster default"
 COPY_TOPIC_SHORTCUT = "y"
+RESET_OFFSETS_SHORTCUT = "r"
+DELETE_GROUP_SHORTCUT = "ctrl+d"
+GROUP_ACTIONS = frozenset({"reset_offsets", "delete_group"})
+"""Topic Details actions that change a consumer group."""
 LOADING_METRIC = "…"
 UNAVAILABLE_METRIC = "—"
 
@@ -142,9 +150,55 @@ class ReviewTopicChangesScreen(HelpableModalScreen[bool]):
         self.dismiss(False)
 
 
-class DeleteTopicScreen(HelpableModalScreen[bool]):
+class ConfirmDeletionScreen(HelpableModalScreen[bool]):
+    """Confirm a deletion by typing the exact name of what it deletes."""
+
+    INPUT_ID: ClassVar[str]
+    NOUN: ClassVar[str]
+    WARNING: ClassVar[str] = ""
+
+    def __init__(self, name: str):
+        super().__init__()
+        self.name_to_confirm = name
+
+    def compose(self) -> ComposeResult:
+        confirmation = Input(
+            id=self.INPUT_ID,
+            placeholder=f"Type the {self.NOUN} to confirm",
+            classes="kaskade-input",
+        )
+        confirmation.border_title = (
+            rf"[{PRIMARY}]{self.BINDING_GROUP_TITLE}[/] \[[{PRIMARY}]{self.name_to_confirm}[/]]"
+        )
+        confirmation.border_subtitle = self.WARNING
+        yield confirmation
+        yield Footer(compact=True)
+
+    def on_input_submitted(self, event: Input.Submitted) -> None:
+        self._delete_if_confirmed(event.value)
+
+    def action_delete(self) -> None:
+        self._delete_if_confirmed(self.query_one(f"#{self.INPUT_ID}", Input).value)
+
+    def _delete_if_confirmed(self, confirmation: str) -> None:
+        if self.name_to_confirm == confirmation:
+            self.dismiss(True)
+        else:
+            self.notify(
+                f"Type the {self.NOUN} exactly to confirm deletion",
+                title="Confirmation Required",
+                severity="warning",
+            )
+
+    def action_cancel(self) -> None:
+        self.dismiss(False)
+
+
+class DeleteTopicScreen(ConfirmDeletionScreen):
     BINDING_GROUP_TITLE = "Delete Topic"
     AUTO_FOCUS = "#topic-confirmation"
+    INPUT_ID = "topic-confirmation"
+    NOUN = "topic name"
     BINDINGS: ClassVar[list[BindingType]] = modal_bindings(
         Binding(
             "enter",
@@ -164,37 +218,108 @@ class DeleteTopicScreen(HelpableModalScreen[bool]):
     )
 
     def __init__(self, topic: Topic):
-        super().__init__()
+        super().__init__(topic.name)
         self.topic = topic
 
+
+class DeleteGroupScreen(ConfirmDeletionScreen):
+    BINDING_GROUP_TITLE = "Delete Group"
+    AUTO_FOCUS = "#group-confirmation"
+    INPUT_ID = "group-confirmation"
+    NOUN = "group ID"
+    WARNING = "Deletes its offsets for every topic"
+    BINDINGS: ClassVar[list[BindingType]] = modal_bindings(
+        Binding(
+            "enter",
+            "delete",
+            "Delete Group",
+            priority=True,
+            tooltip="Delete the consumer group after its ID has been confirmed.",
+            id="kaskade.delete-group.confirm",
+        ),
+        Binding(
+            BACK_SHORTCUT,
+            "cancel",
+            "Cancel",
+            tooltip="Keep the consumer group and close this confirmation.",
+            id="kaskade.delete-group.cancel",
+        ),
+    )
+
+
+class ReviewOffsetResetScreen(HelpableModalScreen[bool]):
+    """List each partition's current and new committed offset before resetting them."""
+
+    BINDING_GROUP_TITLE = "Review Reset"
+    AUTO_FOCUS = "#offset-resets"
+    BINDINGS: ClassVar[list[BindingType]] = modal_bindings(
+        Binding(
+            SAVE_SHORTCUT,
+            "apply",
+            "Apply Reset",
+            tooltip="Commit the listed offsets for the consumer group.",
+            id="kaskade.review-offset-reset.apply",
+        ),
+        Binding(
+            BACK_SHORTCUT,
+            "back",
+            "Back",
+            tooltip="Return to the reset form without committing offsets.",
+            id="kaskade.review-offset-reset.close",
+        ),
+    )
+
+    def __init__(self, plan: OffsetResetPlan):
+        super().__init__()
+        self.plan = plan
+
     def compose(self) -> ComposeResult:
-        label = Input(
-            id="topic-confirmation",
-            placeholder="Type the topic name to confirm",
-            classes="kaskade-input",
-        )
-        label.border_title = rf"[{PRIMARY}]Delete Topic[/] \[[{PRIMARY}]{self.topic}[/]]"
-        yield label
+        review = Container(classes="topic-review")
+        review.border_title = rf"[{PRIMARY}]Review Reset[/] \[[{PRIMARY}]{self.plan.group}[/]]"
+        review.border_subtitle = f"Topic {self.plan.topic}"
+        with review:
+            table: TruncatedTooltipDataTable[str] = TruncatedTooltipDataTable(
+                id="offset-resets", classes="details-table"
+            )
+            table.cursor_type = "row"
+            table.add_column("Partition", stretch=1)
+            table.add_column("Current", stretch=2)
+            table.add_column("New", stretch=2)
+            for reset in self.plan.resets:
+                table.add_row(
+                    str(reset.partition),
+                    UNAVAILABLE_METRIC if reset.current is None else str(reset.current),
+                    str(reset.new),
+                )
+            yield table
         yield Footer(compact=True)
 
-    def on_input_submitted(self, event: Input.Submitted) -> None:
-        self._delete_if_confirmed(event.value)
+    def action_apply(self) -> None:
+        self.dismiss(True)
 
-    def action_delete(self) -> None:
-        self._delete_if_confirmed(self.query_one("#topic-confirmation", Input).value)
-
-    def _delete_if_confirmed(self, confirmation: str) -> None:
-        if self.topic.name == confirmation:
-            self.dismiss(True)
-        else:
-            self.notify(
-                "Type the topic name exactly to confirm deletion",
-                title="Confirmation Required",
-                severity="warning",
-            )
-
-    def action_cancel(self) -> None:
+    def action_back(self) -> None:
         self.dismiss(False)
+
+
+class GroupActionKind(Enum):
+    RESET_OFFSETS = auto()
+    DELETE = auto()
+
+
+@dataclass(frozen=True)
+class GroupAction:
+    """A consumer group action chosen in Topic Details, with the selected partition."""
+
+    kind: GroupActionKind
+    group: str
+    partition: int | None = None
+
+
+GroupActionHandler = Callable[[Topic, GroupAction], None]
+"""Runs a group action chosen in Topic Details above it."""
+
+GROUP_TABS = frozenset({"groups", "group-offsets"})
+"""Topic Details tabs whose selected row names a consumer group."""
 
 
 class DescribeTopicScreen(HelpableModalScreen):
@@ -206,6 +331,20 @@ class DescribeTopicScreen(HelpableModalScreen):
         (80, "-wide"),
     ]
     BINDINGS: ClassVar[list[BindingType]] = modal_bindings(
+        Binding(
+            RESET_OFFSETS_SHORTCUT,
+            "reset_offsets",
+            "Reset Offsets",
+            tooltip="Reset the selected consumer group's committed offsets for this topic.",
+            id="kaskade.describe-topic.reset-offsets",
+        ),
+        Binding(
+            DELETE_GROUP_SHORTCUT,
+            "delete_group",
+            "Delete Group",
+            tooltip="Delete the selected consumer group and its offsets for every topic.",
+            id="kaskade.describe-topic.delete-group",
+        ),
         Binding(
             COPY_TOPIC_SHORTCUT,
             "copy_topic",
@@ -243,10 +382,15 @@ class DescribeTopicScreen(HelpableModalScreen):
         self,
         topic: Topic,
         configurations: tuple[TopicConfiguration, ...],
+        *,
+        group_actions: GroupActionHandler | None = None,
     ):
+        """Show a topic; group actions are offered only with a handler to run them."""
         super().__init__()
         self.topic = topic
         self.configurations = configurations
+        self.group_actions = group_actions
+        self.initial_tab = "partitions"
 
     def compose(self) -> ComposeResult:
         details = Container(classes="topic-details")
@@ -260,7 +404,7 @@ class DescribeTopicScreen(HelpableModalScreen):
                         id=metadata_id,
                         classes="topic-metadata-cell",
                     )
-            with TabbedContent(initial="partitions", id="topic-details-tabs"):
+            with TabbedContent(initial=self.initial_tab, id="topic-details-tabs"):
                 with TabPane(
                     Content(f"Partitions [{self.topic.partitions_count()}]"),
                     id="partitions",
@@ -418,6 +562,56 @@ class DescribeTopicScreen(HelpableModalScreen):
 
     def action_close(self) -> None:
         self.dismiss()
+
+    def on_tabbed_content_tab_activated(self, _event: TabbedContent.TabActivated) -> None:
+        self.refresh_bindings()
+
+    def check_action(self, action: str, parameters: tuple[object, ...]) -> bool | None:
+        """Offer group actions only on a group tab with a selected group."""
+        if action in GROUP_ACTIONS:
+            return self.group_actions is not None and self.selected_group() is not None
+        return True
+
+    def selected_group(self) -> tuple[str, int | None] | None:
+        """Return the selected group and, on Group Offsets, its partition."""
+        active = self.query_one(TabbedContent).active
+        if active not in GROUP_TABS:
+            return None
+        table = self.query_one(f"#{active}-table", DataTable)
+        if table.row_count == 0:
+            return None
+        if active == "groups":
+            return self.topic.groups[table.cursor_row].id, None
+        group, partition = self._group_offset_rows()[table.cursor_row]
+        return group, partition
+
+    def _group_offset_rows(self) -> list[tuple[str, int]]:
+        return [
+            (group.id, partition.id)
+            for group in self.topic.groups
+            for partition in group.partitions
+        ]
+
+    def action_reset_offsets(self) -> None:
+        self._start_group_action(GroupActionKind.RESET_OFFSETS)
+
+    def action_delete_group(self) -> None:
+        self._start_group_action(GroupActionKind.DELETE)
+
+    def _start_group_action(self, kind: GroupActionKind) -> None:
+        selected = self.selected_group()
+        if self.group_actions is not None and selected is not None:
+            group, partition = selected
+            self.group_actions(self.topic, GroupAction(kind, group, partition))
+
+    async def show_topic(self, topic: Topic) -> None:
+        """Show refreshed metrics for the topic, keeping the active tab."""
+        self.initial_tab = self.query_one(TabbedContent).active or self.initial_tab
+        self.topic = topic
+        await self.recompose()
+        if self.is_current:
+            self.query_one(Tabs).focus()
+        self.refresh_bindings()
 
     def action_copy_topic(self) -> None:
         if self.query_one(TabbedContent).active == "configurations":

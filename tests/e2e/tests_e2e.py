@@ -34,7 +34,7 @@ from textual.widgets import Checkbox, DataTable, TextArea
 
 from kaskade.admin import KaskadeAdmin
 from kaskade.apicurio import ApicurioConfig
-from kaskade.commands import ConfigChange
+from kaskade.commands import ConfigChange, OffsetTarget, ResetOffsetsCommand
 from kaskade.configs import (
     APICURIO,
     APICURIO_OPTION,
@@ -46,6 +46,7 @@ from kaskade.configs import (
 from kaskade.consumer import KaskadeConsumer, ListRecords
 from kaskade.consumer_service import ConsumerSettings
 from kaskade.deserializers import Deserialization
+from kaskade.group_service import GroupNotEmptyError, OffsetReset, OffsetResetOutcome
 from kaskade.models import PartitionOffset, PartitionSelection, TopicConfiguration
 from kaskade.producer import KaskadeProducer, RecordComposer, RecordDraft
 from kaskade.producer.source import DraftField
@@ -56,6 +57,7 @@ from kaskade.topic_service import TopicService
 MY_VALUE = "my-value"
 MY_KEY = "my-key"
 MY_TOPIC = "my-topic"
+VERIFY_GROUP = "kaskade-e2e-verify"
 
 
 def sandbox_version(name: str) -> str:
@@ -249,7 +251,7 @@ def populate_topic(config):
 
 
 def consume_all(config, topic: str, expected: int) -> list:
-    consumer = Consumer(config | {"group.id": "kaskade-e2e-verify", AUTO_OFFSET_RESET: EARLIEST})
+    consumer = Consumer(config | {"group.id": VERIFY_GROUP, AUTO_OFFSET_RESET: EARLIEST})
     consumer.subscribe([topic])
     messages = []
     try:
@@ -328,6 +330,38 @@ class TestE2E(unittest.IsolatedAsyncioTestCase):
                 await self.wait_for_rows(table, 1)
 
                 self.assertEqual(MY_TOPIC, table.get_row(MY_TOPIC)[0])
+
+    async def test_group_offsets_reset_and_group_deletion(self):
+        with kafka_container() as kafka:
+            config = {BOOTSTRAP_SERVERS: kafka.get_bootstrap_server()}
+            create_topic(config)
+            populate_topic(config)
+            consume_all(config, MY_TOPIC, 1)
+            groups = TopicService(config).groups
+            command = ResetOffsetsCommand(VERIFY_GROUP, MY_TOPIC, (0,), OffsetTarget.EARLIEST)
+
+            plan = groups.plan_reset(command)
+            self.assertEqual((OffsetReset(0, 1, 0),), plan.resets)
+            self.assertEqual((OffsetResetOutcome(0, 0),), groups.apply_reset(plan))
+            self.assertEqual((OffsetReset(0, 0, 0),), groups.plan_reset(command).resets)
+
+            member = Consumer(config | {"group.id": VERIFY_GROUP})
+            member.subscribe([MY_TOPIC])
+            try:
+                for _ in range(60):
+                    member.poll(0.5)
+                    if member.assignment():
+                        break
+                with self.assertRaises(GroupNotEmptyError):
+                    groups.plan_reset(command)
+                with self.assertRaises(GroupNotEmptyError):
+                    groups.delete(VERIFY_GROUP)
+            finally:
+                member.close()
+
+            groups.delete(VERIFY_GROUP)
+            listed = groups.admin_client.list_consumer_groups().result().valid
+            self.assertNotIn(VERIFY_GROUP, [group.group_id for group in listed])
 
     async def test_topic_edit_sets_and_resets_configurations(self):
         with kafka_container() as kafka:

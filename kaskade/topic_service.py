@@ -33,6 +33,7 @@ from kaskade.configs import (
     MIN_INSYNC_REPLICAS_CONFIG,
     RETENTION_MS_CONFIG,
 )
+from kaskade.group_service import GroupService
 from kaskade.models import (
     Group,
     GroupMember,
@@ -87,6 +88,7 @@ class TopicService:
         self.timeouts = timeouts or TimeoutConfig()
         self.config = config.copy()
         self.admin_client = AdminClient(self.config, logger=logger)
+        self.groups = GroupService(self.admin_client, timeouts=self.timeouts)
 
     def create(self, command: CreateTopicCommand) -> None:
         topic_config = {

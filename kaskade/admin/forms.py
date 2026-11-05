@@ -1,6 +1,7 @@
-"""The shared topic form behind the create and edit topic screens."""
+"""The topic create and edit forms and the consumer group offset reset form."""
 
-from collections.abc import Iterable, Iterator, Mapping
+from collections.abc import Awaitable, Callable, Iterable, Iterator, Mapping
+from datetime import datetime
 from typing import ClassVar, TypeVar
 
 from textual.app import ComposeResult
@@ -14,18 +15,27 @@ from kaskade.admin.screens import (
     BACK_SHORTCUT,
     CLUSTER_DEFAULT,
     SAVE_SHORTCUT,
+    ReviewOffsetResetScreen,
     ReviewTopicChangesScreen,
 )
 from kaskade.colors import PRIMARY
-from kaskade.commands import ConfigChange, CreateTopicCommand, UpdateTopicCommand
+from kaskade.commands import (
+    ConfigChange,
+    CreateTopicCommand,
+    OffsetTarget,
+    ResetOffsetsCommand,
+    UpdateTopicCommand,
+)
 from kaskade.configs import (
     CLEANUP_POLICY_CONFIG,
     MILLISECONDS_1W,
     MIN_INSYNC_REPLICAS_CONFIG,
     RETENTION_MS_CONFIG,
 )
+from kaskade.group_service import OffsetResetPlan
 from kaskade.help import HelpableModalScreen, modal_bindings
 from kaskade.models import CleanupPolicy, Topic, TopicConfiguration
+from kaskade.widgets import stop_loading
 
 ADVANCED_ID = "advanced-topic-config"
 FIELD_LABELS = {
@@ -398,3 +408,180 @@ class EditTopicScreen(TopicFormScreen[UpdateTopicCommand]):
             overridden = configuration is not None and configuration.overridden
             return ConfigChange(name, current, None) if overridden else None
         return None if value == current else ConfigChange(name, current, value)
+
+
+PARTITIONS_FAILURE = (
+    "Partitions: enter distinct partition IDs separated by commas, or leave empty for all"
+)
+OffsetResetPlanner = Callable[[ResetOffsetsCommand], Awaitable[OffsetResetPlan | None]]
+"""Compute a reset's offsets, or report why it can't and return ``None``."""
+VALUE_PLACEHOLDERS = {
+    OffsetTarget.TIMESTAMP: "2026-01-31T09:30:00 or epoch ms",
+    OffsetTarget.OFFSET: "Offset to commit",
+}
+
+
+def parse_timestamp(value: str) -> int | None:
+    """Return epoch milliseconds from digits or an ISO 8601 time, local when naive."""
+    if value.isdigit():
+        return int(value)
+    try:
+        moment = datetime.fromisoformat(value)
+    except ValueError:
+        return None
+    return int(moment.astimezone().timestamp() * 1000)
+
+
+def partitions_placeholder(count: int) -> str:
+    """Describe the Partitions input with the topic's own ID range."""
+    if count == 1:
+        return "Empty for all, or 0"
+    return f"Empty for all, or comma-separated IDs from 0 to {count - 1}"
+
+
+def parse_partitions(value: str, count: int) -> tuple[int, ...] | None:
+    """Return comma-separated partition IDs, every partition when empty, or ``None``."""
+    if not value.strip():
+        return tuple(range(count))
+    items = [item.strip() for item in value.split(",")]
+    if not all(item.isdigit() for item in items):
+        return None
+    partitions = tuple(int(item) for item in items)
+    if len(set(partitions)) != len(partitions) or any(item >= count for item in partitions):
+        return None
+    return partitions
+
+
+def target_value(target: OffsetTarget, value: str) -> tuple[int, str | None]:
+    """Return the timestamp or offset a target needs, or why the value is invalid."""
+    if target is OffsetTarget.TIMESTAMP:
+        timestamp = parse_timestamp(value)
+        if timestamp is None:
+            return 0, "Timestamp: enter an ISO 8601 time or epoch milliseconds"
+        return timestamp, None
+    if target is OffsetTarget.OFFSET:
+        if not value.isdigit():
+            return 0, "Offset: enter a non-negative integer"
+        return int(value), None
+    return 0, None
+
+
+class OffsetTargetButton(RadioButton):
+    """A radio button that carries the offset target it selects."""
+
+    def __init__(self, target: OffsetTarget, *, value: bool) -> None:
+        super().__init__(target.value, value=value)
+        self.target = target
+
+
+class ResetOffsetsScreen(HelpableModalScreen[OffsetResetPlan]):
+    """Choose a reset target and partitions, then review the offsets before applying them."""
+
+    BINDING_GROUP_TITLE = "Reset Offsets"
+    AUTO_FOCUS = "#reset-target"
+    BINDINGS: ClassVar[list[BindingType]] = modal_bindings(
+        Binding(
+            SAVE_SHORTCUT,
+            "preview",
+            "Review Reset",
+            tooltip="Compute each partition's new offset and review it before applying.",
+            id="kaskade.reset-offsets.review",
+        ),
+        Binding(
+            BACK_SHORTCUT,
+            "back",
+            "Back",
+            tooltip="Close the form without resetting offsets.",
+            id="kaskade.reset-offsets.close",
+        ),
+    )
+
+    def __init__(
+        self,
+        topic: Topic,
+        group: str,
+        planner: OffsetResetPlanner,
+        *,
+        partition: int | None = None,
+    ) -> None:
+        super().__init__()
+        self.topic = topic
+        self.group = group
+        self.planner = planner
+        self.initial_partitions = "" if partition is None else str(partition)
+
+    def compose(self) -> ComposeResult:
+        container = Container(classes="topic-form", id="reset-offsets-form")
+        container.border_title = rf"[{PRIMARY}]Reset Offsets[/] \[[{PRIMARY}]{self.group}[/]]"
+        container.border_subtitle = f"Topic {self.topic.name}"
+        with container:
+            with RadioSet(id="reset-target", classes="kaskade-radio") as radio_set:
+                radio_set.border_title = "Target"
+                for target in OffsetTarget:
+                    yield OffsetTargetButton(target, value=target is OffsetTarget.EARLIEST)
+            value = Input(id="reset-value", disabled=True, classes="kaskade-input")
+            value.border_title = "Value"
+            yield value
+            partitions = Input(
+                id="reset-partitions",
+                value=self.initial_partitions,
+                placeholder=partitions_placeholder(self.topic.partitions_count()),
+                classes="kaskade-input",
+            )
+            partitions.border_title = "Partitions"
+            yield partitions
+        yield Footer(compact=True)
+
+    def selected_target(self) -> OffsetTarget:
+        pressed = self.query_one("#reset-target", RadioSet).pressed_button
+        return pressed.target if isinstance(pressed, OffsetTargetButton) else OffsetTarget.EARLIEST
+
+    def on_radio_set_changed(self, _event: RadioSet.Changed) -> None:
+        target = self.selected_target()
+        value = self.query_one("#reset-value", Input)
+        value.disabled = target not in VALUE_PLACEHOLDERS
+        value.placeholder = VALUE_PLACEHOLDERS.get(target, "")
+        value.border_title = target.value if target in VALUE_PLACEHOLDERS else "Value"
+
+    def reset_command(self) -> ResetOffsetsCommand | None:
+        """Return the command, or focus and report the first invalid input."""
+        target = self.selected_target()
+        value_input = self.query_one("#reset-value", Input)
+        value, failure = target_value(target, value_input.value.strip())
+        if failure is not None:
+            self._invalid(value_input, failure)
+            return None
+        partitions_input = self.query_one("#reset-partitions", Input)
+        partitions = parse_partitions(partitions_input.value, self.topic.partitions_count())
+        if partitions is None:
+            self._invalid(partitions_input, PARTITIONS_FAILURE)
+            return None
+        return ResetOffsetsCommand(self.group, self.topic.name, partitions, target, value)
+
+    def _invalid(self, input_widget: Input, message: str) -> None:
+        input_widget.focus()
+        self.notify(message, title="Invalid Reset", severity="warning")
+
+    def action_preview(self) -> None:
+        command = self.reset_command()
+        if command is not None:
+            self.run_worker(self._review(command), exclusive=True, group="offset-reset-plan")
+
+    async def _review(self, command: ResetOffsetsCommand) -> None:
+        form = self.query_one("#reset-offsets-form", Container)
+        form.loading = True
+        try:
+            plan = await self.planner(command)
+        finally:
+            stop_loading(form)
+        if plan is None:
+            return
+
+        def on_review(apply: bool | None) -> None:
+            if apply:
+                self.dismiss(plan)
+
+        self.app.push_screen(ReviewOffsetResetScreen(plan), on_review)
+
+    def action_back(self) -> None:
+        self.dismiss()

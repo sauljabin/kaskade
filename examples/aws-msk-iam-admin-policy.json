@@ -8,7 +8,7 @@
       "Resource": "arn:aws:kafka:<region>:<account-id>:cluster/<cluster-name>/<cluster-uuid>"
     },
     {
-      "Sid": "ManageTopics",
+      "Sid": "ManageAndReadTopics",
       "Effect": "Allow",
       "Action": [
         "kafka-cluster:CreateTopic",
@@ -16,14 +16,19 @@
         "kafka-cluster:AlterTopic",
         "kafka-cluster:DeleteTopic",
         "kafka-cluster:DescribeTopicDynamicConfiguration",
-        "kafka-cluster:AlterTopicDynamicConfiguration"
+        "kafka-cluster:AlterTopicDynamicConfiguration",
+        "kafka-cluster:ReadData"
       ],
       "Resource": "arn:aws:kafka:<region>:<account-id>:topic/<cluster-name>/<cluster-uuid>/*"
     },
     {
-      "Sid": "InspectConsumerGroups",
+      "Sid": "ManageConsumerGroups",
       "Effect": "Allow",
-      "Action": "kafka-cluster:DescribeGroup",
+      "Action": [
+        "kafka-cluster:DescribeGroup",
+        "kafka-cluster:AlterGroup",
+        "kafka-cluster:DeleteGroup"
+      ],
       "Resource": "arn:aws:kafka:<region>:<account-id>:group/<cluster-name>/<cluster-uuid>/*"
     }
   ]

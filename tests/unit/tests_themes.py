@@ -27,12 +27,15 @@ from textual.widgets import (
 from kaskade import APP_NAME, APP_VERSION
 from kaskade.admin import (
     CreateTopicScreen,
+    DeleteGroupScreen,
     DeleteTopicScreen,
     DescribeTopicScreen,
     EditTopicScreen,
     FilterTopicsScreen,
     KaskadeAdmin,
     ListTopics,
+    ResetOffsetsScreen,
+    ReviewOffsetResetScreen,
     ReviewTopicChangesScreen,
 )
 from kaskade.app import KaskadeApp
@@ -149,6 +152,9 @@ class TestThemes(unittest.TestCase):
             DescribeTopicScreen,
             EditTopicScreen,
             ReviewTopicChangesScreen,
+            ResetOffsetsScreen,
+            ReviewOffsetResetScreen,
+            DeleteGroupScreen,
             CreateTopicScreen,
             ListTopics,
             FilterRecordScreen,
@@ -182,9 +188,12 @@ class TestThemes(unittest.TestCase):
         expected_commands = {
             FilterTopicsScreen: ["Apply Filter", "Back", "Help"],
             DeleteTopicScreen: ["Delete Topic", "Cancel", "Help"],
-            DescribeTopicScreen: ["Back", "Help"],
+            DescribeTopicScreen: ["Reset Offsets", "Delete Group", "Back", "Help"],
             EditTopicScreen: ["Save Changes", "Back", "Help"],
             ReviewTopicChangesScreen: ["Apply Changes", "Back", "Help"],
+            ResetOffsetsScreen: ["Review Reset", "Back", "Help"],
+            ReviewOffsetResetScreen: ["Apply Reset", "Back", "Help"],
+            DeleteGroupScreen: ["Delete Group", "Cancel", "Help"],
             CreateTopicScreen: ["Create Topic", "Back", "Help"],
             FilterRecordScreen: ["Apply Filters", "Back", "Help"],
             ChunkSizeScreen: ["Select", "Back", "Help"],

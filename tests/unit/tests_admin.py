@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from confluent_kafka import KafkaException
+from confluent_kafka import KafkaError, KafkaException
 from textual.coordinate import Coordinate
 from textual.widgets import (
     Collapsible,
@@ -24,19 +24,36 @@ from textual.worker import WorkerFailed
 
 from kaskade.admin import (
     CreateTopicScreen,
+    DeleteGroupScreen,
     DescribeTopicScreen,
     EditTopicScreen,
     FilterTopicsScreen,
     KaskadeAdmin,
     ListTopics,
+    ResetOffsetsScreen,
+    ReviewOffsetResetScreen,
     ReviewTopicChangesScreen,
 )
-from kaskade.admin.topics import DETAILS_LOADING_DELAY, TopicDataTable
-from kaskade.commands import ConfigChange, CreateTopicCommand, UpdateTopicCommand
+from kaskade.admin.forms import parse_partitions, parse_timestamp, partitions_placeholder
+from kaskade.admin.screens import GroupAction, GroupActionKind
+from kaskade.admin.topics import DETAILS_LOADING_DELAY, REFRESH_TABLE_DELAY, TopicDataTable
+from kaskade.commands import (
+    ConfigChange,
+    CreateTopicCommand,
+    OffsetTarget,
+    ResetOffsetsCommand,
+    UpdateTopicCommand,
+)
 from kaskade.configs import (
     CLEANUP_POLICY_CONFIG,
     MIN_INSYNC_REPLICAS_CONFIG,
     RETENTION_MS_CONFIG,
+)
+from kaskade.group_service import (
+    GroupNotEmptyError,
+    OffsetReset,
+    OffsetResetOutcome,
+    OffsetResetPlan,
 )
 from kaskade.help import contextual_help
 from kaskade.models import (
@@ -1351,3 +1368,439 @@ class TestAdminRefresh(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual("payments", topics.current_filter)
                 self.assertEqual("payments", topics.current_topic.name)
                 self.assertEqual("≈25", table.get_cell("payments", "records"))
+
+
+def topic_with_groups() -> Topic:
+    """A two-partition topic consumed by 'billing' on both partitions."""
+    return Topic(
+        name="orders",
+        partitions=[Partition(id=0, topic="orders"), Partition(id=1, topic="orders")],
+        groups=[
+            Group(
+                id="billing",
+                partitions=[
+                    GroupPartition(id=0, offset=5, high=10),
+                    GroupPartition(id=1, offset=7, high=10),
+                ],
+            )
+        ],
+    )
+
+
+RESET_PLAN = OffsetResetPlan("billing", "orders", (OffsetReset(0, 5, 10), OffsetReset(1, None, 10)))
+
+
+class TestGroupActionsInTopicDetails(unittest.IsolatedAsyncioTestCase):
+    async def open_details(
+        self, app: KaskadeAdmin, pilot: Any, actions: list[Any] | None
+    ) -> DescribeTopicScreen:
+        """Open Topic Details, recording group actions unless ``actions`` is ``None``."""
+        handler = None if actions is None else lambda _topic, action: actions.append(action)
+        app.push_screen(DescribeTopicScreen(topic_with_groups(), (), group_actions=handler))
+        await pilot.pause()
+        assert isinstance(app.screen, DescribeTopicScreen)
+        return app.screen
+
+    async def test_offers_group_actions_only_on_group_tabs(self) -> None:
+        with patch("kaskade.admin.app.TopicService") as topic_service:
+            configure_admin_service(topic_service.return_value, {})
+            app = KaskadeAdmin({})
+            async with app.run_test() as pilot:
+                screen = await self.open_details(app, pilot, [])
+
+                self.assertFalse(screen.check_action("reset_offsets", ()))
+                self.assertFalse(screen.check_action("delete_group", ()))
+
+                for tab in ("groups", "group-offsets"):
+                    with self.subTest(tab=tab):
+                        screen.query_one(TabbedContent).active = tab
+                        await pilot.pause()
+                        help_entries = {entry.description for entry in contextual_help(screen)[1]}
+
+                        self.assertTrue(screen.check_action("reset_offsets", ()))
+                        self.assertTrue(screen.check_action("delete_group", ()))
+                        self.assertLessEqual({"Reset Offsets", "Delete Group"}, help_entries)
+
+    async def test_hides_and_refuses_group_actions_without_a_handler(self) -> None:
+        with patch("kaskade.admin.app.TopicService") as topic_service:
+            configure_admin_service(topic_service.return_value, {})
+            app = KaskadeAdmin({})
+            async with app.run_test() as pilot:
+                screen = await self.open_details(app, pilot, None)
+                screen.query_one(TabbedContent).active = "groups"
+                await pilot.pause()
+                help_entries = {entry.description for entry in contextual_help(screen)[1]}
+
+                self.assertFalse(screen.check_action("reset_offsets", ()))
+                self.assertFalse(screen.check_action("delete_group", ()))
+                self.assertNotIn("Reset Offsets", help_entries)
+                self.assertNotIn("Delete Group", help_entries)
+
+                await pilot.press("r", "ctrl+d")
+                await pilot.pause()
+
+                self.assertIs(screen, app.screen)
+
+    async def test_read_only_mode_opens_details_without_group_actions(self) -> None:
+        topic = topic_with_groups()
+        with patch("kaskade.admin.app.TopicService") as topic_service:
+            configure_admin_service(topic_service.return_value, {topic.name: topic})
+            app = KaskadeAdmin({}, settings=replace(load_settings(), admin_read_only=True))
+            async with app.run_test() as pilot:
+                await app.workers.wait_for_complete()
+                await pilot.pause()
+
+                await pilot.press("d")
+                await app.workers.wait_for_complete()
+                await pilot.pause()
+
+                self.assertIsInstance(app.screen, DescribeTopicScreen)
+                self.assertIsNone(app.screen.group_actions)
+
+    async def test_actions_name_the_selected_group_and_keep_details_open(self) -> None:
+        cases = (
+            ("groups", "r", GroupAction(GroupActionKind.RESET_OFFSETS, "billing")),
+            ("group-offsets", "r", GroupAction(GroupActionKind.RESET_OFFSETS, "billing", 1)),
+            ("groups", "ctrl+d", GroupAction(GroupActionKind.DELETE, "billing")),
+        )
+        for tab, key, expected in cases:
+            with (
+                self.subTest(tab=tab, key=key),
+                patch("kaskade.admin.app.TopicService") as topic_service,
+            ):
+                configure_admin_service(topic_service.return_value, {})
+                app = KaskadeAdmin({})
+                actions: list[Any] = []
+                async with app.run_test() as pilot:
+                    screen = await self.open_details(app, pilot, actions)
+                    screen.query_one(TabbedContent).active = tab
+                    await pilot.pause()
+                    if tab == "group-offsets":
+                        screen.query_one("#group-offsets-table", DataTable).move_cursor(row=1)
+
+                    await pilot.press(key)
+                    await pilot.pause()
+
+                    self.assertEqual([expected], actions)
+                    self.assertIs(screen, app.screen)
+
+    async def test_shows_refreshed_groups_after_a_reset_on_the_same_tab(self) -> None:
+        topic = topic_with_groups()
+        service = MagicMock()
+        configure_admin_service(service, {topic.name: topic})
+        service.groups.plan_reset.return_value = RESET_PLAN
+        service.groups.apply_reset.return_value = (
+            OffsetResetOutcome(0, 10),
+            OffsetResetOutcome(1, 10),
+        )
+
+        with patch("kaskade.admin.app.TopicService", return_value=service):
+            app = KaskadeAdmin({})
+            async with app.run_test() as pilot:
+                await app.workers.wait_for_complete()
+                await pilot.pause()
+                await pilot.press("d")
+                await app.workers.wait_for_complete()
+                await pilot.pause()
+                details = app.screen
+                assert isinstance(details, DescribeTopicScreen)
+                details.query_one(TabbedContent).active = "groups"
+                await pilot.pause()
+
+                await pilot.press("r")
+                await pilot.pause()
+                self.assertIsInstance(app.screen, ResetOffsetsScreen)
+                await pilot.press("escape")
+                await pilot.pause()
+                self.assertIs(details, app.screen)
+
+                refreshed = topic_with_groups()
+                refreshed.groups[0].partitions = [
+                    GroupPartition(id=0, offset=10, high=10),
+                    GroupPartition(id=1, offset=10, high=10),
+                ]
+                refreshed_groups = refreshed.groups
+                configure_admin_service(service, {refreshed.name: refreshed})
+
+                def apply_groups(topics: dict[str, Topic], _snapshot: Any) -> EnrichmentResult:
+                    topics[refreshed.name].groups = refreshed_groups
+                    return EnrichmentResult()
+
+                service.apply_groups.side_effect = apply_groups
+                await pilot.press("r")
+                await pilot.pause()
+                for _ in range(2):
+                    await pilot.press("ctrl+s")
+                    await pilot.pause()
+                    await app.workers.wait_for_complete()
+                    await pilot.pause()
+                await pilot.pause(REFRESH_TABLE_DELAY + 0.5)
+                await app.workers.wait_for_complete()
+                await pilot.pause()
+
+                service.groups.apply_reset.assert_called_once_with(RESET_PLAN)
+                self.assertIs(details, app.screen)
+                self.assertEqual("groups", details.query_one(TabbedContent).active)
+                groups = details.query_one("#groups-table", DataTable)
+                self.assertEqual("0", groups.get_row_at(0)[-1])
+
+
+class TestResetOffsets(unittest.IsolatedAsyncioTestCase):
+    async def open_reset_form(
+        self, app: KaskadeAdmin, pilot: Any, *, partition: int | None = None
+    ) -> ListTopics:
+        await app.workers.wait_for_complete()
+        topics = app.query_one(ListTopics)
+        topics._start_group_action(
+            topic_with_groups(),
+            GroupAction(GroupActionKind.RESET_OFFSETS, "billing", partition),
+        )
+        await pilot.pause()
+        self.assertIsInstance(app.screen, ResetOffsetsScreen)
+        return topics
+
+    async def press_and_settle(self, app: KaskadeAdmin, pilot: Any, key: str) -> None:
+        await pilot.press(key)
+        await pilot.pause()
+        await app.workers.wait_for_complete()
+        await pilot.pause()
+
+    def select_target(self, app: KaskadeAdmin, target: OffsetTarget) -> None:
+        buttons = app.screen.query("#reset-target RadioButton").results(RadioButton)
+        next(button for button in buttons if str(button.label) == target.value).value = True
+
+    async def test_reviews_then_applies_the_planned_offsets(self) -> None:
+        service = MagicMock()
+        configure_admin_service(service, {})
+        service.groups.plan_reset.return_value = RESET_PLAN
+        service.groups.apply_reset.return_value = (
+            OffsetResetOutcome(0, 10),
+            OffsetResetOutcome(1, 10),
+        )
+
+        with patch("kaskade.admin.app.TopicService", return_value=service):
+            app = KaskadeAdmin({})
+            async with app.run_test() as pilot:
+                await self.open_reset_form(app, pilot)
+                app.notify = MagicMock()
+                self.select_target(app, OffsetTarget.LATEST)
+
+                await self.press_and_settle(app, pilot, "ctrl+s")
+
+                service.groups.plan_reset.assert_called_once_with(
+                    ResetOffsetsCommand("billing", "orders", (0, 1), OffsetTarget.LATEST)
+                )
+                self.assertIsInstance(app.screen, ReviewOffsetResetScreen)
+                table = app.screen.query_one("#offset-resets", DataTable)
+                self.assertEqual(
+                    [["0", "5", "10"], ["1", "—", "10"]],
+                    [table.get_row_at(index) for index in range(table.row_count)],
+                )
+
+                await self.press_and_settle(app, pilot, "ctrl+s")
+
+                service.groups.apply_reset.assert_called_once_with(RESET_PLAN)
+                self.assertIs(app.screen, app.screen_stack[0])
+                app.notify.assert_any_call(
+                    "Reset 2 of 2 partitions of group 'billing'\nPartition 0: 10\nPartition 1: 10",
+                    title="Offsets Reset",
+                    severity="information",
+                )
+
+    async def test_back_from_review_returns_to_the_form_without_applying(self) -> None:
+        service = MagicMock()
+        configure_admin_service(service, {})
+        service.groups.plan_reset.return_value = RESET_PLAN
+
+        with patch("kaskade.admin.app.TopicService", return_value=service):
+            app = KaskadeAdmin({})
+            async with app.run_test() as pilot:
+                await self.open_reset_form(app, pilot, partition=1)
+                self.assertEqual("1", app.screen.query_one("#reset-partitions", Input).value)
+
+                await self.press_and_settle(app, pilot, "ctrl+s")
+                await self.press_and_settle(app, pilot, "escape")
+
+                self.assertIsInstance(app.screen, ResetOffsetsScreen)
+                await self.press_and_settle(app, pilot, "escape")
+
+                self.assertIs(app.screen, app.screen_stack[0])
+                service.groups.apply_reset.assert_not_called()
+
+    async def test_refuses_a_group_with_active_members(self) -> None:
+        service = MagicMock()
+        configure_admin_service(service, {})
+        service.groups.plan_reset.side_effect = GroupNotEmptyError("billing", 2)
+
+        with patch("kaskade.admin.app.TopicService", return_value=service):
+            app = KaskadeAdmin({})
+            async with app.run_test() as pilot:
+                await self.open_reset_form(app, pilot)
+                app.notify = MagicMock()
+
+                await self.press_and_settle(app, pilot, "ctrl+s")
+
+                self.assertIsInstance(app.screen, ResetOffsetsScreen)
+                app.notify.assert_called_once_with(
+                    "Group 'billing' has 2 active members; stop its consumers first",
+                    title="Group Not Empty",
+                    severity="warning",
+                )
+
+    async def test_reports_kafka_errors_while_planning(self) -> None:
+        service = MagicMock()
+        configure_admin_service(service, {})
+        service.groups.plan_reset.side_effect = KafkaException(
+            KafkaError(KafkaError.GROUP_AUTHORIZATION_FAILED)
+        )
+
+        with patch("kaskade.admin.app.TopicService", return_value=service):
+            app = KaskadeAdmin({})
+            async with app.run_test() as pilot:
+                await self.open_reset_form(app, pilot)
+                app.notify = MagicMock()
+
+                await self.press_and_settle(app, pilot, "ctrl+s")
+
+                self.assertIsInstance(app.screen, ResetOffsetsScreen)
+                self.assertEqual("Kafka Error", app.notify.call_args.kwargs["title"])
+
+    async def test_rejects_invalid_values_before_planning(self) -> None:
+        cases = (
+            (OffsetTarget.TIMESTAMP, "yesterday", "", "Timestamp:"),
+            (OffsetTarget.OFFSET, "-1", "", "Offset:"),
+            (OffsetTarget.EARLIEST, "", "0,0", "Partitions:"),
+            (OffsetTarget.EARLIEST, "", "2", "Partitions:"),
+        )
+        for target, value, partitions, failure in cases:
+            service = MagicMock()
+            configure_admin_service(service, {})
+            with (
+                self.subTest(target=target, value=value, partitions=partitions),
+                patch("kaskade.admin.app.TopicService", return_value=service),
+            ):
+                app = KaskadeAdmin({})
+                async with app.run_test() as pilot:
+                    await self.open_reset_form(app, pilot)
+                    app.notify = MagicMock()
+                    self.select_target(app, target)
+                    await pilot.pause()
+                    app.screen.query_one("#reset-value", Input).value = value
+                    app.screen.query_one("#reset-partitions", Input).value = partitions
+
+                    await self.press_and_settle(app, pilot, "ctrl+s")
+
+                    service.groups.plan_reset.assert_not_called()
+                    self.assertTrue(app.notify.call_args.args[0].startswith(failure))
+
+    async def test_value_input_follows_the_target(self) -> None:
+        with patch("kaskade.admin.app.TopicService") as topic_service:
+            configure_admin_service(topic_service.return_value, {})
+            app = KaskadeAdmin({})
+            async with app.run_test() as pilot:
+                await self.open_reset_form(app, pilot)
+                value = app.screen.query_one("#reset-value", Input)
+                self.assertTrue(value.disabled)
+
+                self.select_target(app, OffsetTarget.TIMESTAMP)
+                await pilot.pause()
+
+                self.assertFalse(value.disabled)
+                self.assertEqual("Timestamp", value.border_title)
+
+    async def test_reports_each_failed_partition(self) -> None:
+        service = MagicMock()
+        configure_admin_service(service, {})
+        service.groups.apply_reset.return_value = (
+            OffsetResetOutcome(0, 10),
+            OffsetResetOutcome(1, 10, "Broker: Topic authorization failed"),
+        )
+
+        with patch("kaskade.admin.app.TopicService", return_value=service):
+            app = KaskadeAdmin({})
+            app.notify = MagicMock()
+            async with app.run_test() as pilot:
+                await app.workers.wait_for_complete()
+                worker = app.query_one(ListTopics).reset_offsets(RESET_PLAN)
+                await worker.wait()
+                await pilot.pause()
+
+                app.notify.assert_any_call(
+                    "Reset 1 of 2 partitions of group 'billing'\n"
+                    "Partition 1: Broker: Topic authorization failed",
+                    title="Offsets Partially Reset",
+                    severity="warning",
+                )
+
+
+class TestDeleteGroup(unittest.IsolatedAsyncioTestCase):
+    async def delete(self, service: MagicMock, confirmation: str = "billing") -> KaskadeAdmin:
+        with patch("kaskade.admin.app.TopicService", return_value=service):
+            app = KaskadeAdmin({})
+            async with app.run_test() as pilot:
+                await app.workers.wait_for_complete()
+                app.notify = MagicMock()
+                app.query_one(ListTopics)._start_group_action(
+                    topic_with_groups(), GroupAction(GroupActionKind.DELETE, "billing")
+                )
+                await pilot.pause()
+                self.assertIsInstance(app.screen, DeleteGroupScreen)
+                app.screen.query_one("#group-confirmation", Input).value = confirmation
+
+                await pilot.press("enter")
+                await pilot.pause()
+                await app.workers.wait_for_complete()
+                await pilot.pause()
+        return app
+
+    async def test_deletes_a_confirmed_group(self) -> None:
+        service = MagicMock()
+        configure_admin_service(service, {})
+
+        app = await self.delete(service)
+
+        service.groups.delete.assert_called_once_with("billing")
+        app.notify.assert_any_call(
+            "Deleted group 'billing'", title="Group Deleted", severity="information"
+        )
+
+    async def test_requires_the_exact_group_id(self) -> None:
+        service = MagicMock()
+        configure_admin_service(service, {})
+
+        await self.delete(service, confirmation="bill")
+
+        service.groups.delete.assert_not_called()
+
+    async def test_refuses_a_group_with_active_members(self) -> None:
+        service = MagicMock()
+        configure_admin_service(service, {})
+        service.groups.delete.side_effect = GroupNotEmptyError("billing", 1)
+
+        app = await self.delete(service)
+
+        app.notify.assert_any_call(
+            "Group 'billing' has 1 active member; stop its consumers first",
+            title="Group Not Empty",
+            severity="warning",
+        )
+
+
+class TestResetInputParsing(unittest.TestCase):
+    def test_parses_partitions(self) -> None:
+        self.assertEqual((0, 1, 2), parse_partitions("", 3))
+        self.assertEqual((2, 0), parse_partitions(" 2, 0 ", 3))
+        for invalid in ("3", "0,0", "a", "1,", "-1"):
+            with self.subTest(value=invalid):
+                self.assertIsNone(parse_partitions(invalid, 3))
+
+    def test_describes_the_partition_ids_in_the_placeholder(self) -> None:
+        self.assertEqual("Empty for all, or 0", partitions_placeholder(1))
+        self.assertEqual(
+            "Empty for all, or comma-separated IDs from 0 to 9", partitions_placeholder(10)
+        )
+
+    def test_parses_timestamps(self) -> None:
+        self.assertEqual(1_700_000_000_000, parse_timestamp("1700000000000"))
+        self.assertEqual(1_700_000_000_000, parse_timestamp("2023-11-14T22:13:20+00:00"))
+        self.assertIsNone(parse_timestamp("yesterday"))
