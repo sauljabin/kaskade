@@ -34,7 +34,7 @@ from kaskade.admin import (
     ReviewOffsetResetScreen,
     ReviewTopicChangesScreen,
 )
-from kaskade.admin.forms import parse_partitions, parse_timestamp
+from kaskade.admin.forms import parse_partitions, parse_timestamp, partitions_placeholder
 from kaskade.admin.screens import GroupAction, GroupActionKind
 from kaskade.admin.topics import DETAILS_LOADING_DELAY, REFRESH_TABLE_DELAY, TopicDataTable
 from kaskade.commands import (
@@ -1793,6 +1793,12 @@ class TestResetInputParsing(unittest.TestCase):
         for invalid in ("3", "0,0", "a", "1,", "-1"):
             with self.subTest(value=invalid):
                 self.assertIsNone(parse_partitions(invalid, 3))
+
+    def test_describes_the_partition_ids_in_the_placeholder(self) -> None:
+        self.assertEqual("Empty for all, or 0", partitions_placeholder(1))
+        self.assertEqual(
+            "Empty for all, or comma-separated IDs from 0 to 9", partitions_placeholder(10)
+        )
 
     def test_parses_timestamps(self) -> None:
         self.assertEqual(1_700_000_000_000, parse_timestamp("1700000000000"))

@@ -432,6 +432,13 @@ def parse_timestamp(value: str) -> int | None:
     return int(moment.astimezone().timestamp() * 1000)
 
 
+def partitions_placeholder(count: int) -> str:
+    """Describe the Partitions input with the topic's own ID range."""
+    if count == 1:
+        return "Empty for all, or 0"
+    return f"Empty for all, or comma-separated IDs from 0 to {count - 1}"
+
+
 def parse_partitions(value: str, count: int) -> tuple[int, ...] | None:
     """Return comma-separated partition IDs, every partition when empty, or ``None``."""
     if not value.strip():
@@ -518,7 +525,7 @@ class ResetOffsetsScreen(HelpableModalScreen[OffsetResetPlan]):
             partitions = Input(
                 id="reset-partitions",
                 value=self.initial_partitions,
-                placeholder=f"All partitions, or IDs from 0 to {self.topic.partitions_count() - 1}",
+                placeholder=partitions_placeholder(self.topic.partitions_count()),
                 classes="kaskade-input",
             )
             partitions.border_title = "Partitions"
