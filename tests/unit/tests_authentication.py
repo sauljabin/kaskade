@@ -84,3 +84,10 @@ class TestAwsMskAuthentication(unittest.TestCase):
         validate_aws_msk_credentials({})
 
         mock_generate.assert_not_called()
+
+    def test_requires_region_to_configure_iam(self) -> None:
+        with self.assertRaisesRegex(AwsMskAuthenticationError, "region"):
+            configure_aws_msk_iam(
+                {"bootstrap.servers": "localhost:9092"},
+                {"profile": "custom"},
+            )
