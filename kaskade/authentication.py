@@ -52,7 +52,12 @@ def configure_aws_msk_iam(config: dict[str, Any], aws_config: dict[str, str]) ->
     if not aws_config:
         return config
 
-    region = aws_config["region"]
+    region = aws_config.get("region")
+    if not region:
+        raise AwsMskAuthenticationError(
+            "AWS region is required for MSK IAM authentication: "
+            "set 'region' (for example '--aws region=my-region')."
+        )
     return config | {
         SECURITY_PROTOCOL: SASL_SSL,
         SASL_MECHANISM: OAUTHBEARER,
