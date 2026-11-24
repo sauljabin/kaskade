@@ -30,6 +30,7 @@ commit_parsers = [
     { body = "(?i).*BREAKING[ -]CHANGE", group = "<!-- 0 -->Breaking Changes" },
     { message = "^fix\\(security\\)", group = "<!-- 1 -->Security" },
     { message = "^(build|chore)\\(deps?\\)", group = "<!-- 2 -->Dependencies" },
+    { message = "^build\\(python\\)", group = "<!-- 2 -->Dependencies" },
     { message = "^feat", group = "<!-- 3 -->Features" },
     { message = "^(fix|revert)", group = "<!-- 4 -->Fixes" },
     { message = "^perf", group = "<!-- 5 -->Performance" },

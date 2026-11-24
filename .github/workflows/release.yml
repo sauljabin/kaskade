@@ -81,7 +81,11 @@ jobs:
         with:
           version: v2.14.1
           config: cliff.toml
-          args: --current --strip header --output release-notes.md
+          # A stable release's notes start at the previous stable tag, so they
+          # include every change shipped in its prereleases.
+          args: >-
+            --current --strip header --output release-notes.md
+            ${{ steps.release.outputs.prerelease == 'false' && '--tag-pattern "^v[0-9]+\.[0-9]+\.[0-9]+$"' || '' }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
       - name: Upload release bundle
         uses: actions/upload-artifact@v7.0.2

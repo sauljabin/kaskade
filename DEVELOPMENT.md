@@ -253,8 +253,9 @@ For a prerelease, append the next PEP 440 `aN`, `bN`, or `rcN` suffix to
 `release_version`. The release workflow validates the stable or prerelease tag
 and requires it to point to a commit on `main`. It then tests and builds the
 distributions, derives release notes from Conventional Commits, and waits for
-approval in the protected `release` environment. After approval, PyPI is
-published before the GitHub release is created.
+approval in the protected `release` environment. A stable release's notes cover
+everything since the previous stable release, prereleases included. After
+approval, PyPI is published before the GitHub release is created.
 
 Configure the PyPI trusted publisher for owner
 `sauljabin`, repository `kaskade`, workflow `release.yml`, and environment
